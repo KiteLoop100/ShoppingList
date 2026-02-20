@@ -54,8 +54,10 @@ export interface Product {
   crowdsource_status: CrowdsourceStatus | null;
   created_at: string;
   updated_at: string;
-  /** F13: URL des freigestellten Produktbildes (Thumbnail) */
+  /** F13: URL des freigestellten Produktbildes (Vorderseite) */
   thumbnail_url?: string | null;
+  /** F13: URL Thumbnail Rückseite (z. B. Nährwerte), nur in Detailansicht */
+  thumbnail_back_url?: string | null;
   /** F13: Verweis auf photo_uploads.upload_id */
   photo_source_id?: string | null;
   /** F13: Nährwerte (JSON aus Rückseite oder Open Food Facts) */

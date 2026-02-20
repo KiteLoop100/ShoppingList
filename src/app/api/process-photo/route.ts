@@ -420,11 +420,20 @@ export async function POST(request: Request) {
   const { data: categories } = await supabase.from("categories").select("category_id").limit(1);
   const defaultCategoryId = categories?.[0]?.category_id;
 
-  // Thumbnail: product_front = resize photo; flyer_pdf = first page of PDF as image, then resize
+  // Thumbnail: orient from EXIF, crop to cover 150x150 (product in frame). product_front / flyer_pdf = main thumbnail; product_back = back thumbnail.
+  const makeThumb = (buf: Buffer) =>
+    sharp(buf)
+      .rotate() // EXIF orientation so thumbnail is correctly oriented
+      .resize(150, 150, { fit: "cover", position: "center" }) // crop to product, no letterboxing
+      .jpeg({ quality: 85 })
+      .toBuffer();
+
   let thumbnailUrl: string | null = null;
+  let backThumbnailUrl: string | null = null;
+
   if (photoType === "product_front" && imageBuffer) {
     try {
-      const thumbBuffer = await sharp(imageBuffer).resize(150, 150).toBuffer();
+      const thumbBuffer = await makeThumb(imageBuffer);
       const thumbPath = `${upload_id}.jpg`;
       const { error: thumbUpErr } = await supabase.storage
         .from("product-thumbnails")
@@ -439,31 +448,58 @@ export async function POST(request: Request) {
     } catch (e) {
       console.log("[process-photo] Sharp thumbnail failed:", e instanceof Error ? e.message : e);
     }
-  } else if (photoType === "flyer_pdf" && imageBase64) {
+  } else if (photoType === "product_back" && imageBuffer) {
+    try {
+      const thumbBuffer = await makeThumb(imageBuffer);
+      const thumbPath = `back-${upload_id}.jpg`;
+      const { error: thumbUpErr } = await supabase.storage
+        .from("product-thumbnails")
+        .upload(thumbPath, thumbBuffer, { contentType: "image/jpeg", upsert: true });
+      if (!thumbUpErr) {
+        const { data: thumbUrlData } = supabase.storage.from("product-thumbnails").getPublicUrl(thumbPath);
+        backThumbnailUrl = thumbUrlData.publicUrl;
+        console.log("[process-photo] Back thumbnail uploaded:", thumbPath);
+      } else {
+        console.log("[process-photo] Back thumbnail upload failed:", thumbUpErr.message);
+      }
+    } catch (e) {
+      console.log("[process-photo] Sharp back thumbnail failed:", e instanceof Error ? e.message : e);
+    }
+  } else if (photoType === "flyer_pdf" && (pdfBuf || imageBase64)) {
     try {
       const { pdf } = await import("pdf-to-img");
-      const dataUrl = `data:application/pdf;base64,${imageBase64}`;
-      const document = await pdf(dataUrl, { scale: 2 });
-      const firstPageBuffer = await document.getPage(1);
-      if (firstPageBuffer && firstPageBuffer.length > 0) {
-        const thumbBuffer = await sharp(Buffer.from(firstPageBuffer))
-          .resize(150, 150)
-          .jpeg({ quality: 85 })
-          .toBuffer();
-        const thumbPath = `flyer-${upload_id}.jpg`;
-        const { error: thumbUpErr } = await supabase.storage
-          .from("product-thumbnails")
-          .upload(thumbPath, thumbBuffer, { contentType: "image/jpeg", upsert: true });
-        if (!thumbUpErr) {
-          const { data: thumbUrlData } = supabase.storage.from("product-thumbnails").getPublicUrl(thumbPath);
-          thumbnailUrl = thumbUrlData.publicUrl;
-          console.log("[process-photo] Flyer thumbnail uploaded:", thumbPath);
+      const pdfInput = pdfBuf ? Buffer.from(pdfBuf) : `data:application/pdf;base64,${imageBase64}`;
+      console.log("[process-photo] Generating flyer thumbnail, input type:", pdfBuf ? "Buffer" : "dataUrl");
+      const document = await pdf(pdfInput, { scale: 2 });
+      if (document.length < 1) {
+        console.log("[process-photo] Flyer PDF has no pages, skipping thumbnail");
+      } else {
+        const firstPageBuffer = await document.getPage(1);
+        const pageBuf = firstPageBuffer instanceof Buffer ? firstPageBuffer : Buffer.from(firstPageBuffer ?? []);
+        if (pageBuf.length > 0) {
+          const thumbBuffer = await sharp(pageBuf)
+            .rotate()
+            .resize(150, 150, { fit: "cover", position: "center" })
+            .jpeg({ quality: 85 })
+            .toBuffer();
+          const thumbPath = `flyer-${upload_id}.jpg`;
+          const { error: thumbUpErr } = await supabase.storage
+            .from("product-thumbnails")
+            .upload(thumbPath, thumbBuffer, { contentType: "image/jpeg", upsert: true });
+          if (!thumbUpErr) {
+            const { data: thumbUrlData } = supabase.storage.from("product-thumbnails").getPublicUrl(thumbPath);
+            thumbnailUrl = thumbUrlData.publicUrl;
+            console.log("[process-photo] Flyer thumbnail uploaded:", thumbPath);
+          } else {
+            console.log("[process-photo] Flyer thumbnail upload failed:", thumbUpErr.message);
+          }
         } else {
-          console.log("[process-photo] Flyer thumbnail upload failed:", thumbUpErr.message);
+          console.log("[process-photo] Flyer getPage(1) returned empty buffer");
         }
       }
     } catch (e) {
-      console.log("[process-photo] Flyer PDF thumbnail failed:", e instanceof Error ? e.message : e);
+      const err = e instanceof Error ? e : new Error(String(e));
+      console.error("[process-photo] Flyer PDF thumbnail failed:", err.message, err.stack);
     }
   }
 
@@ -569,6 +605,9 @@ export async function POST(request: Request) {
         updates.thumbnail_url = resolvedThumbUrl;
         updates.photo_source_id = upload_id;
       }
+      if (photoType === "product_back" && backThumbnailUrl) {
+        updates.thumbnail_back_url = backThumbnailUrl;
+      }
 
       const { error: updErr } = await supabase
         .from("products")
@@ -605,6 +644,7 @@ export async function POST(request: Request) {
             photoType === "product_front" || (photoType === "flyer_pdf" && thumbnailUrl != null)
               ? resolvedThumbUrl
               : null,
+          thumbnail_back_url: photoType === "product_back" && backThumbnailUrl ? backThumbnailUrl : null,
           photo_source_id:
             photoType === "product_front" || (photoType === "flyer_pdf" && thumbnailUrl != null)
               ? upload_id

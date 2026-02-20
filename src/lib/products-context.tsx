@@ -38,6 +38,7 @@ function rowToProduct(row: Record<string, unknown>): Product {
     created_at: String(row.created_at),
     updated_at: String(row.updated_at),
     thumbnail_url: row.thumbnail_url != null ? String(row.thumbnail_url) : null,
+    thumbnail_back_url: row.thumbnail_back_url != null ? String(row.thumbnail_back_url) : null,
     photo_source_id: row.photo_source_id != null ? String(row.photo_source_id) : null,
     nutrition_info: row.nutrition_info != null ? (row.nutrition_info as Product["nutrition_info"]) : null,
     ingredients: row.ingredients != null ? String(row.ingredients) : null,

@@ -66,15 +66,30 @@ export function ProductDetailModal({ product, onClose }: ProductDetailModalProps
             </button>
           </div>
           <div className="overflow-y-auto p-4">
-            {/* Thumbnail + Name + Brand */}
+            {/* Product sides: front + back (only front on list; here show both if available) */}
             <div className="mb-4 flex flex-col items-start gap-3">
-              {product.thumbnail_url && (
-                <img
-                  src={product.thumbnail_url}
-                  alt=""
-                  className="h-[150px] w-[150px] shrink-0 rounded-xl object-cover"
-                />
-              )}
+              <div className="flex flex-wrap items-start gap-3">
+                {product.thumbnail_url && (
+                  <div className="flex flex-col gap-1">
+                    <span className="text-xs font-medium uppercase tracking-wider text-aldi-muted">Vorderseite</span>
+                    <img
+                      src={product.thumbnail_url}
+                      alt="Vorderseite"
+                      className="h-[150px] w-[150px] shrink-0 rounded-xl object-cover object-center"
+                    />
+                  </div>
+                )}
+                {product.thumbnail_back_url && (
+                  <div className="flex flex-col gap-1">
+                    <span className="text-xs font-medium uppercase tracking-wider text-aldi-muted">Rückseite</span>
+                    <img
+                      src={product.thumbnail_back_url}
+                      alt="Rückseite"
+                      className="h-[150px] w-[150px] shrink-0 rounded-xl object-cover object-center"
+                    />
+                  </div>
+                )}
+              </div>
               <div className="min-w-0">
                 <p className="text-base font-medium text-aldi-text">{product.name}</p>
                 {hasBrand && <p className="mt-0.5 text-sm text-aldi-muted">{product.brand}</p>}

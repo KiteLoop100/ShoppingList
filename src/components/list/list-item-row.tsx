@@ -130,7 +130,7 @@ export function ListItemRow({
           {item.display_name}
         </button>
 
-        {/* Thumbnail (only if URL present; no placeholder when missing) */}
+        {/* Only front thumbnail on list (thumbnail_url = Vorderseite) */}
         {item.thumbnail_url && (
           <div
             className="h-[52px] w-[52px] shrink-0 overflow-hidden rounded-lg bg-aldi-muted-light/30"
@@ -139,7 +139,7 @@ export function ListItemRow({
             <img
               src={item.thumbnail_url}
               alt=""
-              className="h-full w-full object-cover"
+              className="h-full w-full object-cover object-center"
               width={THUMB_SIZE}
               height={THUMB_SIZE}
             />

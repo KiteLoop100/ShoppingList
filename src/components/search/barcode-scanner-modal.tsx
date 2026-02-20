@@ -83,6 +83,8 @@ export function BarcodeScannerModal({
           crowdsource_status: data.crowdsource_status != null ? (data.crowdsource_status as Product["crowdsource_status"]) : null,
           created_at: String(data.created_at),
           updated_at: String(data.updated_at),
+          thumbnail_url: data.thumbnail_url != null ? String(data.thumbnail_url) : null,
+          thumbnail_back_url: data.thumbnail_back_url != null ? String(data.thumbnail_back_url) : null,
         };
       }
     }
