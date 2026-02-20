@@ -24,6 +24,7 @@ export function BarcodeScannerModal({
   const containerRef = useRef<HTMLDivElement>(null);
   const [status, setStatus] = useState<"idle" | "scanning" | "found" | "not-found" | "error">("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [detectedEan, setDetectedEan] = useState<string | null>(null);
   const [scanKey, setScanKey] = useState(0);
   const scannerRef = useRef<import("html5-qrcode").Html5Qrcode | null>(null);
 
@@ -69,6 +70,7 @@ export function BarcodeScannerModal({
   const restartScan = useCallback(() => {
     setStatus("scanning");
     setErrorMessage(null);
+    setDetectedEan(null);
     setScanKey((k) => k + 1);
   }, []);
 
@@ -83,21 +85,33 @@ export function BarcodeScannerModal({
     containerRef.current.innerHTML = "";
     containerRef.current.appendChild(div);
 
-    import("html5-qrcode").then(({ Html5Qrcode }) => {
+    import("html5-qrcode").then(({ Html5Qrcode, Html5QrcodeSupportedFormats }) => {
       if (!mounted || !containerRef.current) return;
-      const scanner = new Html5Qrcode(id);
+      const scanner = new Html5Qrcode(id, {
+        formatsToSupport: [
+          Html5QrcodeSupportedFormats.EAN_13,
+          Html5QrcodeSupportedFormats.EAN_8,
+          Html5QrcodeSupportedFormats.UPC_A,
+          Html5QrcodeSupportedFormats.CODE_128,
+        ],
+      });
       scannerRef.current = scanner;
       setStatus("scanning");
       setErrorMessage(null);
+      setDetectedEan(null);
+      const qrbox = (w: number, h: number) => ({ width: w, height: Math.min(100, Math.round(h * 0.3)) });
       scanner
         .start(
           { facingMode: "environment" },
-          { fps: 10, qrbox: { width: 250, height: 120 } },
+          { fps: 15, qrbox },
           async (decodedText) => {
             if (!mounted) return;
+            const ean = decodedText.trim();
+            setDetectedEan(ean);
+            if (typeof navigator !== "undefined" && navigator.vibrate) navigator.vibrate(50);
             scanner.stop().catch(() => {});
             scannerRef.current = null;
-            const product = await findProductByEan(decodedText);
+            const product = await findProductByEan(ean);
             if (!mounted) return;
             if (product) {
               try {
@@ -114,7 +128,7 @@ export function BarcodeScannerModal({
               }
             } else {
               setStatus("not-found");
-              onProductNotFound(decodedText);
+              onProductNotFound(ean);
             }
           },
           () => {}
@@ -158,6 +172,12 @@ export function BarcodeScannerModal({
           </button>
         </div>
         <div ref={containerRef} className="min-h-[200px] bg-black/5 p-2" />
+        {detectedEan && (status === "scanning" || status === "idle") && (
+          <div className="border-t border-aldi-muted-light bg-aldi-muted-light/40 px-4 py-2">
+            <p className="text-center text-sm font-medium text-aldi-blue">{t("barcodeDetected")}: {detectedEan}</p>
+            <p className="text-center text-sm text-aldi-muted">{t("barcodeLookingUp")}</p>
+          </div>
+        )}
         {status === "error" && errorMessage && (
           <p className="px-4 py-2 text-sm text-aldi-error">{errorMessage}</p>
         )}

@@ -34,6 +34,8 @@
     "productNotFoundInDb": "Produkt nicht in der Datenbank.",
     "barcodeScanAgain": "Erneut scannen",
     "barcodeProductAdded": "Produkt hinzugefügt.",
+    "barcodeDetected": "Barcode erkannt",
+    "barcodeLookingUp": "Wird gesucht…",
     "barcodeScannerHint": "Halte den Barcode vor die Kamera."
   },
   "list": {
