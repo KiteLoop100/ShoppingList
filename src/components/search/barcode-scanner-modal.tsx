@@ -88,6 +88,7 @@ export function BarcodeScannerModal({
     import("html5-qrcode").then(({ Html5Qrcode, Html5QrcodeSupportedFormats }) => {
       if (!mounted || !containerRef.current) return;
       const scanner = new Html5Qrcode(id, {
+        verbose: false,
         formatsToSupport: [
           Html5QrcodeSupportedFormats.EAN_13,
           Html5QrcodeSupportedFormats.EAN_8,
