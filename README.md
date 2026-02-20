@@ -33,7 +33,8 @@ Anonyme Auth in Supabase aktivieren, wenn du Anonymous-First nutzen willst (MVP)
 ### Storage (F13: Fotos & PDF-Handzettel)
 
 - Bucket **product-photos** anlegen (Dashboard: Storage → New bucket), öffentlich.
-- Damit **PDF-Upload** (Handzettel) funktioniert: Storage → product-photos → Einstellungen → **Allowed MIME types** entweder leer lassen oder u. a. `application/pdf` ergänzen. Ohne PDF erlauben Uploads den Fehler „new row violates row-level security policy“ bzw. „File type not allowed“.
+- **PDF erlauben:** Storage → product-photos → Einstellungen → **Allowed MIME types** leer lassen oder u. a. `application/pdf` eintragen.
+- **Große PDFs (bis 100 MB):** Migration `20250223000000_product_photos_100mb_limit.sql` setzt das Bucket-Limit auf 100 MB. **Free Plan:** Supabase erlaubt global nur 50 MB pro Datei – für 100 MB ist Pro/Team nötig; dann in Project Settings → Storage das globale Limit prüfen.
 
 ## Entwicklung
 

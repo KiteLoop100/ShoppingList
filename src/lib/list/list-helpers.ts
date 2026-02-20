@@ -96,15 +96,16 @@ export function sortAndGroupItemsHierarchical(
     order.forEach((pid, i) => productRank.set(`${scope}\t${pid}`, i))
   );
 
+  const AKTIONSCATEGORY_ID = "__aktionsartikel__";
   const withMeta: ListItemWithMeta[] = items.map((item) => {
-    const cat = categoryMap.get(item.category_id);
+    const catFromItem = categoryMap.get(item.category_id);
     const group = item.product_id
       ? (productMetaMap.get(item.product_id)?.demand_group ?? null)
       : null;
     const subgroup = item.product_id
       ? (productMetaMap.get(item.product_id)?.demand_sub_group ?? null)
       : null;
-    const demand_group = group ?? cat?.name ?? "";
+    const demand_group = group ?? catFromItem?.name ?? "";
     const demand_sub_group = subgroup ?? "";
     const scope = demand_sub_group ? `${demand_group}|${demand_sub_group}` : demand_group;
     const gr = groupRank.get(demand_group) ?? 999;
@@ -112,6 +113,9 @@ export function sortAndGroupItemsHierarchical(
     const pr = item.product_id
       ? productRank.get(`${scope}\t${item.product_id}`) ?? 999
       : item.sort_position;
+    const effectiveCategoryId =
+      demand_group === "Aktionsartikel" ? AKTIONSCATEGORY_ID : item.category_id;
+    const cat = categoryMap.get(effectiveCategoryId) ?? catFromItem;
     return {
       ...item,
       category_name: cat?.name ?? "",

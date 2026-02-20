@@ -49,10 +49,15 @@ export async function uploadPhotoAndEnqueue(
 
   if (uploadError) {
     console.error("[capture/upload] Storage upload failed:", uploadError);
-    const msg =
+    let msg =
       uploadError.message ||
       (uploadError as { error?: string }).error ||
-      "Upload fehlgeschlagen. Bei PDF: Bucket „product-photos“ muss application/pdf erlauben (Supabase Dashboard → Storage → Einstellungen).";
+      "Upload fehlgeschlagen.";
+    if (/exceeded|maximum.*size|size.*limit/i.test(msg)) {
+      msg += " Große PDFs: Bucket-Limit auf 100 MB setzen (Migration 20250223000000 oder Supabase Dashboard → Storage → product-photos → Einstellungen). Free Plan: max. 50 MB.";
+    } else if (!msg.includes("application/pdf") && isPdf) {
+      msg += " Bucket „product-photos“ muss application/pdf erlauben (Supabase Dashboard → Storage → Einstellungen).";
+    }
     return { uploadId: null, error: msg };
   }
   console.log("[capture/upload] Storage upload OK");
