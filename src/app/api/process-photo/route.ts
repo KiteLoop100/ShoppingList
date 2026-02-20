@@ -49,6 +49,14 @@ function normalizeName(name: string): string {
     .trim();
 }
 
+/** ALDI/Hofer: article number is usually at the start of the line (digits). Extract it from receipt line text. */
+function extractArticleNumberFromReceiptLine(name: string): string | null {
+  if (!name || typeof name !== "string") return null;
+  const trimmed = name.trim();
+  const match = trimmed.match(/^(\d{4,})/);
+  return match ? match[1] : null;
+}
+
 async function fetchOpenFoodFacts(ean: string): Promise<{
   name?: string;
   brand?: string;
@@ -254,7 +262,11 @@ export async function POST(request: Request) {
     const name = (p.name || "").trim();
     if (!name) continue;
 
-    const articleNumber = p.article_number != null ? String(p.article_number).trim() || null : null;
+    let articleNumber: string | null =
+      p.article_number != null ? String(p.article_number).trim() || null : null;
+    if (!articleNumber && photoType === "receipt") {
+      articleNumber = extractArticleNumberFromReceiptLine(name);
+    }
     const nameNorm = normalizeName(name);
     const ean = p.ean_barcode?.trim() || null;
     let offData: Awaited<ReturnType<typeof fetchOpenFoodFacts>> = null;
@@ -319,7 +331,7 @@ export async function POST(request: Request) {
       if (current) {
         if (current.name_normalized == null || current.name_normalized === "") updates.name_normalized = nameNormalized;
         if (current.name == null || current.name === "") updates.name = displayName;
-        if (current.article_number == null && articleNumber) updates.article_number = articleNumber;
+        if (articleNumber) updates.article_number = articleNumber;
         if (current.brand == null && brand) updates.brand = brand;
         if (current.nutrition_info == null && nutritionInfo) updates.nutrition_info = nutritionInfo;
         if (current.ingredients == null && ingredients) updates.ingredients = ingredients;
