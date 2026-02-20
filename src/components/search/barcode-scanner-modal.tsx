@@ -107,56 +107,77 @@ export function BarcodeScannerModal({
     containerRef.current.innerHTML = "";
     containerRef.current.appendChild(div);
 
-    import("html5-qrcode").then(({ Html5Qrcode }) => {
-      if (!mounted || !containerRef.current) return;
-      const scanner = new Html5Qrcode(id, { verbose: false });
-      scannerRef.current = scanner;
-      setStatus("scanning");
-      setErrorMessage(null);
-      setDetectedEan(null);
-      const qrbox = (w: number, h: number) => ({ width: Math.min(w, 320), height: Math.min(140, Math.round(h * 0.4)) });
-      scanner
-        .start(
-          { facingMode: "environment" },
-          { fps: 12, qrbox },
-          async (decodedText) => {
-            if (!mounted) return;
-            const ean = decodedText.trim();
-            setDetectedEan(ean);
-            if (typeof navigator !== "undefined" && navigator.vibrate) navigator.vibrate(50);
-            scanner.stop().catch(() => {});
-            scannerRef.current = null;
-            const product = await findProductByEan(ean);
-            if (!mounted) return;
-            if (product) {
-              try {
-                await Promise.resolve(onProductAdded(product));
-                if (!mounted) return;
-                setStatus("found");
-                setTimeout(() => {
-                  if (mounted) onClose();
-                }, 500);
-              } catch (e) {
-                if (!mounted) return;
-                setStatus("error");
-                setErrorMessage(e instanceof Error ? e.message : "Fehler beim Hinzufügen.");
+    const startScanner = (facingMode: "environment" | "user") => {
+      import("html5-qrcode").then(({ Html5Qrcode }) => {
+        if (!mounted || !containerRef.current) return;
+        const scanner = new Html5Qrcode(id, { verbose: false });
+        scannerRef.current = scanner;
+        setStatus("scanning");
+        setErrorMessage(null);
+        setDetectedEan(null);
+        const qrbox = (w: number, h: number) => ({ width: Math.min(w, 320), height: Math.min(140, Math.round(h * 0.4)) });
+        scanner
+          .start(
+            { facingMode },
+            { fps: 12, qrbox },
+            async (decodedText) => {
+              if (!mounted) return;
+              const ean = decodedText.trim();
+              setDetectedEan(ean);
+              if (typeof navigator !== "undefined" && navigator.vibrate) navigator.vibrate(50);
+              scanner.stop().catch(() => {});
+              scannerRef.current = null;
+              const product = await findProductByEan(ean);
+              if (!mounted) return;
+              if (product) {
+                try {
+                  await Promise.resolve(onProductAdded(product));
+                  if (!mounted) return;
+                  setStatus("found");
+                  setTimeout(() => {
+                    if (mounted) onClose();
+                  }, 500);
+                } catch (e) {
+                  if (!mounted) return;
+                  setStatus("error");
+                  setErrorMessage(e instanceof Error ? e.message : "Fehler beim Hinzufügen.");
+                }
+              } else {
+                setStatus("not-found");
+                onProductNotFound(ean);
               }
-            } else {
-              setStatus("not-found");
-              onProductNotFound(ean);
+            },
+            () => {}
+          )
+          .catch((err: Error) => {
+            if (!mounted) return;
+            if (scannerRef.current) {
+              scannerRef.current.stop().catch(() => {});
+              scannerRef.current = null;
             }
-          },
-          () => {}
-        )
-        .catch((err: Error) => {
-          if (!mounted) return;
-          setStatus("error");
-          setErrorMessage(err.message || "Kamera nicht verfügbar");
-        });
-    });
+            if (facingMode === "environment") {
+              startScanner("user");
+            } else {
+              setStatus("error");
+              const msg = err.message || "Kamera nicht verfügbar";
+              setErrorMessage(
+                msg.includes("Permission") || msg.includes("NotAllowed") || msg.includes("permission")
+                  ? "Kamera-Zugriff wurde blockiert. Bitte in den Browser-Einstellungen erlauben."
+                  : msg
+              );
+            }
+          });
+      });
+    };
+
+    const t = setTimeout(() => {
+      if (!mounted || !containerRef.current) return;
+      startScanner("environment");
+    }, 100);
 
     return () => {
       mounted = false;
+      clearTimeout(t);
       if (scannerRef.current) {
         scannerRef.current.stop().catch(() => {});
         scannerRef.current = null;

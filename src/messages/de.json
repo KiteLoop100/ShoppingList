@@ -57,7 +57,8 @@
     "tripComplete": "Einkauf abgeschlossen!",
     "reportErrorMessage": "Sortierung stimmt nicht?",
     "sendFeedback": "Feedback senden",
-    "thankYouFeedback": "Danke – wir verbessern die Sortierung."
+    "thankYouFeedback": "Danke – wir verbessern die Sortierung.",
+    "reportSelectStoreFirst": "Bitte wähle zuerst einen Laden (oben), damit wir den Fehler zuordnen können."
   },
   "capture": {
     "title": "Produkte erfassen",

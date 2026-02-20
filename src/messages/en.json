@@ -57,7 +57,8 @@
     "tripComplete": "Trip complete!",
     "reportErrorMessage": "Sort order incorrect?",
     "sendFeedback": "Send feedback",
-    "thankYouFeedback": "Thanks – we'll improve the sort order."
+    "thankYouFeedback": "Thanks – we'll improve the sort order.",
+    "reportSelectStoreFirst": "Please select a store first (above) so we can assign the error."
   },
   "capture": {
     "title": "Capture products",

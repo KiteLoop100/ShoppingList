@@ -43,16 +43,20 @@ export function ShoppingListContent({
   const [showUndo, setShowUndo] = useState(false);
   const [reportDialogOpen, setReportDialogOpen] = useState(false);
   const [reportSent, setReportSent] = useState(false);
+  const [reportNoStore, setReportNoStore] = useState(false);
   const [canFillTypical, setCanFillTypical] = useState(false);
   const [fillTypicalLoading, setFillTypicalLoading] = useState(false);
   const undoTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleReportError = useCallback(async () => {
     const sent = await reportSortingError();
+    setReportDialogOpen(false);
     if (sent) {
-      setReportDialogOpen(false);
       setReportSent(true);
       setTimeout(() => setReportSent(false), 3000);
+    } else {
+      setReportNoStore(true);
+      setTimeout(() => setReportNoStore(false), 5000);
     }
   }, []);
 
@@ -301,6 +305,8 @@ export function ShoppingListContent({
             </div>
           ) : reportSent ? (
             <p className="mt-2 text-sm font-medium text-aldi-success">{t("thankYouFeedback")}</p>
+          ) : reportNoStore ? (
+            <p className="mt-2 text-sm text-aldi-muted">{t("reportSelectStoreFirst")}</p>
           ) : (
             <button
               type="button"
