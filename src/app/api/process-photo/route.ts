@@ -13,12 +13,15 @@ Antworte ausschließlich mit validem JSON. Kein Markdown, keine Backticks, kein 
 
 Photo types: product_front (single product front), product_back (product back with barcode/nutrition), receipt (supermarket receipt), flyer (promo flyer), shelf (store shelf with multiple products).
 
+For RECEIPTS (especially ALDI/Hofer): The number on the far LEFT of each line is the store article number (article_number). Extract it for every product line. ALDI receipts use heavily abbreviated product names (e.g. MILS.FETT.MI = Milsani Fettarme Milch). Try to reconstruct the full product name where possible. Extract EVERY line of the receipt as a product – even if the name is unclear, return the raw receipt text as name. Prefer one product with abbreviated name over omitting the line. Capture ALL lines, not only those you are confident about.
+
 Respond with a single JSON object, no markdown, with this shape:
 {
   "photo_type": "product_front" | "product_back" | "receipt" | "flyer" | "shelf",
   "products": [
     {
-      "name": "string",
+      "article_number": "string or null – for receipts: the number on the far left (ALDI/Hofer article number)",
+      "name": "string – full name if known, otherwise raw receipt text",
       "brand": "string or null",
       "ean_barcode": "string or null if visible",
       "price": number or null,
@@ -34,7 +37,7 @@ Respond with a single JSON object, no markdown, with this shape:
   "special_valid_to": "YYYY-MM-DD or null if flyer"
 }
 
-Extract all visible product names and prices. For receipts match lines to product names and prices. For product_front/back focus on one product. Return empty products array if nothing recognizable. Keep the JSON compact (short strings, minimal fields).`;
+Extract all visible product names and prices. For receipts: every line = one product; use article_number (left number), price, and name (full if you can infer it, else raw text). For product_front/back focus on one product. Keep the JSON compact (short strings, minimal fields).`;
 
 function normalizeName(name: string): string {
   return name
@@ -76,6 +79,7 @@ async function fetchOpenFoodFacts(ean: string): Promise<{
 }
 
 interface ExtractedProduct {
+  article_number?: string | null;
   name?: string;
   brand?: string | null;
   ean_barcode?: string | null;
@@ -250,6 +254,7 @@ export async function POST(request: Request) {
     const name = (p.name || "").trim();
     if (!name) continue;
 
+    const articleNumber = p.article_number != null ? String(p.article_number).trim() || null : null;
     const nameNorm = normalizeName(name);
     const ean = p.ean_barcode?.trim() || null;
     let offData: Awaited<ReturnType<typeof fetchOpenFoodFacts>> = null;
@@ -263,7 +268,16 @@ export async function POST(request: Request) {
     const displayName = (offData?.name ?? name).trim();
 
     let existing: { product_id: string; thumbnail_url: string | null } | null = null;
-    if (ean) {
+    if (articleNumber) {
+      const { data: byArticle } = await supabase
+        .from("products")
+        .select("product_id, thumbnail_url")
+        .eq("article_number", articleNumber)
+        .eq("status", "active")
+        .maybeSingle();
+      existing = byArticle ? { product_id: byArticle.product_id, thumbnail_url: byArticle.thumbnail_url } : null;
+    }
+    if (!existing && ean) {
       const { data: byEan } = await supabase
         .from("products")
         .select("product_id, thumbnail_url")
@@ -305,6 +319,7 @@ export async function POST(request: Request) {
       if (current) {
         if (current.name_normalized == null || current.name_normalized === "") updates.name_normalized = nameNormalized;
         if (current.name == null || current.name === "") updates.name = displayName;
+        if (current.article_number == null && articleNumber) updates.article_number = articleNumber;
         if (current.brand == null && brand) updates.brand = brand;
         if (current.nutrition_info == null && nutritionInfo) updates.nutrition_info = nutritionInfo;
         if (current.ingredients == null && ingredients) updates.ingredients = ingredients;
@@ -337,6 +352,7 @@ export async function POST(request: Request) {
           name: displayName,
           name_normalized: nameNormalized,
           category_id: defaultCategoryId,
+          article_number: articleNumber,
           brand,
           price,
           price_updated_at: price != null ? (claudeJson.receipt_date || now) : null,
