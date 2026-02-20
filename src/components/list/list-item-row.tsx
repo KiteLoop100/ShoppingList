@@ -120,11 +120,11 @@ export function ListItemRow({
           {item.display_name}
         </span>
 
-        {/* Quantity: 44px touch targets */}
-        <div className="flex shrink-0 items-center rounded-lg border border-aldi-muted-light bg-gray-50">
+        {/* Quantity: compact + / number / − */}
+        <div className="flex shrink-0 items-center gap-0 rounded-md border border-aldi-muted-light bg-gray-50 py-0.5">
           <button
             type="button"
-            className="flex min-h-touch min-w-touch items-center justify-center text-lg font-medium text-aldi-blue transition-colors hover:bg-aldi-muted-light/80 disabled:opacity-50"
+            className="flex h-8 w-7 min-w-[1.75rem] items-center justify-center text-base font-medium text-aldi-blue transition-colors hover:bg-aldi-muted-light/80 disabled:opacity-50"
             onClick={handleMinus}
             disabled={item.is_checked}
             aria-label="Menge verringern"
@@ -132,7 +132,7 @@ export function ListItemRow({
             −
           </button>
           <span
-            className={`min-w-[2.25rem] text-center text-sm font-medium ${
+            className={`min-w-[1.5rem] px-0.5 text-center text-sm font-medium ${
               item.is_checked ? "text-aldi-muted" : "text-aldi-text"
             }`}
           >
@@ -140,7 +140,7 @@ export function ListItemRow({
           </span>
           <button
             type="button"
-            className="flex min-h-touch min-w-touch items-center justify-center text-lg font-medium text-aldi-blue transition-colors hover:bg-aldi-muted-light/80 disabled:opacity-50"
+            className="flex h-8 w-7 min-w-[1.75rem] items-center justify-center text-base font-medium text-aldi-blue transition-colors hover:bg-aldi-muted-light/80 disabled:opacity-50"
             onClick={handlePlus}
             disabled={item.is_checked}
             aria-label="Menge erhöhen"
