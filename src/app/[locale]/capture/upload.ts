@@ -27,12 +27,17 @@ export async function uploadPhotoAndEnqueue(
   blob: Blob,
   userId: string
 ): Promise<UploadResult | null> {
+  console.log("[capture/upload] uploadPhotoAndEnqueue start, blob size:", blob.size, "userId:", userId?.slice(0, 8) + "…");
   const supabase = createClientIfConfigured();
-  if (!supabase) return null;
+  if (!supabase) {
+    console.log("[capture/upload] Supabase client not configured");
+    return null;
+  }
 
   const uploadId = generateUploadId();
   const ext = blob.type === "image/png" ? "png" : "jpg";
   const path = `${userId}/${uploadId}.${ext}`;
+  console.log("[capture/upload] uploadId:", uploadId, "path:", path);
 
   const { error: uploadError } = await supabase.storage.from(BUCKET).upload(path, blob, {
     contentType: blob.type,
@@ -40,12 +45,14 @@ export async function uploadPhotoAndEnqueue(
   });
 
   if (uploadError) {
-    console.error("Storage upload failed:", uploadError);
+    console.error("[capture/upload] Storage upload failed:", uploadError);
     return null;
   }
+  console.log("[capture/upload] Storage upload OK");
 
   const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(path);
   const photoUrl = urlData.publicUrl;
+  console.log("[capture/upload] photo_url:", photoUrl?.slice(0, 60) + "…");
 
   const { error: insertError } = await supabase.from("photo_uploads").insert({
     upload_id: uploadId,
@@ -57,16 +64,22 @@ export async function uploadPhotoAndEnqueue(
   });
 
   if (insertError) {
-    console.error("photo_uploads insert failed:", insertError);
+    console.error("[capture/upload] photo_uploads insert failed:", insertError.code, insertError.message);
     return null;
   }
+  console.log("[capture/upload] photo_uploads row inserted, upload_id:", uploadId);
 
   // Trigger serverless processing (fire-and-forget; status will update via Realtime)
   fetch("/api/process-photo", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ upload_id: uploadId, photo_url: photoUrl }),
-  }).catch((e) => console.error("process-photo trigger failed:", e));
+  })
+    .then((r) => {
+      console.log("[capture/upload] process-photo response status:", r.status, "upload_id:", uploadId);
+      if (!r.ok) return r.text().then((t) => console.error("[capture/upload] process-photo error body:", t));
+    })
+    .catch((e) => console.error("[capture/upload] process-photo trigger failed:", e));
 
   return { uploadId };
 }

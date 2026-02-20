@@ -9,6 +9,8 @@ const CLAUDE_MODEL = "claude-sonnet-4-5-20250929";
 
 const VISION_PROMPT = `You are analyzing a photo from a grocery shopping context. Classify the photo type and extract structured data.
 
+Antworte ausschließlich mit validem JSON. Kein Markdown, keine Backticks, kein zusätzlicher Text. Halte die Antwort kompakt.
+
 Photo types: product_front (single product front), product_back (product back with barcode/nutrition), receipt (supermarket receipt), flyer (promo flyer), shelf (store shelf with multiple products).
 
 Respond with a single JSON object, no markdown, with this shape:
@@ -32,7 +34,7 @@ Respond with a single JSON object, no markdown, with this shape:
   "special_valid_to": "YYYY-MM-DD or null if flyer"
 }
 
-Extract all visible product names and prices. For receipts match lines to product names and prices. For product_front/back focus on one product. Return empty products array if nothing recognizable.`;
+Extract all visible product names and prices. For receipts match lines to product names and prices. For product_front/back focus on one product. Return empty products array if nothing recognizable. Keep the JSON compact (short strings, minimal fields).`;
 
 function normalizeName(name: string): string {
   return name
@@ -94,8 +96,10 @@ interface ClaudeResponse {
 }
 
 export async function POST(request: Request) {
+  console.log("[process-photo] POST received");
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
+    console.log("[process-photo] ANTHROPIC_API_KEY not set");
     return NextResponse.json({ error: "ANTHROPIC_API_KEY not set" }, { status: 500 });
   }
 
@@ -103,16 +107,20 @@ export async function POST(request: Request) {
   try {
     body = await request.json();
   } catch {
+    console.log("[process-photo] Invalid request JSON");
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
   const { upload_id, photo_url } = body;
+  console.log("[process-photo] upload_id:", upload_id, "photo_url length:", photo_url?.length ?? 0);
   if (!upload_id || !photo_url) {
+    console.log("[process-photo] Missing upload_id or photo_url");
     return NextResponse.json({ error: "upload_id and photo_url required" }, { status: 400 });
   }
 
   const supabase = createAdminClient();
   if (!supabase) {
+    console.log("[process-photo] Supabase admin not configured");
     return NextResponse.json({ error: "Supabase admin not configured" }, { status: 500 });
   }
 
@@ -124,8 +132,10 @@ export async function POST(request: Request) {
     .eq("upload_id", upload_id);
 
   if (updateProcessing) {
+    console.log("[process-photo] Failed to update status to processing:", updateProcessing.message);
     return NextResponse.json({ error: "Failed to update status" }, { status: 500 });
   }
+  console.log("[process-photo] Status set to processing for", upload_id);
 
   let imageBase64: string;
   let mediaType = "image/jpeg";
@@ -137,12 +147,14 @@ export async function POST(request: Request) {
     imageBase64 = Buffer.from(buf).toString("base64");
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Image fetch failed";
+    console.log("[process-photo] Image fetch failed:", msg);
     await supabase
       .from("photo_uploads")
       .update({ status: "error", error_message: msg, processed_at: now })
       .eq("upload_id", upload_id);
     return NextResponse.json({ error: msg }, { status: 422 });
   }
+  console.log("[process-photo] Image fetched, calling Claude");
 
   let claudeJson: ClaudeResponse;
   try {
@@ -198,7 +210,20 @@ export async function POST(request: Request) {
     }
 
     const cleaned = text.replace(/^```json?\s*/i, "").replace(/\s*```\s*$/i, "").trim();
-    claudeJson = JSON.parse(cleaned) as ClaudeResponse;
+    console.log("[process-photo] Claude response length:", text.length, "cleaned:", cleaned.length);
+    try {
+      claudeJson = JSON.parse(cleaned) as ClaudeResponse;
+    } catch (parseErr) {
+      const parseMsg = parseErr instanceof Error ? parseErr.message : "JSON parse failed";
+      const rawPreview = cleaned.length > 2000 ? cleaned.slice(0, 2000) + "…" : cleaned;
+      const error_message = `JSON parse: ${parseMsg}. Raw response: ${rawPreview}`;
+      console.log("[process-photo] JSON parse error:", parseMsg, "raw length:", cleaned.length);
+      await supabase
+        .from("photo_uploads")
+        .update({ status: "error", error_message, processed_at: now })
+        .eq("upload_id", upload_id);
+      return NextResponse.json({ error: parseMsg }, { status: 502 });
+    }
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Parse failed";
     await supabase
@@ -356,9 +381,11 @@ export async function POST(request: Request) {
     .eq("upload_id", upload_id);
 
   if (finalErr) {
+    console.log("[process-photo] Finalize failed:", finalErr.message);
     return NextResponse.json({ error: "Failed to finalize" }, { status: 500 });
   }
 
+  console.log("[process-photo] Completed", upload_id, "products_created:", productsCreated, "products_updated:", productsUpdated);
   return NextResponse.json({
     ok: true,
     upload_id: upload_id,
