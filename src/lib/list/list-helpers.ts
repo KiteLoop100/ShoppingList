@@ -13,6 +13,8 @@ export interface ListItemWithMeta extends LocalListItem {
   price: number | null;
   /** Product thumbnail URL (from products.thumbnail_url). */
   thumbnail_url?: string | null;
+  /** True if product has additional info (brand, nutrition, ingredients, etc.) to show in detail modal. */
+  has_additional_info?: boolean;
   /** F03 Modus 2: demand group (from product or category name). */
   demand_group?: string;
   /** F03 Modus 2: demand sub-group (from product). */
@@ -175,6 +177,20 @@ export function assignThumbnails(
     if (item.product_id) {
       const url = productThumbnailMap.get(item.product_id);
       if (url) item.thumbnail_url = url;
+    }
+  };
+  unchecked.forEach(assign);
+  checked.forEach(assign);
+}
+
+export function assignHasAdditionalInfo(
+  unchecked: ListItemWithMeta[],
+  checked: ListItemWithMeta[],
+  productIdsWithAdditionalInfo: Set<string>
+): void {
+  const assign = (item: ListItemWithMeta) => {
+    if (item.product_id && productIdsWithAdditionalInfo.has(item.product_id)) {
+      item.has_additional_info = true;
     }
   };
   unchecked.forEach(assign);

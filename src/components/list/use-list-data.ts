@@ -12,6 +12,7 @@ import {
   sortAndGroupItemsHierarchical,
   assignPrices,
   assignThumbnails,
+  assignHasAdditionalInfo,
   estimateTotal,
   type ListItemWithMeta,
   type ProductMetaForSort,
@@ -92,9 +93,18 @@ export function useListData(sortMode: SortMode = "my-order"): UseListDataResult 
       const productThumbnailMap = new Map<string, string>();
       const productMetaMap = new Map<string, ProductMetaForSort>();
       const productIdToSpecial = new Set<string>();
+      const productIdsWithAdditionalInfo = new Set<string>();
+
+      const markHasAdditionalInfo = (p: { product_id: string; thumbnail_url?: string | null; brand?: string | null; nutrition_info?: unknown; ingredients?: string | null; allergens?: string | null; weight_or_quantity?: string | null; article_number?: string | null; ean_barcode?: string | null; demand_group?: string | null; assortment_type?: string; special_start_date?: string | null; special_end_date?: string | null }) => {
+        if (p.thumbnail_url || (p.brand != null && p.brand !== "") || (p.nutrition_info != null && typeof p.nutrition_info === "object" && Object.keys(p.nutrition_info).length > 0) || (p.ingredients != null && p.ingredients !== "") || (p.allergens != null && p.allergens !== "") || (p.weight_or_quantity != null && p.weight_or_quantity !== "") || (p.article_number != null && p.article_number !== "") || (p.ean_barcode != null && p.ean_barcode !== "") || (p.demand_group != null && p.demand_group !== "") || p.assortment_type === "special" || (p.special_start_date != null && p.special_start_date !== "") || (p.special_end_date != null && p.special_end_date !== "")) {
+          productIdsWithAdditionalInfo.add(p.product_id);
+        }
+      };
+
       for (const p of idbProducts) {
         if (p.price != null) productPriceMap.set(p.product_id, p.price);
         if (p.thumbnail_url) productThumbnailMap.set(p.product_id, p.thumbnail_url);
+        markHasAdditionalInfo(p);
         const isSpecial = p.assortment_type === "special";
         if (isSpecial) productIdToSpecial.add(p.product_id);
         productMetaMap.set(p.product_id, {
@@ -106,6 +116,7 @@ export function useListData(sortMode: SortMode = "my-order"): UseListDataResult 
       for (const p of contextProducts) {
         if (p.price != null) productPriceMap.set(p.product_id, p.price);
         if (p.thumbnail_url) productThumbnailMap.set(p.product_id, p.thumbnail_url);
+        markHasAdditionalInfo(p);
         const isSpecial = p.assortment_type === "special";
         if (isSpecial) productIdToSpecial.add(p.product_id);
         if (!productMetaMap.has(p.product_id)) {
@@ -209,6 +220,7 @@ export function useListData(sortMode: SortMode = "my-order"): UseListDataResult 
 
       assignPrices(u, c, productPriceMap);
       assignThumbnails(u, c, productThumbnailMap);
+      assignHasAdditionalInfo(u, c, productIdsWithAdditionalInfo);
       setUnchecked(u);
       setChecked(c);
 

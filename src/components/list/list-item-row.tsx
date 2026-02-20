@@ -117,14 +117,14 @@ export function ListItemRow({
           </button>
         </div>
 
-        {/* Product name – tappable, truncate with ellipsis */}
+        {/* Product name – tappable, truncate; underlined when additional info available */}
         <button
           type="button"
           className={`min-h-touch min-w-0 flex-1 truncate py-2 text-left text-[15px] leading-tight transition-colors duration-200 ${
             item.is_checked
               ? "text-aldi-muted line-through"
               : "text-aldi-text"
-          } ${onOpenDetail ? "cursor-pointer hover:underline" : ""}`}
+          } ${item.has_additional_info ? "underline" : ""} ${onOpenDetail ? "cursor-pointer hover:underline" : ""}`}
           onClick={handleNameTap}
         >
           {item.display_name}
@@ -173,6 +173,7 @@ export function ListItemRow({
       </div>
 
       <QuantityWheelModal
+        key={wheelOpen ? `${item.item_id}-${item.quantity}` : item.item_id}
         open={wheelOpen}
         value={item.quantity}
         onSelect={(q) => {

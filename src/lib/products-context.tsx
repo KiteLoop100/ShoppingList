@@ -37,6 +37,12 @@ function rowToProduct(row: Record<string, unknown>): Product {
     crowdsource_status: row.crowdsource_status != null ? (row.crowdsource_status as Product["crowdsource_status"]) : null,
     created_at: String(row.created_at),
     updated_at: String(row.updated_at),
+    thumbnail_url: row.thumbnail_url != null ? String(row.thumbnail_url) : null,
+    photo_source_id: row.photo_source_id != null ? String(row.photo_source_id) : null,
+    nutrition_info: row.nutrition_info != null ? (row.nutrition_info as Product["nutrition_info"]) : null,
+    ingredients: row.ingredients != null ? String(row.ingredients) : null,
+    allergens: row.allergens != null ? String(row.allergens) : null,
+    weight_or_quantity: row.weight_or_quantity != null ? String(row.weight_or_quantity) : null,
   };
 }
 

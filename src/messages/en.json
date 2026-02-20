@@ -98,6 +98,9 @@
     "defaultStore": "Default store",
     "defaultStoreHint": "Used when GPS does not detect the store.",
     "noDefaultStore": "No default store",
+    "defaultStoreSearchPlaceholder": "Search by city or store (e.g. Munich)",
+    "noStores": "No stores loaded.",
+    "noStoresMatchSearch": "No store matches your search.",
     "about": "About this app",
     "version": "Version {version} (MVP)",
     "prototypeNote": "A prototype project."

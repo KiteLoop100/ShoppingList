@@ -98,6 +98,9 @@
     "defaultStore": "Standard-Laden",
     "defaultStoreHint": "Wird verwendet, wenn GPS den Laden nicht erkennt.",
     "noDefaultStore": "Kein Standard-Laden",
+    "defaultStoreSearchPlaceholder": "Ort oder Laden suchen (z. B. München)",
+    "noStores": "Keine Läden geladen.",
+    "noStoresMatchSearch": "Kein Laden passt zur Suche.",
     "about": "Über diese App",
     "version": "Version {version} (MVP)",
     "prototypeNote": "Ein Prototyp-Projekt."

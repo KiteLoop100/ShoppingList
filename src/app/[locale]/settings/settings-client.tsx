@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useTranslations } from "next-intl";
 import { useLocale } from "next-intl";
 import { Link, useRouter, usePathname } from "@/lib/i18n/navigation";
@@ -10,6 +10,30 @@ import { APP_VERSION } from "@/lib/app-config";
 import type { LocalStore } from "@/lib/db";
 
 type Locale = "de" | "en";
+
+function normalizeForFilter(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function storeMatchesQuery(store: LocalStore, queryNorm: string): boolean {
+  if (!queryNorm) return true;
+  const name = normalizeForFilter(store.name);
+  const address = normalizeForFilter(store.address);
+  const city = normalizeForFilter(store.city);
+  const postal = normalizeForFilter(store.postal_code);
+  return (
+    name.includes(queryNorm) ||
+    address.includes(queryNorm) ||
+    city.includes(queryNorm) ||
+    postal.includes(queryNorm)
+  );
+}
 
 export function SettingsClient() {
   const t = useTranslations("settings");
@@ -21,6 +45,7 @@ export function SettingsClient() {
   const [stores, setStores] = useState<LocalStore[]>([]);
   const [defaultStoreId, setDefaultStoreIdState] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [storeSearchQuery, setStoreSearchQuery] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -45,11 +70,17 @@ export function SettingsClient() {
     [locale, pathname, router]
   );
 
-  const handleDefaultStoreChange = useCallback((storeId: string) => {
-    const value = storeId === "" ? null : storeId;
+  const handleDefaultStoreChange = useCallback((storeId: string | null) => {
+    const value = storeId ?? null;
     setDefaultStoreId(value);
     setDefaultStoreIdState(value);
   }, []);
+
+  const storeSearchNorm = normalizeForFilter(storeSearchQuery);
+  const filteredStores = useMemo(
+    () => (storeSearchNorm ? stores.filter((s) => storeMatchesQuery(s, storeSearchNorm)) : stores),
+    [stores, storeSearchNorm]
+  );
 
   return (
     <main className="mx-auto min-h-screen max-w-lg bg-white p-4">
@@ -103,19 +134,48 @@ export function SettingsClient() {
           {loading ? (
             <p className="text-sm text-aldi-muted">{tCommon("loading")}</p>
           ) : (
-            <select
-              value={defaultStoreId ?? ""}
-              onChange={(e) => handleDefaultStoreChange(e.target.value)}
-              className="min-h-touch w-full rounded-xl border-2 border-aldi-muted-light bg-white px-4 py-3 text-[15px] text-aldi-text focus:border-aldi-blue focus:outline-none"
-              aria-label={t("defaultStore")}
-            >
-              <option value="">{t("noDefaultStore")}</option>
-              {stores.map((s) => (
-                <option key={s.store_id} value={s.store_id}>
-                  {s.name} – {s.address}
-                </option>
-              ))}
-            </select>
+            <>
+              <input
+                type="search"
+                value={storeSearchQuery}
+                onChange={(e) => setStoreSearchQuery(e.target.value)}
+                placeholder={t("defaultStoreSearchPlaceholder")}
+                className="mb-3 min-h-touch w-full rounded-xl border-2 border-aldi-muted-light bg-white px-4 py-3 text-[15px] text-aldi-text placeholder:text-aldi-muted focus:border-aldi-blue focus:outline-none"
+                aria-label={t("defaultStoreSearchPlaceholder")}
+              />
+              <div className="max-h-[280px] overflow-y-auto rounded-xl border-2 border-aldi-muted-light">
+                <button
+                  type="button"
+                  onClick={() => handleDefaultStoreChange(null)}
+                  className={`flex min-h-touch w-full items-center justify-between border-b border-aldi-muted-light px-4 py-3 text-left transition-colors first:rounded-t-[10px] hover:bg-aldi-muted-light/30 ${
+                    defaultStoreId === null ? "bg-aldi-blue/10 font-semibold text-aldi-blue" : "bg-white text-aldi-text"
+                  }`}
+                >
+                  {t("noDefaultStore")}
+                </button>
+                {filteredStores.length === 0 ? (
+                  <p className="px-4 py-6 text-center text-sm text-aldi-muted">
+                    {stores.length === 0 ? t("noStores") : t("noStoresMatchSearch")}
+                  </p>
+                ) : (
+                  filteredStores.map((s) => (
+                    <button
+                      key={s.store_id}
+                      type="button"
+                      onClick={() => handleDefaultStoreChange(s.store_id)}
+                      className={`flex min-h-touch w-full items-center justify-between border-b border-aldi-muted-light px-4 py-3 text-left last:rounded-b-[10px] last:border-b-0 transition-colors hover:bg-aldi-muted-light/30 ${
+                        defaultStoreId === s.store_id ? "bg-aldi-blue/10 font-semibold text-aldi-blue" : "bg-white text-aldi-text"
+                      }`}
+                    >
+                      <span className="font-medium">{s.name}</span>
+                      <span className="text-sm text-aldi-muted">
+                        {s.city}, {s.postal_code}
+                      </span>
+                    </button>
+                  ))
+                )}
+              </div>
+            </>
           )}
         </div>
 

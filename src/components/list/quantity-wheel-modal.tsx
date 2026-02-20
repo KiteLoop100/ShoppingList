@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 const MIN = 1;
 const MAX = 99;
 const ITEM_HEIGHT = 40;
+const PADDING_Y = 90;
 
 export interface QuantityWheelModalProps {
   open: boolean;
@@ -19,23 +20,28 @@ export function QuantityWheelModal({
   onSelect,
   onClose,
 }: QuantityWheelModalProps) {
-  const [selected, setSelected] = useState(Math.max(MIN, Math.min(MAX, value)));
+  const clampedValue = Math.max(MIN, Math.min(MAX, value));
+  const [selected, setSelected] = useState(clampedValue);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // When modal opens, sync selected to current value
   useEffect(() => {
-    setSelected((v) => Math.max(MIN, Math.min(MAX, value)));
-  }, [value, open]);
+    if (!open) return;
+    setSelected(clampedValue);
+  }, [open, clampedValue]);
 
+  // After open (and ref attach), scroll to current value
   useEffect(() => {
     if (!open || !scrollRef.current) return;
-    const index = selected - MIN;
-    scrollRef.current.scrollTop = index * ITEM_HEIGHT;
-  }, [open, selected]);
+    const index = clampedValue - MIN;
+    scrollRef.current.scrollTop = PADDING_Y + index * ITEM_HEIGHT;
+  }, [open, clampedValue]);
 
   const handleScroll = () => {
     const el = scrollRef.current;
     if (!el) return;
-    const index = Math.round(el.scrollTop / ITEM_HEIGHT);
+    const contentY = el.scrollTop - PADDING_Y;
+    const index = Math.round(contentY / ITEM_HEIGHT);
     const q = Math.max(MIN, Math.min(MAX, MIN + index));
     setSelected(q);
   };
@@ -52,10 +58,11 @@ export function QuantityWheelModal({
       scrollTimeoutRef.current = null;
       const el = scrollRef.current;
       if (!el) return;
-      const index = Math.round(el.scrollTop / ITEM_HEIGHT);
+      const contentY = el.scrollTop - PADDING_Y;
+      const index = Math.round(contentY / ITEM_HEIGHT);
       const q = Math.max(MIN, Math.min(MAX, MIN + index));
       setSelected(q);
-      el.scrollTo({ top: (q - MIN) * ITEM_HEIGHT, behavior: "smooth" });
+      el.scrollTo({ top: PADDING_Y + (q - MIN) * ITEM_HEIGHT, behavior: "smooth" });
     }, 150);
   };
 
@@ -64,6 +71,16 @@ export function QuantityWheelModal({
       if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
     };
   }, []);
+
+  // Lock body scroll when modal is open so the list underneath doesn't scroll
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [open]);
 
   if (!open) return null;
 
@@ -101,8 +118,8 @@ export function QuantityWheelModal({
           />
           <div
             ref={scrollRef}
-            className="w-full flex-1 overflow-y-auto overflow-x-hidden overscroll-contain scroll-smooth py-[90px] [&::-webkit-scrollbar]:hidden"
-            style={{ scrollSnapType: "y mandatory" }}
+            className="w-full flex-1 overflow-y-auto overflow-x-hidden overscroll-contain scroll-smooth [&::-webkit-scrollbar]:hidden"
+            style={{ scrollSnapType: "y mandatory", paddingTop: PADDING_Y, paddingBottom: PADDING_Y, touchAction: "pan-y" }}
             onScroll={() => {
               handleScroll();
               handleScrollDebounced();
