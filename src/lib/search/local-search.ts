@@ -52,6 +52,38 @@ export async function localSearch(
 
   const cap = Math.min(limit, MAX_RESULTS);
 
+  const isAktionsartikelQuery =
+    q === "aktionsartikel" || q.split(/\s+/).some((w) => w === "aktionsartikel");
+
+  if (isAktionsartikelQuery) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const fourWeeksAgo = new Date(today);
+    fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28);
+    for (const product of activeProducts) {
+      if (matched.length >= cap) break;
+      const p = product as { assortment_type?: string; special_start_date?: string | null; special_end_date?: string | null };
+      if (p.assortment_type !== "special") continue;
+      if (p.special_start_date) {
+        const startDate = new Date(p.special_start_date);
+        if (startDate < fourWeeksAgo) continue;
+      }
+      if (p.special_end_date) {
+        const endDate = new Date(p.special_end_date);
+        if (endDate < today) continue;
+      }
+      seen.add(product.product_id);
+      const cat = categoryMap.get(product.category_id);
+      matched.push(
+        productToResult(product, cat?.name ?? "", "other")
+      );
+    }
+    if (matched.length > 0) {
+      matched.sort((a, b) => a.name.localeCompare(b.name, "de"));
+      return matched.slice(0, cap);
+    }
+  }
+
   // Primary: product name (substring/word match)
   for (const product of activeProducts) {
     if (seen.has(product.product_id)) continue;

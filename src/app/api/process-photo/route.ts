@@ -194,11 +194,15 @@ export async function POST(request: Request) {
       .eq("upload_id", upload_id);
     return NextResponse.json({ error: msg }, { status: 422 });
   }
-  console.log("[process-photo] Fetched, is_pdf:", is_pdf, "calling Claude");
+  const isPdfFromContent = mediaType === "application/pdf";
+  const isPdf = is_pdf === true || isPdfFromContent;
+  if (isPdfFromContent && !is_pdf) {
+    console.log("[process-photo] Detected PDF from content-type, processing as flyer");
+  }
+  console.log("[process-photo] Fetched, is_pdf:", is_pdf, "isPdf:", isPdf, "calling Claude");
 
   let claudeJson: ClaudeResponse;
   try {
-    const isPdf = is_pdf === true;
     const content = isPdf
       ? [
           {
@@ -297,7 +301,7 @@ export async function POST(request: Request) {
   }
 
   const photoType =
-    is_pdf === true
+    isPdf
       ? "flyer_pdf"
       : claudeJson.photo_type && ["product_front", "product_back", "receipt", "flyer", "shelf", "flyer_pdf"].includes(claudeJson.photo_type)
         ? claudeJson.photo_type

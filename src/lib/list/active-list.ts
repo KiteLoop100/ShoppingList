@@ -58,9 +58,23 @@ export async function addListItem(params: AddItemParams): Promise<LocalListItem>
     category_id,
     quantity = 1,
   } = params;
+
+  const listItems = await db.list_items.where("list_id").equals(list_id).toArray();
+  const existing = listItems.find(
+    (i) =>
+      !i.is_checked &&
+      (product_id != null
+        ? i.product_id === product_id
+        : i.product_id == null && i.display_name === display_name)
+  );
+  if (existing) {
+    existing.quantity = (existing.quantity ?? 1) + quantity;
+    await db.list_items.put(existing as never);
+    return existing;
+  }
+
   const item_id = generateId();
   const now = new Date().toISOString();
-  // Negative timestamp so newest item has smallest sort_position → appears at top in "Meine Reihenfolge"
   const sort_position = -Date.now();
   const item: LocalListItem = {
     item_id,

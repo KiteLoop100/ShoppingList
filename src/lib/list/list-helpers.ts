@@ -28,15 +28,24 @@ export interface ProductMetaForSort {
 }
 
 /** Optional: category_id -> sort position (F05 aisle order). If not provided, uses category.default_sort_position. */
+/** When productIdToSpecial and aktionsartikelCategory are set, items whose product is special use "Aktionsartikel" for grouping. */
 export function sortAndGroupItems(
   items: LocalListItem[],
   categoryMap: Map<string, LocalCategory>,
-  categoryOrder?: Map<string, number>
+  categoryOrder?: Map<string, number>,
+  productIdToSpecial?: Set<string>,
+  aktionsartikelCategory?: LocalCategory
 ): { unchecked: ListItemWithMeta[]; checked: ListItemWithMeta[] } {
   const withMeta: ListItemWithMeta[] = items.map((item) => {
-    const cat = categoryMap.get(item.category_id);
+    const effectiveCategoryId =
+      item.product_id &&
+      productIdToSpecial?.has(item.product_id) &&
+      aktionsartikelCategory
+        ? aktionsartikelCategory.category_id
+        : item.category_id;
+    const cat = categoryMap.get(effectiveCategoryId);
     const sortPos =
-      categoryOrder?.get(item.category_id) ??
+      categoryOrder?.get(effectiveCategoryId) ??
       cat?.default_sort_position ??
       999;
     return {

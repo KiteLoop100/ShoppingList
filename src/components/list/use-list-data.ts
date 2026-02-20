@@ -74,22 +74,39 @@ export function useListData(sortMode: SortMode = "my-order"): UseListDataResult 
 
       const categoryMap = new Map(categories.map((c) => [c.category_id, c]));
 
+      const AKTIONSCATEGORY_ID = "__aktionsartikel__";
+      const aktionsartikelCategory: LocalCategory = {
+        category_id: AKTIONSCATEGORY_ID,
+        name: "Aktionsartikel",
+        name_translations: {},
+        icon: "🏷️",
+        default_sort_position: 0,
+      };
+      if (!categoryMap.has(AKTIONSCATEGORY_ID)) {
+        categoryMap.set(AKTIONSCATEGORY_ID, aktionsartikelCategory);
+      }
+
       const idbProducts = await db.products.toArray();
       const productPriceMap = new Map<string, number>();
       const productMetaMap = new Map<string, ProductMetaForSort>();
+      const productIdToSpecial = new Set<string>();
       for (const p of idbProducts) {
         if (p.price != null) productPriceMap.set(p.product_id, p.price);
+        const isSpecial = p.assortment_type === "special";
+        if (isSpecial) productIdToSpecial.add(p.product_id);
         productMetaMap.set(p.product_id, {
-          demand_group: p.demand_group ?? null,
+          demand_group: isSpecial ? "Aktionsartikel" : (p.demand_group ?? null),
           demand_sub_group: p.demand_sub_group ?? null,
           popularity_score: p.popularity_score ?? null,
         });
       }
       for (const p of contextProducts) {
         if (p.price != null) productPriceMap.set(p.product_id, p.price);
+        const isSpecial = p.assortment_type === "special";
+        if (isSpecial) productIdToSpecial.add(p.product_id);
         if (!productMetaMap.has(p.product_id)) {
           productMetaMap.set(p.product_id, {
-            demand_group: p.demand_group ?? null,
+            demand_group: isSpecial ? "Aktionsartikel" : (p.demand_group ?? null),
             demand_sub_group: p.demand_sub_group ?? null,
             popularity_score: p.popularity_score ?? null,
           });
@@ -99,62 +116,89 @@ export function useListData(sortMode: SortMode = "my-order"): UseListDataResult 
       let u: ListItemWithMeta[];
       let c: ListItemWithMeta[];
 
-      if (sortMode === "shopping-order" && items.length > 0) {
-        const groups = new Set<string>();
-        const subgroupsByGroup = new Map<string, Set<string>>();
-        const productsByScope = new Map<string, Set<string>>();
-        for (const item of items) {
-          const cat = categoryMap.get(item.category_id);
-          const meta = item.product_id ? productMetaMap.get(item.product_id) : null;
-          const group = meta?.demand_group ?? cat?.name ?? "";
-          const subgroup = meta?.demand_sub_group ?? "";
-          if (group) groups.add(group);
-          if (group && subgroup) {
-            if (!subgroupsByGroup.has(group)) subgroupsByGroup.set(group, new Set());
-            subgroupsByGroup.get(group)!.add(subgroup);
-            const scope = `${group}|${subgroup}`;
-            if (!productsByScope.has(scope)) productsByScope.set(scope, new Set());
-            if (item.product_id) productsByScope.get(scope)!.add(item.product_id);
-          }
+      const runCategorySort = async () => {
+        const categoryOrder = await getCategoryOrderForList(list.store_id);
+        if (!categoryOrder.has(AKTIONSCATEGORY_ID)) {
+          categoryOrder.set(AKTIONSCATEGORY_ID, 0);
         }
-        const defaultGroupOrder = [...categories]
-          .sort((a, b) => (a.default_sort_position ?? 999) - (b.default_sort_position ?? 999))
-          .map((cat) => cat.name);
-        const order = await getHierarchicalOrder({
-          storeId: list.store_id,
-          groups: [...groups],
-          subgroupsByGroup: new Map(
-            [...subgroupsByGroup].map(([g, set]) => [g, [...set]])
-          ),
-          productsByScope: new Map(
-            [...productsByScope].map(([s, set]) => [s, [...set]])
-          ),
-          defaultGroupOrder,
-          defaultSubgroupOrder: (group) => {
-            const subs = subgroupsByGroup.get(group);
-            return subs ? [...subs].sort((a, b) => a.localeCompare(b)) : [];
-          },
-          defaultProductOrder: (scope) => {
-            const pids = productsByScope.get(scope);
-            if (!pids) return [];
-            return [...pids].sort((a, b) => {
-              const pa = productMetaMap.get(a)?.popularity_score ?? 0;
-              const pb = productMetaMap.get(b)?.popularity_score ?? 0;
-              return (pb ?? 0) - (pa ?? 0);
-            });
-          },
-        });
-        const out = sortAndGroupItemsHierarchical(
+        return sortAndGroupItems(
           items,
           categoryMap,
-          productMetaMap,
-          order
+          categoryOrder,
+          productIdToSpecial,
+          aktionsartikelCategory
         );
-        u = out.unchecked;
-        c = out.checked;
+      };
+
+      if (sortMode === "shopping-order" && items.length > 0) {
+        try {
+          const groups = new Set<string>();
+          const subgroupsByGroup = new Map<string, Set<string>>();
+          const productsByScope = new Map<string, Set<string>>();
+          for (const item of items) {
+            const cat = categoryMap.get(item.category_id);
+            const meta = item.product_id ? productMetaMap.get(item.product_id) : null;
+            const group = meta?.demand_group ?? cat?.name ?? "";
+            const subgroup = meta?.demand_sub_group ?? "";
+            if (group) groups.add(group);
+            if (group && subgroup) {
+              if (!subgroupsByGroup.has(group)) subgroupsByGroup.set(group, new Set());
+              subgroupsByGroup.get(group)!.add(subgroup);
+              const scope = `${group}|${subgroup}`;
+              if (!productsByScope.has(scope)) productsByScope.set(scope, new Set());
+              if (item.product_id) productsByScope.get(scope)!.add(item.product_id);
+            }
+          }
+          const defaultGroupOrder = [
+            "Aktionsartikel",
+            ...[...categories]
+              .sort((a, b) => (a.default_sort_position ?? 999) - (b.default_sort_position ?? 999))
+              .map((cat) => cat.name),
+          ];
+          const order = await getHierarchicalOrder({
+            storeId: list.store_id,
+            groups: [...groups],
+            subgroupsByGroup: new Map(
+              [...subgroupsByGroup].map(([g, set]) => [g, [...set]])
+            ),
+            productsByScope: new Map(
+              [...productsByScope].map(([s, set]) => [s, [...set]])
+            ),
+            defaultGroupOrder,
+            defaultSubgroupOrder: (group) => {
+              const subs = subgroupsByGroup.get(group);
+              return subs ? [...subs].sort((a, b) => a.localeCompare(b)) : [];
+            },
+            defaultProductOrder: (scope) => {
+              const pids = productsByScope.get(scope);
+              if (!pids) return [];
+              return [...pids].sort((a, b) => {
+                const pa = productMetaMap.get(a)?.popularity_score ?? 0;
+                const pb = productMetaMap.get(b)?.popularity_score ?? 0;
+                return (pb ?? 0) - (pa ?? 0);
+              });
+            },
+          });
+          const out = sortAndGroupItemsHierarchical(
+            items,
+            categoryMap,
+            productMetaMap,
+            order
+          );
+          u = out.unchecked;
+          c = out.checked;
+          if (u.length + c.length === 0 && items.length > 0) {
+            const fallback = await runCategorySort();
+            u = fallback.unchecked;
+            c = fallback.checked;
+          }
+        } catch {
+          const fallback = await runCategorySort();
+          u = fallback.unchecked;
+          c = fallback.checked;
+        }
       } else {
-        const categoryOrder = await getCategoryOrderForList(list.store_id);
-        const out = sortAndGroupItems(items, categoryMap, categoryOrder);
+        const out = await runCategorySort();
         u = out.unchecked;
         c = out.checked;
       }
