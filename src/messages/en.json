@@ -32,6 +32,8 @@
     "hideKeyboard": "Hide keyboard",
     "close": "Close",
     "productNotFoundInDb": "Product not in database.",
+    "barcodeScanAgain": "Scan again",
+    "barcodeProductAdded": "Product added.",
     "barcodeScannerHint": "Hold the barcode in front of the camera."
   },
   "list": {

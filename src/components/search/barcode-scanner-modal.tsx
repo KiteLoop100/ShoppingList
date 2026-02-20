@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import type { Product } from "@/types";
 import { useProducts } from "@/lib/products-context";
@@ -24,6 +24,7 @@ export function BarcodeScannerModal({
   const containerRef = useRef<HTMLDivElement>(null);
   const [status, setStatus] = useState<"idle" | "scanning" | "found" | "not-found" | "error">("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [scanKey, setScanKey] = useState(0);
   const scannerRef = useRef<import("html5-qrcode").Html5Qrcode | null>(null);
 
   const findProductByEan = async (ean: string): Promise<Product | null> => {
@@ -65,10 +66,16 @@ export function BarcodeScannerModal({
     };
   };
 
+  const restartScan = useCallback(() => {
+    setStatus("scanning");
+    setErrorMessage(null);
+    setScanKey((k) => k + 1);
+  }, []);
+
   useEffect(() => {
     if (!open || !containerRef.current) return;
     let mounted = true;
-    const id = "barcode-reader-" + Date.now();
+    const id = "barcode-reader-" + scanKey + "-" + Date.now();
     const div = document.createElement("div");
     div.id = id;
     div.style.width = "100%";
@@ -93,9 +100,18 @@ export function BarcodeScannerModal({
             const product = await findProductByEan(decodedText);
             if (!mounted) return;
             if (product) {
-              setStatus("found");
-              onProductAdded(product);
-              onClose();
+              try {
+                await Promise.resolve(onProductAdded(product));
+                if (!mounted) return;
+                setStatus("found");
+                setTimeout(() => {
+                  if (mounted) onClose();
+                }, 500);
+              } catch (e) {
+                if (!mounted) return;
+                setStatus("error");
+                setErrorMessage(e instanceof Error ? e.message : "Fehler beim Hinzufügen.");
+              }
             } else {
               setStatus("not-found");
               onProductNotFound(decodedText);
@@ -118,7 +134,7 @@ export function BarcodeScannerModal({
       }
       if (containerRef.current) containerRef.current.innerHTML = "";
     };
-  }, [open]);
+  }, [open, scanKey]);
 
   if (!open) return null;
 
@@ -146,11 +162,29 @@ export function BarcodeScannerModal({
           <p className="px-4 py-2 text-sm text-aldi-error">{errorMessage}</p>
         )}
         {status === "not-found" && (
-          <p className="px-4 py-2 text-sm text-aldi-muted">{t("productNotFoundInDb")}</p>
+          <div className="border-t border-aldi-muted-light px-4 py-3">
+            <p className="mb-3 rounded-lg bg-aldi-muted-light/60 px-3 py-2 text-center text-sm font-medium text-aldi-text">
+              {t("productNotFoundInDb")}
+            </p>
+            <button
+              type="button"
+              className="w-full rounded-xl bg-aldi-blue px-4 py-3 font-medium text-white transition-opacity hover:opacity-90"
+              onClick={restartScan}
+            >
+              {t("barcodeScanAgain")}
+            </button>
+          </div>
         )}
-        <div className="border-t border-aldi-muted-light px-4 py-3">
-          <p className="text-center text-sm text-aldi-muted">{t("barcodeScannerHint")}</p>
-        </div>
+        {status === "found" && (
+          <p className="px-4 py-2 text-center text-sm font-medium text-aldi-success">
+            {t("barcodeProductAdded")}
+          </p>
+        )}
+        {(status === "scanning" || status === "idle") && (
+          <div className="border-t border-aldi-muted-light px-4 py-3">
+            <p className="text-center text-sm text-aldi-muted">{t("barcodeScannerHint")}</p>
+          </div>
+        )}
       </div>
     </div>
   );

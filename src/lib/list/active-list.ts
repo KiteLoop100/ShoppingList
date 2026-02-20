@@ -60,7 +60,8 @@ export async function addListItem(params: AddItemParams): Promise<LocalListItem>
   } = params;
   const item_id = generateId();
   const now = new Date().toISOString();
-  const sort_position = Date.now();
+  // Negative timestamp so newest item has smallest sort_position → appears at top in "Meine Reihenfolge"
+  const sort_position = -Date.now();
   const item: LocalListItem = {
     item_id,
     list_id,

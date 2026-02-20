@@ -32,6 +32,8 @@
     "hideKeyboard": "Tastatur einklappen",
     "close": "Schließen",
     "productNotFoundInDb": "Produkt nicht in der Datenbank.",
+    "barcodeScanAgain": "Erneut scannen",
+    "barcodeProductAdded": "Produkt hinzugefügt.",
     "barcodeScannerHint": "Halte den Barcode vor die Kamera."
   },
   "list": {
