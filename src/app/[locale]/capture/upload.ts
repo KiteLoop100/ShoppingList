@@ -35,9 +35,10 @@ export async function uploadPhotoAndEnqueue(
   }
 
   const uploadId = generateUploadId();
-  const ext = blob.type === "image/png" ? "png" : "jpg";
+  const isPdf = blob.type === "application/pdf";
+  const ext = isPdf ? "pdf" : blob.type === "image/png" ? "png" : "jpg";
   const path = `${userId}/${uploadId}.${ext}`;
-  console.log("[capture/upload] uploadId:", uploadId, "path:", path);
+  console.log("[capture/upload] uploadId:", uploadId, "path:", path, "isPdf:", isPdf);
 
   const { error: uploadError } = await supabase.storage.from(BUCKET).upload(path, blob, {
     contentType: blob.type,
@@ -61,6 +62,7 @@ export async function uploadPhotoAndEnqueue(
     status: "uploading",
     products_created: 0,
     products_updated: 0,
+    ...(isPdf ? { photo_type: "flyer_pdf" as const } : {}),
   });
 
   if (insertError) {
@@ -73,7 +75,11 @@ export async function uploadPhotoAndEnqueue(
   fetch("/api/process-photo", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ upload_id: uploadId, photo_url: photoUrl }),
+    body: JSON.stringify({
+      upload_id: uploadId,
+      photo_url: photoUrl,
+      ...(isPdf ? { is_pdf: true } : {}),
+    }),
   })
     .then((r) => {
       console.log("[capture/upload] process-photo response status:", r.status, "upload_id:", uploadId);

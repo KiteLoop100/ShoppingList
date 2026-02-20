@@ -1,11 +1,24 @@
 /**
  * F13: Process uploaded photo with Claude Vision. Detect type, extract data, optionally call Open Food Facts, upsert products.
+ * Supports images and PDF flyers (ALDI Handzettel); product_front images get 150x150 thumbnails in product-thumbnails bucket.
  */
 
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import sharp from "sharp";
 
 const CLAUDE_MODEL = "claude-sonnet-4-5-20250929";
+
+const FLYER_PDF_PROMPT = `Dies ist ein ALDI SÜD Aktions-Handzettel (Prospekt). Extrahiere JEDEN Aktionsartikel. Pro Produkt: article_number (falls sichtbar), name (vollständiger Produktname), price (Aktionspreis), weight_or_quantity (Gewicht/Menge falls angegeben), brand (Marke falls sichtbar), special_start_date (Gültig ab, Format YYYY-MM-DD), special_end_date (Gültig bis, Format YYYY-MM-DD). Der Gültigkeitszeitraum steht meistens auf der ersten Seite oder als Überschrift. Setze assortment_type auf special für alle Produkte.
+
+Antworte ausschließlich mit validem JSON. Kein Markdown, keine Backticks, kein zusätzlicher Text.
+
+{
+  "photo_type": "flyer_pdf",
+  "products": [
+    { "article_number": "string or null", "name": "string", "price": number or null, "weight_or_quantity": "string or null", "brand": "string or null", "special_start_date": "YYYY-MM-DD or null", "special_end_date": "YYYY-MM-DD or null" }
+  ]
+}`;
 
 const VISION_PROMPT = `You are analyzing a photo from a grocery shopping context. Classify the photo type and extract structured data.
 
@@ -108,6 +121,8 @@ interface ExtractedProduct {
   ingredients?: string | null;
   allergens?: string | null;
   demand_group?: string | null;
+  special_start_date?: string | null;
+  special_end_date?: string | null;
 }
 
 interface ClaudeResponse {
@@ -126,7 +141,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "ANTHROPIC_API_KEY not set" }, { status: 500 });
   }
 
-  let body: { upload_id?: string; photo_url?: string };
+  let body: { upload_id?: string; photo_url?: string; is_pdf?: boolean };
   try {
     body = await request.json();
   } catch {
@@ -134,8 +149,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { upload_id, photo_url } = body;
-  console.log("[process-photo] upload_id:", upload_id, "photo_url length:", photo_url?.length ?? 0);
+  const { upload_id, photo_url, is_pdf } = body;
+  console.log("[process-photo] upload_id:", upload_id, "photo_url length:", photo_url?.length ?? 0, "is_pdf:", is_pdf);
   if (!upload_id || !photo_url) {
     console.log("[process-photo] Missing upload_id or photo_url");
     return NextResponse.json({ error: "upload_id and photo_url required" }, { status: 400 });
@@ -162,25 +177,52 @@ export async function POST(request: Request) {
 
   let imageBase64: string;
   let mediaType = "image/jpeg";
+  let imageBuffer: Buffer | null = null;
   try {
     const imageRes = await fetch(photo_url);
-    if (!imageRes.ok) throw new Error(`Fetch image: ${imageRes.status}`);
+    if (!imageRes.ok) throw new Error(`Fetch: ${imageRes.status}`);
     const buf = await imageRes.arrayBuffer();
     mediaType = imageRes.headers.get("content-type")?.split(";")[0] || "image/jpeg";
     imageBase64 = Buffer.from(buf).toString("base64");
+    if (!is_pdf) imageBuffer = Buffer.from(buf);
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Image fetch failed";
-    console.log("[process-photo] Image fetch failed:", msg);
+    const msg = e instanceof Error ? e.message : "Fetch failed";
+    console.log("[process-photo] Fetch failed:", msg);
     await supabase
       .from("photo_uploads")
       .update({ status: "error", error_message: msg, processed_at: now })
       .eq("upload_id", upload_id);
     return NextResponse.json({ error: msg }, { status: 422 });
   }
-  console.log("[process-photo] Image fetched, calling Claude");
+  console.log("[process-photo] Fetched, is_pdf:", is_pdf, "calling Claude");
 
   let claudeJson: ClaudeResponse;
   try {
+    const isPdf = is_pdf === true;
+    const content = isPdf
+      ? [
+          {
+            type: "document" as const,
+            source: {
+              type: "base64" as const,
+              media_type: "application/pdf" as const,
+              data: imageBase64,
+            },
+          },
+          { type: "text" as const, text: FLYER_PDF_PROMPT },
+        ]
+      : [
+          {
+            type: "image" as const,
+            source: {
+              type: "base64" as const,
+              media_type: mediaType as "image/jpeg" | "image/png" | "image/gif" | "image/webp",
+              data: imageBase64,
+            },
+          },
+          { type: "text" as const, text: VISION_PROMPT },
+        ];
+
     const res = await fetch(
       "https://api.anthropic.com/v1/messages",
       {
@@ -192,23 +234,8 @@ export async function POST(request: Request) {
         },
         body: JSON.stringify({
           model: CLAUDE_MODEL,
-          max_tokens: 8192,
-          messages: [
-            {
-              role: "user",
-              content: [
-                {
-                  type: "image",
-                  source: {
-                    type: "base64",
-                    media_type: mediaType as "image/jpeg" | "image/png" | "image/gif" | "image/webp",
-                    data: imageBase64,
-                  },
-                },
-                { type: "text", text: VISION_PROMPT },
-              ],
-            },
-          ],
+          max_tokens: isPdf ? 16384 : 8192,
+          messages: [{ role: "user", content }],
         }),
       }
     );
@@ -270,9 +297,11 @@ export async function POST(request: Request) {
   }
 
   const photoType =
-    claudeJson.photo_type && ["product_front", "product_back", "receipt", "flyer", "shelf"].includes(claudeJson.photo_type)
-      ? claudeJson.photo_type
-      : "product_front";
+    is_pdf === true
+      ? "flyer_pdf"
+      : claudeJson.photo_type && ["product_front", "product_back", "receipt", "flyer", "shelf", "flyer_pdf"].includes(claudeJson.photo_type)
+        ? claudeJson.photo_type
+        : "product_front";
 
   const products = Array.isArray(claudeJson.products) ? claudeJson.products : [];
   let productsCreated = 0;
@@ -281,6 +310,27 @@ export async function POST(request: Request) {
 
   const { data: categories } = await supabase.from("categories").select("category_id").limit(1);
   const defaultCategoryId = categories?.[0]?.category_id;
+
+  // Thumbnail for product_front (images only): resize 150x150, upload to product-thumbnails
+  let thumbnailUrl: string | null = null;
+  if (photoType === "product_front" && imageBuffer) {
+    try {
+      const thumbBuffer = await sharp(imageBuffer).resize(150, 150).toBuffer();
+      const thumbPath = `${upload_id}.jpg`;
+      const { error: thumbUpErr } = await supabase.storage
+        .from("product-thumbnails")
+        .upload(thumbPath, thumbBuffer, { contentType: "image/jpeg", upsert: true });
+      if (!thumbUpErr) {
+        const { data: thumbUrlData } = supabase.storage.from("product-thumbnails").getPublicUrl(thumbPath);
+        thumbnailUrl = thumbUrlData.publicUrl;
+        console.log("[process-photo] Thumbnail uploaded:", thumbPath);
+      } else {
+        console.log("[process-photo] Thumbnail upload failed:", thumbUpErr.message);
+      }
+    } catch (e) {
+      console.log("[process-photo] Sharp thumbnail failed:", e instanceof Error ? e.message : e);
+    }
+  }
 
   for (const p of products) {
     const name = (p.name || "").trim();
@@ -303,6 +353,7 @@ export async function POST(request: Request) {
     const brand = (p.brand ?? offData?.brand ?? null)?.trim() || null;
     const displayName = (offData?.name ?? name).trim();
 
+    // Duplicate check: flyer_pdf = article_number then name_normalized; others = article_number, ean, name_normalized
     let existing: { product_id: string; thumbnail_url: string | null } | null = null;
     if (articleNumber) {
       const { data: byArticle } = await supabase
@@ -313,7 +364,7 @@ export async function POST(request: Request) {
         .maybeSingle();
       existing = byArticle ? { product_id: byArticle.product_id, thumbnail_url: byArticle.thumbnail_url } : null;
     }
-    if (!existing && ean) {
+    if (!existing && photoType !== "flyer_pdf" && ean) {
       const { data: byEan } = await supabase
         .from("products")
         .select("product_id, thumbnail_url")
@@ -334,9 +385,15 @@ export async function POST(request: Request) {
     }
 
     const nameNormalized = normalizeName(displayName);
-    const assortmentType = photoType === "flyer" ? "special" : "daily_range";
-    const specialStart = claudeJson.special_valid_from ?? null;
-    const specialEnd = claudeJson.special_valid_to ?? null;
+    const assortmentType = photoType === "flyer" || photoType === "flyer_pdf" ? "special" : "daily_range";
+    const specialStart =
+      photoType === "flyer_pdf"
+        ? (p.special_start_date ?? claudeJson.special_valid_from ?? null)
+        : (claudeJson.special_valid_from ?? null);
+    const specialEnd =
+      photoType === "flyer_pdf"
+        ? (p.special_end_date ?? claudeJson.special_valid_to ?? null)
+        : (claudeJson.special_valid_to ?? null);
 
     if (existing) {
       const { data: current } = await supabase
@@ -368,11 +425,11 @@ export async function POST(request: Request) {
         }
       }
 
+      const resolvedThumbUrl = thumbnailUrl ?? photo_url;
       if (existing.thumbnail_url && photoType === "product_front") {
-        const thumbUrl = photo_url;
-        pendingThumbnailOverwrites.push({ product_id: existing.product_id, thumbnail_url: thumbUrl });
+        pendingThumbnailOverwrites.push({ product_id: existing.product_id, thumbnail_url: resolvedThumbUrl });
       } else if (!existing.thumbnail_url && photoType === "product_front") {
-        updates.thumbnail_url = photo_url;
+        updates.thumbnail_url = resolvedThumbUrl;
         updates.photo_source_id = upload_id;
       }
 
@@ -382,6 +439,8 @@ export async function POST(request: Request) {
         .eq("product_id", existing.product_id);
       if (!updErr) productsUpdated++;
     } else if (defaultCategoryId) {
+      const source = photoType === "flyer_pdf" ? "import" : "crowdsourcing";
+      const resolvedThumbUrl = thumbnailUrl ?? photo_url;
       const { data: inserted, error: insErr } = await supabase
         .from("products")
         .insert({
@@ -395,8 +454,8 @@ export async function POST(request: Request) {
           assortment_type: assortmentType,
           availability: "national",
           status: "active",
-          source: "crowdsourcing",
-          crowdsource_status: "pending",
+          source,
+          ...(source === "crowdsourcing" ? { crowdsource_status: "pending" } : {}),
           ean_barcode: ean,
           nutrition_info: nutritionInfo,
           ingredients,
@@ -405,7 +464,7 @@ export async function POST(request: Request) {
           special_start_date: assortmentType === "special" ? specialStart : null,
           special_end_date: assortmentType === "special" ? specialEnd : null,
           country: "DE",
-          thumbnail_url: photoType === "product_front" ? photo_url : null,
+          thumbnail_url: photoType === "product_front" ? resolvedThumbUrl : null,
           photo_source_id: photoType === "product_front" ? upload_id : null,
           created_at: now,
           updated_at: now,

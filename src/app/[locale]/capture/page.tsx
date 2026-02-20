@@ -1,13 +1,15 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/lib/i18n/navigation";
 import { getDeviceUserId } from "@/lib/list/device-id";
-import { createClientIfConfigured } from "@/lib/supabase/client";
 import { uploadPhotoAndEnqueue } from "@/app/[locale]/capture/upload";
 import { CaptureStatusFeed } from "@/app/[locale]/capture/capture-status-feed";
 import { OverwriteThumbnailDialog } from "@/app/[locale]/capture/overwrite-thumbnail-dialog";
+
+const PREVIEW_MAX_WIDTH = 300;
+const THUMBNAIL_SIZE = 80;
 
 export default function CapturePage() {
   const t = useTranslations("capture");
@@ -15,8 +17,42 @@ export default function CapturePage() {
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [overwriteUploadId, setOverwriteUploadId] = useState<string | null>(null);
+  const [pendingBlobs, setPendingBlobs] = useState<Blob[]>([]);
+  const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+
+  useEffect(() => {
+    return () => {
+      previewUrls.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, [previewUrls]);
+
+  const addPendingBlobs = useCallback((blobs: Blob[]) => {
+    if (blobs.length === 0) return;
+    const urls = blobs.map((b) => URL.createObjectURL(b));
+    setPendingBlobs((prev) => [...prev, ...blobs]);
+    setPreviewUrls((prev) => [...prev, ...urls]);
+  }, []);
+
+  const removePendingAtIndex = useCallback((index: number) => {
+    setPendingBlobs((prev) => {
+      const next = prev.filter((_, i) => i !== index);
+      if (next.length === 0) setPreviewUrls([]);
+      return next;
+    });
+    setPreviewUrls((prev) => {
+      const url = prev[index];
+      if (url) URL.revokeObjectURL(url);
+      return prev.filter((_, i) => i !== index);
+    });
+  }, []);
+
+  const discardAll = useCallback(() => {
+    previewUrls.forEach((url) => URL.revokeObjectURL(url));
+    setPendingBlobs([]);
+    setPreviewUrls([]);
+  }, [previewUrls]);
 
   const ensureCamera = useCallback(async () => {
     if (streamRef.current) return streamRef.current;
@@ -57,50 +93,58 @@ export default function CapturePage() {
     if (!ctx) return;
     ctx.drawImage(video, 0, 0);
     canvas.toBlob(
-      async (blob) => {
-        if (!blob) return;
-        setUploading(true);
-        try {
-          const result = await uploadPhotoAndEnqueue(blob, getDeviceUserId());
-          if (result?.pendingOverwrite) setOverwriteUploadId(result.uploadId);
-        } finally {
-          setUploading(false);
-        }
+      (blob) => {
+        if (blob) addPendingBlobs([blob]);
       },
       "image/jpeg",
       0.9
     );
-  }, [ensureCamera]);
+  }, [ensureCamera, addPendingBlobs]);
 
   const pickFromGallery = useCallback(() => {
     const input = document.createElement("input");
     input.type = "file";
-    input.accept = "image/*";
+    input.accept = "image/*,.pdf";
     input.multiple = true;
     input.onchange = async () => {
       const files = input.files;
       if (!files?.length) return;
-      setUploading(true);
-      try {
-        for (let i = 0; i < files.length; i++) {
-          const file = files[i];
-          if (!file.type.startsWith("image/")) continue;
-          const blob = await new Promise<Blob | null>((res) => {
-            const r = new FileReader();
-            r.onloadend = () => res(r.result as Blob | null);
-            r.readAsArrayBuffer(file);
-          }).then((b) => (b ? new Blob([b], { type: file.type }) : null));
-          if (blob) {
-            const result = await uploadPhotoAndEnqueue(blob, getDeviceUserId());
-            if (result?.pendingOverwrite) setOverwriteUploadId(result.uploadId);
-          }
-        }
-      } finally {
-        setUploading(false);
+      const blobs: Blob[] = [];
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const isImage = file.type.startsWith("image/");
+        const isPdf = file.type === "application/pdf";
+        if (!isImage && !isPdf) continue;
+        const blob = await new Promise<Blob | null>((res) => {
+          const r = new FileReader();
+          r.onloadend = () => res(r.result as Blob | null);
+          r.readAsArrayBuffer(file);
+        }).then((b) => (b ? new Blob([b], { type: file.type }) : null));
+        if (blob) blobs.push(blob);
       }
+      if (blobs.length) addPendingBlobs(blobs);
     };
     input.click();
-  }, []);
+  }, [addPendingBlobs]);
+
+  const startUpload = useCallback(async () => {
+    if (pendingBlobs.length === 0) return;
+    const toUpload = [...pendingBlobs];
+    discardAll();
+    setUploading(true);
+    try {
+      for (const blob of toUpload) {
+        const result = await uploadPhotoAndEnqueue(blob, getDeviceUserId());
+        if (result?.pendingOverwrite) setOverwriteUploadId(result.uploadId);
+      }
+    } finally {
+      setUploading(false);
+    }
+  }, [pendingBlobs, discardAll]);
+
+  const hasPreview = pendingBlobs.length > 0;
+  const showSinglePreview = pendingBlobs.length === 1;
+  const showMultiPreview = pendingBlobs.length > 1;
 
   return (
     <main className="mx-auto flex min-h-screen max-w-lg flex-col bg-white">
@@ -144,6 +188,106 @@ export default function CapturePage() {
             {t("chooseFromGallery")}
           </button>
         </div>
+
+        {hasPreview && (
+          <section className="rounded-xl border border-aldi-muted-light bg-aldi-muted-light/30 p-4">
+            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-aldi-muted">
+              {t("previewTitle")}
+            </h2>
+            {showSinglePreview && (
+              <div className="flex flex-col gap-3">
+                {pendingBlobs[0]?.type === "application/pdf" ? (
+                  <div
+                    className="flex items-center justify-center rounded-lg border-2 border-aldi-muted bg-aldi-muted-light/30 p-8"
+                    style={{ maxWidth: PREVIEW_MAX_WIDTH, minHeight: 200 }}
+                  >
+                    <span className="text-aldi-muted">PDF – Handzettel</span>
+                  </div>
+                ) : (
+                  <img
+                    src={previewUrls[0]}
+                    alt=""
+                    className="max-w-full rounded-lg object-contain"
+                    style={{ maxWidth: PREVIEW_MAX_WIDTH }}
+                  />
+                )}
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={startUpload}
+                    className="flex-1 rounded-xl bg-aldi-blue px-4 py-3 font-medium text-white transition-opacity hover:opacity-90"
+                  >
+                    {t("upload")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={discardAll}
+                    className="flex-1 rounded-xl border-2 border-aldi-muted bg-white px-4 py-3 font-medium text-aldi-muted transition-colors hover:bg-aldi-muted-light/50"
+                  >
+                    {t("discard")}
+                  </button>
+                </div>
+              </div>
+            )}
+            {showMultiPreview && (
+              <div className="flex flex-col gap-3">
+                <div className="flex flex-wrap gap-2">
+                  {previewUrls.map((url, index) => (
+                    <div key={index} className="relative shrink-0">
+                      {pendingBlobs[index]?.type === "application/pdf" ? (
+                        <div
+                          className="flex items-center justify-center rounded-lg border-2 border-aldi-muted bg-aldi-muted-light/30 text-aldi-muted"
+                          style={{ width: THUMBNAIL_SIZE, height: THUMBNAIL_SIZE }}
+                        >
+                          PDF
+                        </div>
+                      ) : (
+                        <img
+                          src={url}
+                          alt=""
+                          className="rounded-lg object-cover"
+                          style={{ width: THUMBNAIL_SIZE, height: THUMBNAIL_SIZE }}
+                        />
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => removePendingAtIndex(index)}
+                        className="absolute -right-1.5 -top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-red-500 text-white shadow transition-opacity hover:opacity-90"
+                        aria-label={t("remove")}
+                      >
+                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={startUpload}
+                    className="flex-1 rounded-xl bg-aldi-blue px-4 py-3 font-medium text-white transition-opacity hover:opacity-90"
+                  >
+                    {t("upload")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={discardAll}
+                    className="flex-1 rounded-xl border-2 border-aldi-muted bg-white px-4 py-3 font-medium text-aldi-muted transition-colors hover:bg-aldi-muted-light/50"
+                  >
+                    {t("discard")}
+                  </button>
+                </div>
+              </div>
+            )}
+          </section>
+        )}
+
+        {uploading && (
+          <p className="rounded-lg bg-aldi-blue/10 px-3 py-2 text-sm font-medium text-aldi-blue" role="status">
+            {t("uploading")}
+          </p>
+        )}
 
         {cameraError && (
           <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
