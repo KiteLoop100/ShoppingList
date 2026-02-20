@@ -11,6 +11,8 @@ export interface ListItemWithMeta extends LocalListItem {
   category_icon: string;
   category_sort_position: number;
   price: number | null;
+  /** Product thumbnail URL (from products.thumbnail_url). */
+  thumbnail_url?: string | null;
   /** F03 Modus 2: demand group (from product or category name). */
   demand_group?: string;
   /** F03 Modus 2: demand sub-group (from product). */
@@ -158,6 +160,21 @@ export function assignPrices(
     if (item.product_id) {
       const p = productPriceMap.get(item.product_id);
       if (p !== undefined) item.price = p;
+    }
+  };
+  unchecked.forEach(assign);
+  checked.forEach(assign);
+}
+
+export function assignThumbnails(
+  unchecked: ListItemWithMeta[],
+  checked: ListItemWithMeta[],
+  productThumbnailMap: Map<string, string>
+): void {
+  const assign = (item: ListItemWithMeta) => {
+    if (item.product_id) {
+      const url = productThumbnailMap.get(item.product_id);
+      if (url) item.thumbnail_url = url;
     }
   };
   unchecked.forEach(assign);

@@ -115,7 +115,8 @@ export function BarcodeScannerModal({
         setStatus("scanning");
         setErrorMessage(null);
         setDetectedEan(null);
-        const qrbox = (w: number, h: number) => ({ width: Math.min(w, 320), height: Math.min(140, Math.round(h * 0.4)) });
+        // Use full viewport so barcodes are detected even when they only fill part of the frame
+        const qrbox = (w: number, h: number) => ({ width: w, height: h });
         scanner
           .start(
             { facingMode },

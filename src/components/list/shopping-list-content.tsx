@@ -3,12 +3,16 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useTranslations } from "next-intl";
 import { ListItemRow } from "./list-item-row";
+import { ProductDetailModal } from "./product-detail-modal";
 import { UndoBar } from "./undo-bar";
 import { useListData } from "./use-list-data";
+import { useProducts } from "@/lib/products-context";
 import { addListItem, canFillWithTypicalProducts, fillListWithTypicalProducts } from "@/lib/list";
+import { db } from "@/lib/db";
 import { reportSortingError } from "@/lib/errors/report-sorting-error";
 import type { ListItemWithMeta } from "@/lib/list/list-helpers";
 import type { SortMode } from "./sort-mode-tabs";
+import type { Product } from "@/types";
 
 const UNDO_DURATION_MS = 3000;
 
@@ -24,6 +28,7 @@ export function ShoppingListContent({
   onLastItemChecked,
 }: ShoppingListContentProps) {
   const t = useTranslations("list");
+  const { products } = useProducts();
   const {
     listId,
     unchecked,
@@ -37,6 +42,7 @@ export function ShoppingListContent({
     removeItem,
   } = useListData(sortMode);
 
+  const [detailProduct, setDetailProduct] = useState<Product | null>(null);
   const [deletedForUndo, setDeletedForUndo] = useState<ListItemWithMeta | null>(
     null
   );
@@ -87,6 +93,19 @@ export function ShoppingListContent({
       }, UNDO_DURATION_MS);
     },
     [unchecked, checked, listId, removeItem]
+  );
+
+  const handleOpenDetail = useCallback(
+    async (item: ListItemWithMeta) => {
+      if (!item.product_id) return;
+      let p: Product | undefined = products.find((x) => x.product_id === item.product_id);
+      if (!p) {
+        const fromDb = await db.products.where("product_id").equals(item.product_id).first();
+        if (fromDb) p = fromDb;
+      }
+      setDetailProduct(p ?? null);
+    },
+    [products]
   );
 
   const handleUndo = useCallback(async () => {
@@ -184,6 +203,7 @@ export function ShoppingListContent({
                       onQuantityChange={setItemQuantity}
                       onDelete={handleDelete}
                       deleteLabel={t("delete")}
+                      onOpenDetail={handleOpenDetail}
                     />
                   </li>
                 ))}
@@ -202,6 +222,7 @@ export function ShoppingListContent({
                         onQuantityChange={setItemQuantity}
                         onDelete={handleDelete}
                         deleteLabel={t("delete")}
+                        onOpenDetail={handleOpenDetail}
                       />
                     </li>
                   ))}
@@ -239,6 +260,7 @@ export function ShoppingListContent({
                               onQuantityChange={setItemQuantity}
                               onDelete={handleDelete}
                               deleteLabel={t("delete")}
+                              onOpenDetail={handleOpenDetail}
                             />
                           </li>
                         ))}
@@ -260,6 +282,7 @@ export function ShoppingListContent({
                               onQuantityChange={setItemQuantity}
                               onDelete={handleDelete}
                               deleteLabel={t("delete")}
+                              onOpenDetail={handleOpenDetail}
                             />
                           </li>
                         ))}
@@ -335,6 +358,11 @@ export function ShoppingListContent({
           }}
         />
       )}
+
+      <ProductDetailModal
+        product={detailProduct}
+        onClose={() => setDetailProduct(null)}
+      />
     </>
   );
 }

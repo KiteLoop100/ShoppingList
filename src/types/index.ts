@@ -64,6 +64,8 @@ export interface Product {
   ingredients?: string | null;
   /** F13: Allergene */
   allergens?: string | null;
+  /** Gewicht/Menge (z. B. "500 g", "1 kg") */
+  weight_or_quantity?: string | null;
 }
 
 export interface Store {

@@ -11,6 +11,7 @@ import {
   sortAndGroupItems,
   sortAndGroupItemsHierarchical,
   assignPrices,
+  assignThumbnails,
   estimateTotal,
   type ListItemWithMeta,
   type ProductMetaForSort,
@@ -88,10 +89,12 @@ export function useListData(sortMode: SortMode = "my-order"): UseListDataResult 
 
       const idbProducts = await db.products.toArray();
       const productPriceMap = new Map<string, number>();
+      const productThumbnailMap = new Map<string, string>();
       const productMetaMap = new Map<string, ProductMetaForSort>();
       const productIdToSpecial = new Set<string>();
       for (const p of idbProducts) {
         if (p.price != null) productPriceMap.set(p.product_id, p.price);
+        if (p.thumbnail_url) productThumbnailMap.set(p.product_id, p.thumbnail_url);
         const isSpecial = p.assortment_type === "special";
         if (isSpecial) productIdToSpecial.add(p.product_id);
         productMetaMap.set(p.product_id, {
@@ -102,6 +105,7 @@ export function useListData(sortMode: SortMode = "my-order"): UseListDataResult 
       }
       for (const p of contextProducts) {
         if (p.price != null) productPriceMap.set(p.product_id, p.price);
+        if (p.thumbnail_url) productThumbnailMap.set(p.product_id, p.thumbnail_url);
         const isSpecial = p.assortment_type === "special";
         if (isSpecial) productIdToSpecial.add(p.product_id);
         if (!productMetaMap.has(p.product_id)) {
@@ -204,6 +208,7 @@ export function useListData(sortMode: SortMode = "my-order"): UseListDataResult 
       }
 
       assignPrices(u, c, productPriceMap);
+      assignThumbnails(u, c, productThumbnailMap);
       setUnchecked(u);
       setChecked(c);
 
