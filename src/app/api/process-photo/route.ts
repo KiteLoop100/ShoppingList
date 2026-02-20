@@ -9,35 +9,26 @@ const CLAUDE_MODEL = "claude-sonnet-4-5-20250929";
 
 const VISION_PROMPT = `You are analyzing a photo from a grocery shopping context. Classify the photo type and extract structured data.
 
-Antworte ausschließlich mit validem JSON. Kein Markdown, keine Backticks, kein zusätzlicher Text. Halte die Antwort kompakt.
+Antworte ausschließlich mit validem JSON. Kein Markdown, keine Backticks, kein zusätzlicher Text.
 
 Photo types: product_front (single product front), product_back (product back with barcode/nutrition), receipt (supermarket receipt), flyer (promo flyer), shelf (store shelf with multiple products).
 
-For RECEIPTS (especially ALDI/Hofer): The number on the far LEFT of each line is the store article number (article_number). Extract it for every product line. ALDI receipts use heavily abbreviated product names (e.g. MILS.FETT.MI = Milsani Fettarme Milch). Try to reconstruct the full product name where possible. Extract EVERY line of the receipt as a product – even if the name is unclear, return the raw receipt text as name. Prefer one product with abbreviated name over omitting the line. Capture ALL lines, not only those you are confident about.
+For RECEIPTS (ALDI/Hofer): The number on the far LEFT of each line is article_number. Extract EVERY line as one product. For receipts return ONLY {article_number, name, price} per product. No other fields. This keeps the response short enough for large receipts with 80+ items. Ignore payment lines, tax summaries, totals, subtotals, card details, TSE data, store address, and footer text. Only extract actual product purchase lines. If name is unclear use raw receipt text.
 
-Respond with a single JSON object, no markdown, with this shape:
+For non-receipt photos use the full shape below.
+
+Respond with a single JSON object, no markdown:
 {
   "photo_type": "product_front" | "product_back" | "receipt" | "flyer" | "shelf",
   "products": [
-    {
-      "article_number": "string or null – for receipts: the number on the far left (ALDI/Hofer article number)",
-      "name": "string – full name if known, otherwise raw receipt text",
-      "brand": "string or null",
-      "ean_barcode": "string or null if visible",
-      "price": number or null,
-      "weight_or_quantity": "string or null e.g. 1L, 500g",
-      "nutrition_info": object or null (per 100g/ml if visible),
-      "ingredients": "string or null",
-      "allergens": "string or null",
-      "demand_group": "string or null e.g. Frische & Kühlung"
-    }
+    { "article_number": "string or null", "name": "string", "price": number or null }
   ],
   "receipt_date": "YYYY-MM-DD or null if receipt",
   "special_valid_from": "YYYY-MM-DD or null if flyer",
   "special_valid_to": "YYYY-MM-DD or null if flyer"
 }
 
-Extract all visible product names and prices. For receipts: every line = one product; use article_number (left number), price, and name (full if you can infer it, else raw text). For product_front/back focus on one product. Keep the JSON compact (short strings, minimal fields).`;
+For receipts each product has only article_number, name, price. For other photo types you may add brand, ean_barcode, demand_group etc. Keep JSON compact.`;
 
 function normalizeName(name: string): string {
   return name
@@ -55,6 +46,26 @@ function extractArticleNumberFromReceiptLine(name: string): string | null {
   const trimmed = name.trim();
   const match = trimmed.match(/^(\d{4,})/);
   return match ? match[1] : null;
+}
+
+/**
+ * If JSON is truncated, repair by keeping up to the last complete product object and closing the JSON.
+ * Finds last "}," (end of a product) or "}]" (end of array) or lone "}" (last product); cuts there, closes with "]}" or "}".
+ */
+function tryRepairTruncatedReceiptJson(cleaned: string): string | null {
+  const trimmed = cleaned.trimEnd();
+  const lastCloseBraceComma = trimmed.lastIndexOf("},");
+  const lastCloseBraceBracket = trimmed.lastIndexOf("}]");
+  if (lastCloseBraceBracket >= 0 && lastCloseBraceBracket > lastCloseBraceComma) {
+    return trimmed.slice(0, lastCloseBraceBracket + 2) + "}";
+  }
+  if (lastCloseBraceComma >= 0) {
+    return trimmed.slice(0, lastCloseBraceComma + 1) + "]}";
+  }
+  if (trimmed.endsWith("}")) {
+    return trimmed + "]}";
+  }
+  return null;
 }
 
 async function fetchOpenFoodFacts(ean: string): Promise<{
@@ -181,7 +192,7 @@ export async function POST(request: Request) {
         },
         body: JSON.stringify({
           model: CLAUDE_MODEL,
-          max_tokens: 4096,
+          max_tokens: 8192,
           messages: [
             {
               role: "user",
@@ -223,19 +234,32 @@ export async function POST(request: Request) {
 
     const cleaned = text.replace(/^```json?\s*/i, "").replace(/\s*```\s*$/i, "").trim();
     console.log("[process-photo] Claude response length:", text.length, "cleaned:", cleaned.length);
+    let parsed: ClaudeResponse | null = null;
     try {
-      claudeJson = JSON.parse(cleaned) as ClaudeResponse;
-    } catch (parseErr) {
-      const parseMsg = parseErr instanceof Error ? parseErr.message : "JSON parse failed";
+      parsed = JSON.parse(cleaned) as ClaudeResponse;
+    } catch {
+      const repaired = tryRepairTruncatedReceiptJson(cleaned);
+      if (repaired) {
+        try {
+          parsed = JSON.parse(repaired) as ClaudeResponse;
+          console.log("[process-photo] Repaired truncated JSON, products count:", parsed.products?.length ?? 0);
+        } catch {
+          // ignore
+        }
+      }
+    }
+    if (!parsed) {
+      const parseMsg = "JSON parse failed (truncated or invalid)";
       const rawPreview = cleaned.length > 2000 ? cleaned.slice(0, 2000) + "…" : cleaned;
       const error_message = `JSON parse: ${parseMsg}. Raw response: ${rawPreview}`;
-      console.log("[process-photo] JSON parse error:", parseMsg, "raw length:", cleaned.length);
+      console.log("[process-photo] JSON parse error after repair attempt, raw length:", cleaned.length);
       await supabase
         .from("photo_uploads")
         .update({ status: "error", error_message, processed_at: now })
         .eq("upload_id", upload_id);
       return NextResponse.json({ error: parseMsg }, { status: 502 });
     }
+    claudeJson = parsed;
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Parse failed";
     await supabase
