@@ -1,14 +1,30 @@
 /**
  * Sort and group list items by category; compute estimated total.
+ * F03 Modus 2: hierarchical sort uses group_rank, subgroup_rank, product_rank.
  */
 
 import type { LocalListItem, LocalCategory } from "@/lib/db";
+import type { HierarchicalOrderResult } from "@/lib/store/hierarchical-order";
 
 export interface ListItemWithMeta extends LocalListItem {
   category_name: string;
   category_icon: string;
   category_sort_position: number;
   price: number | null;
+  /** F03 Modus 2: demand group (from product or category name). */
+  demand_group?: string;
+  /** F03 Modus 2: demand sub-group (from product). */
+  demand_sub_group?: string;
+  /** F03 Modus 2: rank for hierarchical sort. */
+  group_rank?: number;
+  subgroup_rank?: number;
+  product_rank?: number;
+}
+
+export interface ProductMetaForSort {
+  demand_group: string | null;
+  demand_sub_group: string | null;
+  popularity_score: number | null;
 }
 
 /** Optional: category_id -> sort position (F05 aisle order). If not provided, uses category.default_sort_position. */
@@ -47,6 +63,76 @@ export function sortAndGroupItems(
         a.sort_position - b.sort_position
     );
 
+  return { unchecked, checked };
+}
+
+/**
+ * F03 Modus 2: Sort and group by hierarchical order (Demand Group → Sub-Group → Product).
+ */
+export function sortAndGroupItemsHierarchical(
+  items: LocalListItem[],
+  categoryMap: Map<string, LocalCategory>,
+  productMetaMap: Map<string, ProductMetaForSort>,
+  order: HierarchicalOrderResult
+): { unchecked: ListItemWithMeta[]; checked: ListItemWithMeta[] } {
+  const { groupOrder, subgroupOrder, productOrder } = order;
+  const groupRank = new Map<string, number>();
+  groupOrder.forEach((g, i) => groupRank.set(g, i));
+  const subgroupRank = new Map<string, number>();
+  subgroupOrder.forEach((order, g) =>
+    order.forEach((sg, i) => subgroupRank.set(`${g}\t${sg}`, i))
+  );
+  const productRank = new Map<string, number>();
+  productOrder.forEach((order, scope) =>
+    order.forEach((pid, i) => productRank.set(`${scope}\t${pid}`, i))
+  );
+
+  const withMeta: ListItemWithMeta[] = items.map((item) => {
+    const cat = categoryMap.get(item.category_id);
+    const group = item.product_id
+      ? (productMetaMap.get(item.product_id)?.demand_group ?? null)
+      : null;
+    const subgroup = item.product_id
+      ? (productMetaMap.get(item.product_id)?.demand_sub_group ?? null)
+      : null;
+    const demand_group = group ?? cat?.name ?? "";
+    const demand_sub_group = subgroup ?? "";
+    const scope = demand_sub_group ? `${demand_group}|${demand_sub_group}` : demand_group;
+    const gr = groupRank.get(demand_group) ?? 999;
+    const sr = subgroupRank.get(`${demand_group}\t${demand_sub_group}`) ?? 999;
+    const pr = item.product_id
+      ? productRank.get(`${scope}\t${item.product_id}`) ?? 999
+      : item.sort_position;
+    return {
+      ...item,
+      category_name: cat?.name ?? "",
+      category_icon: cat?.icon ?? "📦",
+      category_sort_position: gr,
+      demand_group,
+      demand_sub_group,
+      group_rank: gr,
+      subgroup_rank: sr,
+      product_rank: pr,
+      price: null,
+    };
+  });
+
+  const unchecked = withMeta
+    .filter((i) => !i.is_checked)
+    .sort(
+      (a, b) =>
+        (a.group_rank ?? 999) - (b.group_rank ?? 999) ||
+        (a.subgroup_rank ?? 999) - (b.subgroup_rank ?? 999) ||
+        (a.product_rank ?? 999) - (b.product_rank ?? 999) ||
+        a.sort_position - b.sort_position
+    );
+  const checked = withMeta
+    .filter((i) => i.is_checked)
+    .sort(
+      (a, b) =>
+        (a.checked_at ?? "").localeCompare(b.checked_at ?? "") ||
+        a.sort_position - b.sort_position
+    );
   return { unchecked, checked };
 }
 

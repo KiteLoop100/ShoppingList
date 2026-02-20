@@ -149,10 +149,30 @@ export interface AisleOrder {
   last_updated_at: string;
 }
 
+export type PairwiseLevel = "group" | "subgroup" | "product";
+
+export interface PairwiseComparison {
+  id?: number;
+  store_id: string;
+  level: PairwiseLevel;
+  scope: string | null;
+  item_a: string;
+  item_b: string;
+  a_before_b_count: number;
+  b_before_a_count: number;
+  last_updated_at: string;
+}
+
 export interface CheckoffSequenceItem {
   item_id: string;
   category_id: string;
   checked_at: string;
+  /** Demand group (from product or category) for pairwise extraction. */
+  demand_group?: string | null;
+  /** Demand sub-group (from product) for pairwise extraction. */
+  demand_sub_group?: string | null;
+  /** product_id for product-level pairwise. */
+  product_id?: string | null;
 }
 
 export interface CheckoffSequence {

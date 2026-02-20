@@ -19,6 +19,8 @@ import type {
   CategoryAlias,
   ProductSuggestion,
   SortingError,
+  PairwiseComparison,
+  CheckoffSequence,
 } from "@/types";
 
 export interface LocalProduct extends Product {
@@ -74,6 +76,14 @@ export interface LocalSortingError extends SortingError {
   id?: number;
 }
 
+export interface LocalPairwiseComparison extends PairwiseComparison {
+  id?: number;
+}
+
+export interface LocalCheckoffSequence extends CheckoffSequence {
+  id?: number;
+}
+
 export class AppDatabase extends Dexie {
   products!: Table<LocalProduct, number>;
   categories!: Table<LocalCategory, number>;
@@ -89,6 +99,8 @@ export class AppDatabase extends Dexie {
   aggregated!: Table<LocalAggregatedAisleOrder, number>;
   preferences!: Table<LocalUserProductPreference, number>;
   offline_queue!: Table<OfflineQueueEntry, number>;
+  pairwise_comparisons!: Table<LocalPairwiseComparison, number>;
+  checkoff_sequences!: Table<LocalCheckoffSequence, number>;
 
   constructor() {
     super("DigitalShoppingList");
@@ -116,6 +128,11 @@ export class AppDatabase extends Dexie {
     this.version(4).stores({
       product_suggestions: "++id, suggestion_id, status",
       sorting_errors: "++id, error_id, store_id, reported_at",
+    });
+    this.version(5).stores({
+      pairwise_comparisons:
+        "++id, store_id, [store_id+level], [store_id+level+scope]",
+      checkoff_sequences: "++id, sequence_id, trip_id, store_id",
     });
   }
 }

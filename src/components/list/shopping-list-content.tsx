@@ -35,7 +35,7 @@ export function ShoppingListContent({
     setItemChecked,
     setItemQuantity,
     removeItem,
-  } = useListData();
+  } = useListData(sortMode);
 
   const [deletedForUndo, setDeletedForUndo] = useState<ListItemWithMeta | null>(
     null

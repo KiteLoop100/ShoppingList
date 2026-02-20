@@ -1,10 +1,11 @@
 /**
  * Archive the current list as a completed trip when the last item is checked.
  * Used to support "letzter Einkauf wiederholen".
+ * When store_id is set, saves CheckoffSequence and pairwise comparisons (LEARNING-LOGIC 2.4).
  */
 
 import { db } from "@/lib/db";
-import { getDeviceUserId } from "./device-id";
+import { saveCheckoffSequenceAndPairwise } from "./save-checkoff-and-pairwise";
 
 function generateId(): string {
   if (typeof crypto !== "undefined" && crypto.randomUUID) {
@@ -64,6 +65,19 @@ export async function archiveListAsTrip(listId: string): Promise<string | null> 
   list.status = "completed";
   list.completed_at = completedAt;
   await db.lists.put(list as never);
+
+  if (list.store_id) {
+    try {
+      await saveCheckoffSequenceAndPairwise(
+        trip_id,
+        list.store_id,
+        user_id,
+        items
+      );
+    } catch {
+      // Non-fatal: trip is already archived
+    }
+  }
 
   return trip_id;
 }

@@ -11,4 +11,6 @@ export type {
   LocalCategoryAlias,
   LocalProductSuggestion,
   LocalSortingError,
+  LocalPairwiseComparison,
+  LocalCheckoffSequence,
 } from "./indexed-db";
