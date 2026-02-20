@@ -19,8 +19,10 @@ function generateUploadId(): string {
 }
 
 export interface UploadResult {
-  uploadId: string;
+  uploadId: string | null;
   pendingOverwrite?: boolean;
+  /** Set when Storage or DB insert failed (e.g. PDF not allowed in bucket). */
+  error?: string;
 }
 
 export async function uploadPhotoAndEnqueue(
@@ -31,7 +33,7 @@ export async function uploadPhotoAndEnqueue(
   const supabase = createClientIfConfigured();
   if (!supabase) {
     console.log("[capture/upload] Supabase client not configured");
-    return null;
+    return { uploadId: null, error: "Supabase nicht konfiguriert." };
   }
 
   const uploadId = generateUploadId();
@@ -47,7 +49,11 @@ export async function uploadPhotoAndEnqueue(
 
   if (uploadError) {
     console.error("[capture/upload] Storage upload failed:", uploadError);
-    return null;
+    const msg =
+      uploadError.message ||
+      (uploadError as { error?: string }).error ||
+      "Upload fehlgeschlagen. Bei PDF: Bucket „product-photos“ muss application/pdf erlauben (Supabase Dashboard → Storage → Einstellungen).";
+    return { uploadId: null, error: msg };
   }
   console.log("[capture/upload] Storage upload OK");
 
@@ -67,7 +73,7 @@ export async function uploadPhotoAndEnqueue(
 
   if (insertError) {
     console.error("[capture/upload] photo_uploads insert failed:", insertError.code, insertError.message);
-    return null;
+    return { uploadId: null, error: insertError.message };
   }
   console.log("[capture/upload] photo_uploads row inserted, upload_id:", uploadId);
 

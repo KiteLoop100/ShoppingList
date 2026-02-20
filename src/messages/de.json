@@ -77,7 +77,8 @@
     "no": "Nein",
     "recentUploads": "Letzte Uploads",
     "noUploadsYet": "Noch keine Fotos hochgeladen.",
-    "retry": "Erneut versuchen"
+    "retry": "Erneut versuchen",
+    "dismiss": "Schließen"
   },
   "store": {
     "changeStore": "Laden wechseln",

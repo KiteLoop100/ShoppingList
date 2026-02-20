@@ -28,43 +28,65 @@ export function BarcodeScannerModal({
   const [scanKey, setScanKey] = useState(0);
   const scannerRef = useRef<import("html5-qrcode").Html5Qrcode | null>(null);
 
+  const eanVariants = useCallback((raw: string): string[] => {
+    const t = raw.trim();
+    if (!t) return [];
+    const variants = [t];
+    const digits = t.replace(/\D/g, "");
+    if (digits.length > 0 && digits.length <= 13) {
+      const pad13 = digits.padStart(13, "0");
+      if (pad13 !== t) variants.push(pad13);
+      const pad8 = digits.padStart(8, "0");
+      if (pad8 !== t && pad8 !== pad13) variants.push(pad8);
+    }
+    return [...new Set(variants)];
+  }, []);
+
   const findProductByEan = async (ean: string): Promise<Product | null> => {
-    const fromMemory = products.find((p) => p.ean_barcode === ean);
-    if (fromMemory) return fromMemory;
+    const toTry = eanVariants(ean);
+    for (const p of products) {
+      if (p.ean_barcode == null) continue;
+      const pVariants = eanVariants(p.ean_barcode);
+      if (toTry.some((v) => pVariants.includes(v))) return p;
+    }
     const supabase = createClientIfConfigured();
     if (!supabase) return null;
-    const { data } = await supabase
-      .from("products")
-      .select("*")
-      .eq("ean_barcode", ean)
-      .eq("status", "active")
-      .maybeSingle();
-    if (!data) return null;
-    return {
-      product_id: String(data.product_id),
-      article_number: data.article_number != null ? String(data.article_number) : null,
-      ean_barcode: data.ean_barcode != null ? String(data.ean_barcode) : null,
-      name: String(data.name),
-      name_normalized: String(data.name_normalized),
-      brand: data.brand != null ? String(data.brand) : null,
-      demand_group: data.demand_group != null ? String(data.demand_group) : null,
-      demand_sub_group: data.demand_sub_group != null ? String(data.demand_sub_group) : null,
-      category_id: String(data.category_id),
-      price: data.price != null ? Number(data.price) : null,
-      price_updated_at: data.price_updated_at != null ? String(data.price_updated_at) : null,
-      popularity_score: data.popularity_score != null ? Number(data.popularity_score) : null,
-      assortment_type: (data.assortment_type as Product["assortment_type"]) ?? "daily_range",
-      availability: (data.availability as Product["availability"]) ?? "national",
-      region: data.region != null ? String(data.region) : null,
-      country: data.country != null ? String(data.country) : "DE",
-      special_start_date: data.special_start_date != null ? String(data.special_start_date) : null,
-      special_end_date: data.special_end_date != null ? String(data.special_end_date) : null,
-      status: (data.status as Product["status"]) ?? "active",
-      source: (data.source as Product["source"]) ?? "admin",
-      crowdsource_status: data.crowdsource_status != null ? (data.crowdsource_status as Product["crowdsource_status"]) : null,
-      created_at: String(data.created_at),
-      updated_at: String(data.updated_at),
-    };
+    for (const v of toTry) {
+      const { data } = await supabase
+        .from("products")
+        .select("*")
+        .eq("ean_barcode", v)
+        .eq("status", "active")
+        .maybeSingle();
+      if (data) {
+        return {
+          product_id: String(data.product_id),
+          article_number: data.article_number != null ? String(data.article_number) : null,
+          ean_barcode: data.ean_barcode != null ? String(data.ean_barcode) : null,
+          name: String(data.name),
+          name_normalized: String(data.name_normalized),
+          brand: data.brand != null ? String(data.brand) : null,
+          demand_group: data.demand_group != null ? String(data.demand_group) : null,
+          demand_sub_group: data.demand_sub_group != null ? String(data.demand_sub_group) : null,
+          category_id: String(data.category_id),
+          price: data.price != null ? Number(data.price) : null,
+          price_updated_at: data.price_updated_at != null ? String(data.price_updated_at) : null,
+          popularity_score: data.popularity_score != null ? Number(data.popularity_score) : null,
+          assortment_type: (data.assortment_type as Product["assortment_type"]) ?? "daily_range",
+          availability: (data.availability as Product["availability"]) ?? "national",
+          region: data.region != null ? String(data.region) : null,
+          country: data.country != null ? String(data.country) : "DE",
+          special_start_date: data.special_start_date != null ? String(data.special_start_date) : null,
+          special_end_date: data.special_end_date != null ? String(data.special_end_date) : null,
+          status: (data.status as Product["status"]) ?? "active",
+          source: (data.source as Product["source"]) ?? "admin",
+          crowdsource_status: data.crowdsource_status != null ? (data.crowdsource_status as Product["crowdsource_status"]) : null,
+          created_at: String(data.created_at),
+          updated_at: String(data.updated_at),
+        };
+      }
+    }
+    return null;
   };
 
   const restartScan = useCallback(() => {
@@ -85,26 +107,18 @@ export function BarcodeScannerModal({
     containerRef.current.innerHTML = "";
     containerRef.current.appendChild(div);
 
-    import("html5-qrcode").then(({ Html5Qrcode, Html5QrcodeSupportedFormats }) => {
+    import("html5-qrcode").then(({ Html5Qrcode }) => {
       if (!mounted || !containerRef.current) return;
-      const scanner = new Html5Qrcode(id, {
-        verbose: false,
-        formatsToSupport: [
-          Html5QrcodeSupportedFormats.EAN_13,
-          Html5QrcodeSupportedFormats.EAN_8,
-          Html5QrcodeSupportedFormats.UPC_A,
-          Html5QrcodeSupportedFormats.CODE_128,
-        ],
-      });
+      const scanner = new Html5Qrcode(id, { verbose: false });
       scannerRef.current = scanner;
       setStatus("scanning");
       setErrorMessage(null);
       setDetectedEan(null);
-      const qrbox = (w: number, h: number) => ({ width: w, height: Math.min(100, Math.round(h * 0.3)) });
+      const qrbox = (w: number, h: number) => ({ width: Math.min(w, 320), height: Math.min(140, Math.round(h * 0.4)) });
       scanner
         .start(
           { facingMode: "environment" },
-          { fps: 15, qrbox },
+          { fps: 12, qrbox },
           async (decodedText) => {
             if (!mounted) return;
             const ean = decodedText.trim();

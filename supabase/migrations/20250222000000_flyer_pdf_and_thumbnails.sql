@@ -1,4 +1,10 @@
 -- F13: PDF flyer support + product-thumbnails bucket + products.source 'import'
+--
+-- WICHTIG für PDF-Upload: Der Bucket "product-photos" muss PDF erlauben.
+-- Im Supabase Dashboard: Storage → product-photos → ⚙️ Einstellungen →
+-- "Allowed MIME types": entweder leer lassen (alle erlauben) oder
+-- image/jpeg, image/png, image/gif, image/webp, application/pdf eintragen.
+-- Ohne application/pdf werden PDF-Uploads mit Fehler abgelehnt.
 
 -- Allow flyer_pdf in photo_uploads.photo_type
 ALTER TABLE photo_uploads DROP CONSTRAINT IF EXISTS photo_uploads_photo_type_check;

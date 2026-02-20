@@ -15,6 +15,7 @@ export default function CapturePage() {
   const t = useTranslations("capture");
   const tCommon = useTranslations("common");
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [overwriteUploadId, setOverwriteUploadId] = useState<string | null>(null);
   const [pendingBlobs, setPendingBlobs] = useState<Blob[]>([]);
@@ -132,10 +133,15 @@ export default function CapturePage() {
     const toUpload = [...pendingBlobs];
     discardAll();
     setUploading(true);
+    setUploadError(null);
     try {
       for (const blob of toUpload) {
         const result = await uploadPhotoAndEnqueue(blob, getDeviceUserId());
-        if (result?.pendingOverwrite) setOverwriteUploadId(result.uploadId);
+        if (result?.error) {
+          setUploadError(result.error);
+          break;
+        }
+        if (result?.pendingOverwrite && result.uploadId) setOverwriteUploadId(result.uploadId);
       }
     } finally {
       setUploading(false);
@@ -293,6 +299,20 @@ export default function CapturePage() {
           <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
             {cameraError}
           </p>
+        )}
+
+        {uploadError && (
+          <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
+            <p className="font-medium">{t("error")}</p>
+            <p className="mt-1">{uploadError}</p>
+            <button
+              type="button"
+              onClick={() => setUploadError(null)}
+              className="mt-2 text-left underline focus:outline-none"
+            >
+              {t("dismiss")}
+            </button>
+          </div>
         )}
 
         <video

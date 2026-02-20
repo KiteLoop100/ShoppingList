@@ -30,6 +30,11 @@ Schema anwenden:
 
 Anonyme Auth in Supabase aktivieren, wenn du Anonymous-First nutzen willst (MVP).
 
+### Storage (F13: Fotos & PDF-Handzettel)
+
+- Bucket **product-photos** anlegen (Dashboard: Storage → New bucket), öffentlich.
+- Damit **PDF-Upload** (Handzettel) funktioniert: Storage → product-photos → Einstellungen → **Allowed MIME types** entweder leer lassen oder u. a. `application/pdf` ergänzen. Ohne PDF erlauben Uploads den Fehler „new row violates row-level security policy“ bzw. „File type not allowed“.
+
 ## Entwicklung
 
 ```bash
