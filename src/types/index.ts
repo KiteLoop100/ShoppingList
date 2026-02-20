@@ -54,6 +54,16 @@ export interface Product {
   crowdsource_status: CrowdsourceStatus | null;
   created_at: string;
   updated_at: string;
+  /** F13: URL des freigestellten Produktbildes (Thumbnail) */
+  thumbnail_url?: string | null;
+  /** F13: Verweis auf photo_uploads.upload_id */
+  photo_source_id?: string | null;
+  /** F13: Nährwerte (JSON aus Rückseite oder Open Food Facts) */
+  nutrition_info?: Record<string, unknown> | null;
+  /** F13: Zutaten */
+  ingredients?: string | null;
+  /** F13: Allergene */
+  allergens?: string | null;
 }
 
 export interface Store {

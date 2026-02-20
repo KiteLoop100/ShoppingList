@@ -29,6 +29,7 @@
     "lastTripCancel": "Abbrechen",
     "lastTripNone": "Kein letzter Einkauf vorhanden.",
     "barcodeScanner": "Barcode scannen",
+    "hideKeyboard": "Tastatur einklappen",
     "close": "Schließen",
     "productNotFoundInDb": "Produkt nicht in der Datenbank.",
     "barcodeScannerHint": "Halte den Barcode vor die Kamera."
@@ -53,6 +54,22 @@
     "reportErrorMessage": "Sortierung stimmt nicht?",
     "sendFeedback": "Feedback senden",
     "thankYouFeedback": "Danke – wir verbessern die Sortierung."
+  },
+  "capture": {
+    "title": "Produkte erfassen",
+    "navLabel": "Produkte erfassen",
+    "takePhoto": "Foto aufnehmen",
+    "chooseFromGallery": "Aus Galerie wählen",
+    "uploading": "Hochladen…",
+    "processing": "Verarbeite…",
+    "productsRecognized": "{count} Produkte erkannt",
+    "error": "Fehler",
+    "overwriteImage": "Existierendes Produktbild überschreiben?",
+    "yes": "Ja",
+    "no": "Nein",
+    "recentUploads": "Letzte Uploads",
+    "noUploadsYet": "Noch keine Fotos hochgeladen.",
+    "retry": "Erneut versuchen"
   },
   "store": {
     "changeStore": "Laden wechseln",

@@ -437,5 +437,46 @@ UserProductPreference wird aktualisiert
 
 ---
 
-*Letzte Aktualisierung: 2025-02-16*
-*Status: Entwurf v1 – Review durch Produktinhaber ausstehend*
+## 17. Foto-Uploads (PhotoUpload) – F13
+
+Jedes hochgeladene Foto wird in dieser Tabelle erfasst und asynchron verarbeitet.
+
+| Feld | Beschreibung |
+|------|-------------|
+| upload_id | Eindeutige ID |
+| user_id | Wer hat das Foto hochgeladen |
+| photo_url | URL in Supabase Storage (Bucket: product-photos) |
+| photo_type | Automatisch erkannter Typ: product_front / product_back / receipt / flyer / shelf |
+| status | uploading / processing / completed / error |
+| extracted_data | JSON mit den extrahierten Rohdaten aus der KI-Analyse |
+| products_created | Anzahl neu erstellter Produkte (nach Verarbeitung) |
+| products_updated | Anzahl aktualisierter Produkte (nach Verarbeitung) |
+| error_message | Fehlermeldung (wenn status = error) |
+| created_at | Upload-Zeitpunkt |
+| processed_at | Verarbeitungszeitpunkt |
+
+### Verarbeitungs-Pipeline
+1. Foto wird in Supabase Storage hochgeladen → Status: uploading
+2. Serverless Function wird getriggert → Status: processing
+3. Claude Vision API analysiert das Foto und extrahiert Daten
+4. Bei EAN-Erkennung: Open Food Facts API für Zusatzinfos
+5. Produktbild wird freigestellt und als Thumbnail gespeichert
+6. Produkte werden in DB geschrieben/aktualisiert → Status: completed
+7. Bei Fehler → Status: error mit error_message
+
+### Erweiterung Produkt-Tabelle (Product)
+
+Folgende Felder werden zur bestehenden Produkt-Tabelle (Abschnitt 5) hinzugefügt:
+
+| Feld | Beschreibung |
+|------|-------------|
+| thumbnail_url | URL des freigestellten Produktbildes in Supabase Storage (150x150px) |
+| photo_source_id | Verweis auf photo_uploads.upload_id (welches Foto hat das Produkt erzeugt) |
+| nutrition_info | JSON mit Nährwerten (aus Rückseiten-Foto oder Open Food Facts) |
+| ingredients | Zutaten als Text |
+| allergens | Allergene als Text |
+
+---
+
+*Letzte Aktualisierung: 2025-02-20*
+*Status: Entwurf v2 – F13 Foto-Produkterfassung ergänzt*

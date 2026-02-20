@@ -85,18 +85,63 @@ Wenn N >= Schwellenwert_Optimal:
 
 ### 2.4 Berechnung der Gangfolge aus Abhak-Sequenzen
 
-**Input:** Eine Menge validierter Abhak-Sequenzen für einen Laden. Jede Sequenz ist eine geordnete Liste von Kategorien (abgeleitet aus den abgehakten Produkten).
+Der Algorithmus arbeitet auf **drei hierarchischen Ebenen**. Auf jeder Ebene wird der gleiche paarweise Vergleichsalgorithmus angewandt. Die Ebenen bauen aufeinander auf:
 
-**Ziel:** Eine Reihenfolge der Kategorien berechnen, die am besten zu allen Sequenzen passt.
+**Ebene 1: Demand Groups** (gröbste Ebene, ~15-20 Gruppen)
+- Bestimmt die Reihenfolge der großen Bereiche im Laden
+- z.B.: Obst & Gemüse → Brot & Backwaren → Frische & Kühlung → Tiefkühl → ...
+- Braucht am wenigsten Daten, da es nur ~15-20 Gruppen gibt
+- Ab ~5 Einkäufen sinnvolle Ergebnisse
 
-**Ansatz (Vorschlag – AI soll optimieren):**
+**Ebene 2: Demand Sub-Groups innerhalb einer Demand Group** (~3-8 Sub-Groups pro Group)
+- Bestimmt die Reihenfolge innerhalb eines Bereichs
+- z.B. innerhalb "Obst & Gemüse": Äpfel & Birnen → Zitrusfrüchte → Beeren → Salate → Wurzelgemüse
+- Braucht mehr Daten als Ebene 1, da pro Demand Group gelernt wird
+- Ab ~10-15 Einkäufen sinnvolle Ergebnisse
 
-1. Für jedes Kategorie-Paar (A, B) zählen: Wie oft kam A vor B, wie oft B vor A?
+**Ebene 3: Produkte innerhalb einer Sub-Group** (feinste Ebene)
+- Bestimmt die Reihenfolge einzelner Produkte
+- z.B. innerhalb "Äpfel & Birnen": Pink Lady → Elstar → Birnen → Tafeläpfel
+- Braucht am meisten Daten, da die Kombinationen selten sind (nicht jeder kauft in jedem Einkauf mehrere Produkte aus der gleichen Sub-Group)
+- Ab ~20-30 Einkäufen (die beide Produkte enthalten) sinnvolle Ergebnisse
+
+**Jede Ebene hat ihr eigenes Schichten-Modell:**
+
+```
+Für jede Ebene (Group / Sub-Group / Produkt):
+
+Schicht 1: Ladenspezifische Daten
+  → Paarweise Vergleiche aus Abhak-Sequenzen dieses Ladens
+
+Schicht 2: Durchschnitt aller Läden
+  → Fallback wenn zu wenig ladenspezifische Daten
+
+Schicht 3: Standard-Sortierung
+  → Ebene 1: Generisches ALDI-Layout
+  → Ebene 2: Alphabetisch oder nach Popularität innerhalb der Group
+  → Ebene 3: Nach Popularität (popularity_score) innerhalb der Sub-Group
+
+Die Gewichtung zwischen den Schichten erfolgt pro Ebene unabhängig.
+Ein Laden kann auf Ebene 1 schon genug Daten haben (→ 90% eigene Daten),
+aber auf Ebene 3 noch nicht (→ 70% Durchschnitt, 30% eigene Daten).
+```
+
+**Algorithmus pro Ebene (identisch für alle drei):**
+
+1. Für jedes Element-Paar (A, B) auf dieser Ebene zählen: Wie oft kam A vor B, wie oft B vor A?
 2. Daraus eine Wahrscheinlichkeit berechnen: P(A vor B) = Anzahl(A vor B) / (Anzahl(A vor B) + Anzahl(B vor A))
 3. Diese paarweisen Wahrscheinlichkeiten in eine Gesamtreihenfolge überführen (z.B. mittels einer topologischen Sortierung oder einem Ranking-Algorithmus)
-4. Confidence pro Kategorie-Position berechnen: Hohe Übereinstimmung zwischen Sequenzen = hohe Confidence
+4. Confidence pro Position berechnen: Hohe Übereinstimmung zwischen Sequenzen = hohe Confidence
 
-> Die AI soll den besten Algorithmus für Schritt 3 vorschlagen. Möglichkeiten wären z.B. Bradley-Terry-Modell, Elo-Rating, gewichtete topologische Sortierung oder andere Ranking-Verfahren.
+**Gesamtsortierung der Liste:**
+
+```
+1. Sortiere Demand Groups nach gelernter Ebene-1-Reihenfolge
+2. Innerhalb jeder Demand Group: Sortiere Sub-Groups nach gelernter Ebene-2-Reihenfolge
+3. Innerhalb jeder Sub-Group: Sortiere Produkte nach gelernter Ebene-3-Reihenfolge
+```
+
+> Die AI soll den besten Algorithmus für die Gesamtreihenfolge vorschlagen. Möglichkeiten wären z.B. Bradley-Terry-Modell, Elo-Rating, gewichtete topologische Sortierung oder andere Ranking-Verfahren.
 
 ### 2.5 Umgang mit widersprüchlichen Daten
 

@@ -29,6 +29,7 @@
     "lastTripCancel": "Cancel",
     "lastTripNone": "No last trip found.",
     "barcodeScanner": "Scan barcode",
+    "hideKeyboard": "Hide keyboard",
     "close": "Close",
     "productNotFoundInDb": "Product not in database.",
     "barcodeScannerHint": "Hold the barcode in front of the camera."
@@ -53,6 +54,22 @@
     "reportErrorMessage": "Sort order incorrect?",
     "sendFeedback": "Send feedback",
     "thankYouFeedback": "Thanks – we'll improve the sort order."
+  },
+  "capture": {
+    "title": "Capture products",
+    "navLabel": "Capture products",
+    "takePhoto": "Take photo",
+    "chooseFromGallery": "Choose from gallery",
+    "uploading": "Uploading…",
+    "processing": "Processing…",
+    "productsRecognized": "{count} products recognized",
+    "error": "Error",
+    "overwriteImage": "Overwrite existing product image?",
+    "yes": "Yes",
+    "no": "No",
+    "recentUploads": "Recent uploads",
+    "noUploadsYet": "No photos uploaded yet.",
+    "retry": "Retry"
   },
   "store": {
     "changeStore": "Change store",

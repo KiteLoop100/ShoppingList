@@ -460,6 +460,17 @@ export function ProductSearch({
           <button
             type="button"
             className="touch-target shrink-0 px-3 text-aldi-muted transition-colors hover:text-aldi-blue"
+            onClick={() => inputRef.current?.blur()}
+            aria-label={t("hideKeyboard")}
+            title={t("hideKeyboard")}
+          >
+            <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            className="touch-target shrink-0 px-3 text-aldi-muted transition-colors hover:text-aldi-blue"
             onClick={() => setBarcodeScannerOpen(true)}
             aria-label={t("barcodeScanner")}
           >

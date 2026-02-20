@@ -15,12 +15,12 @@ Im Vercel-Dashboard: **Project → Settings → Environment Variables** eintrage
 | `NEXT_PUBLIC_SUPABASE_URL` | Ja* | Supabase Project URL (z. B. `https://xxxx.supabase.co`) – aus Supabase Dashboard → Project Settings → API |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Ja* | Supabase **anon** / public Key (Project Settings → API) |
 | `ADMIN_PASSWORD` | Ja** | Beliebiges Passwort für den Admin-Bereich (`/admin`) |
+| `ANTHROPIC_API_KEY` | Ja*** | API-Key für Claude Vision (F13 Foto-Erfassung). Anthropic Dashboard → API Keys. |
+| `SUPABASE_SERVICE_ROLE_KEY` | Ja*** | Supabase **service_role** Key – für API process-photo (Schreiben in products/photo_uploads). |
 
 \* Ohne Supabase läuft die App mit IndexedDB; Produktsuche und Filialen aus Supabase sind dann nicht verfügbar.  
-\** Ohne `ADMIN_PASSWORD` ist der Admin-Login ungeschützt (nur für Tests sinnvoll).
-
-**Nicht auf Vercel eintragen** (nur für lokale Import-Scripts):  
-`SUPABASE_SERVICE_ROLE_KEY` – wird von `npm run import-stores-DE`, `import-stores-AT`, `import-test-products` genutzt.
+\** Ohne `ADMIN_PASSWORD` ist der Admin-Login ungeschützt (nur für Tests sinnvoll).  
+\*** Für F13 (Produkte erfassen per Foto): Ohne diese Keys funktioniert der Foto-Upload; die Verarbeitung schlägt fehl.
 
 Für alle drei Variablen: **Environment** am besten auf **Production**, **Preview** und **Development** setzen (oder mindestens Production).
 
@@ -61,6 +61,8 @@ Der Build muss ohne Fehler durchlaufen. Bei Fehlern zuerst lokal beheben, danach
    - `NEXT_PUBLIC_SUPABASE_URL` = deine Supabase-URL  
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY` = dein Supabase anon Key  
    - `ADMIN_PASSWORD` = gewähltes Admin-Passwort  
+   - `ANTHROPIC_API_KEY` = dein Anthropic API-Key (für Foto-Erfassung F13)  
+   - `SUPABASE_SERVICE_ROLE_KEY` = Supabase service_role Key (für Foto-Verarbeitung)  
 2. Für jede Variable optional **Production**, **Preview** und **Development** auswählen.
 3. Speichern.
 

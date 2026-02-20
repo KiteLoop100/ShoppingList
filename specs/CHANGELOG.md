@@ -5,6 +5,20 @@
 
 ---
 
+## 2025-02-20 – Dreistufiger Sortier-Algorithmus
+
+- **LEARNING-LOGIC.md:** Abschnitt 2.4 komplett überarbeitet: Algorithmus lernt jetzt auf drei Ebenen (Demand Group → Sub-Group → Produkt). Jede Ebene hat eigenständiges Schichten-Modell mit unabhängiger Gewichtung. Standard-Fallback auf Ebene 3 ist Popularitäts-Sortierung
+- **FEATURES.md:** F03 Modus 2 Beschreibung aktualisiert: Dreistufige hierarchische Sortierung dokumentiert
+
+---
+
+## 2025-02-20 – F13: Foto-Produkterfassung
+
+- **FEATURES.md:** Neues Feature F13 mit vollständiger Spezifikation: Fotos von Produkten (Vorder-/Rückseite), Kassenzetteln, Handzetteln/Prospekten und Regalfotos. Cloud-basierte Verarbeitung via Claude Vision API. Automatische Erkennung des Foto-Typs, Datenextraktion, Produktbild-Freistellung, Duplikat-Handling mit Nutzer-Abfrage. Kein Passwortschutz im MVP. Feature-Tabelle renummeriert (F13-F19)
+- **DATA-MODEL.md:** Neue Tabelle photo_uploads, Erweiterung der Product-Tabelle um thumbnail_url, photo_source_id, nutrition_info, ingredients, allergens
+
+---
+
 ## 2025-02-17 – Zwei Sortier-Modi mit automatischem Umschalten
 
 - **FEATURES.md:** F03 Sortierung komplett überarbeitet: Zwei Modi "Meine Reihenfolge" (Hinzufüge-Reihenfolge, für zu Hause) und "Einkaufsreihenfolge" (Gangfolge nach Demand Groups, für im Laden). Manuelle Umschaltung per Tabs + automatischer Wechsel bei Ladenerkennung

@@ -233,8 +233,12 @@ Die Liste hat zwei Sortier-Modi, zwischen denen der Nutzer jederzeit manuell ums
 - Das ist die Ansicht für zu Hause beim Planen der Einkaufsliste
 
 **Modus 2: "Einkaufsreihenfolge" (Standard im Laden)**
-- Produkte werden nach Customer Demand Groups gruppiert und nach der gelernten Gangfolge des ausgewählten Ladens sortiert
-- Der Lernalgorithmus lernt nur die Reihenfolge der Demand Groups und Sub-Groups – nicht einzelner Produkte. Produkte innerhalb einer Demand Group stehen nah beieinander im Regal
+- Produkte werden hierarchisch sortiert nach drei Lernebenen:
+  1. **Demand Groups:** Reihenfolge der großen Bereiche im Laden (z.B. Obst → Brot → Kühlung → Tiefkühl)
+  2. **Sub-Groups innerhalb einer Demand Group:** Reihenfolge der Untergruppen (z.B. innerhalb Obst: Äpfel → Zitrusfrüchte → Beeren)
+  3. **Produkte innerhalb einer Sub-Group:** Reihenfolge einzelner Produkte (z.B. innerhalb Äpfel: Pink Lady → Elstar → Tafeläpfel)
+- Jede Ebene hat ihr eigenes Schichten-Modell mit ladenspezifischen Daten, Durchschnitt aller Läden und Standard-Sortierung als Fallback
+- Siehe LEARNING-LOGIC.md Abschnitt 2.4 für Details
 - Wenn kein Laden ausgewählt ist, wird die Standard-Kategorie-Sortierung einer typischen ALDI-Ladenstruktur verwendet
 
 **Umschalter (UI):**
@@ -552,12 +556,155 @@ Minimale Einstellungsseite für die wichtigsten Konfigurationen.
 | F10 | Offline-Modus | ✅ | Vollständige Nutzung im Laden ohne Internet |
 | F11 | Mehrsprachigkeit | ✅ | DE + EN, i18n-ready |
 | F12 | Einstellungen | ✅ | Sprache, Standard-Laden |
-| F13 | Geteilte Listen | ❌ | Phase 3 – erfordert Kontomodell |
-| F14 | Registrierung / Konto | ❌ | Phase 3 |
-| F15 | Auswertungs-Dashboard | ❌ | Phase 2+ |
-| F16 | Preisvergleich (LIDL etc.) | ❌ | Phase 5 |
-| F17 | Rezept-Import | ❌ | Phase 5 |
-| F18 | Sprachassistenten | ❌ | Phase 5 |
+| F13 | Foto-Produkterfassung | ✅ | MVP – Fotos von Produkten, Kassenzetteln, Handzetteln |
+| F14 | Geteilte Listen | ❌ | Phase 3 – erfordert Kontomodell |
+| F15 | Registrierung / Konto | ❌ | Phase 3 |
+| F16 | Auswertungs-Dashboard | ❌ | Phase 2+ |
+| F17 | Preisvergleich (LIDL etc.) | ❌ | Phase 5 |
+| F18 | Rezept-Import | ❌ | Phase 5 |
+| F19 | Sprachassistenten | ❌ | Phase 5 |
+
+---
+
+## F13: Foto-Produkterfassung (MVP)
+
+### Übersicht
+Nutzer können Produkte, Kassenzettel, Handzettel und Regalfotos aus dem Laden fotografieren. Die Fotos werden in die Cloud hochgeladen und dort automatisch von einem KI-Modell (Claude API) verarbeitet. Erkannte Produkte, Preise und Barcodes werden automatisch in die Datenbank geschrieben. Produktbilder werden freigestellt und als Thumbnail gespeichert.
+
+### Zugang
+- Im MVP gibt es keinen Passwortschutz für die Foto-Erfassung
+- Jeder MVP-Nutzer kann Produkte über Fotos hinzufügen
+- Erreichbar über einen eigenen Bereich in der App (z.B. Tab "Produkte erfassen" oder Icon in der Navigation)
+
+### Foto-Typen und Erkennung
+
+Die Software erkennt automatisch, um welchen Foto-Typ es sich handelt:
+
+**Typ 1: Produktfoto (Vorderseite)**
+- Erkennt: Produktname, Marke, Gewicht/Menge, Variante
+- Erstellt freigestelltes Produktbild (Hintergrund entfernt) als Thumbnail
+- Versucht Preis zu erkennen (wenn Preisschild sichtbar)
+
+**Typ 2: Produktfoto (Rückseite)**
+- Erkennt: EAN/Barcode, Nährwerte, Zutaten, Allergene, Herkunftsland
+- Ordnet die Daten dem zuletzt erfassten oder per Barcode identifizierten Produkt zu
+
+**Typ 3: Kassenzettel**
+- Erkennt: Liste von Produktnamen und Preisen
+- Matching mit bestehenden Produkten in der Datenbank (über Name-Ähnlichkeit)
+- Aktualisiert Preise bei bereits vorhandenen Produkten
+- Legt neue Produkte an, wenn kein Match gefunden wird (mit Status "pending review")
+- Erkennt Datum des Kassenzettels für price_updated_at
+
+**Typ 4: Handzettel / Prospekt-Screenshot**
+- Erkennt: Aktionsartikel mit Namen, Preisen, Gültigkeitszeitraum
+- Setzt assortment_type = 'special' und special_start_date / special_end_date
+- Legt neue Aktionsartikel an oder aktualisiert bestehende
+
+**Typ 5: Regalfoto aus dem Laden**
+- Erkennt: Mehrere Produkte gleichzeitig mit Preisschildern
+- Erstellt/aktualisiert Produkte mit aktuellem Preis
+- Kann auch Demand Group ableiten (z.B. "Kühlregal" → "Frische & Kühlung")
+
+### Workflow
+
+```
+Nutzer öffnet Foto-Bereich
+  → Kamera-Ansicht oder "Foto aus Galerie wählen"
+  → Foto wird aufgenommen / ausgewählt
+  → Sofortiger Upload in Supabase Storage (Foto bleibt nicht auf dem Gerät)
+  → Nutzer kann sofort nächstes Foto machen (kein Warten)
+  → Cloud-Verarbeitung läuft asynchron:
+      1. Claude API analysiert das Foto
+      2. Typ wird erkannt (Produkt/Kassenzettel/Handzettel/Regal)
+      3. Daten werden extrahiert
+      4. Internet-Abfrage (Open Food Facts) für Zusatzinfos via EAN
+      5. Produktbild wird freigestellt und als Thumbnail gespeichert
+      6. Daten werden in Supabase geschrieben
+  → Nutzer sieht Status-Feed: "Verarbeitet...", "3 Produkte erkannt", "Preis aktualisiert"
+```
+
+### Duplikat-Handling
+
+Wenn ein erkanntes Produkt bereits in der Datenbank existiert:
+- **Neue Daten ergänzen fehlende Felder:** z.B. Produkt hat keinen Preis → Preis wird ergänzt
+- **Produktbild:** Wenn ein Produktbild bereits existiert, wird der Nutzer gefragt: "Existierendes Produktbild überschreiben? [Ja] [Nein]"
+- **Preis:** Neuerer Preis überschreibt älteren automatisch (mit Aktualisierung von price_updated_at)
+- **Andere Felder:** Bestehende Daten werden NICHT überschrieben, nur leere Felder werden ergänzt
+
+### Upload von existierenden Fotos
+
+- Neben der Kamera-Funktion gibt es einen "Galerie"-Button
+- Nutzer kann mehrere Fotos auf einmal aus der Galerie auswählen
+- Alle werden in die Upload-Queue gestellt und nacheinander verarbeitet
+
+### Verarbeitungs-Queue und Status
+
+- Jedes Foto bekommt einen Eintrag in einer Queue-Tabelle
+- Status: uploading → processing → completed / error
+- Nutzer sieht eine Übersicht der letzten Uploads mit Status
+- Bei Fehlern: "Foto konnte nicht verarbeitet werden" mit Option zum erneuten Versuch
+
+### Technische Architektur
+
+**Frontend (App):**
+- Kamera-Zugriff via Browser MediaDevices API (gleich wie Barcode-Scanner)
+- Upload direkt an Supabase Storage (kein Umweg über Server)
+- Status-Polling oder Realtime-Subscription für Verarbeitungsstatus
+
+**Backend (Vercel Serverless Functions oder Supabase Edge Functions):**
+- Trigger bei neuem Foto in Storage
+- Claude API Call mit dem Bild (Vision-Fähigkeit)
+- Prompt enthält Anweisungen zur Extraktion je nach erkanntem Fototyp
+- Open Food Facts API Call wenn EAN erkannt wurde
+- Bildfreistellung via Background Removal API oder Claude-gesteuerte Crop-Koordinaten
+- Schreiben der Ergebnisse in Supabase
+
+**Storage:**
+- Original-Fotos: Supabase Storage Bucket "product-photos"
+- Thumbnails: Supabase Storage Bucket "product-thumbnails" (150x150px)
+- Fotos werden nach erfolgreicher Verarbeitung archiviert (nicht gelöscht, für späteres Re-Processing)
+
+### Datenmodell-Erweiterungen
+
+**Neue Tabelle: photo_uploads**
+
+| Feld | Beschreibung |
+|------|-------------|
+| upload_id | Eindeutige ID |
+| user_id | Wer hat das Foto hochgeladen |
+| photo_url | URL in Supabase Storage |
+| photo_type | product_front / product_back / receipt / flyer / shelf (automatisch erkannt) |
+| status | uploading / processing / completed / error |
+| extracted_data | JSON mit den extrahierten Rohdaten |
+| products_created | Anzahl neu erstellter Produkte |
+| products_updated | Anzahl aktualisierter Produkte |
+| error_message | Fehlermeldung (wenn status = error) |
+| created_at | Upload-Zeitpunkt |
+| processed_at | Verarbeitungszeitpunkt |
+
+**Erweiterung Produkt-Tabelle:**
+
+| Feld | Beschreibung |
+|------|-------------|
+| thumbnail_url | URL des freigestellten Produktbildes (150x150px) |
+| photo_source_id | Verweis auf photo_uploads (welches Foto hat das Produkt erzeugt) |
+| nutrition_info | JSON mit Nährwerten (aus Rückseiten-Foto oder Open Food Facts) |
+| ingredients | Zutaten als Text |
+| allergens | Allergene als Text |
+
+### Kosten
+
+- Claude API: ca. 1-2 Cent pro Foto (Vision-Analyse)
+- Supabase Storage: Kostenlos im Free Tier bis 1 GB
+- Open Food Facts API: Kostenlos
+- Geschätzte Kosten bei 1.000 Fotos: ca. €10-20
+
+### Einschränkungen MVP
+
+- Keine automatische Qualitätsprüfung der Fotos (unscharfe Fotos werden trotzdem verarbeitet, Ergebnis kann unvollständig sein)
+- Freistellung des Produktbildes kann bei komplexen Hintergründen ungenau sein
+- Kassenzettel-Erkennung funktioniert am besten bei ALDI/Hofer-Kassenzetteln (bekanntes Format)
 
 ---
 
