@@ -7,6 +7,10 @@ import { QuantityWheelModal } from "./quantity-wheel-modal";
 const SWIPE_THRESHOLD = 60;
 const DELETE_WIDTH = 80;
 const THUMB_SIZE = 52;
+/** Min horizontal movement (px) before we treat as swipe – avoids drift during vertical scroll */
+const HORIZONTAL_SLOP = 18;
+/** Require horizontal movement to dominate: |dx| >= |dy| * ratio so vertical scroll doesn't trigger swipe */
+const HORIZONTAL_RATIO = 1.4;
 
 export interface ListItemRowProps {
   item: ListItemWithMeta;
@@ -29,18 +33,27 @@ export function ListItemRow({
   const [translateX, setTranslateX] = useState(0);
   const [wheelOpen, setWheelOpen] = useState(false);
   const touchStartX = useRef(0);
+  const touchStartY = useRef(0);
 
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.targetTouches[0].clientX;
+    touchStartY.current = e.targetTouches[0].clientY;
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    const current = e.targetTouches[0].clientX;
-    const diff = touchStartX.current - current;
-    if (diff > 0) {
-      setTranslateX(Math.min(diff, DELETE_WIDTH));
-    } else {
-      setTranslateX(Math.max(0, DELETE_WIDTH + diff));
+    const curX = e.targetTouches[0].clientX;
+    const curY = e.targetTouches[0].clientY;
+    const deltaX = touchStartX.current - curX;
+    const deltaY = touchStartY.current - curY;
+    const absX = Math.abs(deltaX);
+    const absY = Math.abs(deltaY);
+    // Only treat as horizontal swipe if movement is clearly horizontal (reduces accidental swipe when scrolling)
+    if (absX >= HORIZONTAL_SLOP && absX >= absY * HORIZONTAL_RATIO) {
+      if (deltaX > 0) {
+        setTranslateX(Math.min(deltaX, DELETE_WIDTH));
+      } else {
+        setTranslateX(Math.max(0, DELETE_WIDTH + deltaX));
+      }
     }
   };
 
@@ -79,7 +92,7 @@ export function ListItemRow({
       : null;
 
   return (
-    <div className="relative overflow-hidden rounded-xl">
+    <div className="relative min-w-0 w-full overflow-hidden rounded-xl">
       {/* Red delete zone (revealed on swipe) */}
       <button
         type="button"
@@ -91,9 +104,9 @@ export function ListItemRow({
         {deleteLabel}
       </button>
 
-      {/* Row content */}
+      {/* Row content: min-w-0 so flex can shrink and price stays visible when thumbnail is present */}
       <div
-        className="relative z-10 flex min-h-touch items-center gap-1.5 rounded-lg border border-aldi-muted-light bg-white px-2 py-2 transition-[transform,background-color] duration-200 ease-out"
+        className="relative z-10 flex min-h-touch min-w-0 items-center gap-1.5 rounded-lg border border-aldi-muted-light bg-white px-2 py-2 transition-[transform,background-color] duration-200 ease-out"
         style={{ transform: `translateX(-${translateX}px)` }}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
