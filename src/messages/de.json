@@ -95,6 +95,7 @@
       "searchExistingProduct": "Bestehendes Produkt suchen",
       "assignToProduct": "Welchem Produkt zuordnen?",
       "assignSuggested": "Zuordnen",
+      "sameProductSuggestion": "Gleiches Produkt? {name}",
       "confirm": "Bestätigen",
       "historyTitle": "Verlauf",
       "confirmed": "Bestätigt",

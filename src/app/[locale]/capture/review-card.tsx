@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useTranslations } from "next-intl";
 import { createClientIfConfigured } from "@/lib/supabase/client";
 import { useProducts } from "@/lib/products-context";
@@ -76,6 +76,21 @@ export function ReviewCard({ upload, userId, onConfirmed, onDiscarded }: ReviewC
   const [suggestedProduct, setSuggestedProduct] = useState<Product | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const syncedFromExtractedRef = useRef<string | null>(null);
+
+  // Felder sofort aus extracted_data übernehmen, sobald Daten da sind (z. B. nach Polling)
+  useEffect(() => {
+    if (!upload.upload_id || !first) return;
+    if (syncedFromExtractedRef.current === upload.upload_id) return;
+    syncedFromExtractedRef.current = upload.upload_id;
+    setName(first.name ?? "");
+    setBrand(first.brand ?? "");
+    setPrice(first.price != null ? String(first.price) : "");
+    setEan(first.ean_barcode ?? "");
+    setArticleNumber(first.article_number != null ? String(first.article_number) : "");
+    setWeightOrQuantity(first.weight_or_quantity ?? "");
+    setDemandGroup(first.demand_group ?? "");
+  }, [upload.upload_id, first]);
 
   const nameNorm = normalizeName(name || "");
   const matchedProduct =
@@ -126,8 +141,8 @@ export function ReviewCard({ upload, userId, onConfirmed, onDiscarded }: ReviewC
     return () => clearTimeout(t);
   }, [searchOpen, searchQuery, runProductSearch]);
 
+  // Gleiches Produkt vorschlagen: letztes per product_front bestätigtes Produkt – für product_back (Rückseite zuordnen) und für 2./3. Foto derselben Vorderseite
   useEffect(() => {
-    if (photoType !== "product_back") return;
     const supabase = createClientIfConfigured();
     if (!supabase) return;
     let cancelled = false;
@@ -138,7 +153,7 @@ export function ReviewCard({ upload, userId, onConfirmed, onDiscarded }: ReviewC
         .eq("user_id", userId)
         .eq("photo_type", "product_front")
         .eq("status", "confirmed")
-        .order("created_at", { ascending: false })
+        .order("processed_at", { ascending: false })
         .limit(1)
         .maybeSingle();
       if (cancelled || !lastUpload?.upload_id) return;
@@ -152,16 +167,22 @@ export function ReviewCard({ upload, userId, onConfirmed, onDiscarded }: ReviewC
     return () => {
       cancelled = true;
     };
-  }, [photoType, userId]);
+  }, [userId]);
 
+  // Automatisch zuordnen: product_back per EAN; product_front/back wenn Name mit vorgeschlagenem Produkt übereinstimmt (gleiches Produkt bei mehreren Fotos)
   useEffect(() => {
-    if (photoType === "product_back" && suggestedProduct && ean.trim()) {
+    if (!suggestedProduct || linkedProductId !== null) return;
+    if (photoType === "product_back" && ean.trim()) {
       const byEan = products.find(
         (p) => p.ean_barcode != null && String(p.ean_barcode) === ean.trim()
       );
-      if (byEan && !linkedProductId) setLinkedProductId(byEan.product_id);
+      if (byEan?.product_id === suggestedProduct.product_id) {
+        setLinkedProductId(suggestedProduct.product_id);
+      }
+    } else if (nameNorm && normalizeName(suggestedProduct.name ?? "") === nameNorm) {
+      setLinkedProductId(suggestedProduct.product_id);
     }
-  }, [photoType, suggestedProduct, ean, products, linkedProductId]);
+  }, [photoType, suggestedProduct, ean, nameNorm, products, linkedProductId]);
 
   const handleConfirm = async () => {
     setSubmitting(true);
@@ -370,6 +391,24 @@ export function ReviewCard({ upload, userId, onConfirmed, onDiscarded }: ReviewC
               className="ml-2 text-aldi-blue underline"
             >
               {t("chooseOtherProduct")}
+            </button>
+          </p>
+        ) : suggestedProduct ? (
+          <p className="text-sm text-aldi-text">
+            {t("sameProductSuggestion", { name: suggestedProduct.name })}
+            <button
+              type="button"
+              onClick={() => selectProduct(suggestedProduct)}
+              className="ml-2 text-aldi-blue underline"
+            >
+              {t("assignSuggested")}
+            </button>
+            <button
+              type="button"
+              onClick={openSearch}
+              className="ml-2 text-aldi-blue underline"
+            >
+              {t("searchExistingProduct")}
             </button>
           </p>
         ) : (

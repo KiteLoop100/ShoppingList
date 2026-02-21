@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { createClientIfConfigured } from "@/lib/supabase/client";
 import { ReviewCard, type PhotoUploadReviewRow } from "@/app/[locale]/capture/review-card";
@@ -37,6 +37,18 @@ export function CaptureStatusFeed({ userId, onPendingOverwrite }: CaptureStatusF
   const tReview = useTranslations("capture.review");
   const [uploads, setUploads] = useState<PhotoUploadRow[]>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
+
+  const fetchUploads = useCallback(async () => {
+    const supabase = createClientIfConfigured();
+    if (!supabase) return;
+    const { data } = await supabase
+      .from("photo_uploads")
+      .select("upload_id, user_id, photo_url, photo_type, status, products_created, products_updated, error_message, pending_thumbnail_overwrites, extracted_data, created_at, processed_at")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(40);
+    if (data) setUploads(data as PhotoUploadRow[]);
+  }, [userId]);
 
   useEffect(() => {
     const supabase = createClientIfConfigured();
@@ -100,6 +112,16 @@ export function CaptureStatusFeed({ userId, onPendingOverwrite }: CaptureStatusF
       supabase.removeChannel(channel);
     };
   }, [userId, onPendingOverwrite]);
+
+  // Polling fallback: Realtime kann auf dem Handy ausbleiben – alle 3 s neu laden, solange Uploads "uploading"/"processing" sind, damit pending_review ankommt
+  useEffect(() => {
+    const hasInProgress = uploads.some(
+      (u) => u.status === "uploading" || u.status === "processing"
+    );
+    if (!hasInProgress) return;
+    const interval = setInterval(fetchUploads, 3000);
+    return () => clearInterval(interval);
+  }, [uploads, fetchUploads]);
 
   const processingFlyerRef = useRef<string | null>(null);
 

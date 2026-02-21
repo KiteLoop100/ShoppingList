@@ -733,10 +733,10 @@ export async function POST(request: Request) {
       })
       .eq("upload_id", upload_id);
     if (reviewErr) {
-      // Constraint may not allow 'pending_review' yet – migration 20250220110000 needed.
-      // Fall back: save extracted_data with status 'completed' so user data isn't lost.
+      // Status 'pending_review' wird abgelehnt, wenn die Migration 20250220110000_photo_uploads_review_status nicht angewendet wurde.
+      // Dann erscheint das Bestätigungsfenster nicht – Migration ausführen: supabase db push bzw. 20250220110000 anwenden.
       console.error(
-        "[process-photo] pending_review update failed (run migration 20250220110000!):",
+        "[process-photo] pending_review update failed (Review-Fenster erscheint nicht). Migration 20250220110000 anwenden:",
         reviewErr.message
       );
       const { error: fallbackErr } = await supabase

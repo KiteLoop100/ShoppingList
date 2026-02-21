@@ -95,6 +95,7 @@
       "searchExistingProduct": "Search existing product",
       "assignToProduct": "Assign to product?",
       "assignSuggested": "Assign",
+      "sameProductSuggestion": "Same product? {name}",
       "confirm": "Confirm",
       "historyTitle": "History",
       "confirmed": "Confirmed",
