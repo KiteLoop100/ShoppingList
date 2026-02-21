@@ -308,11 +308,20 @@ export async function POST(request: Request) {
     if (!imageRes.ok) throw new Error(`Fetch: ${imageRes.status}`);
     const buf = await imageRes.arrayBuffer();
     mediaType = imageRes.headers.get("content-type")?.split(";")[0] || "image/jpeg";
-    imageBase64 = Buffer.from(buf).toString("base64");
-    if (!is_pdf) imageBuffer = Buffer.from(buf);
-    if (mediaType === "application/pdf" || is_pdf) {
+    const isPdfContent = mediaType === "application/pdf" || is_pdf === true;
+    if (isPdfContent) {
       pdfByteLength = buf.byteLength;
       pdfBuf = buf;
+      imageBase64 = Buffer.from(buf).toString("base64");
+    } else {
+      imageBuffer = Buffer.from(buf);
+      const resized = await sharp(imageBuffer)
+        .resize(2000, 2000, { fit: "inside", withoutEnlargement: true })
+        .jpeg({ quality: 80 })
+        .toBuffer();
+      imageBuffer = resized;
+      mediaType = "image/jpeg";
+      imageBase64 = resized.toString("base64");
     }
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Fetch failed";
