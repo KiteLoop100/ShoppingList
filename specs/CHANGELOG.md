@@ -5,6 +5,13 @@
 
 ---
 
+## 2025-02-21 – F14: Handzettel-Browser
+
+- **FEATURES.md:** Neues Feature F14: Handzettel-Browser. Wöchentliche Handzettel als durchblätterbare Seiten, Produkte pro Seite mit [+] Button zum Hinzufügen zur Einkaufsliste. PDF-Import erzeugt Seitenbilder und Produkt-Seitenzuordnung. Feature-Tabelle renummeriert (F14-F20)
+- **DATA-MODEL.md:** Neue Tabellen flyers und flyer_pages, Erweiterung Product um flyer_id und flyer_page
+
+---
+
 ## 2025-02-20 – Dreistufiger Sortier-Algorithmus
 
 - **LEARNING-LOGIC.md:** Abschnitt 2.4 komplett überarbeitet: Algorithmus lernt jetzt auf drei Ebenen (Demand Group → Sub-Group → Produkt). Jede Ebene hat eigenständiges Schichten-Modell mit unabhängiger Gewichtung. Standard-Fallback auf Ebene 3 ist Popularitäts-Sortierung

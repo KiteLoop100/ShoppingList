@@ -557,12 +557,13 @@ Minimale Einstellungsseite für die wichtigsten Konfigurationen.
 | F11 | Mehrsprachigkeit | ✅ | DE + EN, i18n-ready |
 | F12 | Einstellungen | ✅ | Sprache, Standard-Laden |
 | F13 | Foto-Produkterfassung | ✅ | MVP – Fotos von Produkten, Kassenzetteln, Handzetteln |
-| F14 | Geteilte Listen | ❌ | Phase 3 – erfordert Kontomodell |
-| F15 | Registrierung / Konto | ❌ | Phase 3 |
-| F16 | Auswertungs-Dashboard | ❌ | Phase 2+ |
-| F17 | Preisvergleich (LIDL etc.) | ❌ | Phase 5 |
-| F18 | Rezept-Import | ❌ | Phase 5 |
-| F19 | Sprachassistenten | ❌ | Phase 5 |
+| F14 | Handzettel-Browser | ✅ | MVP – Wöchentliche Handzettel durchblättern, Produkte direkt zur Liste hinzufügen |
+| F15 | Geteilte Listen | ❌ | Phase 3 – erfordert Kontomodell |
+| F16 | Registrierung / Konto | ❌ | Phase 3 |
+| F17 | Auswertungs-Dashboard | ❌ | Phase 2+ |
+| F18 | Preisvergleich (LIDL etc.) | ❌ | Phase 5 |
+| F19 | Rezept-Import | ❌ | Phase 5 |
+| F20 | Sprachassistenten | ❌ | Phase 5 |
 
 ---
 
@@ -705,6 +706,139 @@ Wenn ein erkanntes Produkt bereits in der Datenbank existiert:
 - Keine automatische Qualitätsprüfung der Fotos (unscharfe Fotos werden trotzdem verarbeitet, Ergebnis kann unvollständig sein)
 - Freistellung des Produktbildes kann bei komplexen Hintergründen ungenau sein
 - Kassenzettel-Erkennung funktioniert am besten bei ALDI/Hofer-Kassenzetteln (bekanntes Format)
+
+---
+
+## F14: Handzettel-Browser (MVP)
+
+### Übersicht
+Ein eigener Bereich in der App, in dem Nutzer die wöchentlichen ALDI-Handzettel (Prospekte) durchblättern können. Jede PDF-Seite wird als Bild angezeigt. Unter jeder Seite stehen die erkannten Aktionsprodukte als Buttons – ein Tap fügt das Produkt direkt zur Einkaufsliste hinzu.
+
+### Zugang
+- Erreichbar über ein Icon in der Navigation (z.B. Prospekt/Handzettel-Symbol)
+- Route: /[locale]/flyer
+- Kein Passwortschutz
+
+### Datenmodell-Erweiterungen
+
+**Neue Tabelle: flyers**
+
+| Feld | Beschreibung |
+|------|-------------|
+| flyer_id | Eindeutige ID |
+| title | Titel/Bezeichnung (z.B. "KW 09 – Angebote ab 24.02.") |
+| valid_from | Gültig ab (Datum) |
+| valid_until | Gültig bis (Datum) |
+| country | 'DE' oder 'AT' |
+| pdf_url | URL der Original-PDF in Supabase Storage |
+| total_pages | Anzahl Seiten |
+| status | active / expired (automatisch basierend auf valid_until) |
+| created_at | Upload-Zeitpunkt |
+
+**Neue Tabelle: flyer_pages**
+
+| Feld | Beschreibung |
+|------|-------------|
+| page_id | Eindeutige ID |
+| flyer_id | Verweis auf flyers |
+| page_number | Seitennummer (1, 2, 3, ...) |
+| image_url | URL des Seitenbilds in Supabase Storage (JPEG, erzeugt beim PDF-Import) |
+
+**Erweiterung products-Tabelle:**
+
+| Feld | Beschreibung |
+|------|-------------|
+| flyer_id | Verweis auf flyers (welcher Handzettel) – optional |
+| flyer_page | Seitennummer im Handzettel (für Zuordnung Produkt → Seite) |
+
+### PDF-Import-Workflow
+
+Beim Upload einer Handzettel-PDF über die Foto-Erfassung (F13):
+
+```
+1. PDF wird in Supabase Storage hochgeladen
+2. Neuer Eintrag in flyers-Tabelle (Titel, Datum aus Claude-Analyse der ersten Seite)
+3. PDF wird seitenweise aufgeteilt (wie bereits implementiert)
+4. Jede Seite wird als JPEG-Bild in Supabase Storage gespeichert
+5. Eintrag in flyer_pages pro Seite (mit image_url)
+6. Claude analysiert jede Seite und extrahiert Produkte
+7. Produkte werden in products-Tabelle geschrieben mit flyer_id und flyer_page
+```
+
+### UI: Handzettel-Übersicht (/[locale]/flyer)
+
+```
+┌─────────────────────────────────┐
+│ ←  Handzettel                    │
+│                                   │
+│ ┌───────────────────────────────┐ │
+│ │ KW 09 – ab 24.02.            │ │
+│ │ [Seite 1 als großes Bild]    │ │
+│ │                               │ │
+│ └───────────────────────────────┘ │
+│                                   │
+│ ┌───────────────────────────────┐ │
+│ │ KW 08 – ab 17.02.            │ │
+│ │ [Seite 1 als großes Bild]    │ │
+│ │  (ausgegraut wenn abgelaufen) │ │
+│ └───────────────────────────────┘ │
+│                                   │
+│ ...                               │
+└─────────────────────────────────┘
+```
+
+- Handzettel werden nach Datum sortiert (neuester oben)
+- Erste Seite füllt die Kartenbreite aus
+- Abgelaufene Handzettel werden ausgegraut aber bleiben sichtbar
+- Tap auf einen Handzettel → Detailansicht
+
+### UI: Handzettel-Detailansicht
+
+```
+┌─────────────────────────────────┐
+│ ← KW 09 – ab 24.02.            │
+│   Gültig bis 01.03.             │
+│                                   │
+│ [Seite 1 als bildschirmbreites   │
+│  Bild, Pinch-to-Zoom möglich]   │
+│                                   │
+│ Produkte auf dieser Seite:       │
+│ ┌─────────────────────────────┐  │
+│ │ Sitzkissen         1,79€ [+]│  │
+│ │ BELAVI                      │  │
+│ ├─────────────────────────────┤  │
+│ │ Gartenstuhl       29,99€ [+]│  │
+│ │ BELAVI                      │  │
+│ ├─────────────────────────────┤  │
+│ │ Sonnenschirm      14,99€ [+]│  │
+│ │ BELAVI                      │  │
+│ └─────────────────────────────┘  │
+│                                   │
+│ [Seite 2 als Bild]              │
+│                                   │
+│ Produkte auf dieser Seite:       │
+│ ┌─────────────────────────────┐  │
+│ │ Lachs              3,49€ [+]│  │
+│ │ ...                         │  │
+│ └─────────────────────────────┘  │
+│                                   │
+│ ... (alle Seiten scrollen)       │
+└─────────────────────────────────┘
+```
+
+- Alle Seiten untereinander, vertikales Scrollen
+- Jedes Seitenbild ist bildschirmbreit, Pinch-to-Zoom zum Vergrößern
+- Unter jedem Seitenbild: Liste der Produkte dieser Seite
+- Jedes Produkt hat einen [+] Button der es zur Einkaufsliste hinzufügt
+- Nach Tap auf [+]: Kurzes Feedback "Zur Liste hinzugefügt ✓" (Toast-Nachricht)
+- Produkte die bereits auf der Einkaufsliste stehen werden mit einem Häkchen markiert statt [+]
+
+### Verbindung zu F13
+
+- Der PDF-Upload läuft weiterhin über die Foto-Erfassung (F13)
+- Beim Upload einer PDF wird automatisch erkannt dass es ein Handzettel ist
+- Die Seiten-Bilder und Produkt-Seitenzuordnung werden beim Import erstellt
+- Der Handzettel-Browser zeigt die importierten Daten nur an
 
 ---
 

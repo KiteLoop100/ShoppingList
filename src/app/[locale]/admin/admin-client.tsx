@@ -79,6 +79,8 @@ export function AdminClient() {
   const [editingAlias, setEditingAlias] = useState<LocalCategoryAlias | null>(null);
   const [csvText, setCsvText] = useState("");
   const [csvResult, setCsvResult] = useState<string | null>(null);
+  const [assignDemandGroupsLoading, setAssignDemandGroupsLoading] = useState(false);
+  const [assignDemandGroupsProgress, setAssignDemandGroupsProgress] = useState<string | null>(null);
 
   const checkAuth = useCallback(async () => {
     try {
@@ -289,6 +291,42 @@ export function AdminClient() {
 
   const getStoreName = (store_id: string) => stores.find((s) => s.store_id === store_id)?.name ?? store_id;
 
+  const runAssignDemandGroups = async () => {
+    setAssignDemandGroupsLoading(true);
+    setAssignDemandGroupsProgress(null);
+    let totalAssigned = 0;
+    let batchNum = 0;
+    let totalEstimated = 0;
+    try {
+      for (;;) {
+        batchNum++;
+        const res = await fetch("/api/admin/assign-demand-groups", { method: "POST" });
+        const data = await res.json();
+        if (!res.ok) {
+          setAssignDemandGroupsProgress(t("loginError") + " " + (data.error ?? res.statusText));
+          break;
+        }
+        totalAssigned += data.assigned_this_batch ?? 0;
+        if (batchNum === 1 && (data.total_remaining ?? 0) >= 0) {
+          totalEstimated = totalAssigned + (data.total_remaining ?? 0);
+        }
+        const total = totalEstimated > 0 ? totalEstimated : totalAssigned + (data.total_remaining ?? 0);
+        setAssignDemandGroupsProgress(
+          data.done
+            ? t("assignDemandGroupsDone", { count: totalAssigned })
+            : t("assignDemandGroupsProgress", {
+                batch: batchNum,
+                assigned: totalAssigned,
+                total: total || totalAssigned + (data.total_remaining ?? 0),
+              })
+        );
+        if (data.done) break;
+      }
+    } finally {
+      setAssignDemandGroupsLoading(false);
+    }
+  };
+
   if (auth === null) {
     return (
       <main className="mx-auto min-h-screen max-w-2xl bg-white p-4">
@@ -448,6 +486,40 @@ export function AdminClient() {
             />
             <button type="button" onClick={bulkImportCsv} className="mt-3 min-h-touch rounded-xl bg-aldi-text px-4 py-2 text-sm font-semibold text-white">{t("import")}</button>
             {csvResult && <p className="mt-2 text-sm text-aldi-muted">{csvResult}</p>}
+          </div>
+
+          <div className="rounded-xl border-2 border-aldi-muted-light bg-gray-50/50 p-4">
+            <p className="mb-2 text-sm text-aldi-muted">
+              {t("assignDemandGroups")} (Supabase: Produkte ohne demand_group per Claude zuordnen)
+            </p>
+            <button
+              type="button"
+              onClick={runAssignDemandGroups}
+              disabled={assignDemandGroupsLoading}
+              className="min-h-touch rounded-xl bg-aldi-blue px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+            >
+              {assignDemandGroupsLoading ? "…" : t("assignDemandGroups")}
+            </button>
+            {assignDemandGroupsProgress && (
+              <p className="mt-2 text-sm font-medium text-aldi-text">{assignDemandGroupsProgress}</p>
+            )}
+          </div>
+
+          <div className="rounded-xl border-2 border-aldi-muted-light bg-gray-50/50 p-4">
+            <p className="mb-2 text-sm text-aldi-muted">
+              {t("assignDemandGroups")} (Supabase: Produkte ohne demand_group per Claude zuordnen)
+            </p>
+            <button
+              type="button"
+              onClick={runAssignDemandGroups}
+              disabled={assignDemandGroupsLoading}
+              className="min-h-touch rounded-xl bg-aldi-blue px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+            >
+              {assignDemandGroupsLoading ? "…" : t("assignDemandGroups")}
+            </button>
+            {assignDemandGroupsProgress && (
+              <p className="mt-2 text-sm font-medium text-aldi-text">{assignDemandGroupsProgress}</p>
+            )}
           </div>
 
           <div className="overflow-hidden rounded-xl border-2 border-aldi-muted-light">

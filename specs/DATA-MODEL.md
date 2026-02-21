@@ -478,5 +478,45 @@ Folgende Felder werden zur bestehenden Produkt-Tabelle (Abschnitt 5) hinzugefüg
 
 ---
 
-*Letzte Aktualisierung: 2025-02-20*
-*Status: Entwurf v2 – F13 Foto-Produkterfassung ergänzt*
+## 18. Handzettel (Flyer) – F14
+
+### Handzettel-Tabelle (flyers)
+
+| Feld | Beschreibung |
+|------|-------------|
+| flyer_id | Eindeutige ID |
+| title | Titel/Bezeichnung (z.B. "KW 09 – Angebote ab 24.02.") |
+| valid_from | Gültig ab (Datum) |
+| valid_until | Gültig bis (Datum) |
+| country | Länderkennung: 'DE' oder 'AT' |
+| pdf_url | URL der Original-PDF in Supabase Storage |
+| total_pages | Anzahl Seiten der PDF |
+| status | active / expired (automatisch basierend auf valid_until) |
+| created_at | Upload-Zeitpunkt |
+
+### Handzettel-Seiten (flyer_pages)
+
+| Feld | Beschreibung |
+|------|-------------|
+| page_id | Eindeutige ID |
+| flyer_id | Verweis auf flyers.flyer_id |
+| page_number | Seitennummer (1, 2, 3, ...) |
+| image_url | URL des Seitenbilds als JPEG in Supabase Storage |
+
+### Erweiterung Produkt-Tabelle (Product)
+
+| Feld | Beschreibung |
+|------|-------------|
+| flyer_id | Verweis auf flyers.flyer_id (aus welchem Handzettel stammt das Produkt) – optional |
+| flyer_page | Seitennummer im Handzettel (für Zuordnung Produkt → Seite in der Anzeige) |
+
+### Verknüpfungslogik
+- Beim PDF-Import werden Produkte seitenweise analysiert
+- Jedes Produkt bekommt flyer_id und flyer_page zugewiesen
+- Im Handzettel-Browser werden Produkte über flyer_id + flyer_page der richtigen Seite zugeordnet
+- Abgelaufene Handzettel: Produkte bleiben in der DB, Handzettel-Status wechselt auf 'expired'
+
+---
+
+*Letzte Aktualisierung: 2025-02-21*
+*Status: Entwurf v3 – F14 Handzettel-Browser ergänzt*

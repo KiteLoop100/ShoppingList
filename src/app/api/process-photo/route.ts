@@ -1,13 +1,15 @@
 /**
  * F13: Process uploaded photo with Claude Vision. Detect type, extract data, optionally call Open Food Facts, upsert products.
- * Supports images and PDF flyers (ALDI Handzettel). Thumbnails: product_front = resized photo; flyer_pdf = first page of PDF rendered to 150x150, stored in product-thumbnails bucket.
- * PDFs > 20MB are split into page chunks (max 5 pages per Claude call) to avoid 413; products from all chunks are merged.
+ * Thumbnails: product_front = Claude bounding box + Sharp extract → 150x150 on white (fallback center crop); product_back = center crop; flyer_pdf = first page of PDF to 150x150.
+ * PDFs > 20MB are chunked (max 5 pages per Claude call).
  */
 
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PDFDocument } from "pdf-lib";
 import sharp from "sharp";
+import { DEMAND_GROUPS_INSTRUCTION } from "@/lib/products/demand-groups-prompt";
+import { getDemandGroupFallback } from "@/lib/products/demand-group-fallback";
 
 const CLAUDE_MODEL = "claude-sonnet-4-5-20250929";
 /** PDFs larger than this trigger chunked processing (Claude 413). */
@@ -17,22 +19,26 @@ const PDF_PAGES_PER_CALL = 5;
 
 const FLYER_PDF_PROMPT = `Dies ist ein ALDI SÜD Aktions-Handzettel (Prospekt). Extrahiere JEDEN Aktionsartikel. Pro Produkt: article_number (falls sichtbar), name (vollständiger Produktname), price (Aktionspreis), weight_or_quantity (Gewicht/Menge falls angegeben), brand (Marke falls sichtbar), special_start_date (Gültig ab, Format YYYY-MM-DD), special_end_date (Gültig bis, Format YYYY-MM-DD). Der Gültigkeitszeitraum steht meistens auf der ersten Seite oder als Überschrift. Setze assortment_type auf special für alle Produkte.
 
-Antworte ausschließlich mit validem JSON. Kein Markdown, keine Backticks, kein zusätzlicher Text.
+${DEMAND_GROUPS_INSTRUCTION}
+
+Antworte ausschließlich mit validem JSON. Kein Markdown, keine Backticks, kein zusätzlicher Text. Jedes Produkt MUSS demand_group und demand_sub_group haben (string oder null; null nur wenn wirklich unklar).
 
 {
   "photo_type": "flyer_pdf",
   "products": [
-    { "article_number": "string or null", "name": "string", "price": number or null, "weight_or_quantity": "string or null", "brand": "string or null", "special_start_date": "YYYY-MM-DD or null", "special_end_date": "YYYY-MM-DD or null" }
+    { "article_number": "string or null", "name": "string", "price": number or null, "weight_or_quantity": "string or null", "brand": "string or null", "special_start_date": "YYYY-MM-DD or null", "special_end_date": "YYYY-MM-DD or null", "demand_group": "string or null", "demand_sub_group": "string or null" }
   ]
 }`;
 
 const VISION_PROMPT = `You are analyzing a photo from a grocery shopping context. Classify the photo type and extract structured data.
 
-Antworte ausschließlich mit validem JSON. Kein Markdown, keine Backticks, kein zusätzlicher Text.
+${DEMAND_GROUPS_INSTRUCTION}
+
+Antworte ausschließlich mit validem JSON. Kein Markdown, keine Backticks, kein zusätzlicher Text. Jedes Produkt MUSS demand_group und demand_sub_group haben (string oder null; null nur wenn wirklich unklar).
 
 Photo types: product_front (single product front), product_back (product back with barcode/nutrition), receipt (supermarket receipt), flyer (promo flyer), shelf (store shelf with multiple products).
 
-For RECEIPTS (ALDI/Hofer): The number on the far LEFT of each line is article_number. Extract EVERY line as one product. For receipts return ONLY {article_number, name, price} per product. No other fields. This keeps the response short enough for large receipts with 80+ items. Ignore payment lines, tax summaries, totals, subtotals, card details, TSE data, store address, and footer text. Only extract actual product purchase lines. If name is unclear use raw receipt text.
+For RECEIPTS (ALDI/Hofer): The number on the far LEFT of each line is article_number. Extract EVERY line as one product. Return {article_number, name, price, demand_group, demand_sub_group} per product. Even for abbreviated receipt names (e.g. MILS.FETT.MI, BIO TRINKM) try to infer demand_group (e.g. Milchprodukte). Ignore payment lines, tax summaries, totals, subtotals, card details, TSE data, store address, and footer text. Only extract actual product purchase lines. If name is unclear use raw receipt text.
 
 For non-receipt photos use the full shape below.
 
@@ -40,14 +46,18 @@ Respond with a single JSON object, no markdown:
 {
   "photo_type": "product_front" | "product_back" | "receipt" | "flyer" | "shelf",
   "products": [
-    { "article_number": "string or null", "name": "string", "price": number or null }
+    { "article_number": "string or null", "name": "string", "price": number or null, "demand_group": "string or null", "demand_sub_group": "string or null" }
   ],
   "receipt_date": "YYYY-MM-DD or null if receipt",
   "special_valid_from": "YYYY-MM-DD or null if flyer",
   "special_valid_to": "YYYY-MM-DD or null if flyer"
 }
 
-For receipts each product has only article_number, name, price. For other photo types you may add brand, ean_barcode, demand_group etc. Keep JSON compact.`;
+For receipts each product has article_number, name, price, demand_group, demand_sub_group. For other photo types add brand, ean_barcode etc. Keep JSON compact.`;
+
+const CROP_PROMPT = `Identify the main product in this image. Return the bounding box of the product as JSON: { "crop_x", "crop_y", "crop_width", "crop_height" } in pixels. The bounding box should tightly contain only the product, excluding background, shelves, hands, and other objects. Also return the image dimensions as { "image_width", "image_height" }.
+
+Reply with ONLY a single JSON object, no markdown, no backticks. Example: {"crop_x":100,"crop_y":50,"crop_width":300,"crop_height":400,"image_width":800,"image_height":600}`;
 
 function normalizeName(name: string): string {
   return name
@@ -127,6 +137,7 @@ interface ExtractedProduct {
   ingredients?: string | null;
   allergens?: string | null;
   demand_group?: string | null;
+  demand_sub_group?: string | null;
   special_start_date?: string | null;
   special_end_date?: string | null;
 }
@@ -181,6 +192,68 @@ async function callClaudeWithPdf(
   if (!text) throw new Error("No response from Claude");
   const cleaned = text.replace(/^```json?\s*/i, "").replace(/\s*```\s*$/i, "").trim();
   return JSON.parse(cleaned) as ClaudeResponse;
+}
+
+/** Ask Claude for product bounding box. Returns null on failure or invalid response. */
+async function getProductBoundingBox(
+  apiKey: string,
+  imageBase64: string,
+  mediaType: string,
+  imageWidth: number,
+  imageHeight: number
+): Promise<{ crop_x: number; crop_y: number; crop_width: number; crop_height: number } | null> {
+  try {
+    const prompt = `${CROP_PROMPT}\n\nThe image is ${imageWidth} x ${imageHeight} pixels.`;
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: CLAUDE_MODEL,
+        max_tokens: 256,
+        messages: [
+          {
+            role: "user" as const,
+            content: [
+              {
+                type: "image" as const,
+                source: {
+                  type: "base64" as const,
+                  media_type: mediaType as "image/jpeg" | "image/png" | "image/gif" | "image/webp",
+                  data: imageBase64,
+                },
+              },
+              { type: "text" as const, text: prompt },
+            ],
+          },
+        ],
+      }),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const text = data.content?.[0]?.text;
+    if (!text) return null;
+    const cleaned = text.replace(/^```json?\s*/i, "").replace(/\s*```\s*$/i, "").trim();
+    const parsed = JSON.parse(cleaned) as {
+      crop_x?: number;
+      crop_y?: number;
+      crop_width?: number;
+      crop_height?: number;
+      image_width?: number;
+      image_height?: number;
+    };
+    const crop_x = Math.max(0, Math.floor(Number(parsed.crop_x) ?? 0));
+    const crop_y = Math.max(0, Math.floor(Number(parsed.crop_y) ?? 0));
+    const crop_width = Math.max(1, Math.floor(Number(parsed.crop_width) ?? 0));
+    const crop_height = Math.max(1, Math.floor(Number(parsed.crop_height) ?? 0));
+    if (crop_x + crop_width > imageWidth || crop_y + crop_height > imageHeight) return null;
+    return { crop_x, crop_y, crop_width, crop_height };
+  } catch {
+    return null;
+  }
 }
 
 export async function POST(request: Request) {
@@ -420,20 +493,47 @@ export async function POST(request: Request) {
   const { data: categories } = await supabase.from("categories").select("category_id").limit(1);
   const defaultCategoryId = categories?.[0]?.category_id;
 
-  // Thumbnail: orient from EXIF, crop to cover 150x150 (product in frame). product_front / flyer_pdf = main thumbnail; product_back = back thumbnail.
+  // Thumbnail: EXIF rotate + center cover crop (used for product_back and as fallback for product_front).
   const makeThumb = (buf: Buffer) =>
     sharp(buf)
-      .rotate() // EXIF orientation so thumbnail is correctly oriented
-      .resize(150, 150, { fit: "cover", position: "center" }) // crop to product, no letterboxing
+      .rotate()
+      .resize(150, 150, { fit: "cover", position: "center" })
       .jpeg({ quality: 85 })
       .toBuffer();
 
   let thumbnailUrl: string | null = null;
   let backThumbnailUrl: string | null = null;
 
-  if (photoType === "product_front" && imageBuffer) {
+  if (photoType === "product_front" && imageBuffer && apiKey) {
     try {
-      const thumbBuffer = await makeThumb(imageBuffer);
+      const orientedBuffer = await sharp(imageBuffer).rotate().toBuffer();
+      const meta = await sharp(orientedBuffer).metadata();
+      const w = meta.width ?? 0;
+      const h = meta.height ?? 0;
+      let thumbBuffer: Buffer;
+      if (w > 0 && h > 0) {
+        const orientedBase64 = orientedBuffer.toString("base64");
+        const box = await getProductBoundingBox(apiKey, orientedBase64, mediaType, w, h);
+        if (box) {
+          thumbBuffer = await sharp(orientedBuffer)
+            .extract({
+              left: box.crop_x,
+              top: box.crop_y,
+              width: box.crop_width,
+              height: box.crop_height,
+            })
+            .resize(150, 150, {
+              fit: "contain",
+              background: { r: 255, g: 255, b: 255 },
+            })
+            .jpeg({ quality: 85 })
+            .toBuffer();
+        } else {
+          thumbBuffer = await makeThumb(imageBuffer);
+        }
+      } else {
+        thumbBuffer = await makeThumb(imageBuffer);
+      }
       const thumbPath = `${upload_id}.jpg`;
       const { error: thumbUpErr } = await supabase.storage
         .from("product-thumbnails")
@@ -503,6 +603,41 @@ export async function POST(request: Request) {
     }
   }
 
+  const needsReview =
+    photoType === "product_front" || photoType === "product_back" || photoType === "shelf";
+
+  if (needsReview) {
+    const extractedData = {
+      ...claudeJson,
+      ...(thumbnailUrl != null ? { thumbnail_url: thumbnailUrl } : {}),
+      ...(backThumbnailUrl != null ? { thumbnail_back_url: backThumbnailUrl } : {}),
+    };
+    const { error: reviewErr } = await supabase
+      .from("photo_uploads")
+      .update({
+        status: "pending_review",
+        photo_type: photoType,
+        extracted_data: extractedData as unknown as Record<string, unknown>,
+        products_created: 0,
+        products_updated: 0,
+        processed_at: now,
+        error_message: null,
+        pending_thumbnail_overwrites: null,
+      })
+      .eq("upload_id", upload_id);
+    if (reviewErr) {
+      console.log("[process-photo] Pending-review update failed:", reviewErr.message);
+      return NextResponse.json({ error: "Failed to save for review" }, { status: 500 });
+    }
+    console.log("[process-photo] Saved for review", upload_id, "photo_type:", photoType);
+    return NextResponse.json({
+      ok: true,
+      upload_id: upload_id,
+      photo_type: photoType,
+      status: "pending_review",
+    });
+  }
+
   for (const p of products) {
     const name = (p.name || "").trim();
     if (!name) continue;
@@ -523,6 +658,11 @@ export async function POST(request: Request) {
     const allergens = p.allergens ?? offData?.allergens ?? null;
     const brand = (p.brand ?? offData?.brand ?? null)?.trim() || null;
     const displayName = (offData?.name ?? name).trim();
+    const fallbackDemand = getDemandGroupFallback(displayName);
+    const demandGroup =
+      (p.demand_group?.trim() || null) ?? fallbackDemand?.demand_group ?? null;
+    const demandSubGroup =
+      (p.demand_sub_group?.trim() || null) ?? fallbackDemand?.demand_sub_group ?? null;
 
     // Duplicate check: flyer_pdf = article_number then name_normalized; others = article_number, ean, name_normalized
     let existing: { product_id: string; thumbnail_url: string | null } | null = null;
@@ -589,7 +729,8 @@ export async function POST(request: Request) {
         if (current.ingredients == null && ingredients) updates.ingredients = ingredients;
         if (current.allergens == null && allergens) updates.allergens = allergens;
         if (current.ean_barcode == null && ean) updates.ean_barcode = ean;
-        if (current.demand_group == null && p.demand_group) updates.demand_group = p.demand_group;
+        if (current.demand_group == null && demandGroup) updates.demand_group = demandGroup;
+        if (current.demand_sub_group == null && demandSubGroup) updates.demand_sub_group = demandSubGroup;
         if (assortmentType === "special") {
           if (specialStart) updates.special_start_date = specialStart;
           if (specialEnd) updates.special_end_date = specialEnd;
@@ -636,7 +777,8 @@ export async function POST(request: Request) {
           nutrition_info: nutritionInfo,
           ingredients,
           allergens,
-          demand_group: p.demand_group ?? null,
+          demand_group: demandGroup,
+          demand_sub_group: demandSubGroup,
           special_start_date: assortmentType === "special" ? specialStart : null,
           special_end_date: assortmentType === "special" ? specialEnd : null,
           country: "DE",

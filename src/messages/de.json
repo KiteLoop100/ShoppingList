@@ -79,7 +79,28 @@
     "recentUploads": "Letzte Uploads",
     "noUploadsYet": "Noch keine Fotos hochgeladen.",
     "retry": "Erneut versuchen",
-    "dismiss": "Schließen"
+    "dismiss": "Schließen",
+    "review": {
+      "name": "Name",
+      "brand": "Marke",
+      "price": "Preis",
+      "ean": "EAN",
+      "articleNumber": "Artikelnummer",
+      "weightOrQuantity": "Gewicht/Menge",
+      "demandGroup": "Demand Group",
+      "linkedTo": "Verknüpft mit: {name}",
+      "chooseOtherProduct": "Anderes Produkt wählen",
+      "newProduct": "Neues Produkt",
+      "searchExistingProduct": "Bestehendes Produkt suchen",
+      "assignToProduct": "Welchem Produkt zuordnen?",
+      "assignSuggested": "Zuordnen",
+      "confirm": "Bestätigen",
+      "historyTitle": "Verlauf",
+      "confirmed": "Bestätigt",
+      "discarded": "Verworfen",
+      "searchPlaceholder": "Produkt suchen…",
+      "noMatch": "Kein Treffer"
+    }
   },
   "store": {
     "changeStore": "Laden wechseln",
@@ -148,6 +169,9 @@
     "noErrors": "Keine gemeldeten Fehler.",
     "data": "Daten",
     "exportTrips": "Einkaufsdaten exportieren",
-    "manageStores": "Ladendatenbank verwalten"
+    "manageStores": "Ladendatenbank verwalten",
+    "assignDemandGroups": "Demand Groups zuordnen",
+    "assignDemandGroupsProgress": "Batch {batch}: {assigned} von {total} Produkten zugeordnet",
+    "assignDemandGroupsDone": "Fertig. {count} Produkte zugeordnet."
   }
 }
