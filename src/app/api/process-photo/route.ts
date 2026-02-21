@@ -73,6 +73,28 @@ Respond with a single JSON object, no markdown:
 
 For receipts each product has article_number, name, price, demand_group, demand_sub_group. For other photo types add brand, ean_barcode etc. Keep JSON compact.`;
 
+/** Datenfoto: Einzelnes Foto (Strichcode, Rückseite, Nutri-Score, Preisschild) – nur Extraktion, keine Produkterstellung. */
+const DATA_EXTRACTION_PROMPT = `Extrahiere aus diesem Produktfoto alle sichtbaren Daten für ein Lebensmittel/Produkt. Das Foto kann Strichcode, Rückseite mit Inhaltsstoffen, Nährwerttabelle, Nutri-Score, Preisschild o. ä. zeigen.
+
+${DEMAND_GROUPS_INSTRUCTION}
+
+Antworte ausschließlich mit validem JSON. Kein Markdown, keine Backticks.
+Gib nur Felder an, die du auf dem Foto erkennst. Fehlende Werte als null.
+
+{
+  "name": "string or null",
+  "brand": "string or null",
+  "ean_barcode": "string or null",
+  "article_number": "string or null",
+  "price": number or null,
+  "weight_or_quantity": "string or null",
+  "ingredients": "string or null",
+  "nutrition_info": { "energy_kcal": number or null, "fat": number or null, "carbs": number or null, "protein": number or null, "salt": number or null } or null,
+  "allergens": "string or null",
+  "demand_group": "string or null",
+  "demand_sub_group": "string or null"
+}`;
+
 const CROP_PROMPT = `Identify the main product in this image. Return the bounding box of the product as JSON: { "crop_x", "crop_y", "crop_width", "crop_height" } in pixels. The bounding box should tightly contain only the product, excluding background, shelves, hands, and other objects. Also return the image dimensions as { "image_width", "image_height" }.
 
 Reply with ONLY a single JSON object, no markdown, no backticks. Example: {"crop_x":100,"crop_y":50,"crop_width":300,"crop_height":400,"image_width":800,"image_height":600}`;
@@ -289,7 +311,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "ANTHROPIC_API_KEY not set" }, { status: 500 });
   }
 
-  let body: { upload_id?: string; photo_url?: string; is_pdf?: boolean };
+  let body: { upload_id?: string; photo_url?: string; is_pdf?: boolean; data_extraction?: boolean };
   try {
     body = await request.json();
   } catch {
@@ -297,8 +319,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { upload_id, photo_url, is_pdf } = body;
-  console.log("[process-photo] upload_id:", upload_id, "photo_url length:", photo_url?.length ?? 0, "is_pdf:", is_pdf);
+  const { upload_id, photo_url, is_pdf, data_extraction } = body;
+  console.log("[process-photo] upload_id:", upload_id, "photo_url length:", photo_url?.length ?? 0, "is_pdf:", is_pdf, "data_extraction:", data_extraction);
   if (!upload_id || !photo_url) {
     console.log("[process-photo] Missing upload_id or photo_url");
     return NextResponse.json({ error: "upload_id and photo_url required" }, { status: 400 });
@@ -383,6 +405,85 @@ export async function POST(request: Request) {
     console.log("[process-photo] Detected PDF from content-type, processing as flyer");
   }
   console.log("[process-photo] Fetched, is_pdf:", is_pdf, "isPdf:", isPdf, "calling Claude");
+
+  // Datenfoto: nur Extraktion, keine Produkterstellung (manuelles Produkt anlegen)
+  if (data_extraction && !isPdf) {
+    try {
+      const content = [
+        {
+          type: "image" as const,
+          source: {
+            type: "base64" as const,
+            media_type: mediaType as "image/jpeg" | "image/png" | "image/gif" | "image/webp",
+            data: imageBase64,
+          },
+        },
+        { type: "text" as const, text: DATA_EXTRACTION_PROMPT },
+      ];
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify({
+          model: CLAUDE_MODEL,
+          max_tokens: 4096,
+          messages: [{ role: "user", content }],
+        }),
+      });
+      if (!res.ok) {
+        const errText = await res.text();
+        await supabase
+          .from("photo_uploads")
+          .update({ status: "error", error_message: `Claude: ${res.status}`, processed_at: now })
+          .eq("upload_id", upload_id);
+        return NextResponse.json({ error: "Claude API failed" }, { status: 502 });
+      }
+      const data = await res.json();
+      const text = data.content?.[0]?.text;
+      if (!text) {
+        await supabase
+          .from("photo_uploads")
+          .update({ status: "error", error_message: "No response from Claude", processed_at: now })
+          .eq("upload_id", upload_id);
+        return NextResponse.json({ error: "No Claude response" }, { status: 502 });
+      }
+      const cleaned = text.replace(/^```json?\s*/i, "").replace(/\s*```\s*$/i, "").trim();
+      const parsed = JSON.parse(cleaned) as Record<string, unknown>;
+      const product = {
+        name: parsed.name ?? null,
+        brand: parsed.brand ?? null,
+        ean_barcode: parsed.ean_barcode ?? null,
+        article_number: parsed.article_number ?? null,
+        price: typeof parsed.price === "number" ? parsed.price : null,
+        weight_or_quantity: parsed.weight_or_quantity ?? null,
+        ingredients: parsed.ingredients ?? null,
+        nutrition_info: (parsed.nutrition_info as Record<string, unknown>) ?? null,
+        allergens: parsed.allergens ?? null,
+        demand_group: parsed.demand_group ?? null,
+        demand_sub_group: parsed.demand_sub_group ?? null,
+      };
+      await supabase
+        .from("photo_uploads")
+        .update({
+          status: "completed",
+          extracted_data: { photo_type: "data_extraction", products: [product] } as unknown as Record<string, unknown>,
+          photo_type: "data_extraction",
+          processed_at: now,
+        })
+        .eq("upload_id", upload_id);
+      return NextResponse.json({ ok: true, extracted_data: product });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Data extraction failed";
+      await supabase
+        .from("photo_uploads")
+        .update({ status: "error", error_message: msg, processed_at: now })
+        .eq("upload_id", upload_id);
+      return NextResponse.json({ error: msg }, { status: 502 });
+    }
+  }
 
   let claudeJson: ClaudeResponse;
 

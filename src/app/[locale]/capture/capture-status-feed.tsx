@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useImperativeHandle, useRef, useState, forwardRef } from "react";
 import { useTranslations } from "next-intl";
 import { createClientIfConfigured } from "@/lib/supabase/client";
 import { ReviewCard, type PhotoUploadReviewRow } from "@/app/[locale]/capture/review-card";
@@ -27,12 +27,19 @@ interface FlyerExtractedData {
   pages_processed?: number;
 }
 
+export interface CaptureStatusFeedRef {
+  refetch: () => Promise<void>;
+}
+
 interface CaptureStatusFeedProps {
   userId: string;
   onPendingOverwrite?: (uploadId: string) => void;
 }
 
-export function CaptureStatusFeed({ userId, onPendingOverwrite }: CaptureStatusFeedProps) {
+export const CaptureStatusFeed = forwardRef<CaptureStatusFeedRef, CaptureStatusFeedProps>(function CaptureStatusFeed(
+  { userId, onPendingOverwrite },
+  ref
+) {
   const t = useTranslations("capture");
   const tReview = useTranslations("capture.review");
   const [uploads, setUploads] = useState<PhotoUploadRow[]>([]);
@@ -49,6 +56,8 @@ export function CaptureStatusFeed({ userId, onPendingOverwrite }: CaptureStatusF
       .limit(40);
     if (data) setUploads(data as PhotoUploadRow[]);
   }, [userId]);
+
+  useImperativeHandle(ref, () => ({ refetch: fetchUploads }), [fetchUploads]);
 
   useEffect(() => {
     const supabase = createClientIfConfigured();
@@ -113,15 +122,25 @@ export function CaptureStatusFeed({ userId, onPendingOverwrite }: CaptureStatusF
     };
   }, [userId, onPendingOverwrite]);
 
-  // Polling fallback: Realtime kann auf dem Handy ausbleiben – alle 3 s neu laden, solange Uploads "uploading"/"processing" sind, damit pending_review ankommt
+  // Polling: solange etwas "uploading"/"processing" ist, alle 3 s refetchen
+  const hadInProgressRef = useRef(false);
+  const hasInProgress = uploads.some(
+    (u) => u.status === "uploading" || u.status === "processing"
+  );
   useEffect(() => {
-    const hasInProgress = uploads.some(
-      (u) => u.status === "uploading" || u.status === "processing"
-    );
     if (!hasInProgress) return;
+    hadInProgressRef.current = true;
     const interval = setInterval(fetchUploads, 3000);
     return () => clearInterval(interval);
-  }, [uploads, fetchUploads]);
+  }, [uploads, hasInProgress, fetchUploads]);
+
+  // Sobald nichts mehr "in Progress" ist: einmal refetchen, damit pending_review sofort erscheint (Realtime kann ausbleiben)
+  useEffect(() => {
+    if (hasInProgress) return;
+    if (!hadInProgressRef.current) return;
+    hadInProgressRef.current = false;
+    fetchUploads();
+  }, [hasInProgress, fetchUploads]);
 
   const processingFlyerRef = useRef<string | null>(null);
 
@@ -293,4 +312,4 @@ export function CaptureStatusFeed({ userId, onPendingOverwrite }: CaptureStatusF
       </section>
     </>
   );
-}
+});

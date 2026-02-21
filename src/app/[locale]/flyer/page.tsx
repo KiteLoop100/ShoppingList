@@ -43,7 +43,7 @@ export default function FlyerOverviewPage() {
       const { data: flyersData } = await supabase
         .from("flyers")
         .select("flyer_id, title, valid_from, valid_until, status, total_pages")
-        .order("valid_from", { ascending: false });
+        .order("created_at", { ascending: false });
       if (!flyersData?.length) {
         setFlyers([]);
         setLoading(false);

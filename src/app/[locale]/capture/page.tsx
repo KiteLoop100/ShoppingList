@@ -5,7 +5,8 @@ import { useTranslations } from "next-intl";
 import { Link } from "@/lib/i18n/navigation";
 import { getDeviceUserId } from "@/lib/list/device-id";
 import { uploadPhotoAndEnqueue } from "@/app/[locale]/capture/upload";
-import { CaptureStatusFeed } from "@/app/[locale]/capture/capture-status-feed";
+import { CaptureStatusFeed, type CaptureStatusFeedRef } from "@/app/[locale]/capture/capture-status-feed";
+import { CreateProductModal } from "@/app/[locale]/capture/create-product-modal";
 import { OverwriteThumbnailDialog } from "@/app/[locale]/capture/overwrite-thumbnail-dialog";
 
 const PREVIEW_MAX_WIDTH = 300;
@@ -18,10 +19,12 @@ export default function CapturePage() {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [overwriteUploadId, setOverwriteUploadId] = useState<string | null>(null);
+  const [createProductOpen, setCreateProductOpen] = useState(false);
   const [pendingBlobs, setPendingBlobs] = useState<Blob[]>([]);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const statusFeedRef = useRef<CaptureStatusFeedRef | null>(null);
 
   useEffect(() => {
     return () => {
@@ -143,6 +146,10 @@ export default function CapturePage() {
         }
         if (result?.pendingOverwrite && result.uploadId) setOverwriteUploadId(result.uploadId);
       }
+      // Refetch nach Upload, damit pending_review sofort erscheint (Realtime kann ausbleiben)
+      const refetch = () => statusFeedRef.current?.refetch();
+      setTimeout(refetch, 2000);
+      setTimeout(refetch, 5000);
     } finally {
       setUploading(false);
     }
@@ -192,6 +199,13 @@ export default function CapturePage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
             {t("chooseFromGallery")}
+          </button>
+          <button
+            type="button"
+            onClick={() => setCreateProductOpen(true)}
+            className="flex items-center justify-center gap-2 rounded-xl border-2 border-aldi-muted-light bg-white px-4 py-3 text-aldi-text transition-opacity hover:bg-aldi-muted-light/30 disabled:opacity-50"
+          >
+            {t("createProduct.button")}
           </button>
         </div>
 
@@ -323,12 +337,17 @@ export default function CapturePage() {
           aria-hidden
         />
 
-        <CaptureStatusFeed userId={getDeviceUserId()} onPendingOverwrite={setOverwriteUploadId} />
+        <CaptureStatusFeed ref={statusFeedRef} userId={getDeviceUserId()} onPendingOverwrite={setOverwriteUploadId} />
       </div>
 
       <OverwriteThumbnailDialog
         uploadId={overwriteUploadId}
         onClose={() => setOverwriteUploadId(null)}
+      />
+      <CreateProductModal
+        open={createProductOpen}
+        onClose={() => setCreateProductOpen(false)}
+        onSaved={() => statusFeedRef.current?.refetch()}
       />
     </main>
   );
