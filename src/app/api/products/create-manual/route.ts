@@ -63,7 +63,7 @@ export async function POST(request: Request) {
     body.article_number != null ? String(body.article_number).trim() || null : null;
   const brand = body.brand != null ? String(body.brand).trim() || null : null;
   const price =
-    body.price != null && body.price !== "" ? Number(body.price) : null;
+    body.price != null && String(body.price) !== "" ? Number(body.price) : null;
   const weightOrQuantity =
     body.weight_or_quantity != null ? String(body.weight_or_quantity).trim() || null : null;
   const demandGroup =
