@@ -101,7 +101,10 @@ export function ShoppingListContent({
       let p: Product | undefined = products.find((x) => x.product_id === item.product_id);
       if (!p) {
         const fromDb = await db.products.where("product_id").equals(item.product_id).first();
-        if (fromDb) p = fromDb;
+        if (fromDb) p = fromDb as Product;
+      }
+      if (p && item.thumbnail_url && !p.thumbnail_url) {
+        p = { ...p, thumbnail_url: item.thumbnail_url };
       }
       setDetailProduct(p ?? null);
     },

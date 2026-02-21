@@ -21,6 +21,7 @@ export default function MainScreenPage() {
   const tStore = useTranslations("store");
   const tCommon = useTranslations("common");
   const tCapture = useTranslations("capture");
+  const tFlyer = useTranslations("flyer");
   const { summary, loading, refetch, listId, store } = useListSummary();
   const [showCompletion, setShowCompletion] = useState(false);
   const [listKey, setListKey] = useState(0);
@@ -114,7 +115,14 @@ export default function MainScreenPage() {
           aria-label={tStore("changeStore")}
           title={store ? `${store.name}, ${store.address}` : undefined}
         >
-          {store ? `${store.name} ▾` : tStore("changeStore")}
+          {store
+            ? (() => {
+                const street = (store.address || "").trim().slice(0, 8);
+                const cityLetter = (store.city || "").trim().charAt(0).toUpperCase();
+                const label = street && cityLetter ? `${street}, ${cityLetter}` : store.name;
+                return `${label} ▾`;
+              })()
+            : tStore("changeStore")}
         </button>
         <Link
           href="/capture"
@@ -125,6 +133,15 @@ export default function MainScreenPage() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 13v7a2 2 0 01-2 2H7a2 2 0 01-2-2v-7" />
+          </svg>
+        </Link>
+        <Link
+          href="/flyer"
+          className="touch-target flex items-center justify-center rounded-lg text-aldi-blue transition-colors hover:bg-aldi-muted-light/50"
+          aria-label={tFlyer("navLabel")}
+        >
+          <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
           </svg>
         </Link>
         <Link

@@ -1,7 +1,7 @@
 /**
- * F13: Process uploaded photo with Claude Vision. Detect type, extract data, optionally call Open Food Facts, upsert products.
- * Thumbnails: product_front = Claude bounding box + Sharp extract → 150x150 on white (fallback center crop); product_back = center crop; flyer_pdf = first page of PDF to 150x150.
- * PDFs > 20MB are chunked (max 5 pages per Claude call).
+ * F13/F14: Process uploaded photo with Claude Vision. Detect type, extract data, optionally call Open Food Facts, upsert products.
+ * Thumbnails: product_front = Claude bounding box + Sharp; product_back = center crop.
+ * PDF flyers: Split with pdf-lib into single-page PDFs, store in flyer-pages bucket, one Claude call per page (max 5 pages in initial request; rest via POST /api/process-flyer-page).
  */
 
 import { NextResponse } from "next/server";
@@ -12,16 +12,34 @@ import { DEMAND_GROUPS_INSTRUCTION } from "@/lib/products/demand-groups-prompt";
 import { getDemandGroupFallback } from "@/lib/products/demand-group-fallback";
 
 const CLAUDE_MODEL = "claude-sonnet-4-5-20250929";
-/** PDFs larger than this trigger chunked processing (Claude 413). */
-const PDF_SIZE_LIMIT_BYTES = 20 * 1024 * 1024;
-/** Max pages per API call to stay within Vercel timeout (60s Pro / 10s Free). */
-const PDF_PAGES_PER_CALL = 5;
+/** Max pages to process in the initial API call (Vercel ~60s timeout). Rest via process-flyer-page. */
+const PDF_PAGES_INITIAL_MAX = 5;
 
-const FLYER_PDF_PROMPT = `Dies ist ein ALDI SÜD Aktions-Handzettel (Prospekt). Extrahiere JEDEN Aktionsartikel. Pro Produkt: article_number (falls sichtbar), name (vollständiger Produktname), price (Aktionspreis), weight_or_quantity (Gewicht/Menge falls angegeben), brand (Marke falls sichtbar), special_start_date (Gültig ab, Format YYYY-MM-DD), special_end_date (Gültig bis, Format YYYY-MM-DD). Der Gültigkeitszeitraum steht meistens auf der ersten Seite oder als Überschrift. Setze assortment_type auf special für alle Produkte.
+const FLYER_PDF_FIRST_PAGE_PROMPT = `Dies ist die ERSTE Seite eines ALDI SÜD Aktions-Handzettels. Extrahiere: (1) Handzettel-Titel (flyer_title, z.B. "KW 09 – Angebote ab 24.02."), (2) Gültigkeitszeitraum (special_valid_from, special_valid_to, YYYY-MM-DD), (3) JEDEN Aktionsartikel auf dieser Seite.
+Das aktuelle Jahr ist 2026. Wenn auf dem Handzettel kein Jahr angegeben ist, verwende 2026 für alle Datumsangaben.
+Pro Produkt: article_number (falls sichtbar), name (vollständiger Produktname), price (Aktionspreis), weight_or_quantity (Gewicht/Menge falls angegeben), brand (Marke falls sichtbar), special_start_date, special_end_date (YYYY-MM-DD), demand_group, demand_sub_group.
 
 ${DEMAND_GROUPS_INSTRUCTION}
 
-Antworte ausschließlich mit validem JSON. Kein Markdown, keine Backticks, kein zusätzlicher Text. Jedes Produkt MUSS demand_group und demand_sub_group haben (string oder null; null nur wenn wirklich unklar).
+Antworte ausschließlich mit validem JSON. Kein Markdown, keine Backticks.
+
+{
+  "photo_type": "flyer_pdf",
+  "flyer_title": "string",
+  "special_valid_from": "YYYY-MM-DD or null",
+  "special_valid_to": "YYYY-MM-DD or null",
+  "products": [
+    { "article_number": "string or null", "name": "string", "price": number or null, "weight_or_quantity": "string or null", "brand": "string or null", "special_start_date": "YYYY-MM-DD or null", "special_end_date": "YYYY-MM-DD or null", "demand_group": "string or null", "demand_sub_group": "string or null" }
+  ]
+}`;
+
+const FLYER_PDF_PAGE_PROMPT = `Dies ist eine Seite eines ALDI SÜD Aktions-Handzettels (nicht die erste). Extrahiere JEDEN Aktionsartikel auf dieser Seite.
+Das aktuelle Jahr ist 2026. Wenn auf dem Handzettel kein Jahr angegeben ist, verwende 2026 für alle Datumsangaben.
+Pro Produkt: article_number (falls sichtbar), name (vollständiger Produktname), price (Aktionspreis), weight_or_quantity (Gewicht/Menge falls angegeben), brand (Marke falls sichtbar), special_start_date, special_end_date (YYYY-MM-DD), demand_group, demand_sub_group.
+
+${DEMAND_GROUPS_INSTRUCTION}
+
+Antworte ausschließlich mit validem JSON. Kein Markdown, keine Backticks.
 
 {
   "photo_type": "flyer_pdf",
@@ -148,12 +166,19 @@ interface ClaudeResponse {
   receipt_date?: string | null;
   special_valid_from?: string | null;
   special_valid_to?: string | null;
+  flyer_title?: string | null;
 }
 
-/** Call Claude with a PDF (base64) and FLYER_PDF_PROMPT; parse and return ClaudeResponse. */
+/** Extracted product with optional F14 flyer page number. */
+interface ExtractedProductWithPage extends ExtractedProduct {
+  flyer_page?: number;
+}
+
+/** Call Claude with a single-page PDF (base64) and the given prompt; parse and return ClaudeResponse. */
 async function callClaudeWithPdf(
   apiKey: string,
-  pdfBase64: string
+  pdfBase64: string,
+  prompt: string
 ): Promise<ClaudeResponse> {
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -177,7 +202,7 @@ async function callClaudeWithPdf(
                 data: pdfBase64,
               },
             },
-            { type: "text" as const, text: FLYER_PDF_PROMPT },
+            { type: "text" as const, text: prompt },
           ],
         },
       ],
@@ -286,6 +311,10 @@ export async function POST(request: Request) {
   }
 
   const now = new Date().toISOString();
+  /** F14: Set when processing flyer_pdf; used to set flyer_id/flyer_page on products. */
+  let flyerIdForProducts: string | null = null;
+  /** When flyer has >5 pages: after product upsert, set status "processing" and return process_remaining_pages. */
+  let flyerRemainingPages: { flyer_id: string; total_pages: number; pages_processed: number } | null = null;
 
   // Timeout cleanup: mark uploads stuck in 'processing' for > 5 minutes as 'error'
   const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
@@ -348,7 +377,7 @@ export async function POST(request: Request) {
   const isPdf = is_pdf === true || isPdfFromContent;
   if (isPdf) {
     const sizeMB = (pdfByteLength / (1024 * 1024)).toFixed(1);
-    console.log("[process-photo] PDF size:", sizeMB, "MB, limit:", PDF_SIZE_LIMIT_BYTES / (1024 * 1024), "MB");
+    console.log("[process-photo] PDF size:", sizeMB, "MB");
   }
   if (isPdfFromContent && !is_pdf) {
     console.log("[process-photo] Detected PDF from content-type, processing as flyer");
@@ -357,57 +386,148 @@ export async function POST(request: Request) {
 
   let claudeJson: ClaudeResponse;
 
-  if (isPdf && pdfByteLength > PDF_SIZE_LIMIT_BYTES && pdfBuf) {
+  if (isPdf && pdfBuf) {
     try {
       const pdfBytes = new Uint8Array(pdfBuf);
       const sourceDoc = await PDFDocument.load(pdfBytes);
       const totalPages = sourceDoc.getPageCount();
-      console.log("[process-photo] Large PDF: splitting into chunks of", PDF_PAGES_PER_CALL, "pages, total pages:", totalPages);
+      console.log("[process-photo] Flyer PDF: total pages:", totalPages);
 
-      const allProducts: ExtractedProduct[] = [];
-      let specialFrom: string | null = null;
-      let specialTo: string | null = null;
+      // Placeholder flyer (title/validity updated after page 1)
+      const today = new Date().toISOString().slice(0, 10);
+      const { data: flyerRow, error: flyerErr } = await supabase
+        .from("flyers")
+        .insert({
+          title: "Handzettel",
+          valid_from: today,
+          valid_until: today,
+          country: "DE",
+          pdf_url: photo_url,
+          total_pages: totalPages,
+          status: "active",
+          created_at: now,
+        })
+        .select("flyer_id")
+        .single();
+      if (flyerErr || !flyerRow) {
+        console.log("[process-photo] Flyer insert failed:", flyerErr?.message);
+        await supabase
+          .from("photo_uploads")
+          .update({
+            status: "error",
+            error_message: "Flyer anlegen fehlgeschlagen",
+            processed_at: now,
+          })
+          .eq("upload_id", upload_id);
+        return NextResponse.json({ error: "Failed to create flyer" }, { status: 502 });
+      }
+      flyerIdForProducts = flyerRow.flyer_id as string;
 
-      for (let chunkStart = 0; chunkStart < totalPages; chunkStart += PDF_PAGES_PER_CALL) {
-        const chunkEnd = Math.min(chunkStart + PDF_PAGES_PER_CALL, totalPages);
-        const pageIndices = Array.from({ length: chunkEnd - chunkStart }, (_, i) => chunkStart + i);
-        console.log("[process-photo] Processing PDF pages", chunkStart + 1, "-", chunkEnd, "of", totalPages);
+      // Split into single-page PDFs and upload to flyer-pages bucket; create flyer_pages rows
+      for (let n = 1; n <= totalPages; n++) {
+        const pageDoc = await PDFDocument.create();
+        const [page] = await pageDoc.copyPages(sourceDoc, [n - 1]);
+        pageDoc.addPage(page);
+        const pagePdfBytes = await pageDoc.save();
+        const path = `${flyerIdForProducts}/page-${n}.pdf`;
+        const { error: upErr } = await supabase.storage
+          .from("flyer-pages")
+          .upload(path, pagePdfBytes, { contentType: "application/pdf", upsert: true });
+        if (upErr) {
+          console.log("[process-photo] Flyer page PDF upload failed:", upErr.message);
+        } else {
+          const { data: urlData } = supabase.storage.from("flyer-pages").getPublicUrl(path);
+          await supabase.from("flyer_pages").insert({
+            flyer_id: flyerIdForProducts,
+            page_number: n,
+            image_url: urlData.publicUrl,
+          });
+        }
+      }
 
-        const chunkDoc = await PDFDocument.create();
-        const copiedPages = await chunkDoc.copyPages(sourceDoc, pageIndices);
-        copiedPages.forEach((p) => chunkDoc.addPage(p));
-        const chunkPdfBytes = await chunkDoc.save();
-        const chunkBase64 = Buffer.from(chunkPdfBytes).toString("base64");
+      let validFrom = today;
+      let validUntil = today;
+      let title = "Handzettel";
+      const allProducts: ExtractedProductWithPage[] = [];
+      const pagesToProcessInInitial = Math.min(totalPages, PDF_PAGES_INITIAL_MAX);
 
-        const response = await callClaudeWithPdf(apiKey, chunkBase64);
-        const chunkProducts = Array.isArray(response.products) ? response.products : [];
-        allProducts.push(...chunkProducts);
-        if (specialFrom == null && response.special_valid_from) specialFrom = response.special_valid_from;
-        if (specialTo == null && response.special_valid_to) specialTo = response.special_valid_to;
-        console.log("[process-photo] PDF pages", chunkStart + 1, "-", chunkEnd, "of", totalPages, "->", chunkProducts.length, "products");
+      // Page 1: Claude for title, validity, products
+      const firstPageDoc = await PDFDocument.create();
+      const [firstPage] = await firstPageDoc.copyPages(sourceDoc, [0]);
+      firstPageDoc.addPage(firstPage);
+      const firstPagePdfBytes = await firstPageDoc.save();
+      const firstPageBase64 = Buffer.from(firstPagePdfBytes).toString("base64");
+      const firstResponse = await callClaudeWithPdf(apiKey, firstPageBase64, FLYER_PDF_FIRST_PAGE_PROMPT);
+      validFrom = firstResponse.special_valid_from ?? today;
+      validUntil = firstResponse.special_valid_to ?? validFrom;
+      title = (firstResponse.flyer_title ?? "Angebote ab " + validFrom.slice(8, 10) + "." + validFrom.slice(5, 7) + ".").trim();
+      await supabase
+        .from("flyers")
+        .update({
+          title,
+          valid_from: validFrom,
+          valid_until: validUntil,
+          status: validUntil < today ? "expired" : "active",
+        })
+        .eq("flyer_id", flyerIdForProducts);
+      (firstResponse.products ?? []).forEach((p) => allProducts.push({ ...p, flyer_page: 1 }));
+
+      await supabase
+        .from("photo_uploads")
+        .update({
+          extracted_data: {
+            flyer_id: flyerIdForProducts,
+            total_pages: totalPages,
+            pages_processed: 1,
+            flyer_title: title,
+            special_valid_from: validFrom,
+            special_valid_to: validUntil,
+          } as unknown as Record<string, unknown>,
+        })
+        .eq("upload_id", upload_id);
+
+      // Pages 2..min(5, totalPages): sequential Claude, products only
+      for (let pageNum = 2; pageNum <= pagesToProcessInInitial; pageNum++) {
+        const pageDoc = await PDFDocument.create();
+        const [page] = await pageDoc.copyPages(sourceDoc, [pageNum - 1]);
+        pageDoc.addPage(page);
+        const pagePdfBytes = await pageDoc.save();
+        const pageBase64 = Buffer.from(pagePdfBytes).toString("base64");
+        const pageResponse = await callClaudeWithPdf(apiKey, pageBase64, FLYER_PDF_PAGE_PROMPT);
+        (pageResponse.products ?? []).forEach((p) => allProducts.push({ ...p, flyer_page: pageNum }));
+
+        await supabase
+          .from("photo_uploads")
+          .update({
+            extracted_data: {
+              flyer_id: flyerIdForProducts,
+              total_pages: totalPages,
+              pages_processed: pageNum,
+              flyer_title: title,
+              special_valid_from: validFrom,
+              special_valid_to: validUntil,
+            } as unknown as Record<string, unknown>,
+          })
+          .eq("upload_id", upload_id);
       }
 
       claudeJson = {
         photo_type: "flyer_pdf",
         products: allProducts,
-        special_valid_from: specialFrom,
-        special_valid_to: specialTo,
+        special_valid_from: validFrom,
+        special_valid_to: validUntil,
       };
-      console.log("[process-photo] Large PDF done: total products:", allProducts.length);
+      console.log("[process-photo] Flyer PDF initial: flyer_id:", flyerIdForProducts, "pages processed:", pagesToProcessInInitial, "products so far:", allProducts.length);
+      if (totalPages > PDF_PAGES_INITIAL_MAX) {
+        flyerRemainingPages = {
+          flyer_id: flyerIdForProducts,
+          total_pages: totalPages,
+          pages_processed: pagesToProcessInInitial,
+        };
+      }
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "Large PDF processing failed";
-      console.log("[process-photo] Large PDF error:", msg);
-      await supabase
-        .from("photo_uploads")
-        .update({ status: "error", error_message: msg, processed_at: now })
-        .eq("upload_id", upload_id);
-      return NextResponse.json({ error: msg }, { status: 502 });
-    }
-  } else if (isPdf) {
-    try {
-      claudeJson = await callClaudeWithPdf(apiKey, imageBase64);
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : "Claude PDF failed";
+      const msg = e instanceof Error ? e.message : "Flyer PDF processing failed";
+      console.log("[process-photo] Flyer PDF error:", msg);
       await supabase
         .from("photo_uploads")
         .update({ status: "error", error_message: msg, processed_at: now })
@@ -586,42 +706,8 @@ export async function POST(request: Request) {
     } catch (e) {
       console.log("[process-photo] Sharp back thumbnail failed:", e instanceof Error ? e.message : e);
     }
-  } else if (photoType === "flyer_pdf" && (pdfBuf || imageBase64)) {
-    try {
-      const { pdf } = await import("pdf-to-img");
-      const pdfInput = pdfBuf ? Buffer.from(pdfBuf) : `data:application/pdf;base64,${imageBase64}`;
-      console.log("[process-photo] Generating flyer thumbnail, input type:", pdfBuf ? "Buffer" : "dataUrl");
-      const document = await pdf(pdfInput, { scale: 2 });
-      if (document.length < 1) {
-        console.log("[process-photo] Flyer PDF has no pages, skipping thumbnail");
-      } else {
-        const firstPageBuffer = await document.getPage(1);
-        const pageBuf = firstPageBuffer instanceof Buffer ? firstPageBuffer : Buffer.from(firstPageBuffer ?? []);
-        if (pageBuf.length > 0) {
-          const thumbBuffer = await sharp(pageBuf)
-            .rotate()
-            .resize(150, 150, { fit: "cover", position: "center" })
-            .jpeg({ quality: 85 })
-            .toBuffer();
-          const thumbPath = `flyer-${upload_id}.jpg`;
-          const { error: thumbUpErr } = await supabase.storage
-            .from("product-thumbnails")
-            .upload(thumbPath, thumbBuffer, { contentType: "image/jpeg", upsert: true });
-          if (!thumbUpErr) {
-            const { data: thumbUrlData } = supabase.storage.from("product-thumbnails").getPublicUrl(thumbPath);
-            thumbnailUrl = thumbUrlData.publicUrl;
-            console.log("[process-photo] Flyer thumbnail uploaded:", thumbPath);
-          } else {
-            console.log("[process-photo] Flyer thumbnail upload failed:", thumbUpErr.message);
-          }
-        } else {
-          console.log("[process-photo] Flyer getPage(1) returned empty buffer");
-        }
-      }
-    } catch (e) {
-      const err = e instanceof Error ? e : new Error(String(e));
-      console.error("[process-photo] Flyer PDF thumbnail failed:", err.message, err.stack);
-    }
+  } else if (photoType === "flyer_pdf") {
+    // F14: No backend thumbnail; frontend renders first page PDF with pdfjs-dist.
   }
 
   const needsReview =
@@ -689,6 +775,8 @@ export async function POST(request: Request) {
   for (const p of products) {
     const name = (p.name || "").trim();
     if (!name) continue;
+    const flyerPage = (p as ExtractedProductWithPage).flyer_page;
+    const flyerId = flyerIdForProducts;
 
     let articleNumber: string | null =
       p.article_number != null ? String(p.article_number).trim() || null : null;
@@ -783,6 +871,10 @@ export async function POST(request: Request) {
           if (specialStart) updates.special_start_date = specialStart;
           if (specialEnd) updates.special_end_date = specialEnd;
         }
+        if (flyerId != null && flyerPage != null) {
+          updates.flyer_id = flyerId;
+          updates.flyer_page = flyerPage;
+        }
       }
 
       const resolvedThumbUrl = thumbnailUrl ?? photo_url;
@@ -841,6 +933,7 @@ export async function POST(request: Request) {
               : null,
           created_at: now,
           updated_at: now,
+          ...(flyerId != null && flyerPage != null ? { flyer_id: flyerId, flyer_page: flyerPage } : {}),
         })
         .select("product_id")
         .single();
@@ -848,6 +941,46 @@ export async function POST(request: Request) {
     }
   }
   // If no defaultCategoryId, new products are skipped (categories table empty)
+
+  if (flyerRemainingPages) {
+    const extractedData = {
+      flyer_id: flyerRemainingPages.flyer_id,
+      total_pages: flyerRemainingPages.total_pages,
+      pages_processed: flyerRemainingPages.pages_processed,
+      flyer_title: (claudeJson as { flyer_title?: string }).flyer_title ?? null,
+      special_valid_from: claudeJson.special_valid_from ?? null,
+      special_valid_to: claudeJson.special_valid_to ?? null,
+    };
+    const { error: finalErr } = await supabase
+      .from("photo_uploads")
+      .update({
+        status: "processing",
+        photo_type: "flyer_pdf",
+        extracted_data: extractedData as unknown as Record<string, unknown>,
+        products_created: productsCreated,
+        products_updated: productsUpdated,
+        processed_at: now,
+        error_message: null,
+        pending_thumbnail_overwrites:
+          pendingThumbnailOverwrites.length > 0 ? pendingThumbnailOverwrites : null,
+      })
+      .eq("upload_id", upload_id);
+    if (finalErr) {
+      console.log("[process-photo] Finalize (remaining pages) failed:", finalErr.message);
+      return NextResponse.json({ error: "Failed to finalize" }, { status: 500 });
+    }
+    return NextResponse.json({
+      ok: true,
+      upload_id: upload_id,
+      photo_type: "flyer_pdf",
+      flyer_id: flyerRemainingPages.flyer_id,
+      total_pages: flyerRemainingPages.total_pages,
+      pages_processed: flyerRemainingPages.pages_processed,
+      process_remaining_pages: true,
+      products_created: productsCreated,
+      products_updated: productsUpdated,
+    });
+  }
 
   const { error: finalErr } = await supabase
     .from("photo_uploads")

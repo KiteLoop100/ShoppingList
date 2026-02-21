@@ -24,17 +24,26 @@ export function QuantityWheelModal({
   const [selected, setSelected] = useState(clampedValue);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // When modal opens, sync selected to current value
+  // When modal opens, sync selected to current value (actual quantity, not default 50)
   useEffect(() => {
     if (!open) return;
     setSelected(clampedValue);
   }, [open, clampedValue]);
 
-  // After open (and ref attach), scroll to current value
+  // After open and layout, scroll to current value so the wheel shows the right number
   useEffect(() => {
-    if (!open || !scrollRef.current) return;
+    if (!open) return;
+    const el = scrollRef.current;
+    if (!el) return;
     const index = clampedValue - MIN;
-    scrollRef.current.scrollTop = PADDING_Y + index * ITEM_HEIGHT;
+    const targetScroll = PADDING_Y + index * ITEM_HEIGHT;
+    const setScroll = () => {
+      if (scrollRef.current) scrollRef.current.scrollTop = targetScroll;
+    };
+    setScroll();
+    requestAnimationFrame(setScroll);
+    const t = setTimeout(setScroll, 50);
+    return () => clearTimeout(t);
   }, [open, clampedValue]);
 
   const handleScroll = () => {
@@ -98,6 +107,8 @@ export function QuantityWheelModal({
         role="dialog"
         aria-modal="true"
         aria-label="Menge auswählen"
+        onTouchStart={(e) => e.stopPropagation()}
+        onTouchMove={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-aldi-muted-light px-4 py-3">
           <span className="text-sm font-medium text-aldi-muted">Menge</span>
@@ -124,6 +135,8 @@ export function QuantityWheelModal({
               handleScroll();
               handleScrollDebounced();
             }}
+            onTouchStart={(e) => e.stopPropagation()}
+            onTouchMove={(e) => e.stopPropagation()}
           >
             {items.map((q) => (
               <button

@@ -71,6 +71,7 @@
     "remove": "Remove",
     "previewTitle": "Preview",
     "processing": "Processing…",
+    "flyerPageProgress": "Flyer: page {current} of {total}",
     "productsRecognized": "{count} products recognized",
     "error": "Error",
     "overwriteImage": "Overwrite existing product image?",
@@ -125,6 +126,17 @@
     "about": "About this app",
     "version": "Version {version} (MVP)",
     "prototypeNote": "A prototype project."
+  },
+  "flyer": {
+    "title": "Flyers",
+    "navLabel": "Flyers",
+    "validUntil": "Valid until {date}",
+    "validFrom": "Valid from {date}",
+    "noFlyers": "No flyers yet.",
+    "productsOnPage": "Products on this page",
+    "addToList": "Add to list",
+    "addedToast": "Added to list ✓",
+    "alreadyOnList": "✓"
   },
   "admin": {
     "title": "Admin",

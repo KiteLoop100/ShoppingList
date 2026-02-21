@@ -51,6 +51,7 @@ export function useListData(sortMode: SortMode = "my-order"): UseListDataResult 
     try {
       const { list, items } = await getActiveListWithItems();
       setListId(list.list_id);
+      console.debug("[useListData] refetch: list_id", list.list_id, "items", items.length);
 
       let categories: LocalCategory[] = await db.categories.toArray();
       const supabase = createClientIfConfigured();
@@ -216,6 +217,10 @@ export function useListData(sortMode: SortMode = "my-order"): UseListDataResult 
         const out = await runCategorySort();
         u = out.unchecked;
         c = out.checked;
+        // "Meine Reihenfolge": new items (smallest sort_position) at top
+        if (sortMode === "my-order" && u.length > 0) {
+          u = [...u].sort((a, b) => (a.sort_position ?? 0) - (b.sort_position ?? 0));
+        }
       }
 
       assignPrices(u, c, productPriceMap);
@@ -228,6 +233,8 @@ export function useListData(sortMode: SortMode = "my-order"): UseListDataResult 
       const { total: t, withoutPriceCount: w } = estimateTotal(all);
       setTotal(t);
       setWithoutPriceCount(w);
+    } catch (e) {
+      console.error("[useListData] refetch failed:", e);
     } finally {
       setLoading(false);
     }

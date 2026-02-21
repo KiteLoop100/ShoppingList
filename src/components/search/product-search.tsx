@@ -292,16 +292,21 @@ export function ProductSearch({
   const addGeneric = useCallback(async () => {
     const name = query.trim();
     if (!name) return;
-    const lid = await ensureListId();
-    const { category_id } = await assignCategory(name);
-    await addListItem({
-      list_id: lid,
-      product_id: null,
-      custom_name: name,
-      display_name: name,
-      category_id,
-      quantity: 1,
-    });
+    try {
+      const lid = await ensureListId();
+      const { category_id } = await assignCategory(name);
+      await addListItem({
+        list_id: lid,
+        product_id: null,
+        custom_name: name,
+        display_name: name,
+        category_id,
+        quantity: 1,
+      });
+    } catch (e) {
+      console.error("[addGeneric] failed:", e);
+      return;
+    }
     setQuery("");
     setResults([]);
     setJustAdded(true);
@@ -312,15 +317,20 @@ export function ProductSearch({
 
   const addSpecific = useCallback(
     async (result: SearchResult) => {
-      const lid = await ensureListId();
-      await addListItem({
-        list_id: lid,
-        product_id: result.product_id,
-        custom_name: null,
-        display_name: result.name,
-        category_id: result.category_id,
-        quantity: 1,
-      });
+      try {
+        const lid = await ensureListId();
+        await addListItem({
+          list_id: lid,
+          product_id: result.product_id,
+          custom_name: null,
+          display_name: result.name,
+          category_id: result.category_id,
+          quantity: 1,
+        });
+      } catch (e) {
+        console.error("[addSpecific] failed:", e);
+        return;
+      }
       setQuery("");
       setResults([]);
       setJustAdded(true);
@@ -333,16 +343,21 @@ export function ProductSearch({
 
   const addProductFromBarcode = useCallback(
     async (product: Product) => {
-      const lid = await ensureListId();
-      if (!lid) return;
-      await addListItem({
-        list_id: lid,
-        product_id: product.product_id,
-        custom_name: null,
-        display_name: product.name,
-        category_id: product.category_id,
-        quantity: 1,
-      });
+      try {
+        const lid = await ensureListId();
+        if (!lid) return;
+        await addListItem({
+          list_id: lid,
+          product_id: product.product_id,
+          custom_name: null,
+          display_name: product.name,
+          category_id: product.category_id,
+          quantity: 1,
+        });
+      } catch (e) {
+        console.error("[addProductFromBarcode] failed:", e);
+        return;
+      }
       setJustAdded(true);
       setTimeout(() => setJustAdded(false), 400);
       onAdded?.();
@@ -380,16 +395,21 @@ export function ProductSearch({
       category_id: string;
     }>) => {
       if (selectedItems.length === 0) return;
-      const lid = await ensureListId();
-      for (const item of selectedItems) {
-        await addListItem({
-          list_id: lid,
-          product_id: item.product_id,
-          custom_name: item.custom_name,
-          display_name: item.display_name,
-          category_id: item.category_id,
-          quantity: item.quantity,
-        });
+      try {
+        const lid = await ensureListId();
+        for (const item of selectedItems) {
+          await addListItem({
+            list_id: lid,
+            product_id: item.product_id,
+            custom_name: item.custom_name,
+            display_name: item.display_name,
+            category_id: item.category_id,
+            quantity: item.quantity,
+          });
+        }
+      } catch (e) {
+        console.error("[confirmLastTrip] failed:", e);
+        return;
       }
       setQuery("");
       setResults([]);

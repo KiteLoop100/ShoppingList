@@ -71,6 +71,7 @@
     "remove": "Entfernen",
     "previewTitle": "Vorschau",
     "processing": "Verarbeite…",
+    "flyerPageProgress": "Handzettel: Seite {current} von {total}",
     "productsRecognized": "{count} Produkte erkannt",
     "error": "Fehler",
     "overwriteImage": "Existierendes Produktbild überschreiben?",
@@ -125,6 +126,17 @@
     "about": "Über diese App",
     "version": "Version {version} (MVP)",
     "prototypeNote": "Ein Prototyp-Projekt."
+  },
+  "flyer": {
+    "title": "Handzettel",
+    "navLabel": "Handzettel",
+    "validUntil": "Gültig bis {date}",
+    "validFrom": "Gültig ab {date}",
+    "noFlyers": "Noch keine Handzettel.",
+    "productsOnPage": "Produkte auf dieser Seite",
+    "addToList": "Zur Liste",
+    "addedToast": "Zur Liste hinzugefügt ✓",
+    "alreadyOnList": "✓"
   },
   "admin": {
     "title": "Admin",

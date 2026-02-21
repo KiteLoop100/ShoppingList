@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { createClientIfConfigured } from "@/lib/supabase/client";
 import { ReviewCard, type PhotoUploadReviewRow } from "@/app/[locale]/capture/review-card";
@@ -20,6 +20,13 @@ export interface PhotoUploadRow {
   processed_at: string | null;
 }
 
+/** extracted_data shape for flyer PDF with remaining pages */
+interface FlyerExtractedData {
+  flyer_id?: string;
+  total_pages?: number;
+  pages_processed?: number;
+}
+
 interface CaptureStatusFeedProps {
   userId: string;
   onPendingOverwrite?: (uploadId: string) => void;
@@ -36,8 +43,8 @@ export function CaptureStatusFeed({ userId, onPendingOverwrite }: CaptureStatusF
     if (!supabase) return;
 
     const fetchInitial = async () => {
-      // Timeout cleanup: set uploads stuck in 'processing' > 5 min to 'error'
-      const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+      // Timeout cleanup: set uploads stuck in 'processing' > 15 min to 'error' (flyer can have many pages)
+      const timeoutAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString();
       await supabase
         .from("photo_uploads")
         .update({
@@ -47,7 +54,7 @@ export function CaptureStatusFeed({ userId, onPendingOverwrite }: CaptureStatusF
         })
         .eq("user_id", userId)
         .eq("status", "processing")
-        .lt("created_at", fiveMinAgo);
+        .lt("created_at", timeoutAgo);
 
       const { data } = await supabase
         .from("photo_uploads")
@@ -94,6 +101,56 @@ export function CaptureStatusFeed({ userId, onPendingOverwrite }: CaptureStatusF
     };
   }, [userId, onPendingOverwrite]);
 
+  const processingFlyerRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const u = uploads.find(
+      (x) =>
+        x.status === "processing" &&
+        x.photo_type === "flyer_pdf" &&
+        (x.extracted_data as FlyerExtractedData)?.flyer_id &&
+        (x.extracted_data as FlyerExtractedData)?.total_pages != null &&
+        ((x.extracted_data as FlyerExtractedData)?.pages_processed ?? 0) < (x.extracted_data as FlyerExtractedData).total_pages!
+    );
+    if (!u || processingFlyerRef.current === u.upload_id) return;
+    const ext = u.extracted_data as FlyerExtractedData;
+    const nextPage = (ext.pages_processed ?? 0) + 1;
+    processingFlyerRef.current = u.upload_id;
+    fetch("/api/process-flyer-page", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        upload_id: u.upload_id,
+        flyer_id: ext.flyer_id,
+        page_number: nextPage,
+      }),
+    })
+      .then((res) => {
+        if (!res.ok) return res.text().then((t) => Promise.reject(new Error(t)));
+        return res.json();
+      })
+      .then((data) => {
+        processingFlyerRef.current = null;
+        setUploads((prev) =>
+          prev.map((x) =>
+            x.upload_id === u.upload_id && x.extracted_data && typeof x.extracted_data === "object"
+              ? {
+                  ...x,
+                  extracted_data: {
+                    ...(x.extracted_data as Record<string, unknown>),
+                    pages_processed: data.pages_processed,
+                  },
+                  ...(data.completed ? { status: "completed" as const } : {}),
+                }
+              : x
+          )
+        );
+      })
+      .catch(() => {
+        processingFlyerRef.current = null;
+      });
+  }, [uploads]);
+
   const inProgress = uploads.filter((u) => u.status === "uploading" || u.status === "processing");
   const pendingReview = uploads.filter((u) => u.status === "pending_review");
   const history = uploads.filter((u) =>
@@ -120,17 +177,31 @@ export function CaptureStatusFeed({ userId, onPendingOverwrite }: CaptureStatusF
     <>
       {inProgress.length > 0 && (
         <section className="flex flex-col gap-2">
-          {inProgress.map((u) => (
-            <div
-              key={u.upload_id}
-              className="flex items-center gap-3 rounded-xl border border-aldi-blue/20 bg-aldi-blue/5 p-3"
-            >
-              <div className="h-4 w-4 animate-spin rounded-full border-2 border-aldi-blue border-t-transparent" />
-              <span className="text-sm font-medium text-aldi-blue">
-                {u.status === "uploading" ? t("uploading") : t("processing")}
-              </span>
-            </div>
-          ))}
+          {inProgress.map((u) => {
+            const ext = u.extracted_data as FlyerExtractedData | undefined;
+            const isFlyerProgress =
+              u.photo_type === "flyer_pdf" &&
+              ext?.total_pages != null &&
+              ext?.pages_processed != null;
+            return (
+              <div
+                key={u.upload_id}
+                className="flex items-center gap-3 rounded-xl border border-aldi-blue/20 bg-aldi-blue/5 p-3"
+              >
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-aldi-blue border-t-transparent" />
+                <span className="text-sm font-medium text-aldi-blue">
+                  {u.status === "uploading"
+                    ? t("uploading")
+                    : isFlyerProgress
+                      ? t("flyerPageProgress", {
+                          current: ext.pages_processed,
+                          total: ext.total_pages,
+                        })
+                      : t("processing")}
+                </span>
+              </div>
+            );
+          })}
         </section>
       )}
 
