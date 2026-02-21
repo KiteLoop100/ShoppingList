@@ -15,6 +15,7 @@ interface FlyerRow {
   status: string;
   total_pages: number;
   first_page_image_url: string | null;
+  created_at?: string;
 }
 
 function formatDate(iso: string): string {
@@ -42,7 +43,8 @@ export default function FlyerOverviewPage() {
     (async () => {
       const { data: flyersData } = await supabase
         .from("flyers")
-        .select("flyer_id, title, valid_from, valid_until, status, total_pages")
+        .select("flyer_id, title, valid_from, valid_until, status, total_pages, created_at")
+        .order("valid_until", { ascending: false })
         .order("created_at", { ascending: false });
       if (!flyersData?.length) {
         setFlyers([]);
@@ -59,10 +61,17 @@ export default function FlyerOverviewPage() {
       for (const p of pagesData ?? []) {
         firstPageByFlyer.set(p.flyer_id, p.image_url ?? null);
       }
-      const rows: FlyerRow[] = flyersData.map((f) => ({
-        ...f,
-        first_page_image_url: firstPageByFlyer.get(f.flyer_id) ?? null,
-      }));
+      const rows: FlyerRow[] = flyersData
+        .map((f) => ({
+          ...f,
+          first_page_image_url: firstPageByFlyer.get(f.flyer_id) ?? null,
+        }))
+        .sort((a, b) => {
+          const untilA = a.valid_until || "";
+          const untilB = b.valid_until || "";
+          if (untilB !== untilA) return untilB.localeCompare(untilA);
+          return (b.created_at ?? "").localeCompare(a.created_at ?? "");
+        });
       setFlyers(rows);
       setLoading(false);
     })();
