@@ -36,6 +36,19 @@ export function CaptureStatusFeed({ userId, onPendingOverwrite }: CaptureStatusF
     if (!supabase) return;
 
     const fetchInitial = async () => {
+      // Timeout cleanup: set uploads stuck in 'processing' > 5 min to 'error'
+      const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+      await supabase
+        .from("photo_uploads")
+        .update({
+          status: "error",
+          error_message: "Timeout: Verarbeitung dauerte zu lange.",
+          processed_at: new Date().toISOString(),
+        })
+        .eq("user_id", userId)
+        .eq("status", "processing")
+        .lt("created_at", fiveMinAgo);
+
       const { data } = await supabase
         .from("photo_uploads")
         .select("upload_id, user_id, photo_url, photo_type, status, products_created, products_updated, error_message, pending_thumbnail_overwrites, extracted_data, created_at, processed_at")
@@ -81,6 +94,7 @@ export function CaptureStatusFeed({ userId, onPendingOverwrite }: CaptureStatusF
     };
   }, [userId, onPendingOverwrite]);
 
+  const inProgress = uploads.filter((u) => u.status === "uploading" || u.status === "processing");
   const pendingReview = uploads.filter((u) => u.status === "pending_review");
   const history = uploads.filter((u) =>
     ["confirmed", "discarded", "completed", "error"].includes(u.status)
@@ -104,6 +118,22 @@ export function CaptureStatusFeed({ userId, onPendingOverwrite }: CaptureStatusF
 
   return (
     <>
+      {inProgress.length > 0 && (
+        <section className="flex flex-col gap-2">
+          {inProgress.map((u) => (
+            <div
+              key={u.upload_id}
+              className="flex items-center gap-3 rounded-xl border border-aldi-blue/20 bg-aldi-blue/5 p-3"
+            >
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-aldi-blue border-t-transparent" />
+              <span className="text-sm font-medium text-aldi-blue">
+                {u.status === "uploading" ? t("uploading") : t("processing")}
+              </span>
+            </div>
+          ))}
+        </section>
+      )}
+
       {pendingReview.length > 0 && (
         <section className="flex flex-col gap-4">
           {pendingReview.map((u) => (

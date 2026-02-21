@@ -287,6 +287,18 @@ export async function POST(request: Request) {
 
   const now = new Date().toISOString();
 
+  // Timeout cleanup: mark uploads stuck in 'processing' for > 5 minutes as 'error'
+  const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+  await supabase
+    .from("photo_uploads")
+    .update({
+      status: "error",
+      error_message: "Timeout: Verarbeitung dauerte zu lange (> 5 Minuten).",
+      processed_at: now,
+    })
+    .eq("status", "processing")
+    .lt("created_at", fiveMinutesAgo);
+
   const { error: updateProcessing } = await supabase
     .from("photo_uploads")
     .update({ status: "processing" })
@@ -635,8 +647,35 @@ export async function POST(request: Request) {
       })
       .eq("upload_id", upload_id);
     if (reviewErr) {
-      console.log("[process-photo] Pending-review update failed:", reviewErr.message);
-      return NextResponse.json({ error: "Failed to save for review" }, { status: 500 });
+      // Constraint may not allow 'pending_review' yet – migration 20250220110000 needed.
+      // Fall back: save extracted_data with status 'completed' so user data isn't lost.
+      console.error(
+        "[process-photo] pending_review update failed (run migration 20250220110000!):",
+        reviewErr.message
+      );
+      const { error: fallbackErr } = await supabase
+        .from("photo_uploads")
+        .update({
+          status: "completed",
+          photo_type: photoType,
+          extracted_data: extractedData as unknown as Record<string, unknown>,
+          products_created: 0,
+          products_updated: 0,
+          processed_at: now,
+          error_message: "Review-Status nicht verfügbar – bitte Migration 20250220110000 anwenden.",
+          pending_thumbnail_overwrites: null,
+        })
+        .eq("upload_id", upload_id);
+      if (fallbackErr) {
+        console.log("[process-photo] Fallback update also failed:", fallbackErr.message);
+      }
+      return NextResponse.json({
+        ok: true,
+        upload_id: upload_id,
+        photo_type: photoType,
+        status: "completed",
+        warning: "pending_review constraint missing – run migration 20250220110000",
+      });
     }
     console.log("[process-photo] Saved for review", upload_id, "photo_type:", photoType);
     return NextResponse.json({
