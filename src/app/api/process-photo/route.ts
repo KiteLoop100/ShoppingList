@@ -10,6 +10,7 @@ import { PDFDocument } from "pdf-lib";
 import sharp from "sharp";
 import { DEMAND_GROUPS_INSTRUCTION } from "@/lib/products/demand-groups-prompt";
 import { getDemandGroupFallback } from "@/lib/products/demand-group-fallback";
+import { decodeEanFromImageBuffer } from "@/lib/barcode-from-image";
 
 const CLAUDE_MODEL = "claude-sonnet-4-5-20250929";
 /** Max pages to process in the initial API call (Vercel ~60s timeout). Rest via process-flyer-page. */
@@ -406,9 +407,21 @@ export async function POST(request: Request) {
   }
   console.log("[process-photo] Fetched, is_pdf:", is_pdf, "isPdf:", isPdf, "calling Claude");
 
+  /** EAN from barcode scan (non-PDF image flow); applied to first product after Claude. */
+  let visionScannedEan: string | null = null;
+
   // Datenfoto: nur Extraktion, keine Produkterstellung (manuelles Produkt anlegen)
   if (data_extraction && !isPdf) {
     try {
+      const scannedEan =
+        imageBuffer != null ? await decodeEanFromImageBuffer(imageBuffer) : null;
+      if (scannedEan) {
+        console.log("[process-photo] Data extraction: EAN from barcode scan:", scannedEan);
+      }
+      const dataExtractionPrompt =
+        scannedEan != null
+          ? `${DATA_EXTRACTION_PROMPT}\n\nWICHTIG: Der EAN-Code wurde bereits per Barcode-Scanner aus dem Bild erkannt: ${scannedEan}. Setze im JSON \"ean_barcode\" auf genau diesen Wert (nur diese Zahl). Lies den EAN nicht aus dem Bild ab.`
+          : DATA_EXTRACTION_PROMPT;
       const content = [
         {
           type: "image" as const,
@@ -418,7 +431,7 @@ export async function POST(request: Request) {
             data: imageBase64,
           },
         },
-        { type: "text" as const, text: DATA_EXTRACTION_PROMPT },
+        { type: "text" as const, text: dataExtractionPrompt },
       ];
       const res = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
@@ -455,7 +468,7 @@ export async function POST(request: Request) {
       const product = {
         name: parsed.name ?? null,
         brand: parsed.brand ?? null,
-        ean_barcode: parsed.ean_barcode ?? null,
+        ean_barcode: scannedEan ?? parsed.ean_barcode ?? null,
         article_number: parsed.article_number ?? null,
         price: typeof parsed.price === "number" ? parsed.price : null,
         weight_or_quantity: parsed.weight_or_quantity ?? null,
@@ -637,6 +650,15 @@ export async function POST(request: Request) {
     }
   } else {
     try {
+      visionScannedEan =
+        imageBuffer != null ? await decodeEanFromImageBuffer(imageBuffer) : null;
+      if (visionScannedEan) {
+        console.log("[process-photo] Vision: EAN from barcode scan:", visionScannedEan);
+      }
+      const visionPromptText =
+        visionScannedEan != null
+          ? `${VISION_PROMPT}\n\nHinweis: Ein Barcode wurde bereits aus dem Bild gelesen (${visionScannedEan}). Setze bei allen Produkten \"ean_barcode\" auf null; der EAN wird nach der Auswertung aus dem Scan übernommen.`
+          : VISION_PROMPT;
       const content = [
         {
           type: "image" as const,
@@ -646,7 +668,7 @@ export async function POST(request: Request) {
             data: imageBase64,
           },
         },
-        { type: "text" as const, text: VISION_PROMPT },
+        { type: "text" as const, text: visionPromptText },
       ];
 
       const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -728,6 +750,9 @@ export async function POST(request: Request) {
         : "product_front";
 
   const products = Array.isArray(claudeJson.products) ? claudeJson.products : [];
+  if (visionScannedEan && products.length > 0) {
+    products[0].ean_barcode = visionScannedEan;
+  }
   let productsCreated = 0;
   let productsUpdated = 0;
   const pendingThumbnailOverwrites: Array<{ product_id: string; thumbnail_url: string }> = [];
