@@ -12,11 +12,15 @@ npm run build
 
 ## 2 — Supabase: Migrations anwenden (falls neue Migrationen existieren)
 
+**Ohne Supabase-CLI (empfohlen):** Im **Supabase Dashboard** deines Projekts → **SQL Editor** → New query. Inhalt der gewünschten Datei aus `supabase/migrations/*.sql` einfügen und **Run** ausführen. (Reihenfolge der Dateinamen = Reihenfolge der Ausführung.)
+
+**Mit Supabase-CLI** (falls installiert):
+
 ```bash
 supabase db push
 ```
 
-*Oder* im **Supabase Dashboard → SQL Editor** die gewünschte Migration aus `supabase/migrations/` manuell ausführen.
+*CLI installieren (optional):* z.B. `npm install -g supabase` oder von [supabase.com/docs/guides/cli](https://supabase.com/docs/guides/cli).
 
 ---
 
