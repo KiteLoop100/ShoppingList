@@ -9,8 +9,8 @@ import type { Product, SearchResult } from "@/types";
 import {
   getOrCreateActiveList,
   addListItem,
-  getLastTrip,
-  type LastTripInfo,
+  getRecentListProducts,
+  type RecentListProduct,
 } from "@/lib/list";
 import { assignCategory } from "@/lib/category/assign-category";
 import { BarcodeScannerModal } from "./barcode-scanner-modal";
@@ -18,11 +18,11 @@ import { BarcodeScannerModal } from "./barcode-scanner-modal";
 const SEARCH_DEBOUNCE_MS = 150;
 const MIN_QUERY_LENGTH = 1;
 
-function formatDateDDMM(iso: string): string {
-  const d = new Date(iso);
-  const day = String(d.getDate()).padStart(2, "0");
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  return `${day}.${month}.`;
+/** Erkennt UUID-ähnliche Strings (z. B. Fallback-Anzeige product_id), um sie aus „Letzte Einkäufe“ auszufiltern. */
+function looksLikeUuid(s: string): boolean {
+  const t = s.trim();
+  if (!t || t.length < 32) return false;
+  return /^[0-9a-f-]{32,36}$/i.test(t) && (t.includes("-") || t.length >= 32);
 }
 
 export interface ProductSearchProps {
@@ -89,10 +89,9 @@ function SearchResultsPanel({
   );
 }
 
-type LastTripItem = LastTripInfo["items"][number];
-
-function LastTripCommandPanel({
-  lastTrip,
+function RecentPurchasesPanel({
+  recentProducts,
+  products,
   loading,
   onConfirm,
   onCancel,
@@ -102,23 +101,31 @@ function LastTripCommandPanel({
   noneLabel,
   loadingLabel,
 }: {
-  lastTrip: LastTripInfo | null;
+  recentProducts: RecentListProduct[];
+  products: Product[];
   loading: boolean;
-  onConfirm: (selectedItems: LastTripItem[]) => void;
+  onConfirm: (selectedProductIds: string[]) => void;
   onCancel: () => void;
   addCountLabel: (count: number) => string;
   cancelLabel: string;
-  titleLabel: (date: string) => string;
+  titleLabel: string;
   noneLabel: string;
   loadingLabel: string;
 }) {
   const [selected, setSelected] = useState<boolean[]>([]);
 
+  const productMap = new Map(products.map((p) => [p.product_id, p]));
+  const validRecentProducts = recentProducts.filter((r) => {
+    const product = productMap.get(r.product_id);
+    const name = product?.name?.trim();
+    return !!name && !looksLikeUuid(name);
+  });
+
   useEffect(() => {
-    if (lastTrip?.items) {
-      setSelected(lastTrip.items.map(() => true));
+    if (validRecentProducts.length > 0) {
+      setSelected(validRecentProducts.map(() => true));
     }
-  }, [lastTrip?.trip_id]);
+  }, [validRecentProducts.length]);
 
   const toggle = useCallback((index: number) => {
     setSelected((prev) => {
@@ -128,24 +135,26 @@ function LastTripCommandPanel({
     });
   }, []);
 
-  const itemCount = lastTrip?.items.length ?? 0;
   const effectiveSelected =
-    selected.length === itemCount ? selected : lastTrip?.items.map(() => true) ?? [];
+    selected.length === validRecentProducts.length
+      ? selected
+      : validRecentProducts.map(() => true);
   const selectedCount = effectiveSelected.filter(Boolean).length;
-  const selectedItems =
-    lastTrip?.items.filter((_, i) => effectiveSelected[i]) ?? [];
+  const selectedProductIds = validRecentProducts
+    .filter((_, i) => effectiveSelected[i])
+    .map((r) => r.product_id);
 
   return (
     <div
       className="absolute inset-0 z-10 flex flex-col bg-white"
       role="dialog"
-      aria-label={titleLabel(lastTrip ? formatDateDDMM(lastTrip.completed_at) : "")}
+      aria-label={titleLabel}
     >
       {loading ? (
         <div className="flex flex-1 items-center justify-center p-4 text-sm text-aldi-muted">
           {loadingLabel}
         </div>
-      ) : lastTrip === null ? (
+      ) : validRecentProducts.length === 0 ? (
         <div className="flex flex-1 flex-col justify-center p-4">
           <p className="text-center text-sm text-aldi-muted">{noneLabel}</p>
           <button
@@ -159,9 +168,7 @@ function LastTripCommandPanel({
       ) : (
         <>
           <div className="shrink-0 border-b border-aldi-muted-light px-4 py-3">
-            <h2 className="text-lg font-bold text-aldi-blue">
-              {titleLabel(formatDateDDMM(lastTrip.completed_at))}
-            </h2>
+            <h2 className="text-lg font-bold text-aldi-blue">{titleLabel}</h2>
           </div>
           <div className="flex shrink-0 gap-3 border-b border-aldi-muted-light bg-white p-3">
             <button
@@ -174,38 +181,54 @@ function LastTripCommandPanel({
             <button
               type="button"
               className="touch-target w-1/2 min-w-[120px] rounded-xl border-2 border-aldi-blue bg-aldi-blue px-4 py-3 font-semibold text-white transition-colors hover:bg-aldi-blue/90"
-              onClick={() => onConfirm(selectedItems)}
+              onClick={() => onConfirm(selectedProductIds)}
             >
               {addCountLabel(selectedCount)}
             </button>
           </div>
           <ul className="min-h-0 flex-1 overflow-auto py-2" role="listbox" style={{ minHeight: 0 }}>
-            {lastTrip.items.map((item, index) => (
-              <li key={`${index}-${item.display_name}`} role="option">
-                <button
-                  type="button"
-                  className="flex min-h-touch w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-aldi-muted-light/40"
-                  onClick={() => toggle(index)}
-                >
-                  <span
-                    className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 text-sm font-bold ${
-                      effectiveSelected[index]
-                        ? "border-aldi-blue bg-aldi-blue text-white"
-                        : "border-aldi-muted-light text-transparent"
-                    }`}
-                    aria-hidden
+            {validRecentProducts.map((r, index) => {
+              const product = productMap.get(r.product_id);
+              const name = product?.name ?? r.product_id;
+              return (
+                <li key={r.product_id} role="option">
+                  <button
+                    type="button"
+                    className="flex min-h-touch w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-aldi-muted-light/40"
+                    onClick={() => toggle(index)}
                   >
-                    ✓
-                  </span>
-                  <span className="min-w-0 flex-1 truncate text-[15px] text-aldi-text">
-                    {item.display_name}
-                  </span>
-                  <span className="shrink-0 text-sm text-aldi-muted">
-                    {item.quantity}×
-                  </span>
-                </button>
-              </li>
-            ))}
+                    <span
+                      className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 text-sm font-bold ${
+                        effectiveSelected[index]
+                          ? "border-aldi-blue bg-aldi-blue text-white"
+                          : "border-aldi-muted-light text-transparent"
+                      }`}
+                      aria-hidden
+                    >
+                      ✓
+                    </span>
+                    {product?.thumbnail_url && (
+                      <img
+                        src={product.thumbnail_url}
+                        alt=""
+                        className="h-10 w-10 shrink-0 rounded object-cover"
+                      />
+                    )}
+                    <span className="min-w-0 flex-1 truncate text-[15px] text-aldi-text">
+                      {name}
+                    </span>
+                    {product?.price != null && (
+                      <span className="shrink-0 text-sm tabular-nums text-aldi-muted">
+                        €{product.price.toFixed(2)}
+                      </span>
+                    )}
+                    <span className="shrink-0 text-sm text-aldi-muted">
+                      {r.frequency}×
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
           </ul>
         </>
       )}
@@ -227,7 +250,9 @@ export function ProductSearch({
   const [loading, setLoading] = useState(false);
   const [justAdded, setJustAdded] = useState(false);
   const [listId, setListId] = useState<string | null>(null);
-  const [lastTripInfo, setLastTripInfo] = useState<LastTripInfo | null | "pending">(null);
+  const [recentListProducts, setRecentListProducts] = useState<
+    RecentListProduct[] | null | "pending"
+  >(null);
   const [barcodeScannerOpen, setBarcodeScannerOpen] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -254,12 +279,12 @@ export function ProductSearch({
     }
   }, [products]);
 
-  const fetchLastTrip = useCallback(async () => {
+  const fetchRecentPurchases = useCallback(async () => {
     setLoading(true);
-    setLastTripInfo("pending");
+    setRecentListProducts("pending");
     try {
-      const trip = await getLastTrip();
-      setLastTripInfo(trip);
+      const list = await getRecentListProducts();
+      setRecentListProducts(list);
     } finally {
       setLoading(false);
     }
@@ -270,9 +295,9 @@ export function ProductSearch({
     debounceRef.current = setTimeout(() => {
       if (isCommand) {
         setResults([]);
-        fetchLastTrip();
+        fetchRecentPurchases();
       } else {
-        setLastTripInfo(null);
+        setRecentListProducts(null);
         runSearch(query);
       }
       debounceRef.current = null;
@@ -280,7 +305,7 @@ export function ProductSearch({
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [query, isCommand, runSearch, fetchLastTrip]);
+  }, [query, isCommand, runSearch, fetchRecentPurchases]);
 
   const ensureListId = useCallback(async () => {
     if (listId) return listId;
@@ -382,65 +407,75 @@ export function ProductSearch({
   const clearSearch = useCallback(() => {
     setQuery("");
     setResults([]);
-    setLastTripInfo(null);
+    setRecentListProducts(null);
     inputRef.current?.focus();
   }, []);
 
-  const confirmLastTrip = useCallback(
-    async (selectedItems: Array<{
-      product_id: string | null;
-      custom_name: string | null;
-      display_name: string;
-      quantity: number;
-      category_id: string;
-    }>) => {
-      if (selectedItems.length === 0) return;
+  const confirmRecentPurchases = useCallback(
+    async (selectedProductIds: string[]) => {
+      if (selectedProductIds.length === 0) return;
+      const productMap = new Map(products.map((p) => [p.product_id, p]));
       try {
         const lid = await ensureListId();
-        for (const item of selectedItems) {
+        for (const product_id of selectedProductIds) {
+          const product = productMap.get(product_id);
+          if (!product) continue;
           await addListItem({
             list_id: lid,
-            product_id: item.product_id,
-            custom_name: item.custom_name,
-            display_name: item.display_name,
-            category_id: item.category_id,
-            quantity: item.quantity,
+            product_id: product.product_id,
+            custom_name: null,
+            display_name: product.name,
+            category_id: product.category_id,
+            quantity: 1,
           });
         }
       } catch (e) {
-        console.error("[confirmLastTrip] failed:", e);
+        console.error("[confirmRecentPurchases] failed:", e);
         return;
       }
       setQuery("");
       setResults([]);
-      setLastTripInfo(null);
+      setRecentListProducts(null);
       onAdded?.();
       inputRef.current?.focus();
     },
-    [ensureListId, onAdded]
+    [ensureListId, onAdded, products]
   );
 
-  const cancelLastTrip = useCallback(() => {
+  const cancelRecentPurchases = useCallback(() => {
     clearSearch();
   }, [clearSearch]);
+
+  const triggerRecentPurchases = useCallback(() => {
+    setQuery("letzte einkäufe");
+    inputRef.current?.focus();
+  }, []);
+
+  const triggerAktionsartikel = useCallback(() => {
+    setQuery("aktionsartikel");
+    inputRef.current?.focus();
+  }, []);
 
   const showResults = trimmedQuery.length >= MIN_QUERY_LENGTH;
   const showClear = query.length > 0;
 
-  const lastTripForPanel =
-    lastTripInfo === "pending" || lastTripInfo === null ? null : lastTripInfo;
+  const recentListForPanel: RecentListProduct[] | null =
+    recentListProducts === "pending" || recentListProducts === null
+      ? null
+      : recentListProducts;
 
   const resultsContent = showResults && (
     isCommand ? (
-      <LastTripCommandPanel
-        lastTrip={lastTripForPanel}
+      <RecentPurchasesPanel
+        recentProducts={recentListForPanel ?? []}
+        products={products}
         loading={loading}
-        onConfirm={confirmLastTrip}
-        onCancel={cancelLastTrip}
+        onConfirm={confirmRecentPurchases}
+        onCancel={cancelRecentPurchases}
         addCountLabel={(count) => t("lastTripAddCount", { count })}
         cancelLabel={t("lastTripCancel")}
-        titleLabel={(date) => t("lastTripTitle", { date })}
-        noneLabel={t("lastTripNone")}
+        titleLabel={t("recentPurchasesTitle")}
+        noneLabel={t("recentPurchasesNone")}
         loadingLabel={t("searching")}
       />
     ) : (
@@ -455,6 +490,8 @@ export function ProductSearch({
       />
     )
   );
+
+  const showChips = query.length === 0;
 
   return (
     <div className={className}>
@@ -512,6 +549,24 @@ export function ProductSearch({
           )}
         </div>
       </div>
+      {showChips && (
+        <div className="mt-2 flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={triggerRecentPurchases}
+            className="rounded-full border border-aldi-muted-light bg-white px-3 py-1.5 text-xs text-aldi-muted transition-colors hover:border-aldi-blue/50 hover:text-aldi-blue"
+          >
+            {t("chipRecentPurchases")}
+          </button>
+          <button
+            type="button"
+            onClick={triggerAktionsartikel}
+            className="rounded-full border border-aldi-muted-light bg-white px-3 py-1.5 text-xs text-aldi-muted transition-colors hover:border-aldi-blue/50 hover:text-aldi-blue"
+          >
+            {t("chipAktionsartikel")}
+          </button>
+        </div>
+      )}
       {showResults && overlayContainerRef?.current
         ? createPortal(
             resultsContent,
@@ -519,40 +574,10 @@ export function ProductSearch({
           )
         : showResults && !overlayContainerRef && (
             <div
-              className="absolute left-0 right-0 top-full z-10 mt-1 max-h-[60vh] overflow-auto rounded-xl border-2 border-aldi-muted-light bg-white shadow-lg"
+              className="absolute left-0 right-0 top-full z-10 mt-1 max-h-[60vh] overflow-hidden rounded-xl border-2 border-aldi-muted-light bg-white shadow-lg"
               role="listbox"
             >
-              {loading ? (
-                <div className="p-4 text-center text-sm text-aldi-muted">
-                  {t("searching")}
-                </div>
-              ) : results.length === 0 ? (
-                <div className="p-4 text-sm text-aldi-muted">
-                  {t("noResults", { query: query.trim() })}
-                </div>
-              ) : (
-                <ul className="py-2">
-                  {results.map((r) => (
-                    <li key={r.product_id} role="option" aria-selected="false">
-                      <button
-                        type="button"
-                        className="flex min-h-touch w-full items-center justify-between gap-3 px-4 py-3 text-left text-[15px] transition-colors hover:bg-aldi-muted-light/40 focus:outline-none focus:bg-aldi-muted-light/40"
-                        onClick={() => addSpecific(r)}
-                      >
-                        <span className="flex-1 truncate">
-                          {r.source === "favorite" && <span className="text-aldi-orange">★ </span>}
-                          {r.name}
-                        </span>
-                        {r.price != null && (
-                          <span className="shrink-0 text-sm font-medium tabular-nums text-aldi-muted">
-                            €{r.price.toFixed(2)}
-                          </span>
-                        )}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
+              {resultsContent}
             </div>
           )}
       <BarcodeScannerModal

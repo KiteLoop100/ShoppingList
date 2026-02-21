@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/lib/i18n/navigation";
 import { getDeviceUserId } from "@/lib/list/device-id";
+import { useProducts } from "@/lib/products-context";
 import { uploadPhotoAndEnqueue } from "@/app/[locale]/capture/upload";
 import { CaptureStatusFeed, type CaptureStatusFeedRef } from "@/app/[locale]/capture/capture-status-feed";
 import { CreateProductModal } from "@/app/[locale]/capture/create-product-modal";
@@ -15,6 +16,7 @@ const THUMBNAIL_SIZE = 80;
 export default function CapturePage() {
   const t = useTranslations("capture");
   const tCommon = useTranslations("common");
+  const { refetch: refetchProducts } = useProducts();
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -347,7 +349,10 @@ export default function CapturePage() {
       <CreateProductModal
         open={createProductOpen}
         onClose={() => setCreateProductOpen(false)}
-        onSaved={() => statusFeedRef.current?.refetch()}
+        onSaved={() => {
+          statusFeedRef.current?.refetch();
+          refetchProducts();
+        }}
       />
     </main>
   );

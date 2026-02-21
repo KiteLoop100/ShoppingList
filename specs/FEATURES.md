@@ -89,7 +89,7 @@ Das Suchfeld erkennt neben Produktsuchen auch **Kommandos**. Das Suchmodul prüf
 
 | Eingabe (Schlüsselphrasen) | Aktion |
 |----------------------------|--------|
-| "letzter einkauf", "letzten einkauf wiederholen", "last shopping" | Liste der Produkte des letzten Einkaufs anzeigen. Nutzer wählt einzelne Produkte aus. Bestätigungs-Button "X Produkte hinzufügen" und "Abbrechen" |
+| "letzte einkäufe", "letzter einkauf", "letzten einkauf wiederholen", "last shopping", "recent" | **Letzte Einkäufe:** Produkte, die in den letzten 4 Wochen auf die Einkaufsliste gesetzt wurden (list_items.added_at), sortiert nach Häufigkeit. Nutzer wählt einzelne Produkte aus. Bestätigungs-Button "X Produkte hinzufügen" und "Abbrechen". Quick-Action-Chip „Letzte Einkäufe“ unter dem Suchfeld (wenn leer). |
 | "aktionsartikel", "aktionen", "angebote", "specials" | Zeigt alle Aktionsartikel der letzten 30 Tage, sortiert nach Einlistungsdatum (neueste zuerst). Nutzer kann einzelne Produkte antippen, um sie der Liste hinzuzufügen |
 
 **Kommando-Erkennung im MVP:**

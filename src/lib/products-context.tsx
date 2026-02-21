@@ -6,6 +6,7 @@ import {
   useState,
   useEffect,
   useMemo,
+  useCallback,
   type ReactNode,
 } from "react";
 import type { Product } from "@/types";
@@ -50,6 +51,8 @@ function rowToProduct(row: Record<string, unknown>): Product {
 interface ProductsContextValue {
   products: Product[];
   loading: boolean;
+  /** Nach „Produkt anlegen“ aufrufen, damit die Liste das neue Produkt enthält. */
+  refetch: () => Promise<void>;
 }
 
 const ProductsContext = createContext<ProductsContextValue | null>(null);
@@ -59,48 +62,47 @@ export function ProductsProvider({ children }: { children: ReactNode }) {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const fetchProducts = useCallback(async () => {
     if (country === null) {
-      setLoading(true);
       setProducts([]);
       return;
     }
-    let cancelled = false;
     const supabase = createClientIfConfigured();
     if (!supabase) {
-      setLoading(false);
       if (typeof window !== "undefined") {
         console.warn("[ProductsProvider] Supabase nicht konfiguriert (NEXT_PUBLIC_SUPABASE_URL/ANON_KEY fehlen?). Suche nutzt IndexedDB.");
       }
       return;
     }
     setLoading(true);
-    supabase
+    const { data, error } = await supabase
       .from("products")
       .select("*")
       .eq("status", "active")
-      .eq("country", country)
-      .then(({ data, error }) => {
-        if (cancelled) return;
-        setLoading(false);
-        if (error) {
-          console.error("[ProductsProvider] Supabase products fetch failed:", error.message);
-          return;
-        }
-        const list = (data ?? []).map(rowToProduct);
-        setProducts(list);
-        if (typeof window !== "undefined" && list.length > 0) {
-          console.info("[ProductsProvider]", list.length, "Produkte (country=" + country + ") aus Supabase geladen.");
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
+      .eq("country", country);
+    setLoading(false);
+    if (error) {
+      console.error("[ProductsProvider] Supabase products fetch failed:", error.message);
+      return;
+    }
+    const list = (data ?? []).map(rowToProduct);
+    setProducts(list);
+    if (typeof window !== "undefined" && list.length > 0) {
+      console.info("[ProductsProvider]", list.length, "Produkte (country=" + country + ") aus Supabase geladen.");
+    }
   }, [country]);
 
+  useEffect(() => {
+    fetchProducts();
+  }, [fetchProducts]);
+
   const value = useMemo(
-    () => ({ products, loading }),
-    [products, loading]
+    () => ({
+      products,
+      loading,
+      refetch: fetchProducts,
+    }),
+    [products, loading, fetchProducts]
   );
 
   return (
@@ -113,7 +115,7 @@ export function ProductsProvider({ children }: { children: ReactNode }) {
 export function useProducts(): ProductsContextValue {
   const ctx = useContext(ProductsContext);
   if (!ctx) {
-    return { products: [], loading: false };
+    return { products: [], loading: false, refetch: async () => {} };
   }
   return ctx;
 }

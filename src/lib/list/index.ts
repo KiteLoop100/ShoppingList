@@ -11,6 +11,8 @@ export { getDeviceUserId } from "./device-id";
 export { archiveListAsTrip } from "./archive-trip";
 export { getLastTrip } from "./last-trip";
 export type { LastTripInfo } from "./last-trip";
+export { getRecentListProducts } from "./recent-list-products";
+export type { RecentListProduct } from "./recent-list-products";
 export {
   getCompletedTripCount,
   canFillWithTypicalProducts,
