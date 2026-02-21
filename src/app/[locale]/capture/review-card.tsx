@@ -35,6 +35,10 @@ export interface PhotoUploadReviewRow {
       weight_or_quantity?: string | null;
       demand_group?: string | null;
     }>;
+    /** F14: flyer PDF multi-page progress */
+    flyer_id?: string;
+    total_pages?: number;
+    pages_processed?: number;
   } | null;
   created_at: string;
 }
