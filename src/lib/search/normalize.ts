@@ -72,14 +72,19 @@ const MIN_QUERY_LENGTH_FOR_PREFIX = 2;
 
 /**
  * Substring match per FEATURES.md F02: "Der Suchbegriff muss im Produktnamen enthalten sein (Substring-Match)."
- * "Milch" findet nur Produkte mit "Milch" im Namen – nicht Butter, Gouda oder andere Kategorie-Nachbarn.
+ * Zusätzlich: space-insensitive Match, damit z. B. "Kartoffelsuppe", "Suppe" oder "bio kartoffel suppe"
+ * das Produkt "Bio Kartoffel Suppe" finden (normalisierter Name enthält Query oder Name ohne Leerzeichen enthält Query ohne Leerzeichen).
  */
 export function nameMatchesQuery(
   normalizedProductName: string,
   normalizedQuery: string
 ): boolean {
   if (!normalizedQuery) return false;
-  return normalizedProductName.includes(normalizedQuery);
+  if (normalizedProductName.includes(normalizedQuery)) return true;
+  const nameNoSpaces = normalizedProductName.replace(/\s+/g, "");
+  const queryNoSpaces = normalizedQuery.replace(/\s+/g, "").trim();
+  if (!queryNoSpaces) return false;
+  return nameNoSpaces.includes(queryNoSpaces);
 }
 
 /**

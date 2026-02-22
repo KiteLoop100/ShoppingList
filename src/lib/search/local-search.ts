@@ -98,7 +98,16 @@ export async function localSearch(
 
   // Secondary: brand (when query matches a product's brand)
   const qNorm = q;
-  for (const product of activeProducts) {
+  const productWithOptionalFields = activeProducts as Array<{
+    product_id: string;
+    name: string;
+    category_id: string;
+    price: number | null;
+    brand?: string | null;
+    article_number?: string | null;
+    demand_group?: string | null;
+  }>;
+  for (const product of productWithOptionalFields) {
     if (matched.length >= cap) break;
     if (seen.has(product.product_id)) continue;
     const brand = product.brand ?? null;
@@ -106,6 +115,42 @@ export async function localSearch(
     const brandNorm = normalizeForSearch(brand);
     if (!brandNorm) continue;
     if (brandNorm !== qNorm && !brandNorm.startsWith(qNorm) && !qNorm.startsWith(brandNorm)) continue;
+    seen.add(product.product_id);
+    const cat = categoryMap.get(product.category_id);
+    matched.push(
+      productToResult(product, cat?.name ?? "", "other")
+    );
+  }
+
+  if (matched.length >= cap) return matched;
+
+  // Secondary: article_number (exact or substring)
+  for (const product of productWithOptionalFields) {
+    if (matched.length >= cap) break;
+    if (seen.has(product.product_id)) continue;
+    const art = product.article_number ?? null;
+    if (art == null || art === "") continue;
+    const artNorm = normalizeForSearch(art);
+    if (!artNorm) continue;
+    if (artNorm !== qNorm && !artNorm.includes(qNorm) && !qNorm.includes(artNorm)) continue;
+    seen.add(product.product_id);
+    const cat = categoryMap.get(product.category_id);
+    matched.push(
+      productToResult(product, cat?.name ?? "", "other")
+    );
+  }
+
+  if (matched.length >= cap) return matched;
+
+  // Secondary: demand_group (exact or substring)
+  for (const product of productWithOptionalFields) {
+    if (matched.length >= cap) break;
+    if (seen.has(product.product_id)) continue;
+    const dg = product.demand_group ?? null;
+    if (dg == null || dg === "") continue;
+    const dgNorm = normalizeForSearch(dg);
+    if (!dgNorm) continue;
+    if (dgNorm !== qNorm && !dgNorm.includes(qNorm) && !qNorm.includes(dgNorm)) continue;
     seen.add(product.product_id);
     const cat = categoryMap.get(product.category_id);
     matched.push(
