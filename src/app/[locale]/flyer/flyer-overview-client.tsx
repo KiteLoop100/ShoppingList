@@ -77,7 +77,7 @@ export function FlyerOverviewClientPage() {
   }, [country]);
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-lg flex-col bg-aldi-bg">
+    <main className="mx-auto flex h-screen max-w-lg flex-col overflow-hidden bg-aldi-bg">
       <header className="flex shrink-0 items-center gap-3 bg-white px-4 py-3 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
         <button
           type="button"
@@ -92,7 +92,7 @@ export function FlyerOverviewClientPage() {
         <h1 className="flex-1 text-lg font-bold text-aldi-blue">{t("title")}</h1>
       </header>
 
-      <div className="flex-1 overflow-auto p-4">
+      <div className="min-h-0 flex-1 overflow-auto p-4">
         {loading ? (
           <p className="py-8 text-center text-aldi-muted">{tCommon("loading")}</p>
         ) : flyers.length === 0 ? (

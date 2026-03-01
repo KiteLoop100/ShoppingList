@@ -371,7 +371,7 @@ async function sortListItems(
 ): Promise<SortedItems> {
   const runCategorySort = async () => {
     const categoryOrder = await getCategoryOrderForList(effectiveStoreId);
-    return sortAndGroupItems(items, categoryMap, categoryOrder);
+    return sortAndGroupItems(items, categoryMap, categoryOrder, productMetaMap);
   };
 
   let u: ListItemWithMeta[];

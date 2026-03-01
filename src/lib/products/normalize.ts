@@ -12,3 +12,27 @@ export function normalizeName(name: string): string {
     .replace(/\s+/g, " ")
     .trim();
 }
+
+const FLYER_SUFFIX_PATTERNS: RegExp[] = [
+  /\bverschiedene\s+sorten\b/,
+  /\bversch\s+sorten\b/,
+  /\bdiv(?:erse)?\s+sorten\b/,
+  /\bje\s+(?:packung|stueck|beutel|flasche|dose|glas|bund|schale|netz|kg|stk)\b/,
+  /\bpro\s+(?:packung|stueck|kg|100\s*g|liter)\b/,
+  /\bab\s+\d{1,2}\s*\.\s*\d{1,2}\s*\.?\b/,
+  /\b\d+(?:[.,]\d+)?\s*(?:g|kg|ml|l|cl|stueck|stk|er)\s*$/,
+  /\b(?:ca|mind|max)\s*\.\s*\d+/,
+  /\boder\b.*$/,
+];
+
+/**
+ * Strip typical flyer suffixes (e.g. "verschiedene Sorten", weight specs)
+ * from a *normalized* name to improve DB matching.
+ */
+export function stripFlyerSuffixes(normalized: string): string {
+  let result = normalized;
+  for (const pattern of FLYER_SUFFIX_PATTERNS) {
+    result = result.replace(pattern, " ");
+  }
+  return result.replace(/\s+/g, " ").trim();
+}

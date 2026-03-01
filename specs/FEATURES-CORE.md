@@ -67,9 +67,13 @@ Summary of the ranking system:
 - **All processing is local** (client-side, < 50ms target)
 
 ### Quick-Action Chips
-Shown below empty search field:
+Shown inside the search field (right side, when field is empty):
 - **"Recent Purchases"** – Products from last 4 weeks, sorted by frequency. Data sources: (1) IndexedDB list_items (products added to shopping list), (2) Supabase receipt_items (products from scanned receipts with linked product_id). Frequencies from both sources are combined.
-- **"Specials"** – Current specials from last 30 days
+
+Note: "Specials" is accessible via the magic keyword "aktionsartikel" (see below), not as a visible chip.
+
+### Sort Toggle Button
+A square icon button (sort icon: three descending lines) is displayed to the right of the search field. Tapping toggles between "My Order" and "Shopping Order". A brief toast ("Sortierung: …") appears for 2 seconds to confirm the active mode. The button is visually highlighted (blue) when "Shopping Order" is active.
 
 ### Magic Keywords
 
@@ -201,10 +205,12 @@ For personalized queries:
 - Grouped by Customer Demand Group
 - Compact rows: product name, thumbnail (if available), quantity, price
 - Estimated total at bottom
+- **Category labels:** Both sort modes show the ALDI demand-group name as label below each product name (e.g. "Milch/Sahne/Butter", "Joghurts/Quark"). For items without a linked product (generic free-text entries), the app-category name is shown as fallback (e.g. "Milchprodukte"). Demand-group codes are converted to user-friendly labels by stripping the numeric prefix; manual overrides exist for truncated codes. See `src/lib/i18n/category-translations.ts`.
+- **Category color coding (Shopping Order only):** Each list item's border and category label share a unique bold colour per ALDI demand group (~61 colours), organized in colour families (e.g. all dairy groups in blue shades, all meat groups in red shades). This provides quick visual orientation -- items of the same demand group form visible colour clusters while remaining distinguishable from sibling groups. Applied only to active (unchecked, non-deferred) items. Defined in `src/lib/categories/category-colors.ts`.
 
 ### Two Sort Modes
-- **"My Order"** (default at home): insertion order
-- **"Shopping Order"** (default in store): hierarchical by Demand Group → Sub-Group → Product (see LEARNING-ALGORITHMS.md)
+- **"My Order"** (default at home): insertion order, demand-group label in grey, no color coding
+- **"Shopping Order"** (default in store): hierarchical by Demand Group → Sub-Group → Product (see LEARNING-ALGORITHMS.md), with per-demand-group color coding
 - Auto-switches when store is detected via GPS
 
 ### Interactions

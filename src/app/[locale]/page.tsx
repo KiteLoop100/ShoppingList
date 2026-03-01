@@ -21,7 +21,6 @@ export default function MainScreenPage() {
   const tList = useTranslations("list");
   const tStore = useTranslations("store");
   const tCommon = useTranslations("common");
-  const tCapture = useTranslations("capture");
   const tFlyer = useTranslations("flyer");
   const tReceipts = useTranslations("receipts");
 
@@ -181,15 +180,6 @@ export default function MainScreenPage() {
               : tStore("noStoreDetected")}
           </p>
         </div>
-        <Link
-          href="/capture"
-          className="touch-target flex items-center justify-center rounded-xl text-aldi-blue transition-colors hover:bg-aldi-blue-light"
-          aria-label={tCapture("navLabel")}
-        >
-          <svg className="h-[22px] w-[22px]" fill="none" viewBox="0 0 24 24" strokeWidth={1.75} stroke="currentColor" aria-hidden>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-          </svg>
-        </Link>
         <Link
           href="/receipts"
           className="touch-target flex items-center justify-center rounded-xl text-aldi-blue transition-colors hover:bg-aldi-blue-light"

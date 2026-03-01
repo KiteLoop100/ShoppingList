@@ -5,6 +5,46 @@
 
 ---
 
+## 2026-03-01 – Unified Demand-Group Labels & Per-Group Color Coding
+
+- **Modified: `src/lib/i18n/category-translations.ts`** – `translateCategoryName()` now detects demand-group codes (numeric prefix or "AK-") and converts them to user-friendly labels via new `formatDemandGroupLabel()`. Manual alias overrides for truncated/ugly codes. Both sort modes now consistently show demand-group names instead of app-category names.
+- **Modified: `src/lib/categories/category-colors.ts`** – Expanded from 19 app-category colours to ~61 demand-group-specific colours (`DEMAND_GROUP_COLORS` map). Colours organized in families (dairy = blues, meat = reds, bakery = golds, etc.). Old `CATEGORY_COLORS` map retained as fallback for generic items without demand_group.
+- **Modified: `src/lib/list/list-helpers.ts`** – `sortAndGroupItems()` now accepts optional `productMetaMap` parameter and populates `demand_group` on each item (matching what `sortAndGroupItemsHierarchical` already does).
+- **Modified: `src/components/list/use-list-data.ts`** – Passes `productMetaMap` through to `sortAndGroupItems()` in the `runCategorySort` lambda.
+- **Modified: `src/components/list/shopping-list-content.tsx`** – `categoryColor` prop now uses `item.demand_group || item.category_name` (was: `item.category_name` only).
+- **New: `specs/BACKLOG.md` BL-62** – Backlog entry for future full consolidation of category system to ALDI demand groups (10-point migration plan).
+- **Specs updated:** `FEATURES-CORE.md` (F03 Display + Sort Modes sections updated).
+
+---
+
+## 2026-03-01 – Navigation Restructuring: Capture Page Dissolved
+
+- **Modified: `src/app/[locale]/page.tsx`** – Removed "+" (Capture) link from main page header. Navigation now: Receipts, Flyer, Settings.
+- **Modified: `src/app/[locale]/receipts/receipts-client.tsx`** – "+" button and "Ersten Kassenzettel scannen" now open the ReceiptScanner directly (instead of linking to /capture). Scanner imported inline; receipt list refreshes on close.
+- **Modified: `src/app/[locale]/admin/admin-client.tsx`** – "Create Product" button added to Products section (moved from capture page). Opens CreateProductModal directly.
+- **Note:** `/capture` page still exists as legacy route but is no longer linked from any navigation.
+- **Specs updated:** `UI.md` (navigation model, screen flow diagram), `FEATURES-CAPTURE.md` (access section, receipt scanner trigger, create product location).
+
+---
+
+## 2026-03-01 – Search Field & Sort Button Redesign
+
+- **Modified: `src/components/search/product-search.tsx`** – Removed "Aktionsartikel" chip from search field (specials remain accessible via magic keyword "aktionsartikel"). Removed sort chip row below search field. New layout: search field (flex-1) + square sort icon button (46×46px) side by side. Sort button toggles between "My Order" and "Shopping Order" with a 2-second toast confirmation ("Sortierung: …"). Button is visually highlighted (blue border/bg) when "Shopping Order" is active.
+- **Modified: `tailwind.config.ts`** – Added `fade-in-down` keyframe and `animate-fade-in` animation for the sort toast.
+- **Modified: `src/messages/de.json` + `en.json`** – New `sortToast` translation key.
+- **Specs updated:** `FEATURES-CORE.md` (Quick-Action Chips + new Sort Toggle Button section), `UI.md` (wireframe + empty state text).
+
+---
+
+## 2026-03-01 – Category Color Coding in Shopping Order View
+
+- **New: `src/lib/categories/category-colors.ts`** – One bold colour per app category (19 categories), inspired by ALDI product/packaging appearance. Single colour used for both item border and category label text. All colours meet WCAG 4.5:1 contrast on white.
+- **Modified: `src/components/list/shopping-list-content.tsx`** – Passes `categoryColor` prop (string) to `ListItemRow` when `dataSortMode === "shopping-order"`.
+- **Modified: `src/components/list/list-item-row.tsx`** – New optional `categoryColor?: string` prop. Applies the colour to both border and category label via inline styles for active (unchecked, non-deferred) items.
+- **Specs updated:** `FEATURES-CORE.md` (F03 Display + Sort Modes), `UI.md` (screen wireframe + design language).
+
+---
+
 ## 2026-03-01 – F26: Buy Elsewhere + B4: Competitor Product Database
 
 ### F26: Buy Elsewhere ("Anderswo kaufen")
@@ -222,7 +262,7 @@
 
 ## 2025-02-17 – Two Sort Modes with Auto-Switching
 
-- **FEATURES-CORE.md:** F03 sorting rewritten: Two modes "My Order" (insertion order, for home) and "Shopping Order" (aisle order by demand groups, for in-store). Manual toggle via tabs + automatic switch on store detection.
+- **FEATURES-CORE.md:** F03 sorting rewritten: Two modes "My Order" (insertion order, for home) and "Shopping Order" (aisle order by demand groups, for in-store). Manual toggle via icon button next to search field + automatic switch on store detection.
 
 ---
 

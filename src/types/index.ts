@@ -259,8 +259,14 @@ export interface CompetitorProduct {
   weight_or_quantity: string | null;
   country: string;
   thumbnail_url: string | null;
+  other_photo_url: string | null;
   category_id: string | null;
   status: "active" | "inactive";
+  is_bio: boolean;
+  is_vegan: boolean;
+  is_gluten_free: boolean;
+  is_lactose_free: boolean;
+  animal_welfare_level: number | null;
   created_at: string;
   updated_at: string;
 }

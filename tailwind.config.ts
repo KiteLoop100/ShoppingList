@@ -40,6 +40,15 @@ const config: Config = {
       minWidth: {
         "touch": "44px",
       },
+      keyframes: {
+        "fade-in-down": {
+          "0%": { opacity: "0", transform: "translateY(-4px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
+      },
+      animation: {
+        "fade-in": "fade-in-down 200ms ease-out",
+      },
     },
   },
   plugins: [],

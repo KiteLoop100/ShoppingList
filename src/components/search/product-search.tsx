@@ -59,6 +59,8 @@ export function ProductSearch({
   const [barcodeScannerOpen, setBarcodeScannerOpen] = useState(false);
   const [adding, setAdding] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [sortToastText, setSortToastText] = useState<string | null>(null);
+  const sortToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchIdRef = useRef(0);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -394,6 +396,16 @@ export function ProductSearch({
     setQuery("aktionsartikel");
   }, []);
 
+  const handleSortToggle = useCallback(() => {
+    if (!sortMode || !onSortModeChange) return;
+    const newMode: SortMode = sortMode === "my-order" ? "shopping-order" : "my-order";
+    onSortModeChange(newMode);
+    const label = newMode === "my-order" ? t("chipSortMyOrder") : t("chipSortShoppingOrder");
+    setSortToastText(label);
+    if (sortToastTimerRef.current) clearTimeout(sortToastTimerRef.current);
+    sortToastTimerRef.current = setTimeout(() => setSortToastText(null), 2000);
+  }, [sortMode, onSortModeChange, t]);
+
   const showResults = trimmedQuery.length >= MIN_QUERY_LENGTH;
   const showClear = query.length > 0;
 
@@ -463,32 +475,32 @@ export function ProductSearch({
 
   return (
     <div className={className}>
-      <div
-        className={`rounded-xl border-2 bg-white transition-colors duration-200 ${
-          justAdded
-            ? "border-aldi-success animate-add-flash"
-            : "border-aldi-muted-light focus-within:border-aldi-blue"
-        }`}
-      >
-        <div className="flex items-center">
-          <input
-            ref={inputRef}
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={handleKeyDown}
-            onBlur={() => {
-              setTimeout(() => window.scrollTo({ top: 0 }), 100);
-            }}
-            placeholder={placeholder}
-            aria-label={ariaLabel ?? placeholder}
-            autoComplete="off"
-            enterKeyHint="done"
-            disabled={adding}
-            className="min-h-touch min-w-0 flex-1 rounded-xl border-0 bg-transparent px-4 py-3 text-[15px] text-aldi-text placeholder:text-aldi-muted focus:outline-none disabled:opacity-50"
-          />
-          {showChips && (
-            <>
+      <div className="flex items-center gap-2">
+        <div
+          className={`min-w-0 flex-1 rounded-xl border-2 bg-white transition-colors duration-200 ${
+            justAdded
+              ? "border-aldi-success animate-add-flash"
+              : "border-aldi-muted-light focus-within:border-aldi-blue"
+          }`}
+        >
+          <div className="flex items-center">
+            <input
+              ref={inputRef}
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={handleKeyDown}
+              onBlur={() => {
+                setTimeout(() => window.scrollTo({ top: 0 }), 100);
+              }}
+              placeholder={placeholder}
+              aria-label={ariaLabel ?? placeholder}
+              autoComplete="off"
+              enterKeyHint="done"
+              disabled={adding}
+              className="min-h-touch min-w-0 flex-1 rounded-xl border-0 bg-transparent px-4 py-3 text-[15px] text-aldi-text placeholder:text-aldi-muted focus:outline-none disabled:opacity-50"
+            />
+            {showChips && (
               <button
                 type="button"
                 onClick={triggerRecentPurchases}
@@ -496,38 +508,56 @@ export function ProductSearch({
               >
                 {t("chipRecentPurchases")}
               </button>
-              <button
-                type="button"
-                onClick={triggerAktionsartikel}
-                className="ml-1 shrink-0 rounded-full border border-aldi-muted-light bg-gray-50 px-2 py-0.5 text-[10px] text-aldi-muted transition-colors hover:border-aldi-blue/50 hover:text-aldi-blue"
-              >
-                {t("chipAktionsartikel")}
-              </button>
-            </>
-          )}
-          <button
-            type="button"
-            className="touch-target shrink-0 px-2 text-aldi-muted transition-colors hover:text-aldi-blue"
-            onClick={() => setBarcodeScannerOpen(true)}
-            aria-label={t("barcodeScanner")}
-          >
-            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-          </button>
-          {showClear && (
+            )}
             <button
               type="button"
-              className="touch-target shrink-0 px-2 text-aldi-muted transition-colors hover:text-aldi-text"
-              onClick={clearSearch}
-              aria-label={t("clear")}
+              className="touch-target shrink-0 px-2 text-aldi-muted transition-colors hover:text-aldi-blue"
+              onClick={() => setBarcodeScannerOpen(true)}
+              aria-label={t("barcodeScanner")}
             >
-              ✕
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
             </button>
-          )}
+            {showClear && (
+              <button
+                type="button"
+                className="touch-target shrink-0 px-2 text-aldi-muted transition-colors hover:text-aldi-text"
+                onClick={clearSearch}
+                aria-label={t("clear")}
+              >
+                ✕
+              </button>
+            )}
+          </div>
         </div>
+        {sortMode && onSortModeChange && (
+          <button
+            type="button"
+            onClick={handleSortToggle}
+            className={`flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-xl border-2 transition-colors ${
+              sortMode === "shopping-order"
+                ? "border-aldi-blue bg-aldi-blue/10 text-aldi-blue"
+                : "border-aldi-muted-light bg-white text-aldi-muted hover:border-aldi-blue/50 hover:text-aldi-blue"
+            }`}
+            aria-label={sortMode === "my-order" ? t("chipSortMyOrder") : t("chipSortShoppingOrder")}
+          >
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7h18M3 12h12M3 17h6" />
+            </svg>
+          </button>
+        )}
       </div>
+      {sortToastText && (
+        <div
+          className="mt-1.5 animate-fade-in rounded-lg bg-aldi-blue/10 px-3 py-1 text-center text-xs font-medium text-aldi-blue"
+          role="status"
+          aria-live="polite"
+        >
+          {t("sortToast", { mode: sortToastText })}
+        </div>
+      )}
       {adding && (
         <div
           className="mt-2 flex items-center gap-2 rounded-lg bg-aldi-blue/5 border border-aldi-blue/20 px-3 py-2"
@@ -553,29 +583,6 @@ export function ProductSearch({
             onClick={() => setErrorMsg(null)}
           >
             ✕
-          </button>
-        </div>
-      )}
-      {showChips && sortMode && onSortModeChange && (
-        <div className="mt-1.5 flex items-center">
-          <button
-            type="button"
-            onClick={() =>
-              onSortModeChange(sortMode === "my-order" ? "shopping-order" : "my-order")
-            }
-            className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${
-              sortMode === "shopping-order"
-                ? "border border-aldi-blue/30 bg-aldi-blue/5 text-aldi-blue"
-                : "border border-aldi-muted-light bg-white text-aldi-muted hover:border-aldi-blue/50 hover:text-aldi-blue"
-            }`}
-            aria-label={sortMode === "my-order" ? t("chipSortMyOrder") : t("chipSortShoppingOrder")}
-          >
-            <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M3 7h18M3 12h12M3 17h6" />
-            </svg>
-            {sortMode === "my-order"
-              ? t("chipSortMyOrder")
-              : t("chipSortShoppingOrder")}
           </button>
         </div>
       )}

@@ -20,8 +20,14 @@ function rowToCompetitorProduct(row: Record<string, unknown>): CompetitorProduct
     weight_or_quantity: row.weight_or_quantity != null ? String(row.weight_or_quantity) : null,
     country: row.country != null ? String(row.country) : "DE",
     thumbnail_url: row.thumbnail_url != null ? String(row.thumbnail_url) : null,
+    other_photo_url: row.other_photo_url != null ? String(row.other_photo_url) : null,
     category_id: row.category_id != null ? String(row.category_id) : null,
     status: (row.status as CompetitorProduct["status"]) ?? "active",
+    is_bio: row.is_bio === true,
+    is_vegan: row.is_vegan === true,
+    is_gluten_free: row.is_gluten_free === true,
+    is_lactose_free: row.is_lactose_free === true,
+    animal_welfare_level: row.animal_welfare_level != null ? Number(row.animal_welfare_level) : null,
     created_at: String(row.created_at),
     updated_at: String(row.updated_at),
   };
@@ -45,7 +51,13 @@ export interface CreateCompetitorProductParams {
   weight_or_quantity?: string | null;
   country: string;
   thumbnail_url?: string | null;
+  other_photo_url?: string | null;
   category_id?: string | null;
+  is_bio?: boolean;
+  is_vegan?: boolean;
+  is_gluten_free?: boolean;
+  is_lactose_free?: boolean;
+  animal_welfare_level?: number | null;
 }
 
 export async function createCompetitorProduct(
@@ -65,7 +77,13 @@ export async function createCompetitorProduct(
       weight_or_quantity: params.weight_or_quantity ?? null,
       country: params.country,
       thumbnail_url: params.thumbnail_url ?? null,
+      other_photo_url: params.other_photo_url ?? null,
       category_id: params.category_id ?? null,
+      is_bio: params.is_bio ?? false,
+      is_vegan: params.is_vegan ?? false,
+      is_gluten_free: params.is_gluten_free ?? false,
+      is_lactose_free: params.is_lactose_free ?? false,
+      animal_welfare_level: params.animal_welfare_level ?? null,
     })
     .select()
     .single();
@@ -76,7 +94,7 @@ export async function createCompetitorProduct(
 
 export async function updateCompetitorProduct(
   productId: string,
-  updates: Partial<Pick<CompetitorProduct, "name" | "brand" | "ean_barcode" | "article_number" | "weight_or_quantity" | "thumbnail_url" | "category_id">>
+  updates: Partial<Pick<CompetitorProduct, "name" | "brand" | "ean_barcode" | "article_number" | "weight_or_quantity" | "thumbnail_url" | "other_photo_url" | "category_id" | "is_bio" | "is_vegan" | "is_gluten_free" | "is_lactose_free" | "animal_welfare_level">>
 ): Promise<void> {
   const supabase = createClientIfConfigured();
   if (!supabase) throw new Error("Supabase not configured");
@@ -91,7 +109,13 @@ export async function updateCompetitorProduct(
   if (updates.article_number !== undefined) payload.article_number = updates.article_number;
   if (updates.weight_or_quantity !== undefined) payload.weight_or_quantity = updates.weight_or_quantity;
   if (updates.thumbnail_url !== undefined) payload.thumbnail_url = updates.thumbnail_url;
+  if (updates.other_photo_url !== undefined) payload.other_photo_url = updates.other_photo_url;
   if (updates.category_id !== undefined) payload.category_id = updates.category_id;
+  if (updates.is_bio !== undefined) payload.is_bio = updates.is_bio;
+  if (updates.is_vegan !== undefined) payload.is_vegan = updates.is_vegan;
+  if (updates.is_gluten_free !== undefined) payload.is_gluten_free = updates.is_gluten_free;
+  if (updates.is_lactose_free !== undefined) payload.is_lactose_free = updates.is_lactose_free;
+  if (updates.animal_welfare_level !== undefined) payload.animal_welfare_level = updates.animal_welfare_level;
 
   const { error } = await supabase
     .from("competitor_products")

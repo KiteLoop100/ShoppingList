@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { Link } from "@/lib/i18n/navigation";
 import { db, type LocalProduct, type LocalCategoryAlias, type LocalSortingError } from "@/lib/db";
 import { getStoresSorted } from "@/lib/store/store-service";
+import { useProducts } from "@/lib/products-context";
 import type { Category } from "@/types";
 
 import { AdminAuthGuard } from "./admin-auth-guard";
@@ -14,13 +15,17 @@ import { GalleryUploadPanel } from "./gallery-upload-panel";
 import { SortingErrorsPanel } from "./sorting-errors-panel";
 import { useBatchJobs } from "./use-batch-jobs";
 import { useGalleryUpload } from "./use-gallery-upload";
+import { CreateProductModal } from "@/app/[locale]/capture/create-product-modal";
 
 type Section = "products" | "aliases" | "errors";
 
 export function AdminClient() {
   const t = useTranslations("admin");
+  const tCapture = useTranslations("capture");
   const tCommon = useTranslations("common");
+  const { refetch: refetchProducts } = useProducts();
   const [section, setSection] = useState<Section>("products");
+  const [createProductOpen, setCreateProductOpen] = useState(false);
 
   const [products, setProducts] = useState<LocalProduct[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -76,6 +81,18 @@ export function AdminClient() {
         {section === "products" && (
           <section className="space-y-6">
             <h2 className="text-lg font-bold text-aldi-blue">{t("products")}</h2>
+            <button
+              type="button"
+              onClick={() => setCreateProductOpen(true)}
+              className="flex w-full items-center gap-4 rounded-2xl bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.08)] transition-all active:scale-[0.98]"
+            >
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-aldi-blue text-white">
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                </svg>
+              </span>
+              <span className="text-[15px] font-medium text-aldi-text">{tCapture("createProduct.button")}</span>
+            </button>
             <BatchJobsPanel batchJobs={batchJobs} />
             <GalleryUploadPanel gallery={gallery} />
           </section>
@@ -88,6 +105,14 @@ export function AdminClient() {
         {section === "errors" && (
           <SortingErrorsPanel errors={errors} stores={stores} />
         )}
+        <CreateProductModal
+          open={createProductOpen}
+          onClose={() => setCreateProductOpen(false)}
+          onSaved={() => {
+            refetchProducts();
+            loadData();
+          }}
+        />
       </main>
     </AdminAuthGuard>
   );

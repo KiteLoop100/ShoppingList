@@ -23,7 +23,7 @@ import { normalizeName } from "@/lib/products/normalize";
 import { fetchOpenFoodFacts } from "@/lib/products/open-food-facts";
 import { findExistingProduct } from "@/lib/products/find-existing";
 import { upsertProduct } from "@/lib/products/upsert-product";
-import { getDefaultCategoryId } from "@/lib/products/default-category";
+import { getDefaultCategoryId, getAktionsartikelCategoryId } from "@/lib/products/default-category";
 
 const processFlyerPageSchema = z.object({
   upload_id: z.string().min(1).max(100),
@@ -184,6 +184,7 @@ export async function POST(request: Request) {
   let productsUpdated = 0;
 
   const defaultCategoryId = await getDefaultCategoryId(supabase);
+  const aktionCategoryId = await getAktionsartikelCategoryId(supabase);
 
   await supabase
     .from("flyer_page_products")
@@ -215,6 +216,9 @@ export async function POST(request: Request) {
       article_number: articleNumber,
       ean_barcode: ean,
       name_normalized: nameNorm,
+    }, {
+      skipEan: true,
+      fuzzy: true,
     });
 
     let resultProductId: string | null = null;
@@ -240,14 +244,13 @@ export async function POST(request: Request) {
         resultProductId = result.product_id;
       }
     } else if (defaultCategoryId) {
-      const assortmentType = p.assortment_type === "special_food" ? "special_food"
-        : p.assortment_type === "special_nonfood" ? "special_nonfood"
-        : p.assortment_type === "special" ? "special_food"
-        : "daily_range";
+      const assortmentType = p.assortment_type === "special_nonfood"
+        ? "special_nonfood"
+        : "special_food";
       const result = await upsertProduct(supabase, {
         name: displayName,
         name_normalized: nameNormalized,
-        category_id: defaultCategoryId,
+        category_id: aktionCategoryId ?? defaultCategoryId,
         article_number: articleNumber,
         brand,
         price,

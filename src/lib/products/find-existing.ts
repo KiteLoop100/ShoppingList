@@ -1,9 +1,10 @@
 /**
- * Shared product duplicate-check: article_number → ean_barcode → name_normalized.
+ * Shared product duplicate-check: article_number -> ean_barcode -> name_normalized.
  * Priority order is critical for correctness and must not be changed.
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { stripFlyerSuffixes } from "./normalize";
 
 export interface FindProductFields {
   article_number?: string | null;
@@ -16,6 +17,8 @@ export interface FindProductOptions {
   skipEan?: boolean;
   /** Supabase select columns (default: "product_id") */
   select?: string;
+  /** Enable fuzzy matching with suffix stripping and prefix search (for flyer imports) */
+  fuzzy?: boolean;
 }
 
 export interface FindExistingResult {
@@ -23,6 +26,29 @@ export interface FindExistingResult {
   matched_by: "article_number" | "ean_barcode" | "name_normalized";
   [key: string]: unknown;
 }
+
+async function queryByName(
+  supabase: SupabaseClient,
+  select: string,
+  pattern: string,
+): Promise<FindExistingResult | null> {
+  const { data } = await supabase
+    .from("products")
+    .select(select)
+    .ilike("name_normalized", pattern)
+    .eq("status", "active")
+    .limit(1)
+    .maybeSingle();
+  if (data) {
+    return {
+      ...(data as unknown as Record<string, unknown>),
+      matched_by: "name_normalized",
+    } as FindExistingResult;
+  }
+  return null;
+}
+
+const MIN_FUZZY_WORDS = 3;
 
 export async function findExistingProduct(
   supabase: SupabaseClient,
@@ -55,17 +81,31 @@ export async function findExistingProduct(
     }
   }
 
-  if (fields.name_normalized) {
-    const { data } = await supabase
-      .from("products")
-      .select(select)
-      .ilike("name_normalized", fields.name_normalized)
-      .eq("status", "active")
-      .limit(1)
-      .maybeSingle();
-    if (data) {
-      return { ...(data as unknown as Record<string, unknown>), matched_by: "name_normalized" } as FindExistingResult;
-    }
+  if (!fields.name_normalized) return null;
+
+  const exact = await queryByName(supabase, select, fields.name_normalized);
+  if (exact) return exact;
+
+  if (!options?.fuzzy) return null;
+
+  const cleaned = stripFlyerSuffixes(fields.name_normalized);
+  if (cleaned !== fields.name_normalized && cleaned.length >= 6) {
+    const cleanedExact = await queryByName(supabase, select, cleaned);
+    if (cleanedExact) return cleanedExact;
+  }
+
+  const searchTerm = cleaned || fields.name_normalized;
+  if (searchTerm.length >= 6) {
+    const prefix = await queryByName(supabase, select, searchTerm + "%");
+    if (prefix) return prefix;
+  }
+
+  const words = searchTerm.split(" ").filter((w) => w.length > 0);
+  for (let len = words.length - 1; len >= MIN_FUZZY_WORDS; len--) {
+    const truncated = words.slice(0, len).join(" ");
+    if (truncated.length < 6) break;
+    const match = await queryByName(supabase, select, truncated);
+    if (match) return match;
   }
 
   return null;

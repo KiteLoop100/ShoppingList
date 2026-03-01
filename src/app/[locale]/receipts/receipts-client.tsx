@@ -6,6 +6,7 @@ import { Link } from "@/lib/i18n/navigation";
 import { getCurrentUserId } from "@/lib/auth/auth-context";
 import { createClientIfConfigured } from "@/lib/supabase/client";
 import { formatDateCompact } from "@/lib/utils/format-date";
+import { ReceiptScanner } from "@/app/[locale]/capture/receipt-scanner";
 
 interface ReceiptSummary {
   receipt_id: string;
@@ -22,6 +23,7 @@ export function ReceiptsClientPage() {
   const tCommon = useTranslations("common");
   const [receipts, setReceipts] = useState<ReceiptSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [scannerOpen, setScannerOpen] = useState(false);
 
   const loadReceipts = useCallback(async () => {
     const supabase = createClientIfConfigured();
@@ -57,7 +59,7 @@ export function ReceiptsClientPage() {
   };
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-lg flex-col bg-aldi-bg">
+    <main className="mx-auto flex h-screen max-w-lg flex-col overflow-hidden bg-aldi-bg">
       <header className="flex shrink-0 items-center gap-3 bg-white px-5 py-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
         <Link
           href="/"
@@ -82,8 +84,9 @@ export function ReceiptsClientPage() {
         <h1 className="flex-1 text-[17px] font-semibold tracking-tight text-aldi-text">
           {t("title")}
         </h1>
-        <Link
-          href="/capture"
+        <button
+          type="button"
+          onClick={() => setScannerOpen(true)}
           className="touch-target flex items-center justify-center rounded-xl text-aldi-blue transition-colors hover:bg-aldi-blue-light"
           aria-label={t("scanNew")}
         >
@@ -100,10 +103,10 @@ export function ReceiptsClientPage() {
               d="M12 4.5v15m7.5-7.5h-15"
             />
           </svg>
-        </Link>
+        </button>
       </header>
 
-      <div className="flex flex-1 flex-col p-4">
+      <div className="flex min-h-0 flex-1 flex-col overflow-auto p-4">
         {loading ? (
           <p className="py-12 text-center text-sm text-aldi-muted">
             {tCommon("loading")}
@@ -126,12 +129,13 @@ export function ReceiptsClientPage() {
               </svg>
             </div>
             <p className="text-sm text-aldi-muted">{t("empty")}</p>
-            <Link
-              href="/capture"
+            <button
+              type="button"
+              onClick={() => setScannerOpen(true)}
               className="mt-2 rounded-xl bg-aldi-blue px-5 py-2.5 text-sm font-medium text-white transition-transform active:scale-95"
             >
               {t("scanFirst")}
-            </Link>
+            </button>
           </div>
         ) : (
           <div className="flex flex-col gap-2">
@@ -203,6 +207,14 @@ export function ReceiptsClientPage() {
           </div>
         )}
       </div>
+
+      <ReceiptScanner
+        open={scannerOpen}
+        onClose={() => {
+          setScannerOpen(false);
+          loadReceipts();
+        }}
+      />
     </main>
   );
 }

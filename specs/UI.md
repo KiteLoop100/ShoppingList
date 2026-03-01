@@ -36,10 +36,6 @@ The app has deliberately few screens. One **single main screen** combines: searc
 │                  │     └──────────────┘
 │                  │
 │                  ├───→ ┌──────────────┐
-│                  │     │ Capture (F13)│
-│                  │     └──────────────┘
-│                  │
-│                  ├───→ ┌──────────────┐
 │                  │     │ Flyer (F14)  │
 │                  │     └──────────────┘
 └──────────────────┘
@@ -56,9 +52,9 @@ The app has deliberately few screens. One **single main screen** combines: searc
 - Navigation via contextual elements:
   - Main screen → Store selection: Tap on store name at top
   - Settings: Gear icon top right
-  - Capture: Camera icon in navigation
+  - Receipts: Receipt icon in navigation (+ button opens receipt scanner directly)
   - Flyer: Flyer icon in navigation
-  - Admin: Link on settings page or /admin URL
+  - Admin: Link on settings page or /admin URL (includes Create Product)
 
 ---
 
@@ -73,22 +69,24 @@ The user spends 100% of their time here. Search field on top, shopping list belo
 ```
 ┌─────────────────────────────────┐
 │ [ALDI Logo]  Musterstr. ▾  [⚙️]│  ← Logo, store (tappable), settings
-│ ┌─────────────────────────────┐ │
-│ │ 🔍 Search products...  [📷]│ │  ← Search + barcode scanner
-│ └─────────────────────────────┘ │
-│ [Recent Purchases] [Specials]   │  ← Quick-action chips
-│ [My Order | Shopping Order ▾]   │  ← Sort tabs (subtle, small)
+│ ┌──────────────────────────┐[⇅]│  ← Search + sort icon button
+│ │ 🔍 Search... [Recent][📷]│   │     Sort button toggles mode
+│ └──────────────────────────┘   │     and shows brief toast
+│                                 │
 │                                  │
 │ ── Fruits & Vegetables ─────── │  ← Category header (only in
 │                                  │     "Shopping Order" mode)
-│ ○ Apples             [-] 1 [+] │
-│ ○ Bananas            [-] 2 [+] │
+│ ┃○ Apples             [-] 1 [+]│  ← Border + label in category
+│ ┃  Obst & Gemüse               │    color (Shopping Order only)
+│ ┃○ Bananas            [-] 2 [+]│
+│ ┃  Obst & Gemüse               │
 │                                  │
 │ ── Dairy ───────────────────── │
 │                                  │
-│ ○ Milsani Low-Fat    [-] 1 [+] │
-│   Milk 1.5% 1L                 │
-│ ○ Gouda              [-] 1 [+] │
+│ ┃○ Milsani Low-Fat    [-] 1 [+]│
+│ ┃  Milchprodukte                │
+│ ┃○ Gouda              [-] 1 [+]│
+│ ┃  Milchprodukte                │
 │                                  │
 │ ── Checked Off ─────────────── │  ← Greyed out, at bottom
 │                                  │
@@ -183,7 +181,7 @@ When the user taps the search field but hasn't typed anything, the app shows the
 - Max 10 products
 - Ranking: see [SEARCH-ARCHITECTURE.md](../specs/SEARCH-ARCHITECTURE.md) §3.1
 - Disappears as soon as user starts typing (switches to Search Mode)
-- If insufficient history: shows empty field with chips (current behavior)
+- If insufficient history: shows empty field with "Recent Purchases" chip inside (current behavior)
 
 **List Mode Interactions:**
 - Tap circle (○) → check off (✓ appears, product greyed out, moves to bottom)
@@ -255,7 +253,7 @@ When the user taps the search field but hasn't typed anything, the app shows the
 - Max 10 products
 - Ranking: see [SEARCH-ARCHITECTURE.md](SEARCH-ARCHITECTURE.md) §3.1
 - Disappears as soon as user starts typing (switches to Search Mode)
-- If insufficient history: shows empty field with chips (current behavior)
+- If insufficient history: shows empty field with "Recent Purchases" chip inside (current behavior)
 
 ---
 
@@ -374,10 +372,12 @@ Brief success animation (subtle, ALDI-style). Auto-switch to home after 1-2 seco
 - **Greyed out (checked):** Light grey (#CCCCCC)
 - **Error/Delete:** Red (#E74C3C)
 - **Success:** Green (#27AE60)
+- **Category Color Coding (Shopping Order mode only):** Each of the 19 app categories has a single bold colour used for both item border and category label text. Colours are inspired by typical ALDI product/packaging appearance and meet WCAG 4.5:1 contrast on white. Applied to unchecked, non-deferred items only. Checked/deferred items retain standard grey styling. Defined in `src/lib/categories/category-colors.ts`. Colour assignments: dark gold (Bakery), green (Fruits & Vegetables), red (Fresh Meat & Fish), blue (Dairy), teal (Chilled Convenience), blue-grey (Freezer), brown (Pantry, Breakfast), dark blue (Non-Alcoholic Beverages), dark green (Alcoholic Beverages), red-brown (Snacking), pink (Health, Beauty & Baby), neutral grey (Household, Electronics, Fashion, Home Improvement, Outdoor/Leisure, Services, Sonstiges).
 
 ### 5.2 Typography
 - Clear, readable sans-serif font
 - Product names: normal size. Category headers: smaller, uppercase, ALDI blue
+- Category label below product name: 11px, colored per category in Shopping Order mode (grey in My Order mode)
 - Prices: right-aligned. Total: larger, bold
 
 ### 5.3 Spacing & Touch Targets
@@ -404,7 +404,7 @@ Brief success animation (subtle, ALDI-style). Auto-switch to home after 1-2 seco
 
 - **Empty list:** "Your list is empty" + prominent search field + "Fill with typical items" button
 - **No search results:** "No product found for '[term]'" + "Suggest Product" button + Return hint
-- **Search field focused, no history:** Empty search field with Quick-Action Chips (no Smart Default shown)
+- **Search field focused, no history:** Empty search field with "Recent Purchases" chip inside (no Smart Default shown)
 - **Search field focused, has history:** Smart Default with personal top products (see Smart Default Mode above)
 - **No store detected:** "Store could not be detected" + "Select store manually" button
 
@@ -416,4 +416,4 @@ When store is detected, app switches to optimized shopping mode: larger tap targ
 
 ---
 
-*Last updated: 2026-02-28*
+*Last updated: 2026-03-01*

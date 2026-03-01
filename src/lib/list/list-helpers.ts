@@ -64,6 +64,7 @@ export function sortAndGroupItems(
   items: LocalListItem[],
   categoryMap: Map<string, LocalCategory>,
   categoryOrder?: Map<string, number>,
+  productMetaMap?: Map<string, ProductMetaForSort>,
 ): SortResult {
   const withMeta: ListItemWithMeta[] = items.map((item) => {
     const cat = categoryMap.get(item.category_id);
@@ -71,11 +72,15 @@ export function sortAndGroupItems(
       categoryOrder?.get(item.category_id) ??
       cat?.default_sort_position ??
       999;
+    const meta = productMetaMap && item.product_id
+      ? productMetaMap.get(item.product_id)
+      : null;
     return {
       ...item,
       category_name: cat?.name ?? "",
       category_icon: cat?.icon ?? "📦",
       category_sort_position: sortPos,
+      demand_group: meta?.demand_group ?? undefined,
       price: null,
     };
   });

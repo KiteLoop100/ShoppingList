@@ -11,7 +11,7 @@ import { fetchOpenFoodFacts } from "@/lib/products/open-food-facts";
 import { getDemandGroupFallback } from "@/lib/products/demand-group-fallback";
 import { findExistingProduct } from "@/lib/products/find-existing";
 import { upsertProduct } from "@/lib/products/upsert-product";
-import { getDefaultCategoryId } from "@/lib/products/default-category";
+import { getDefaultCategoryId, getAktionsartikelCategoryId } from "@/lib/products/default-category";
 import type {
   ExtractedProduct,
   ExtractedProductWithPage,
@@ -72,6 +72,8 @@ export async function upsertExtractedProducts(
   }> = [];
 
   const defaultCategoryId = await getDefaultCategoryId(supabase);
+  const isFlyer = photoType === "flyer" || photoType === "flyer_pdf";
+  const aktionCategoryId = isFlyer ? await getAktionsartikelCategoryId(supabase) : null;
 
   if (flyerIdForProducts) {
     const flyerPages = [
@@ -132,22 +134,21 @@ export async function upsertExtractedProducts(
         name_normalized: nameNorm,
       },
       {
-        skipEan: photoType === "flyer_pdf",
+        skipEan: isFlyer,
         select: "product_id, thumbnail_url",
+        fuzzy: isFlyer,
       },
     );
 
     const nameNormalized = normalizeName(displayName);
-    const assortmentType =
-      photoType === "flyer" || photoType === "flyer_pdf"
-        ? p.assortment_type === "special_food"
-          ? "special_food"
-          : p.assortment_type === "special_nonfood"
-            ? "special_nonfood"
-            : p.assortment_type === "special"
-              ? "special_food"
-              : "daily_range"
-        : "daily_range";
+    const assortmentType = isFlyer
+      ? (existing
+          ? (p.assortment_type === "special_food" ? "special_food"
+            : p.assortment_type === "special_nonfood" ? "special_nonfood"
+            : p.assortment_type === "special" ? "special_food"
+            : "daily_range")
+          : (p.assortment_type === "special_nonfood" ? "special_nonfood" : "special_food"))
+      : "daily_range";
     const specialStart =
       photoType === "flyer_pdf"
         ? (p.special_start_date ?? claudeJson.special_valid_from ?? null)
@@ -225,10 +226,11 @@ export async function upsertExtractedProducts(
     } else if (defaultCategoryId) {
       const source = photoType === "flyer_pdf" ? "import" : "crowdsourcing";
       const resolvedThumbUrl = thumbnailUrl ?? photoUrl;
+      const newCategoryId = isFlyer ? (aktionCategoryId ?? defaultCategoryId) : defaultCategoryId;
       const result = await upsertProduct(supabase, {
         name: displayName,
         name_normalized: nameNormalized,
-        category_id: defaultCategoryId,
+        category_id: newCategoryId,
         article_number: articleNumber,
         brand,
         price,

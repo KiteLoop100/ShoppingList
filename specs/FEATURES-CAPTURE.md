@@ -10,9 +10,9 @@
 Users can photograph or upload product photos, receipts and flyer PDFs. Claude Vision analyzes images and extracts product data. Single products go through a review workflow; receipts and flyers are processed automatically.
 
 ### Access
-- Camera icon in navigation
-- Route: /[locale]/capture
-- No password protection
+- **Receipt scanning:** Via "+" button on the Receipts page (/[locale]/receipts), opens scanner directly
+- **Create Product:** Via Admin area (/[locale]/admin), in the Products section
+- Legacy route /[locale]/capture still exists but is no longer linked from main navigation
 
 ---
 
@@ -49,7 +49,7 @@ Take/select photo
 ### Receipts (Dedicated Scanner)
 
 ```
-"Kassenzettel scannen" button on capture page
+"+" button on the Receipts page (or legacy capture page)
   → Camera opens (rear-facing, 1920×2560)
       - Fallback: native file input (iOS Safari permission issues)
   → User takes one or more photos (long receipts need multiple)
@@ -103,7 +103,7 @@ Pages 1-5 processed inline by processFlyer. Pages 6+ processed by client-side lo
 
 ## Manual Product Creation
 
-"Create Product" button on capture page opens fullscreen form:
+"Create Product" button in the Admin area (Products section) opens fullscreen form:
 
 ### Fields
 Name, brand, price, EAN, article number, weight/quantity, demand group (dropdown), demand sub group (filtered dropdown).

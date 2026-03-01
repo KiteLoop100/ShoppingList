@@ -31,6 +31,7 @@ export const SEED_CATEGORIES: Category[] = [
   { category_id: "ac512656-e4ce-4c4e-9888-67d6ceea7686", name: "Services", name_translations: { en: "Services", de: "Services" }, icon: "📱", default_sort_position: 17 },
   { category_id: "1b3a7e69-bdf2-4ec8-b012-f7d8b05e33c0", name: "Snacking", name_translations: { en: "Snacking", de: "Süßwaren & Snacks" }, icon: "🍫", default_sort_position: 18 },
   { category_id: "cf9d6752-612b-43c7-904e-69d97a8e6ea3", name: "Sonstiges", name_translations: { en: "Other", de: "Sonstiges" }, icon: "📦", default_sort_position: 19 },
+  { category_id: "8c7f9179-2330-40d8-a789-6194f04d7406", name: "Aktionsartikel", name_translations: { en: "Promotional Items", de: "Aktionsartikel" }, icon: "🏷️", default_sort_position: 90 },
 ];
 
 /** Demo stores for F04 (GPS radius ~50–100m). Coordinates are example values. */

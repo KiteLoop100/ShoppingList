@@ -11,17 +11,19 @@ import { useProducts } from "@/lib/products-context";
 import { updateListItem, canFillWithTypicalProducts, fillListWithTypicalProducts } from "@/lib/list";
 import { db } from "@/lib/db";
 import { translateCategoryName } from "@/lib/i18n/category-translations";
+import { getCategoryColor } from "@/lib/categories/category-colors";
 
 import { RetailerPickerSheet } from "./retailer-picker-sheet";
 import { getRetailerByName } from "@/lib/retailers/retailers";
 import { ElsewhereCheckoffPrompt } from "./elsewhere-checkoff-prompt";
 import { CompetitorProductFormModal } from "./competitor-product-form-modal";
+import { CompetitorProductDetailModal } from "./competitor-product-detail-modal";
 import { useCompetitorProducts } from "@/lib/competitor-products/competitor-products-context";
-import { getLatestPriceForRetailer } from "@/lib/competitor-products/competitor-product-service";
+import { getLatestPriceForRetailer, findCompetitorProductById } from "@/lib/competitor-products/competitor-product-service";
 
 import type { ListItemWithMeta } from "@/lib/list/list-helpers";
 import type { UseListDataResult } from "./use-list-data";
-import type { SortMode } from "@/types";
+import type { SortMode, CompetitorProduct } from "@/types";
 import type { Product } from "@/types";
 
 export interface ShoppingListContentProps {
@@ -68,6 +70,8 @@ export const ShoppingListContent = memo(function ShoppingListContent({
     name?: string; retailer?: string; ean?: string; brand?: string;
   }>({});
   const [competitorFormItemId, setCompetitorFormItemId] = useState<string | null>(null);
+  const [competitorFormEditProduct, setCompetitorFormEditProduct] = useState<CompetitorProduct | null>(null);
+  const [detailCompetitorProduct, setDetailCompetitorProduct] = useState<CompetitorProduct | null>(null);
 
   // Refs for stable callback references (prevents breaking React.memo on ListItemRow)
   const allItemsRef = useRef<ListItemWithMeta[]>([]);
@@ -152,6 +156,7 @@ export const ShoppingListContent = memo(function ShoppingListContent({
   const handleCompetitorFormSaved = useCallback(
     async (productId: string) => {
       setCompetitorFormOpen(false);
+      setCompetitorFormEditProduct(null);
       if (competitorFormItemId) {
         try {
           await updateListItem(competitorFormItemId, { competitor_product_id: productId });
@@ -160,6 +165,9 @@ export const ShoppingListContent = memo(function ShoppingListContent({
       setCompetitorFormItemId(null);
       await refetchCompetitorProducts();
       await refetchRef.current();
+
+      const cp = await findCompetitorProductById(productId);
+      if (cp) setDetailCompetitorProduct(cp);
     },
     [refetchCompetitorProducts, competitorFormItemId]
   );
@@ -204,6 +212,14 @@ export const ShoppingListContent = memo(function ShoppingListContent({
   const handleOpenDetail = useCallback(
     async (item: ListItemWithMeta) => {
       if (item.deferred_reason === "elsewhere") {
+        if (item.competitor_product_id) {
+          const cp = competitorProducts.find(p => p.product_id === item.competitor_product_id)
+            ?? await findCompetitorProductById(item.competitor_product_id);
+          if (cp) {
+            setDetailCompetitorProduct(cp);
+            return;
+          }
+        }
         setCompetitorFormDefaults({
           name: item.display_name || item.custom_name || "",
           retailer: item.buy_elsewhere_retailer || "",
@@ -231,7 +247,7 @@ export const ShoppingListContent = memo(function ShoppingListContent({
         setDetailProduct(p);
       }
     },
-    []
+    [competitorProducts]
   );
 
   const handleRenameItem = useCallback(
@@ -285,8 +301,12 @@ export const ShoppingListContent = memo(function ShoppingListContent({
     () => deferred.filter(i => i.deferred_reason === "elsewhere").map(item => {
       if (!item.competitor_product_id) return item;
       const cp = competitorProducts.find(p => p.product_id === item.competitor_product_id);
-      if (!cp?.thumbnail_url) return item;
-      return { ...item, competitor_thumbnail_url: cp.thumbnail_url };
+      if (!cp) return item;
+      return {
+        ...item,
+        display_name: cp.name,
+        ...(cp.thumbnail_url ? { competitor_thumbnail_url: cp.thumbnail_url } : {}),
+      };
     }),
     [deferred, competitorProducts]
   );
@@ -376,6 +396,7 @@ export const ShoppingListContent = memo(function ShoppingListContent({
                     deleteLabel={t("delete")}
                     onOpenDetail={handleOpenDetail}
                     categoryLabel={translateCategoryName(item.demand_group || item.category_name, locale)}
+                    categoryColor={dataSortMode === "shopping-order" ? getCategoryColor(item.demand_group || item.category_name) : undefined}
                     onDefer={handleDefer}
                     onBuyElsewhere={handleBuyElsewhere}
                     onRenameItem={handleRenameItem}
@@ -555,12 +576,25 @@ export const ShoppingListContent = memo(function ShoppingListContent({
 
       <CompetitorProductFormModal
         open={competitorFormOpen}
-        onClose={() => setCompetitorFormOpen(false)}
+        onClose={() => { setCompetitorFormOpen(false); setCompetitorFormEditProduct(null); }}
         onSaved={handleCompetitorFormSaved}
         initialName={competitorFormDefaults.name}
         initialRetailer={competitorFormDefaults.retailer}
         initialEan={competitorFormDefaults.ean}
         initialBrand={competitorFormDefaults.brand}
+        editProduct={competitorFormEditProduct}
+      />
+
+      <CompetitorProductDetailModal
+        product={detailCompetitorProduct}
+        onClose={() => setDetailCompetitorProduct(null)}
+        onEdit={(cp) => {
+          setDetailCompetitorProduct(null);
+          setCompetitorFormEditProduct(cp);
+          setCompetitorFormDefaults({});
+          setCompetitorFormItemId(null);
+          setCompetitorFormOpen(true);
+        }}
       />
     </>
   );

@@ -41,6 +41,7 @@
     "specialsAvailableFrom": "from {date}",
     "chipSortMyOrder": "My order",
     "chipSortShoppingOrder": "Store order",
+    "sortToast": "Sort: {mode}",
     "addingProduct": "Adding product…",
     "categoryAssignmentFailed": "Could not add product. Please check your internet connection.",
     "barcodeNotFound": "Product not recognized.",
@@ -126,7 +127,25 @@
     "checkoffPromptTitle": "\"{name}\" bought at {retailer}. Capture details?",
     "checkoffPromptPricePlaceholder": "Price",
     "checkoffPromptSkip": "Skip",
-    "checkoffPromptSave": "Save"
+    "checkoffPromptSave": "Save",
+    "competitorProductEditTitle": "Edit product",
+    "competitorProductUpdate": "Update",
+    "competitorProductUpdating": "Updating…",
+    "competitorPhotoReplace": "Replace",
+    "competitorPhotoRemove": "Remove"
+  },
+  "competitorDetail": {
+    "title": "Product details",
+    "close": "Close",
+    "frontPhoto": "Product photo",
+    "otherPhoto": "Other photo",
+    "brand": "Brand",
+    "latestPrice": "Latest price",
+    "retailer": "Retailer",
+    "eanBarcode": "EAN barcode",
+    "weightQuantity": "Weight/quantity",
+    "editProduct": "Edit product",
+    "noPrices": "No prices recorded yet"
   },
   "capture": {
     "title": "Capture products & receipts",

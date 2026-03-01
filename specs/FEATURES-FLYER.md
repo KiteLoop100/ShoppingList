@@ -124,6 +124,24 @@ These columns on the products table are deprecated. They stored a 1:1 relationsh
 - `ANTHROPIC_API_KEY`: Claude API key (required)
 - `GOOGLE_GEMINI_API_KEY`: Gemini API key (optional; if missing, bbox detection is skipped and products have no hotspots)
 
+### Product matching (fuzzy)
+
+When a flyer product is extracted, `findExistingProduct` tries to match it to an existing DB product using fuzzy name matching (`fuzzy: true`):
+
+1. Exact match on `article_number`, then `name_normalized` (ILIKE)
+2. Suffix stripping: common flyer suffixes ("verschiedene Sorten", weight specs, "je Packung") are removed before retrying
+3. Prefix match: `name_normalized ILIKE cleaned_name%` (DB name starts with search term)
+4. Progressive truncation: search term shortened word-by-word (min 3 words)
+
+### New products = Aktionsartikel
+
+Products **not found** in the DB are treated as promotional items:
+- `category_id` = "Aktionsartikel" (instead of "Sonstiges")
+- `assortment_type` = `special_food` or `special_nonfood` (instead of Claude's `daily_range`)
+- This ensures they sort under `AK-Aktionsartikel` in the store layout
+
+Products **found** in the DB keep their existing category and assortment_type.
+
 ### Limitations
 
 - Label matching between Gemini and Claude is fuzzy; some products may not get matched to a bbox

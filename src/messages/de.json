@@ -41,6 +41,7 @@
     "specialsAvailableFrom": "ab {date}",
     "chipSortMyOrder": "Meine Reihenfolge",
     "chipSortShoppingOrder": "Einkaufsreihenfolge",
+    "sortToast": "Sortierung: {mode}",
     "addingProduct": "Produkt wird angelegt…",
     "categoryAssignmentFailed": "Produkt konnte nicht hinzugefügt werden. Bitte prüfe deine Internetverbindung.",
     "barcodeNotFound": "Produkt wurde nicht erkannt.",
@@ -126,7 +127,25 @@
     "checkoffPromptTitle": "\"{name}\" bei {retailer} gekauft. Details erfassen?",
     "checkoffPromptPricePlaceholder": "Preis",
     "checkoffPromptSkip": "Überspringen",
-    "checkoffPromptSave": "Speichern"
+    "checkoffPromptSave": "Speichern",
+    "competitorProductEditTitle": "Produkt bearbeiten",
+    "competitorProductUpdate": "Aktualisieren",
+    "competitorProductUpdating": "Aktualisieren…",
+    "competitorPhotoReplace": "Ersetzen",
+    "competitorPhotoRemove": "Entfernen"
+  },
+  "competitorDetail": {
+    "title": "Produktdetails",
+    "close": "Schließen",
+    "frontPhoto": "Produktfoto",
+    "otherPhoto": "Weiteres Foto",
+    "brand": "Marke",
+    "latestPrice": "Letzter Preis",
+    "retailer": "Händler",
+    "eanBarcode": "EAN-Barcode",
+    "weightQuantity": "Gewicht/Menge",
+    "editProduct": "Produkt bearbeiten",
+    "noPrices": "Noch keine Preise erfasst"
   },
   "capture": {
     "title": "Produkte & Kassenzettel erfassen",

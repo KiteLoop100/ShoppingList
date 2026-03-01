@@ -28,6 +28,8 @@ export interface ListItemRowProps {
   onOpenDetail?: (item: ListItemWithMeta) => void;
   /** Small category/demand-group label shown below the product name (flat walking-order mode). */
   categoryLabel?: string;
+  /** Per-category colour for border + label (shopping-order mode only). */
+  categoryColor?: string;
   /** Called when user swipes right to defer the item to the next trip. */
   onDefer?: (itemId: string) => void;
   /** Called when user swipes right on a manually deferred item to un-defer it. */
@@ -46,6 +48,7 @@ export const ListItemRow = memo(function ListItemRow({
   deleteLabel,
   onOpenDetail,
   categoryLabel,
+  categoryColor,
   onDefer,
   onUndefer,
   onBuyElsewhere,
@@ -266,7 +269,12 @@ export const ListItemRow = memo(function ListItemRow({
       {/* Row content */}
       <div
         className={`relative z-10 flex min-h-touch min-w-0 items-center gap-1.5 rounded-lg border border-aldi-muted-light px-2 py-2 transition-[transform,background-color,opacity] duration-200 ease-out ${isDeferred ? "bg-gray-100" : "bg-white"}`}
-        style={{ transform: `translateX(${-translateX}px)` }}
+        style={{
+          transform: `translateX(${-translateX}px)`,
+          ...(categoryColor && !item.is_checked && !isDeferred
+            ? { borderColor: categoryColor }
+            : undefined),
+        }}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
@@ -350,7 +358,10 @@ export const ListItemRow = memo(function ListItemRow({
                     : t("deferredBadgeReorder")}
             </span>
           ) : categoryLabel ? (
-            <span className="block truncate text-[11px] leading-snug text-aldi-muted">
+            <span
+              className="block truncate text-[11px] leading-snug text-aldi-muted"
+              style={categoryColor && !item.is_checked && !isDeferred ? { color: categoryColor } : undefined}
+            >
               {categoryLabel}
             </span>
           ) : null}
