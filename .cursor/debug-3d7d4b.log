@@ -1,0 +1,42 @@
+{"sessionId":"3d7d4b","location":"middleware.ts:entry","message":"Middleware hit","data":{"pathname":"/","search":"","method":"GET"},"timestamp":1772383522006,"hypothesisId":"H2"}
+{"sessionId":"3d7d4b","location":"middleware.ts:after","message":"Middleware response","data":{"status":307,"redirectUrl":"https://0.0.0.0:3000/de"},"timestamp":1772383522009,"hypothesisId":"H2"}
+{"sessionId":"3d7d4b","location":"middleware.ts:entry","message":"Middleware hit","data":{"pathname":"/","search":"","method":"GET"},"timestamp":1772383531760,"hypothesisId":"H2"}
+{"sessionId":"3d7d4b","location":"middleware.ts:after","message":"Middleware response","data":{"status":307,"redirectUrl":"https://0.0.0.0:3000/de"},"timestamp":1772383531761,"hypothesisId":"H2"}
+{"sessionId":"3d7d4b","location":"middleware.ts:entry","message":"Middleware hit","data":{"pathname":"/de","search":"","method":"GET"},"timestamp":1772383531771,"hypothesisId":"H2"}
+{"sessionId":"3d7d4b","location":"middleware.ts:after","message":"Middleware response","data":{"status":200,"redirectUrl":null},"timestamp":1772383531772,"hypothesisId":"H2"}
+{"sessionId":"3d7d4b","location":"middleware.ts:entry","message":"Middleware hit","data":{"pathname":"/","search":"","method":"GET"},"timestamp":1772383532905,"hypothesisId":"H2"}
+{"sessionId":"3d7d4b","location":"middleware.ts:after","message":"Middleware response","data":{"status":307,"redirectUrl":"https://0.0.0.0:3000/de"},"timestamp":1772383532906,"hypothesisId":"H2"}
+{"sessionId":"3d7d4b","location":"layout.tsx:messagesLoaded","message":"Messages loaded OK","data":{"messageKeys":["common","home","search","list","capture"]},"timestamp":1772383536310,"hypothesisId":"H3"}
+{"sessionId":"3d7d4b","location":"layout.tsx:entry","message":"LocaleLayout rendering","data":{"locale":"de","validLocale":true},"timestamp":1772383536263,"hypothesisId":"H3"}
+{"sessionId":"3d7d4b","location":"middleware.ts:entry","message":"Middleware hit","data":{"pathname":"/","search":"","method":"GET"},"timestamp":1772383618857,"hypothesisId":"H2"}
+{"sessionId":"3d7d4b","location":"middleware.ts:after","message":"Middleware response","data":{"status":307,"redirectUrl":"http://0.0.0.0:3000/de"},"timestamp":1772383618860,"hypothesisId":"H2"}
+{"sessionId":"3d7d4b","location":"middleware.ts:entry","message":"Middleware hit","data":{"pathname":"/de","search":"","method":"GET"},"timestamp":1772383618932,"hypothesisId":"H2"}
+{"sessionId":"3d7d4b","location":"middleware.ts:after","message":"Middleware response","data":{"status":200,"redirectUrl":null},"timestamp":1772383618933,"hypothesisId":"H2"}
+{"sessionId":"3d7d4b","location":"layout.tsx:messagesLoaded","message":"Messages loaded OK","data":{"messageKeys":["common","home","search","list","capture"]},"timestamp":1772383625230,"hypothesisId":"H3"}
+{"sessionId":"3d7d4b","location":"layout.tsx:entry","message":"LocaleLayout rendering","data":{"locale":"de","validLocale":true},"timestamp":1772383625172,"hypothesisId":"H3"}
+{"sessionId":"3d7d4b","location":"middleware.ts:entry","message":"Middleware hit","data":{"pathname":"/","search":"","method":"GET"},"timestamp":1772383698391,"hypothesisId":"H2"}
+{"sessionId":"3d7d4b","location":"middleware.ts:after","message":"Middleware response","data":{"status":307,"redirectUrl":"http://0.0.0.0:3000/de"},"timestamp":1772383698393,"hypothesisId":"H2"}
+{"sessionId":"3d7d4b","location":"middleware.ts:entry","message":"Middleware hit","data":{"pathname":"/de","search":"","method":"GET"},"timestamp":1772383698413,"hypothesisId":"H2"}
+{"sessionId":"3d7d4b","location":"middleware.ts:after","message":"Middleware response","data":{"status":200,"redirectUrl":null},"timestamp":1772383698414,"hypothesisId":"H2"}
+{"sessionId":"3d7d4b","location":"layout.tsx:messagesLoaded","message":"Messages loaded OK","data":{"messageKeys":["common","home","search","list","capture"]},"timestamp":1772383698475,"hypothesisId":"H3"}
+{"sessionId":"3d7d4b","location":"layout.tsx:entry","message":"LocaleLayout rendering","data":{"locale":"de","validLocale":true},"timestamp":1772383698472,"hypothesisId":"H3"}
+{"sessionId":"3d7d4b","location":"page.tsx:mount","message":"MainScreenPage mounted on client","data":{"href":"http://localhost:3000/de"},"timestamp":1772383699559,"hypothesisId":"H4"}
+{"sessionId":"3d7d4b","location":"page.tsx:mount","message":"MainScreenPage mounted on client","data":{"href":"http://localhost:3000/de"},"timestamp":1772383699572,"hypothesisId":"H4"}
+{"sessionId":"3d7d4b","location":"middleware.ts:entry","message":"Middleware hit","data":{"pathname":"/de","search":"","method":"GET"},"timestamp":1772383761444,"hypothesisId":"H2"}
+{"sessionId":"3d7d4b","location":"middleware.ts:after","message":"Middleware response","data":{"status":200,"redirectUrl":null},"timestamp":1772383761446,"hypothesisId":"H2"}
+{"sessionId":"3d7d4b","location":"layout.tsx:messagesLoaded","message":"Messages loaded OK","data":{"messageKeys":["common","home","search","list","capture"]},"timestamp":1772383761673,"hypothesisId":"H3"}
+{"sessionId":"3d7d4b","location":"layout.tsx:entry","message":"LocaleLayout rendering","data":{"locale":"de","validLocale":true},"timestamp":1772383761589,"hypothesisId":"H3"}
+{"sessionId":"3d7d4b","location":"page.tsx:mount","message":"MainScreenPage mounted on client","data":{"href":"http://localhost:3000/de"},"timestamp":1772383762576,"hypothesisId":"H4"}
+{"sessionId":"3d7d4b","location":"page.tsx:mount","message":"MainScreenPage mounted on client","data":{"href":"http://localhost:3000/de"},"timestamp":1772383762586,"hypothesisId":"H4"}
+{"sessionId":"3d7d4b","location":"middleware.ts:entry","message":"Middleware hit","data":{"pathname":"/","search":"","method":"GET"},"timestamp":1772383803568,"hypothesisId":"H2"}
+{"sessionId":"3d7d4b","location":"middleware.ts:after","message":"Middleware response","data":{"status":307,"redirectUrl":"https://0.0.0.0:3000/de"},"timestamp":1772383803572,"hypothesisId":"H2"}
+{"sessionId":"3d7d4b","location":"middleware.ts:entry","message":"Middleware hit","data":{"pathname":"/de","search":"","method":"GET"},"timestamp":1772383803600,"hypothesisId":"H2"}
+{"sessionId":"3d7d4b","location":"middleware.ts:after","message":"Middleware response","data":{"status":200,"redirectUrl":null},"timestamp":1772383803601,"hypothesisId":"H2"}
+{"sessionId":"3d7d4b","location":"layout.tsx:messagesLoaded","message":"Messages loaded OK","data":{"messageKeys":["common","home","search","list","capture"]},"timestamp":1772383810316,"hypothesisId":"H3"}
+{"sessionId":"3d7d4b","location":"layout.tsx:entry","message":"LocaleLayout rendering","data":{"locale":"de","validLocale":true},"timestamp":1772383810230,"hypothesisId":"H3"}
+{"sessionId":"3d7d4b","location":"middleware.ts:entry","message":"Middleware hit","data":{"pathname":"/de","search":"","method":"GET"},"timestamp":1772383891803,"hypothesisId":"H2"}
+{"sessionId":"3d7d4b","location":"middleware.ts:after","message":"Middleware response","data":{"status":200,"redirectUrl":null},"timestamp":1772383891807,"hypothesisId":"H2"}
+{"sessionId":"3d7d4b","location":"layout.tsx:messagesLoaded","message":"Messages loaded OK","data":{"messageKeys":["common","home","search","list","capture"]},"timestamp":1772383891882,"hypothesisId":"H3"}
+{"sessionId":"3d7d4b","location":"layout.tsx:entry","message":"LocaleLayout rendering","data":{"locale":"de","validLocale":true},"timestamp":1772383891875,"hypothesisId":"H3"}
+{"sessionId":"3d7d4b","location":"page.tsx:mount","message":"MainScreenPage mounted on client","data":{"href":"https://localhost:3000/de"},"timestamp":1772383892482,"hypothesisId":"H4"}
+{"sessionId":"3d7d4b","location":"page.tsx:mount","message":"MainScreenPage mounted on client","data":{"href":"https://localhost:3000/de"},"timestamp":1772383892488,"hypothesisId":"H4"}

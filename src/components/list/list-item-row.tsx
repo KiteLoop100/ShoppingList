@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useMemo, memo } from "react";
+import { useState, useRef, useEffect, useMemo, memo, useCallback } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import type { ListItemWithMeta } from "@/lib/list/list-helpers";
 import { QuantityWheelModal } from "./quantity-wheel-modal";
@@ -34,6 +34,8 @@ export interface ListItemRowProps {
   onUndefer?: (itemId: string) => void;
   /** Called when user swipes right past the elsewhere threshold, or taps an elsewhere badge. */
   onBuyElsewhere?: (itemId: string) => void;
+  /** Called when user long-presses a generic product name to rename it. */
+  onRenameItem?: (itemId: string, newName: string) => void;
 }
 
 export const ListItemRow = memo(function ListItemRow({
@@ -47,6 +49,7 @@ export const ListItemRow = memo(function ListItemRow({
   onDefer,
   onUndefer,
   onBuyElsewhere,
+  onRenameItem,
 }: ListItemRowProps) {
   const locale = useLocale();
   const t = useTranslations("list");
@@ -133,10 +136,64 @@ export const ListItemRow = memo(function ListItemRow({
     if (q === 0) onDelete(item.item_id);
   };
 
+  const isGeneric = !item.product_id && !item.competitor_product_id;
+  const canRename = isGeneric && !!onRenameItem;
+  const [editing, setEditing] = useState(false);
+  const [editValue, setEditValue] = useState("");
+  const editInputRef = useRef<HTMLInputElement>(null);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressFired = useRef(false);
+
+  useEffect(() => {
+    if (editing && editInputRef.current) {
+      editInputRef.current.focus();
+      editInputRef.current.select();
+    }
+  }, [editing]);
+
+  const startLongPress = useCallback(() => {
+    if (!canRename) return;
+    longPressFired.current = false;
+    longPressTimer.current = setTimeout(() => {
+      longPressFired.current = true;
+      setEditValue(item.display_name || item.custom_name || "");
+      setEditing(true);
+    }, 500);
+  }, [canRename, item.display_name, item.custom_name]);
+
+  const cancelLongPress = useCallback(() => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  }, []);
+
   const handleNameTap = (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (longPressFired.current) {
+      longPressFired.current = false;
+      return;
+    }
+    if (editing) return;
     if (onOpenDetail) onOpenDetail(item);
   };
+
+  const commitRename = useCallback(() => {
+    const trimmed = editValue.trim();
+    setEditing(false);
+    if (trimmed && trimmed !== (item.display_name || item.custom_name || "")) {
+      onRenameItem?.(item.item_id, trimmed);
+    }
+  }, [editValue, item.display_name, item.custom_name, item.item_id, onRenameItem]);
+
+  const handleEditKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      commitRename();
+    } else if (e.key === "Escape") {
+      setEditing(false);
+    }
+  }, [commitRename]);
 
   const priceStr =
     item.price != null
@@ -248,17 +305,34 @@ export const ListItemRow = memo(function ListItemRow({
             onOpenDetail ? "cursor-pointer" : ""
           }`}
           onClick={handleNameTap}
+          onTouchStart={canRename ? startLongPress : undefined}
+          onTouchEnd={canRename ? cancelLongPress : undefined}
+          onTouchMove={canRename ? cancelLongPress : undefined}
+          onContextMenu={canRename ? (e) => { e.preventDefault(); } : undefined}
         >
+          {editing ? (
+            <input
+              ref={editInputRef}
+              type="text"
+              value={editValue}
+              onChange={(e) => setEditValue(e.target.value)}
+              onBlur={commitRename}
+              onKeyDown={handleEditKeyDown}
+              onClick={(e) => e.stopPropagation()}
+              className="block w-full rounded-md border border-aldi-blue bg-white px-2 py-1 text-[15px] leading-tight text-aldi-text outline-none ring-1 ring-aldi-blue/30"
+            />
+          ) : (
           <span className={`block truncate text-[15px] leading-tight ${
             item.is_checked ? "text-aldi-muted line-through" : isDeferred ? "text-aldi-muted" : "text-aldi-text"
           } ${!item.product_id ? "italic" : ""} ${onOpenDetail ? "hover:underline" : ""}`}>
-            {!item.product_id && !item.competitor_product_id && (
+            {isGeneric && (
               <svg className="mr-1 inline-block h-3 w-3 -translate-y-px text-aldi-muted/60" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" aria-hidden>
                 <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125" />
               </svg>
             )}
             {item.display_name}
           </span>
+          )}
           {isElsewhere ? null : isDeferred && item.deferred_reason ? (
             <span className={`mt-0.5 inline-block truncate rounded px-1 py-0.5 text-[11px] font-medium leading-snug ${
               item.deferred_reason === "special"

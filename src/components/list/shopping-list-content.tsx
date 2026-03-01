@@ -234,6 +234,17 @@ export const ShoppingListContent = memo(function ShoppingListContent({
     []
   );
 
+  const handleRenameItem = useCallback(
+    async (itemId: string, newName: string) => {
+      await updateListItem(itemId, {
+        display_name: newName,
+        custom_name: newName,
+      });
+      await refetchRef.current();
+    },
+    []
+  );
+
   const handleGenericProductSelected = useCallback(
     async (product: Product) => {
       if (!genericPickerItem) return;
@@ -367,6 +378,7 @@ export const ShoppingListContent = memo(function ShoppingListContent({
                     categoryLabel={translateCategoryName(item.demand_group || item.category_name, locale)}
                     onDefer={handleDefer}
                     onBuyElsewhere={handleBuyElsewhere}
+                    onRenameItem={handleRenameItem}
                   />
                 </li>
               ))}
@@ -400,6 +412,7 @@ export const ShoppingListContent = memo(function ShoppingListContent({
                             deleteLabel={t("delete")}
                             onOpenDetail={handleOpenDetail}
                             onUndefer={handleUndefer}
+                            onRenameItem={handleRenameItem}
                           />
                         </li>
                       ))}
@@ -423,6 +436,7 @@ export const ShoppingListContent = memo(function ShoppingListContent({
                         onDelete={handleDelete}
                         deleteLabel={t("delete")}
                         onOpenDetail={handleOpenDetail}
+                        onRenameItem={handleRenameItem}
                       />
                     </li>
                   ))}

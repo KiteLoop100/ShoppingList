@@ -48,7 +48,7 @@ export function GenericProductPicker({
         onClick={onClose}
       />
       <div
-        className="fixed left-1/2 top-1/2 z-50 flex w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 flex-col rounded-2xl bg-white shadow-xl"
+        className="fixed left-1/2 top-[7.5vh] z-50 flex w-[calc(100%-2rem)] max-w-md -translate-x-1/2 flex-col rounded-2xl bg-white shadow-xl"
         role="dialog"
         aria-modal="true"
         style={{ maxHeight: "85vh" }}
