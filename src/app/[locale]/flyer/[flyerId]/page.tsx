@@ -89,9 +89,6 @@ export default function FlyerDetailPage() {
   }, [flyerId]);
 
   useEffect(() => {
-    // #region agent log
-    fetch('/api/debug-log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'5f58ab',location:'flyer-detail:useEffect-processing',message:'processing-effect-entry',data:{flyerId,loading,processingRefCurrent:processingRef.current},timestamp:Date.now(),hypothesisId:'H4'})}).catch(()=>{});
-    // #endregion
     if (!flyerId || loading || processingRef.current) return;
 
     let cancelled = false;
@@ -103,10 +100,6 @@ export default function FlyerDetailPage() {
         if (!statusRes.ok) return;
         statusData = await statusRes.json();
       } catch { return; }
-
-      // #region agent log
-      fetch('/api/debug-log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'5f58ab',location:'flyer-detail:status-check',message:'processing-status-result',data:{statusData,flyerId},timestamp:Date.now(),hypothesisId:'H1'})}).catch(()=>{});
-      // #endregion
 
       if (cancelled || !statusData.pending) return;
 
@@ -121,9 +114,6 @@ export default function FlyerDetailPage() {
 
       while (pagesProcessed < totalPages && !cancelled) {
         const nextPage = pagesProcessed + 1;
-        // #region agent log
-        fetch('/api/debug-log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'5f58ab',location:'flyer-detail:process-loop',message:'calling-process-flyer-page',data:{uploadId,flyerId,nextPage,pagesProcessed,totalPages},timestamp:Date.now(),hypothesisId:'H5'})}).catch(()=>{});
-        // #endregion
         try {
           const res = await fetch("/api/process-flyer-page", {
             method: "POST",
@@ -135,11 +125,7 @@ export default function FlyerDetailPage() {
             }),
           });
           if (!res.ok) {
-            const errText = await res.text();
-            // #region agent log
-            fetch('/api/debug-log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'5f58ab',location:'flyer-detail:process-error',message:'process-flyer-page-failed',data:{nextPage,status:res.status,errText},timestamp:Date.now(),hypothesisId:'H5'})}).catch(()=>{});
-            // #endregion
-            log.error("[flyer-detail] page", nextPage, "failed:", errText);
+            log.error("[flyer-detail] page", nextPage, "failed:", await res.text());
             break;
           }
           const data = await res.json();
@@ -266,7 +252,6 @@ export default function FlyerDetailPage() {
           pages.map((page) => {
             const pageProducts = productsByPage.get(page.page_number) ?? [];
             const hotspots: Hotspot[] = [];
-            const fallbackProducts: ProductRow[] = [];
 
             for (const p of pageProducts) {
               if (
@@ -275,12 +260,8 @@ export default function FlyerDetailPage() {
                 p.bbox.y_max - p.bbox.y_min >= MIN_HOTSPOT_SIZE
               ) {
                 hotspots.push({ product: p, bbox: p.bbox });
-              } else {
-                fallbackProducts.push(p);
               }
             }
-
-            const hasHotspots = hotspots.length > 0;
 
             return (
               <section key={page.page_id} className="border-b border-aldi-muted-light">
@@ -294,13 +275,13 @@ export default function FlyerDetailPage() {
                     productIdsOnList={productIdsOnList}
                   />
                 )}
-                {fallbackProducts.length > 0 && (
+                {pageProducts.length > 0 && (
                   <div className="px-4 py-3">
                     <h2 className="mb-2 text-sm font-medium text-aldi-muted">
-                      {hasHotspots ? t("moreProductsOnPage") : t("productsOnPage")}
+                      {t("productsOnPage")}
                     </h2>
                     <ul className="flex flex-col gap-1">
-                      {fallbackProducts.map((product) => {
+                      {pageProducts.map((product) => {
                         const onList = productIdsOnList.has(product.product_id);
                         const displayPrice = product.price_in_flyer ?? product.price;
                         return (

@@ -106,8 +106,8 @@ export const PREPOSITIONS = [
 // --- Plural suffixes (for stem variants) ---
 export const PLURAL_SUFFIXES = ["en", "n", "e", "er", "s"] as const;
 
-// --- Default popularity score (when ALDI data not yet available) ---
-export const DEFAULT_POPULARITY_SCORE = 0.5;
+// --- Default popularity score (average of linear-normalized ALDI data) ---
+export const DEFAULT_POPULARITY_SCORE = 0.025;
 
 // --- Category affinity boost ---
 // Bonus points when a product's demand_group matches the query's synonym mapping

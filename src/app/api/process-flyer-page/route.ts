@@ -28,9 +28,6 @@ const processFlyerPageSchema = z.object({
 });
 
 export async function POST(request: Request) {
-  // #region agent log
-  const _fs = await import('fs'); _fs.appendFileSync('debug-5f58ab.log', JSON.stringify({sessionId:'5f58ab',location:'process-flyer-page:entry',message:'API-route-called',data:{},timestamp:Date.now(),hypothesisId:'H5'})+'\n');
-  // #endregion
   const apiKeyCheck = requireApiKey();
   if (apiKeyCheck instanceof NextResponse) return apiKeyCheck;
 
