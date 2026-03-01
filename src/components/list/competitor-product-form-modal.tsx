@@ -37,7 +37,7 @@ function fileToBase64(file: File): Promise<{ base64: string; mediaType: string }
 }
 
 function titleCase(s: string): string {
-  return s.replace(/\p{L}+/gu, (w) =>
+  return s.replace(/[a-zA-ZäöüÄÖÜßàáâãèéêìíîòóôùúûñç]+/g, (w) =>
     w.charAt(0).toUpperCase() + w.slice(1).toLowerCase(),
   );
 }
