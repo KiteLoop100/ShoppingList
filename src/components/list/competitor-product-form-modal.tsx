@@ -38,7 +38,7 @@ function fileToBase64(file: File): Promise<{ base64: string; mediaType: string }
 
 function titleCase(s: string): string {
   return s.replace(/\p{L}+/gu, (w) =>
-    w.charAt(0).toUpperCase() + w.slice(1),
+    w.charAt(0).toUpperCase() + w.slice(1).toLowerCase(),
   );
 }
 
@@ -72,7 +72,7 @@ export function CompetitorProductFormModal({
 
   useEffect(() => {
     if (open) {
-      setName(initialName);
+      setName(initialName ? titleCase(initialName) : "");
       setBrand(initialBrand);
       setPrice("");
       setEan(initialEan);
@@ -106,7 +106,7 @@ export function CompetitorProductFormModal({
         throw new Error(errData.error ?? `HTTP ${res.status}`);
       }
       const data = await res.json();
-      if (data.name && !name) setName(titleCase(data.name));
+      if (data.name) setName(titleCase(data.name));
       if (data.brand && !brand) setBrand(data.brand);
       if (data.ean_barcode && !ean) setEan(data.ean_barcode);
       if (data.price != null && !price) setPrice(String(data.price).replace(".", ","));
@@ -116,7 +116,7 @@ export function CompetitorProductFormModal({
     } finally {
       setAnalyzing(false);
     }
-  }, [name, brand, ean, price]);
+  }, [brand, ean, price]);
 
   const handleOtherPhoto = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -138,7 +138,7 @@ export function CompetitorProductFormModal({
         throw new Error(errData.error ?? `HTTP ${res.status}`);
       }
       const data = await res.json();
-      if (data.name && !name) setName(titleCase(data.name));
+      if (data.name) setName(titleCase(data.name));
       if (data.brand && !brand) setBrand(data.brand);
       if (data.ean_barcode && !ean) setEan(data.ean_barcode);
       if (data.price != null && !price) setPrice(String(data.price).replace(".", ","));
@@ -148,7 +148,7 @@ export function CompetitorProductFormModal({
     } finally {
       setAnalyzing(false);
     }
-  }, [name, brand, ean, price]);
+  }, [brand, ean, price]);
 
   const effectiveRetailer = retailer === "__custom__" ? customRetailer.trim() : retailer;
 

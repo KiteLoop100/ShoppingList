@@ -248,7 +248,9 @@
     "preferBrand": "Markenartikel bevorzugen",
     "preferBio": "Bio-Produkte bevorzugen",
     "preferVegan": "Vegane Produkte bevorzugen",
-    "preferAnimalWelfare": "Tierwohlprodukte bevorzugen"
+    "preferAnimalWelfare": "Tierwohlprodukte bevorzugen",
+    "appGuide": "App kennenlernen",
+    "appGuideLink": "Einführung erneut anzeigen"
   },
   "flyer": {
     "title": "Handzettel",
@@ -435,6 +437,65 @@
     "loggedInAs": "Angemeldet als: {email}",
     "anonymousHint": "Du nutzt die App ohne Konto. Erstelle ein Konto, um deine Daten auf mehreren Geräten zu nutzen.",
     "signingOut": "Abmelden…"
+  },
+  "onboarding": {
+    "skip": "Überspringen",
+    "next": "Weiter",
+    "back": "Zurück",
+    "done": "Los geht's!",
+    "screens": {
+      "search": {
+        "title": "Produkte finden",
+        "text": "Suche nach Produkten im Suchfeld. Wähle ein spezifisches Produkt aus der Liste \u2014 oder drücke Enter, um ein generisches Produkt wie \u201eMilch\u201c hinzuzufügen.",
+        "searchPlaceholder": "Mil…",
+        "resultSpecific": "Milch 3,5% 1L",
+        "resultGeneric": "Milch",
+        "badgeSpecific": "Spezifisch",
+        "badgeGeneric": "Generisch"
+      },
+      "shopping-order": {
+        "title": "Intelligente Einkaufsreihenfolge",
+        "text": "Die App erkennt per GPS, in welchem Laden du bist, und sortiert deine Liste nach der Regalreihenfolge. Je öfter du einkaufst, desto besser wird die Sortierung.",
+        "hint": "Tipp: Hake die Produkte beim Einkauf in der Reihenfolge ab, wie sie im Regal stehen.",
+        "badgeInStore": "Im Laden",
+        "item1": "Äpfel",
+        "item2": "Milch",
+        "item3": "Brot"
+      },
+      "product-detail": {
+        "title": "Produktdetails & Nachkauf",
+        "text": "Tippe auf ein Produkt, um Details wie Preis, Nährwerte und Zutaten zu sehen. Aktiviere den Nachkauf, damit das Produkt automatisch wieder auf deiner Liste erscheint.",
+        "price": "1,29 €",
+        "reorderLabel": "Nachkauf",
+        "every": "Alle 2 Wochen"
+      },
+      "swipe-actions": {
+        "title": "Wischen für mehr Optionen",
+        "text": "Wische ein Produkt nach links zum Löschen, nach rechts zum Zurückstellen. Wische weiter nach rechts, um es bei einem anderen Händler einzuplanen.",
+        "swipeLeft": "Löschen",
+        "swipeRight": "Nächster Einkauf",
+        "swipeFarRight": "Anderswo",
+        "exampleProduct": "Butter"
+      },
+      "flyer-specials": {
+        "title": "Handzettel & Aktionsartikel",
+        "text": "Blättere durch den aktuellen Handzettel und füge Produkte direkt per Tipp zur Liste hinzu. Aktionsartikel erscheinen unten in deiner Liste und werden am ersten Verkaufstag automatisch aktiviert.",
+        "hint": "Aktionsartikel werden am Starttag automatisch in die aktive Liste verschoben.",
+        "flyerLabel": "Handzettel",
+        "validUntil": "Gültig bis 08.03.",
+        "addToList": "Zur Liste",
+        "added": "Hinzugefügt",
+        "deferredLabel": "Ab 06.03.",
+        "badgeSpecial": "Aktion"
+      },
+      "receipt-history": {
+        "title": "Kassenzettel & Verlauf",
+        "text": "Fotografiere deine Kassenzettel, um Preise zu speichern. Die App nutzt deinen Einkaufsverlauf für bessere Produktvorschläge — und künftig für Auswertungen deiner Ausgaben.",
+        "receiptLabel": "Kassenzettel",
+        "itemCount": "12 Artikel",
+        "totalLabel": "Summe: 34,57 €"
+      }
+    }
   },
   "receipts": {
     "title": "Einkäufe",

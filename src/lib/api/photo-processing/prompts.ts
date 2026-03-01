@@ -110,9 +110,10 @@ ${DEMAND_GROUPS_INSTRUCTION}
 
 Antworte ausschließlich mit validem JSON. Kein Markdown, keine Backticks.
 Gib nur Felder an, die du auf dem Foto erkennst. Fehlende Werte als null.
+Produktname in korrekter deutscher Groß-/Kleinschreibung (jedes Wort großgeschrieben, z. B. "Risotto Reis Mit Pilzen").
 
 {
-  "name": "string or null",
+  "name": "string or null (Title Case)",
   "brand": "string or null",
   "ean_barcode": "string or null",
   "article_number": "string or null",

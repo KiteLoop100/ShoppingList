@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useTranslations } from "next-intl";
+import { useSearchParams } from "next/navigation";
 import { Link } from "@/lib/i18n/navigation";
 import { ProductSearch } from "@/components/search/product-search";
 import { ShoppingListContent } from "@/components/list/shopping-list-content";
@@ -10,6 +11,8 @@ import { seedIfNeeded } from "@/lib/db/seed";
 import { archiveListAsTrip } from "@/lib/list";
 import { usePersistedSort } from "@/hooks/use-persisted-sort";
 import { useStoreDetection } from "@/hooks/use-store-detection";
+import { OnboardingFlow, ONBOARDING_COMPLETE_KEY } from "@/components/onboarding/onboarding-flow";
+import { useAuth } from "@/lib/auth/auth-context";
 
 const COMPLETION_DELAY_MS = 1800;
 
@@ -23,6 +26,25 @@ export default function MainScreenPage() {
   const tReceipts = useTranslations("receipts");
 
   const [showCompletion, setShowCompletion] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const searchParams = useSearchParams();
+  const { user, isAnonymous } = useAuth();
+
+  useEffect(() => {
+    const forceShow = searchParams.get("onboarding") === "true";
+    if (forceShow) {
+      setShowOnboarding(true);
+      return;
+    }
+    const done = localStorage.getItem(ONBOARDING_COMPLETE_KEY);
+    if (!done && (!user || isAnonymous)) {
+      setShowOnboarding(true);
+    }
+  }, [searchParams, user, isAnonymous]);
+
+  const handleOnboardingComplete = useCallback(() => {
+    setShowOnboarding(false);
+  }, []);
 
   const {
     sortMode,
@@ -243,6 +265,13 @@ export default function MainScreenPage() {
             <span className="text-xl font-semibold">{tList("tripComplete")}</span>
           </div>
         </div>
+      )}
+
+      {showOnboarding && (
+        <OnboardingFlow
+          onComplete={handleOnboardingComplete}
+          showSkip={searchParams.get("onboarding") !== "true"}
+        />
       )}
     </main>
   );

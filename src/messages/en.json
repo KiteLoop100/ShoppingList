@@ -248,7 +248,9 @@
     "preferBrand": "Prefer branded products",
     "preferBio": "Prefer organic products",
     "preferVegan": "Prefer vegan products",
-    "preferAnimalWelfare": "Prefer animal welfare products"
+    "preferAnimalWelfare": "Prefer animal welfare products",
+    "appGuide": "Get to know the app",
+    "appGuideLink": "Show introduction again"
   },
   "flyer": {
     "title": "Flyers",
@@ -434,6 +436,65 @@
     "loggedInAs": "Signed in as: {email}",
     "anonymousHint": "You are using the app without an account. Create an account to use your data across multiple devices.",
     "signingOut": "Signing out…"
+  },
+  "onboarding": {
+    "skip": "Skip",
+    "next": "Next",
+    "back": "Back",
+    "done": "Let's go!",
+    "screens": {
+      "search": {
+        "title": "Find products",
+        "text": "Search for products using the search bar. Pick a specific product from the list — or press Enter to add a generic item like \"Milk\".",
+        "searchPlaceholder": "Mil…",
+        "resultSpecific": "Whole Milk 3.5% 1L",
+        "resultGeneric": "Milk",
+        "badgeSpecific": "Specific",
+        "badgeGeneric": "Generic"
+      },
+      "shopping-order": {
+        "title": "Smart shopping order",
+        "text": "The app detects your store via GPS and sorts your list by aisle order. The more you shop and check off items in order, the better the sorting gets.",
+        "hint": "Tip: Check off products in the order you find them on the shelf.",
+        "badgeInStore": "In store",
+        "item1": "Apples",
+        "item2": "Milk",
+        "item3": "Bread"
+      },
+      "product-detail": {
+        "title": "Product details & reorder",
+        "text": "Tap a product to see details like price, nutrition and ingredients. Enable auto-reorder so the product automatically reappears on your list.",
+        "price": "€1.29",
+        "reorderLabel": "Reorder",
+        "every": "Every 2 weeks"
+      },
+      "swipe-actions": {
+        "title": "Swipe for more options",
+        "text": "Swipe a product left to delete, right to defer to next trip. Swipe further right to plan it at a different retailer.",
+        "swipeLeft": "Delete",
+        "swipeRight": "Next trip",
+        "swipeFarRight": "Elsewhere",
+        "exampleProduct": "Butter"
+      },
+      "flyer-specials": {
+        "title": "Flyers & special offers",
+        "text": "Browse the latest flyer and add products to your list with a single tap. Special offer items appear at the bottom of your list and are automatically activated on their first sale day.",
+        "hint": "Special items are moved to the active list automatically on their start date.",
+        "flyerLabel": "Weekly flyer",
+        "validUntil": "Valid until Mar 8",
+        "addToList": "Add to list",
+        "added": "Added",
+        "deferredLabel": "From Mar 6",
+        "badgeSpecial": "Special"
+      },
+      "receipt-history": {
+        "title": "Receipts & history",
+        "text": "Take photos of your receipts to save prices. The app uses your purchase history for better product suggestions — and future spending analytics.",
+        "receiptLabel": "Receipt",
+        "itemCount": "12 items",
+        "totalLabel": "Total: €34.57"
+      }
+    }
   },
   "receipts": {
     "title": "Purchases",
