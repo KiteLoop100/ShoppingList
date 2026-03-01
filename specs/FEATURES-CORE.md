@@ -492,6 +492,7 @@ Preferences are stored in Supabase `user_settings` (synced across devices) with 
 | F24 | ALDI Insights (AI-powered analytics) | MVP | **Spec ready** → see `FEATURES-INSIGHTS.md` |
 | F25 | Customer Feedback | MVP | **Spec ready** → see `FEATURES-FEEDBACK.md` |
 | F26 | Buy Elsewhere | MVP | **Spec ready** → see `FEATURES-ELSEWHERE.md` |
+| F27 | Export / Share List | Phase 3 | Planned |
 
 ---
 
@@ -835,5 +836,39 @@ Ingredients like salt, pepper, oil, and sugar are flagged as "basics" that most 
 
 ---
 
-*Last updated: 2026-02-28*
+## F27: Export / Share List (Phase 3+)
+
+### Phase 3 -- Simple Export
+
+Export the shopping list as a plain-text list (product name, quantity) to share via email, messenger, clipboard, or other apps. Uses the Web Share API (`navigator.share`) with a fallback to `navigator.clipboard.writeText`. The format is a simple, human-readable list without app-specific metadata -- ready to paste into any text context.
+
+**Example output:**
+
+```
+Einkaufsliste (12 Produkte):
+- 2x Vollmilch 3,5% 1L
+- 1x Bio-Eier 10er
+- 3x Bananen
+- 1x Olivenöl 750ml
+...
+```
+
+**Prerequisites:**
+- "Teilen" button accessible from the shopping list screen (e.g. share icon in the header)
+- Web Share API detection with clipboard fallback
+- List formatting function that renders items as readable text
+- Include/exclude checked items option
+
+### Phase 5+ -- Delivery Service Integration
+
+Integration with grocery delivery services (e.g. REWE Lieferservice, Flink, Getir, Amazon Fresh, Picnic) that can fulfill the shopping list on behalf of the user. This is a long-term vision requiring:
+
+- **Product matching:** Map app products to each delivery service's catalog (fuzzy name matching, EAN-based matching where available)
+- **Cart handover:** Transfer the matched product list to the delivery service via API or deeplink
+- **Confirmation flow:** Show the user which products were matched, which need manual selection, and the estimated delivery cost
+- **Multi-retailer support:** Leverage the "Buy Elsewhere" (F26) retailer assignments to route items to the correct delivery service
+
+---
+
+*Last updated: 2026-03-01*
 *See also: FEATURES-ACCOUNT.md (F17), LAUNCH-READINESS.md*

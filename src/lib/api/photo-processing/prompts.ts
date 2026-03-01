@@ -16,7 +16,6 @@ Erkenne anhand des Logos und Brandings ob es sich um einen ALDI SÜD (Deutschlan
 - Falls nicht eindeutig erkennbar → detected_country: "unknown"
 
 Pro Produkt: article_number (falls sichtbar), name (vollständiger Produktname), price (Preis), weight_or_quantity (Gewicht/Menge falls angegeben), brand (Marke falls sichtbar), special_start_date, special_end_date (YYYY-MM-DD), demand_group, demand_sub_group, assortment_type, is_private_label, is_seasonal.
-Pro Produkt zusätzlich: bbox – Bounding Box des Produktbereichs auf der Seite als [y_min, x_min, y_max, x_max] mit Werten von 0 bis 1000 (normalisiert auf die Seitengröße). Die Box soll den gesamten Produktbereich inkl. Bild und Preis umfassen.
 
 WICHTIG für assortment_type – es gibt genau 3 Werte:
 - "daily_range": Dauersortiment – reguläre Supermarktprodukte (Milch, Brot, Obst, Grundnahrungsmittel usw.) die dauerhaft im Sortiment sind. Auch wenn sie im Handzettel mit Preisaktion beworben werden!
@@ -46,14 +45,13 @@ Antworte ausschließlich mit validem JSON. Kein Markdown, keine Backticks.
   "special_valid_from": "YYYY-MM-DD or null",
   "special_valid_to": "YYYY-MM-DD or null",
   "products": [
-    { "article_number": "string or null", "name": "string", "price": number or null, "weight_or_quantity": "string or null", "brand": "string or null", "special_start_date": "YYYY-MM-DD or null", "special_end_date": "YYYY-MM-DD or null", "demand_group": "string or null", "demand_sub_group": "string or null", "assortment_type": "daily_range or special_food or special_nonfood", "is_private_label": true or false or null, "is_seasonal": true or false, "bbox": [y_min, x_min, y_max, x_max] }
+    { "article_number": "string or null", "name": "string", "price": number or null, "weight_or_quantity": "string or null", "brand": "string or null", "special_start_date": "YYYY-MM-DD or null", "special_end_date": "YYYY-MM-DD or null", "demand_group": "string or null", "demand_sub_group": "string or null", "assortment_type": "daily_range or special_food or special_nonfood", "is_private_label": true or false or null, "is_seasonal": true or false }
   ]
 }`;
 
 export const FLYER_PDF_PAGE_PROMPT = `Dies ist eine Seite eines Supermarkt-Handzettels (nicht die erste). Extrahiere JEDES Produkt auf dieser Seite.
 Das aktuelle Jahr ist 2026. Wenn auf dem Handzettel kein Jahr angegeben ist, verwende 2026 für alle Datumsangaben.
 Pro Produkt: article_number (falls sichtbar), name (vollständiger Produktname), price (Preis), weight_or_quantity (Gewicht/Menge falls angegeben), brand (Marke falls sichtbar), special_start_date, special_end_date (YYYY-MM-DD), demand_group, demand_sub_group, assortment_type, is_private_label, is_seasonal.
-Pro Produkt zusätzlich: bbox – Bounding Box des Produktbereichs auf der Seite als [y_min, x_min, y_max, x_max] mit Werten von 0 bis 1000 (normalisiert auf die Seitengröße). Die Box soll den gesamten Produktbereich inkl. Bild und Preis umfassen.
 
 WICHTIG für assortment_type – es gibt genau 3 Werte:
 - "daily_range": Dauersortiment – reguläre Supermarktprodukte die dauerhaft im Sortiment sind. Auch wenn sie im Handzettel mit Preisaktion beworben werden!
@@ -72,7 +70,7 @@ Antworte ausschließlich mit validem JSON. Kein Markdown, keine Backticks.
 {
   "photo_type": "flyer_pdf",
   "products": [
-    { "article_number": "string or null", "name": "string", "price": number or null, "weight_or_quantity": "string or null", "brand": "string or null", "special_start_date": "YYYY-MM-DD or null", "special_end_date": "YYYY-MM-DD or null", "demand_group": "string or null", "demand_sub_group": "string or null", "assortment_type": "daily_range or special_food or special_nonfood", "is_private_label": true or false or null, "is_seasonal": true or false, "bbox": [y_min, x_min, y_max, x_max] }
+    { "article_number": "string or null", "name": "string", "price": number or null, "weight_or_quantity": "string or null", "brand": "string or null", "special_start_date": "YYYY-MM-DD or null", "special_end_date": "YYYY-MM-DD or null", "demand_group": "string or null", "demand_sub_group": "string or null", "assortment_type": "daily_range or special_food or special_nonfood", "is_private_label": true or false or null, "is_seasonal": true or false }
   ]
 }`;
 

@@ -356,7 +356,7 @@ export function FlyerPageImage({
                   )}
 
                   {isActive && (
-                    <div className="pointer-events-auto absolute left-1/2 top-full z-10 mt-1 -translate-x-1/2 whitespace-nowrap rounded-lg bg-white px-3 py-2 shadow-lg ring-1 ring-black/5">
+                    <div className="pointer-events-auto absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-lg bg-white px-3 py-2 shadow-lg ring-1 ring-black/5">
                       <p className="text-sm font-medium text-aldi-text">{h.product.name}</p>
                       {displayPrice != null && (
                         <p className="text-sm tabular-nums text-aldi-blue font-semibold">{"\u20AC"}{displayPrice.toFixed(2)}</p>

@@ -2,38 +2,41 @@
  * Decode EAN (EAN-13, EAN-8, UPC-A) from a static image buffer.
  * Used before Claude extraction so we prefer scanned EAN over AI-read digits.
  * Tries full image and optionally scaled/center crop for small barcodes.
+ *
+ * Uses ZBar WASM – the same engine used client-side in scanner-engine.ts.
  */
 
-import {
-  MultiFormatReader,
-  BarcodeFormat,
-  DecodeHintType,
-  RGBLuminanceSource,
-  HybridBinarizer,
-  BinaryBitmap,
-} from "@zxing/library";
+import { scanImageData } from "@undecaf/zbar-wasm";
 import sharp from "sharp";
 
-const EAN_FORMATS = [
-  BarcodeFormat.EAN_13,
-  BarcodeFormat.EAN_8,
-  BarcodeFormat.UPC_A,
-];
+const EAN_REGEX = /^\d{8,14}$/;
 
-function tryDecode(
-  luminance: Uint8ClampedArray,
+const ZBAR_EAN_TYPES = new Set([
+  "EAN-13", "EAN-8", "UPC-A",
+  "ZBAR_EAN13", "ZBAR_EAN8", "ZBAR_UPCA",
+]);
+
+function extractEan(rawValue: string | undefined | null): string | null {
+  const v = rawValue?.trim();
+  return v && EAN_REGEX.test(v) ? v : null;
+}
+
+async function tryScan(
+  rgba: Buffer,
   width: number,
-  height: number
-): string | null {
+  height: number,
+): Promise<string | null> {
   try {
-    const source = new RGBLuminanceSource(luminance, width, height);
-    const bitmap = new BinaryBitmap(new HybridBinarizer(source));
-    const hints = new Map();
-    hints.set(DecodeHintType.POSSIBLE_FORMATS, EAN_FORMATS);
-    const reader = new MultiFormatReader();
-    const result = reader.decode(bitmap, hints);
-    const text = result.getText()?.trim();
-    if (text && /^\d{8,14}$/.test(text)) return text;
+    const data = new Uint8ClampedArray(
+      rgba.buffer, rgba.byteOffset, rgba.byteLength,
+    );
+    const imageData = { data, width, height } as unknown as ImageData;
+    const symbols = await scanImageData(imageData);
+    for (const sym of symbols) {
+      if (!ZBAR_EAN_TYPES.has(sym.typeName)) continue;
+      const ean = extractEan(sym.decode());
+      if (ean) return ean;
+    }
     return null;
   } catch {
     return null;
@@ -41,31 +44,11 @@ function tryDecode(
 }
 
 /**
- * Convert RGBA buffer to luminance (one byte per pixel).
- */
-function rgbaToLuminance(
-  rgba: Buffer,
-  width: number,
-  height: number
-): Uint8ClampedArray {
-  const len = width * height;
-  const out = new Uint8ClampedArray(len);
-  for (let i = 0; i < len; i++) {
-    const o = i * 4;
-    const r = rgba[o];
-    const g = rgba[o + 1];
-    const b = rgba[o + 2];
-    out[i] = (0.299 * r + 0.587 * g + 0.114 * b) | 0;
-  }
-  return out;
-}
-
-/**
- * Decode first EAN/UPC found in the image. Tries full image, then 2x upscale of center
- * (helps when barcode is small). Returns null if no barcode found.
+ * Decode first EAN/UPC found in the image. Tries full image, then 2x upscale
+ * of center (helps when barcode is small). Returns null if no barcode found.
  */
 export async function decodeEanFromImageBuffer(
-  imageBuffer: Buffer
+  imageBuffer: Buffer,
 ): Promise<string | null> {
   try {
     const { data, info } = await sharp(imageBuffer)
@@ -74,10 +57,10 @@ export async function decodeEanFromImageBuffer(
       .toBuffer({ resolveWithObject: true });
     const { width, height, channels } = info;
     if (channels !== 4 || width < 50 || height < 50) return null;
-    const luminance = rgbaToLuminance(data, width, height);
-    let code = tryDecode(luminance, width, height);
+
+    let code = await tryScan(data, width, height);
     if (code) return code;
-    // Try 2x upscaled center crop (barcode often in center; more pixels can help)
+
     const cropW = Math.floor(width * 0.85);
     const cropH = Math.floor(height * 0.85);
     const left = Math.floor((width - cropW) / 2);
@@ -88,12 +71,8 @@ export async function decodeEanFromImageBuffer(
       .ensureAlpha()
       .raw()
       .toBuffer({ resolveWithObject: true });
-    const lum2 = rgbaToLuminance(
-      scaled.data,
-      scaled.info.width,
-      scaled.info.height
-    );
-    code = tryDecode(lum2, scaled.info.width, scaled.info.height);
+
+    code = await tryScan(scaled.data, scaled.info.width, scaled.info.height);
     return code ?? null;
   } catch {
     return null;

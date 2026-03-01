@@ -36,6 +36,12 @@ function fileToBase64(file: File): Promise<{ base64: string; mediaType: string }
   });
 }
 
+function titleCase(s: string): string {
+  return s.replace(/\p{L}+/gu, (w) =>
+    w.charAt(0).toUpperCase() + w.slice(1),
+  );
+}
+
 export function CompetitorProductFormModal({
   open,
   onClose,
@@ -56,7 +62,8 @@ export function CompetitorProductFormModal({
   const [retailer, setRetailer] = useState(initialRetailer);
   const [customRetailer, setCustomRetailer] = useState("");
   const [photoFile, setPhotoFile] = useState<File | null>(null);
-  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [frontPhotoPreview, setFrontPhotoPreview] = useState<string | null>(null);
+  const [otherPhotoPreview, setOtherPhotoPreview] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -72,7 +79,8 @@ export function CompetitorProductFormModal({
       setRetailer(initialRetailer);
       setCustomRetailer("");
       setPhotoFile(null);
-      setPhotoPreview(null);
+      setFrontPhotoPreview(null);
+      setOtherPhotoPreview(null);
       setError(null);
       setAnalyzing(false);
     }
@@ -82,9 +90,7 @@ export function CompetitorProductFormModal({
     const file = e.target.files?.[0];
     if (!file) return;
     setPhotoFile(file);
-    const reader = new FileReader();
-    reader.onload = () => setPhotoPreview(reader.result as string);
-    reader.readAsDataURL(file);
+    setFrontPhotoPreview(URL.createObjectURL(file));
 
     setAnalyzing(true);
     setError(null);
@@ -100,7 +106,7 @@ export function CompetitorProductFormModal({
         throw new Error(errData.error ?? `HTTP ${res.status}`);
       }
       const data = await res.json();
-      if (data.name && !name) setName(data.name);
+      if (data.name && !name) setName(titleCase(data.name));
       if (data.brand && !brand) setBrand(data.brand);
       if (data.ean_barcode && !ean) setEan(data.ean_barcode);
       if (data.price != null && !price) setPrice(String(data.price).replace(".", ","));
@@ -112,14 +118,37 @@ export function CompetitorProductFormModal({
     }
   }, [name, brand, ean, price]);
 
-  const handleOtherPhoto = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleOtherPhoto = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setPhotoFile(file);
-    const reader = new FileReader();
-    reader.onload = () => setPhotoPreview(reader.result as string);
-    reader.readAsDataURL(file);
-  }, []);
+    setOtherPhotoPreview(URL.createObjectURL(file));
+
+    setAnalyzing(true);
+    setError(null);
+    try {
+      const { base64, mediaType } = await fileToBase64(file);
+      const res = await fetch("/api/extract-product-info", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image_base64: base64, media_type: mediaType }),
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error ?? `HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      if (data.name && !name) setName(titleCase(data.name));
+      if (data.brand && !brand) setBrand(data.brand);
+      if (data.ean_barcode && !ean) setEan(data.ean_barcode);
+      if (data.price != null && !price) setPrice(String(data.price).replace(".", ","));
+    } catch (err) {
+      log.error("[CompetitorProductForm] other-photo extraction failed:", err);
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setAnalyzing(false);
+    }
+  }, [name, brand, ean, price]);
 
   const effectiveRetailer = retailer === "__custom__" ? customRetailer.trim() : retailer;
 
@@ -229,36 +258,40 @@ export function CompetitorProductFormModal({
               onChange={handleOtherPhoto}
               className="hidden"
             />
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                disabled={analyzing}
-                onClick={() => frontInputRef.current?.click()}
-                className="flex items-center gap-1.5 rounded-xl border-2 border-dashed border-aldi-blue/40 bg-aldi-blue/5 px-3 py-2 text-sm font-medium text-aldi-blue transition-colors hover:border-aldi-blue hover:bg-aldi-blue/10 disabled:opacity-50"
-              >
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" aria-hidden>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0ZM18.75 10.5h.008v.008h-.008V10.5Z" />
-                </svg>
-                {t("competitorPhotoFront")}
-              </button>
-              <button
-                type="button"
-                onClick={() => otherInputRef.current?.click()}
-                className="flex items-center gap-1.5 rounded-xl border-2 border-dashed border-aldi-muted-light px-3 py-2 text-sm text-aldi-muted transition-colors hover:border-aldi-blue hover:text-aldi-blue"
-              >
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" aria-hidden>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0 0 22.5 18.75V5.25A2.25 2.25 0 0 0 20.25 3H3.75A2.25 2.25 0 0 0 1.5 5.25v13.5A2.25 2.25 0 0 0 3.75 21Z" />
-                </svg>
-                {t("competitorPhotoOther")}
-              </button>
-              {photoPreview && (
-                <img
-                  src={photoPreview}
-                  alt=""
-                  className="h-12 w-12 rounded-lg object-cover"
-                />
-              )}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={analyzing}
+                  onClick={() => frontInputRef.current?.click()}
+                  className="flex items-center gap-1.5 rounded-xl border-2 border-dashed border-aldi-blue/40 bg-aldi-blue/5 px-3 py-2 text-sm font-medium text-aldi-blue transition-colors hover:border-aldi-blue hover:bg-aldi-blue/10 disabled:opacity-50"
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" aria-hidden>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0ZM18.75 10.5h.008v.008h-.008V10.5Z" />
+                  </svg>
+                  {t("competitorPhotoFront")}
+                </button>
+                {frontPhotoPreview && (
+                  <img src={frontPhotoPreview} alt="" className="h-12 w-12 rounded-lg object-cover" />
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={analyzing}
+                  onClick={() => otherInputRef.current?.click()}
+                  className="flex items-center gap-1.5 rounded-xl border-2 border-dashed border-aldi-muted-light px-3 py-2 text-sm text-aldi-muted transition-colors hover:border-aldi-blue hover:text-aldi-blue disabled:opacity-50"
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" aria-hidden>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0 0 22.5 18.75V5.25A2.25 2.25 0 0 0 20.25 3H3.75A2.25 2.25 0 0 0 1.5 5.25v13.5A2.25 2.25 0 0 0 3.75 21Z" />
+                  </svg>
+                  {t("competitorPhotoOther")}
+                </button>
+                {otherPhotoPreview && (
+                  <img src={otherPhotoPreview} alt="" className="h-12 w-12 rounded-lg object-cover" />
+                )}
+              </div>
             </div>
             {analyzing && (
               <div className="mt-2 flex items-center gap-2 text-xs text-aldi-blue">

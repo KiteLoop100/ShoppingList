@@ -89,7 +89,7 @@ These columns on the products table are deprecated. They stored a 1:1 relationsh
 
 ---
 
-## Data Acquisition: Workaround (Claude Vision)
+## Data Acquisition: Workaround (Two-Model Pipeline)
 
 > **This section describes a temporary workaround.**
 > It will be replaced once structured retailer data feeds are available.
@@ -100,29 +100,39 @@ These columns on the products table are deprecated. They stored a 1:1 relationsh
 
 1. PDF upload via Admin Gallery Upload (see FEATURES-CAPTURE.md)
 2. `processFlyer` splits the PDF into single-page PDFs, stores them in `flyer-pages` bucket
-3. Each page is sent to Claude Vision with a prompt requesting product extraction + bounding boxes
-4. Claude returns: product name, price, metadata, and `bbox` as [y_min, x_min, y_max, x_max] (normalized 0-1000)
+3. Each page is processed by a two-model pipeline running in parallel:
+   - **Gemini (gemini-2.5-flash)**: Detects product bounding boxes with high spatial accuracy. Returns `[y_min, x_min, y_max, x_max]` normalized 0-1000.
+   - **Claude (Sonnet)**: Extracts product data (name, price, metadata). No longer responsible for bounding boxes.
+4. Gemini bboxes are matched to Claude products by label similarity (`matchBboxesToProducts`)
 5. Products are upserted via `upsertProduct` (matching by article_number -> ean_barcode -> name_normalized)
-6. Product-page associations + bbox are written to `flyer_page_products` junction table
+6. Product-page associations + matched bbox are written to `flyer_page_products` junction table
+
+### Architecture
+
+- `gemini-detect.ts`: Gemini client for bbox detection (`detectProductBoxes`) and label matching (`matchBboxesToProducts`)
+- `prompts.ts`: Claude prompt templates (no bbox instructions)
+- `process-flyer.ts`: Pages 1-5 processing (Gemini + Claude parallel per page)
+- `process-flyer-page/route.ts`: Pages 6+ processing (same parallel approach)
 
 ### Processing split
 
-- **Pages 1-5**: Processed inline by `processFlyer` via `upsertExtractedProducts`. Page 1 additionally extracts title, validity dates, and country.
-- **Pages 6+**: Processed by the client-side processing loop in the flyer detail page, calling `/api/process-flyer-page` for each page sequentially.
+- **Pages 1-5**: Processed inline by `processFlyer` via `upsertExtractedProducts`. Page 1 additionally extracts title, validity dates, and country. Gemini runs in parallel with Claude for each page.
+- **Pages 6+**: Processed by the client-side processing loop in the flyer detail page, calling `/api/process-flyer-page` for each page sequentially. Gemini and Claude run in parallel per page.
 
-### Prompt source
+### Env variables
 
-All flyer prompts are defined in `src/lib/api/photo-processing/prompts.ts` (single source). The `process-flyer-page` route imports from there.
+- `ANTHROPIC_API_KEY`: Claude API key (required)
+- `GOOGLE_GEMINI_API_KEY`: Gemini API key (optional; if missing, bbox detection is skipped and products have no hotspots)
 
 ### Limitations
 
-- Bounding box accuracy depends on Claude Vision; some products may have imprecise or missing coordinates
-- Name matching is exact on the normalized form (case-insensitive); no fuzzy/typo matching
+- Label matching between Gemini and Claude is fuzzy; some products may not get matched to a bbox
 - No deduplication across pages if Claude extracts the same product twice with slightly different names
+- If Gemini API is unavailable, processing degrades gracefully (no bboxes, but product data still extracted)
 
 ### Future replacement
 
-When structured retailer data (API, data feed, or curated import with coordinates) becomes available, a new importer will write directly to `flyer_page_products`. The processing files (`prompts.ts`, `process-flyer-page/route.ts`, `process-receipt.ts`) can then be removed or simplified without touching the feature layer.
+When structured retailer data (API, data feed, or curated import with coordinates) becomes available, a new importer will write directly to `flyer_page_products`. The processing files (`prompts.ts`, `process-flyer-page/route.ts`, `process-receipt.ts`, `gemini-detect.ts`) can then be removed or simplified without touching the feature layer.
 
 ---
 

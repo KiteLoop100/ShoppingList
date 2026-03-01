@@ -14,6 +14,10 @@ import {
   type ClaudeResponse,
   type ExtractedProductWithPage,
 } from "./prompts";
+import {
+  detectProductBoxes,
+  matchBboxesToProducts,
+} from "./gemini-detect";
 import { upsertExtractedProducts } from "./process-receipt";
 import { log } from "@/lib/utils/logger";
 
@@ -132,10 +136,11 @@ export async function processFlyer(
     const firstPagePdfBytes = await firstPageDoc.save();
     const firstPageBase64 =
       Buffer.from(firstPagePdfBytes).toString("base64");
-    const firstResponse = await callClaudeWithPdf(
-      firstPageBase64,
-      FLYER_PDF_FIRST_PAGE_PROMPT,
-    );
+
+    const [firstGeminiResult, firstResponse] = await Promise.all([
+      detectProductBoxes(firstPageBase64).catch(() => []),
+      callClaudeWithPdf(firstPageBase64, FLYER_PDF_FIRST_PAGE_PROMPT),
+    ]);
 
     validFrom = firstResponse.special_valid_from ?? today;
     validUntil = firstResponse.special_valid_to ?? validFrom;
@@ -178,9 +183,15 @@ export async function processFlyer(
       })
       .eq("flyer_id", flyerId);
 
-    (firstResponse.products ?? []).forEach((p) =>
-      allProducts.push({ ...p, flyer_page: 1 }),
+    const firstPageProducts = firstResponse.products ?? [];
+    const firstBboxMap = matchBboxesToProducts(
+      firstGeminiResult,
+      firstPageProducts.map((p) => (p.name || "").trim()).filter(Boolean),
     );
+    firstPageProducts.forEach((p) => {
+      const bbox = firstBboxMap.get((p.name || "").trim()) ?? null;
+      allProducts.push({ ...p, bbox, flyer_page: 1 });
+    });
 
     await supabase
       .from("photo_uploads")
@@ -202,13 +213,21 @@ export async function processFlyer(
       pageDoc.addPage(page);
       const pagePdfBytes = await pageDoc.save();
       const pageBase64 = Buffer.from(pagePdfBytes).toString("base64");
-      const pageResponse = await callClaudeWithPdf(
-        pageBase64,
-        FLYER_PDF_PAGE_PROMPT,
+
+      const [pageGeminiResult, pageResponse] = await Promise.all([
+        detectProductBoxes(pageBase64).catch(() => []),
+        callClaudeWithPdf(pageBase64, FLYER_PDF_PAGE_PROMPT),
+      ]);
+
+      const pageProducts = pageResponse.products ?? [];
+      const pageBboxMap = matchBboxesToProducts(
+        pageGeminiResult,
+        pageProducts.map((p) => (p.name || "").trim()).filter(Boolean),
       );
-      (pageResponse.products ?? []).forEach((p) =>
-        allProducts.push({ ...p, flyer_page: pageNum }),
-      );
+      pageProducts.forEach((p) => {
+        const bbox = pageBboxMap.get((p.name || "").trim()) ?? null;
+        allProducts.push({ ...p, bbox, flyer_page: pageNum });
+      });
 
       await supabase
         .from("photo_uploads")

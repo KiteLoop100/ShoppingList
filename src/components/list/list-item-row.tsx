@@ -252,7 +252,7 @@ export const ListItemRow = memo(function ListItemRow({
           <span className={`block truncate text-[15px] leading-tight ${
             item.is_checked ? "text-aldi-muted line-through" : isDeferred ? "text-aldi-muted" : "text-aldi-text"
           } ${!item.product_id ? "italic" : ""} ${onOpenDetail ? "hover:underline" : ""}`}>
-            {!item.product_id && (
+            {!item.product_id && !item.competitor_product_id && (
               <svg className="mr-1 inline-block h-3 w-3 -translate-y-px text-aldi-muted/60" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" aria-hidden>
                 <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125" />
               </svg>
@@ -282,14 +282,14 @@ export const ListItemRow = memo(function ListItemRow({
           ) : null}
         </button>
 
-        {/* Only front thumbnail on list (thumbnail_url = front side) */}
-        {item.thumbnail_url && (
+        {/* Thumbnail: ALDI product or competitor product */}
+        {(item.thumbnail_url || item.competitor_thumbnail_url) && (
           <div
             className="h-[52px] w-[52px] shrink-0 overflow-hidden rounded-lg bg-aldi-muted-light/30"
             style={{ maxWidth: 60, maxHeight: 60 }}
           >
             <img
-              src={item.thumbnail_url}
+              src={(item.thumbnail_url || item.competitor_thumbnail_url)!}
               alt=""
               className="h-full w-full object-cover object-center"
               width={THUMB_SIZE}

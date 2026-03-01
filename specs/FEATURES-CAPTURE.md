@@ -82,19 +82,22 @@ Claude extracts full receipt data:
 
 Receipt history available at /receipts – lists all scanned receipts by date with total amount. Detail view shows all products: linked products show their full DB name (bold, with ✓ badge), unlinked products show the receipt abbreviation (monospace, smaller).
 
-### Flyer PDFs (Automatic, Page-by-Page)
+### Flyer PDFs (Automatic, Two-Model Pipeline)
 
 ```
 Upload PDF
   → Upload to Supabase Storage
   → pdf-lib splits into individual pages
-  → Each page sent separately to Claude (avoids 413/timeout)
-  → First page: extract title + validity period
-  → Products saved with flyer_id + flyer_page
+  → Each page processed by two-model pipeline (parallel):
+      - Gemini 2.5 Flash: detects product bounding boxes (spatial detection)
+      - Claude Sonnet: extracts product data (name, price, metadata)
+  → Gemini bboxes matched to Claude products by label similarity
+  → First page: additionally extract title + validity period + country
+  → Products upserted, associations + bboxes written to flyer_page_products
   → Page PDFs stored in 'flyer-pages' bucket for browser display
 ```
 
-Large PDFs (>20MB): processed page by page, max 5 pages per API call.
+Pages 1-5 processed inline by processFlyer. Pages 6+ processed by client-side loop calling /api/process-flyer-page per page. See FEATURES-FLYER.md for details on the pipeline architecture.
 
 ---
 
@@ -163,4 +166,4 @@ See [SECURITY-BACKLOG.md](SECURITY-BACKLOG.md) for open security items:
 
 ---
 
-*Last updated: 2026-02-23*
+*Last updated: 2026-03-01*

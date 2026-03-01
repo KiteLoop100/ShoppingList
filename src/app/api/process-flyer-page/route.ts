@@ -15,6 +15,10 @@ import {
   FLYER_PDF_PAGE_PROMPT,
   type ExtractedProduct,
 } from "@/lib/api/photo-processing/prompts";
+import {
+  detectProductBoxes,
+  matchBboxesToProducts,
+} from "@/lib/api/photo-processing/gemini-detect";
 import { normalizeName } from "@/lib/products/normalize";
 import { fetchOpenFoodFacts } from "@/lib/products/open-food-facts";
 import { findExistingProduct } from "@/lib/products/find-existing";
@@ -131,9 +135,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: msg }, { status: 502 });
   }
 
-  let claudeJson: { products?: ExtractedProduct[] };
-  try {
-    claudeJson = await callClaudeJSON<{ products?: ExtractedProduct[] }>({
+  const [geminiBoxes, claudeResult] = await Promise.allSettled([
+    detectProductBoxes(pdfBase64),
+    callClaudeJSON<{ products?: ExtractedProduct[] }>({
       model: CLAUDE_MODEL_SONNET,
       max_tokens: 16384,
       messages: [
@@ -152,9 +156,11 @@ export async function POST(request: Request) {
           ],
         },
       ],
-    });
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : "Claude failed";
+    }),
+  ]);
+
+  if (claudeResult.status === "rejected") {
+    const msg = claudeResult.reason instanceof Error ? claudeResult.reason.message : "Claude failed";
     await supabase
       .from("photo_uploads")
       .update({
@@ -166,7 +172,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: msg }, { status: 502 });
   }
 
+  const claudeJson = claudeResult.value;
   const products = Array.isArray(claudeJson.products) ? claudeJson.products : [];
+
+  const boxes = geminiBoxes.status === "fulfilled" ? geminiBoxes.value : [];
+  const bboxMap = matchBboxesToProducts(
+    boxes,
+    products.map((p) => (p.name || "").trim()).filter(Boolean),
+  );
   let productsCreated = 0;
   let productsUpdated = 0;
 
@@ -257,14 +270,14 @@ export async function POST(request: Request) {
     }
 
     if (resultProductId) {
-      const bbox = Array.isArray(p.bbox) && p.bbox.length === 4 ? p.bbox : null;
+      const geminiBbox = bboxMap.get(name) ?? null;
       await supabase.from("flyer_page_products").upsert({
         flyer_id,
         page_number,
         product_id: resultProductId,
         price_in_flyer: price,
-        bbox: bbox
-          ? { y_min: bbox[0], x_min: bbox[1], y_max: bbox[2], x_max: bbox[3] }
+        bbox: geminiBbox
+          ? { y_min: geminiBbox[0], x_min: geminiBbox[1], y_max: geminiBbox[2], x_max: geminiBbox[3] }
           : null,
       }, { onConflict: "flyer_id,page_number,product_id" });
     }

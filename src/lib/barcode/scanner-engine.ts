@@ -11,7 +11,10 @@ const EAN_REGEX = /^\d{8,14}$/;
 
 const EAN_FORMATS: BarcodeFormat[] = ["ean_13", "ean_8", "upc_a"];
 
-const ZBAR_EAN_TYPES = new Set(["EAN-13", "EAN-8", "UPC-A"]);
+const ZBAR_EAN_TYPES = new Set([
+  "EAN-13", "EAN-8", "UPC-A",
+  "ZBAR_EAN13", "ZBAR_EAN8", "ZBAR_UPCA",
+]);
 
 export interface ScannerEngine {
   scanFrame(source: ImageData): Promise<string | null>;

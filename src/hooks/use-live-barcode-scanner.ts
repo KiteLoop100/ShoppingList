@@ -67,6 +67,14 @@ export function useLiveBarcodeScanner(onDetected: (ean: string) => void) {
       }
       engineRef.current = engine;
 
+      if (!navigator.mediaDevices?.getUserMedia) {
+        throw new Error(
+          window.isSecureContext === false
+            ? "HTTPS required for camera access. Use https:// or localhost."
+            : "Camera API not available in this browser.",
+        );
+      }
+
       let stream: MediaStream;
       try {
         stream = await navigator.mediaDevices.getUserMedia({

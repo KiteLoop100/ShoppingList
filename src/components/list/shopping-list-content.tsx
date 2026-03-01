@@ -67,6 +67,7 @@ export const ShoppingListContent = memo(function ShoppingListContent({
   const [competitorFormDefaults, setCompetitorFormDefaults] = useState<{
     name?: string; retailer?: string; ean?: string; brand?: string;
   }>({});
+  const [competitorFormItemId, setCompetitorFormItemId] = useState<string | null>(null);
 
   // Refs for stable callback references (prevents breaking React.memo on ListItemRow)
   const allItemsRef = useRef<ListItemWithMeta[]>([]);
@@ -142,6 +143,7 @@ export const ShoppingListContent = memo(function ShoppingListContent({
         name: item.display_name || item.custom_name || "",
         retailer: item.buy_elsewhere_retailer || "",
       });
+      setCompetitorFormItemId(item.item_id);
       setCompetitorFormOpen(true);
     },
     []
@@ -150,9 +152,16 @@ export const ShoppingListContent = memo(function ShoppingListContent({
   const handleCompetitorFormSaved = useCallback(
     async (productId: string) => {
       setCompetitorFormOpen(false);
+      if (competitorFormItemId) {
+        try {
+          await updateListItem(competitorFormItemId, { competitor_product_id: productId });
+        } catch { /* best effort */ }
+      }
+      setCompetitorFormItemId(null);
       await refetchCompetitorProducts();
+      await refetchRef.current();
     },
-    [refetchCompetitorProducts]
+    [refetchCompetitorProducts, competitorFormItemId]
   );
 
   const handleElsewhereCheck = useCallback(
@@ -199,6 +208,7 @@ export const ShoppingListContent = memo(function ShoppingListContent({
           name: item.display_name || item.custom_name || "",
           retailer: item.buy_elsewhere_retailer || "",
         });
+        setCompetitorFormItemId(item.item_id);
         setCompetitorFormOpen(true);
         return;
       }
@@ -261,8 +271,13 @@ export const ShoppingListContent = memo(function ShoppingListContent({
     [deferred]
   );
   const deferredElsewhere = useMemo(
-    () => deferred.filter(i => i.deferred_reason === "elsewhere"),
-    [deferred]
+    () => deferred.filter(i => i.deferred_reason === "elsewhere").map(item => {
+      if (!item.competitor_product_id) return item;
+      const cp = competitorProducts.find(p => p.product_id === item.competitor_product_id);
+      if (!cp?.thumbnail_url) return item;
+      return { ...item, competitor_thumbnail_url: cp.thumbnail_url };
+    }),
+    [deferred, competitorProducts]
   );
 
   const deferredByDate = useMemo(() => {
@@ -426,6 +441,7 @@ export const ShoppingListContent = memo(function ShoppingListContent({
                       type="button"
                       onClick={() => {
                         setCompetitorFormDefaults({});
+                        setCompetitorFormItemId(null);
                         setCompetitorFormOpen(true);
                       }}
                       className="rounded-lg px-2 py-1 text-xs text-aldi-muted transition-colors hover:text-aldi-blue"
