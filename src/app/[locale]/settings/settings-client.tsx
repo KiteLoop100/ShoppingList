@@ -1,0 +1,464 @@
+"use client";
+
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { useTranslations } from "next-intl";
+import { useLocale } from "next-intl";
+import { Link, useRouter, usePathname } from "@/lib/i18n/navigation";
+import { getStoresSorted } from "@/lib/store/store-service";
+import { getDefaultStoreId, setDefaultStoreId } from "@/lib/settings/default-store";
+import {
+  getProductPreferences,
+  setProductPreferences,
+  type ProductPreferences,
+} from "@/lib/settings/product-preferences";
+import { APP_VERSION } from "@/lib/app-config";
+import { useAuth } from "@/lib/auth/auth-context";
+import { loadSettings, saveSettings } from "@/lib/settings/settings-sync";
+import { createClientIfConfigured } from "@/lib/supabase/client";
+import type { LocalStore } from "@/lib/db";
+import { normalizeForFilter, filterAndSortStores } from "@/lib/store/store-filter";
+import { useCurrentCountry } from "@/lib/current-country-context";
+
+type Locale = "de" | "en";
+
+export function SettingsClient() {
+  const t = useTranslations("settings");
+  const tAuth = useTranslations("auth");
+  const tCommon = useTranslations("common");
+  const locale = useLocale() as Locale;
+  const router = useRouter();
+  const pathname = usePathname();
+  const { user, isAnonymous, signOut, loading: authLoading } = useAuth();
+  const { setCountry } = useCurrentCountry();
+
+  const [stores, setStores] = useState<LocalStore[]>([]);
+  const [defaultStoreId, setDefaultStoreIdState] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [storeSearchQuery, setStoreSearchQuery] = useState("");
+  const [prefs, setPrefs] = useState<ProductPreferences>(getProductPreferences);
+
+  useEffect(() => {
+    let cancelled = false;
+    getStoresSorted().then((list) => {
+      if (!cancelled) setStores(list);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (authLoading) return;
+
+    let cancelled = false;
+    const userId = user?.id ?? "anonymous";
+
+    loadSettings(userId).then((s) => {
+      if (cancelled) return;
+      if (s.default_store_id) {
+        setDefaultStoreId(s.default_store_id);
+        setDefaultStoreIdState(s.default_store_id);
+      } else {
+        setDefaultStoreIdState(getDefaultStoreId());
+      }
+      setPrefs({
+        exclude_gluten: s.exclude_gluten,
+        exclude_lactose: s.exclude_lactose,
+        exclude_nuts: s.exclude_nuts,
+        prefer_cheapest: s.prefer_cheapest,
+        prefer_brand: s.prefer_brand,
+        prefer_bio: s.prefer_bio,
+        prefer_vegan: s.prefer_vegan,
+        prefer_animal_welfare: s.prefer_animal_welfare,
+      });
+      setProductPreferences({
+        exclude_gluten: s.exclude_gluten,
+        exclude_lactose: s.exclude_lactose,
+        exclude_nuts: s.exclude_nuts,
+        prefer_cheapest: s.prefer_cheapest,
+        prefer_brand: s.prefer_brand,
+        prefer_bio: s.prefer_bio,
+        prefer_vegan: s.prefer_vegan,
+        prefer_animal_welfare: s.prefer_animal_welfare,
+      });
+      setLoading(false);
+    });
+
+    return () => { cancelled = true; };
+  }, [authLoading, user?.id]);
+
+  useEffect(() => {
+    if (authLoading || !user?.id) return;
+    const supabase = createClientIfConfigured();
+    if (!supabase) return;
+
+    const channel = supabase
+      .channel(`user-settings-${user.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "user_settings",
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload) => {
+          const s = payload.new as Record<string, unknown>;
+          if (s.default_store_id !== undefined) {
+            const storeId = (s.default_store_id as string | null) ?? null;
+            setDefaultStoreId(storeId);
+            setDefaultStoreIdState(storeId);
+          }
+          const nextPrefs: ProductPreferences = {
+            exclude_gluten: Boolean(s.exclude_gluten),
+            exclude_lactose: Boolean(s.exclude_lactose),
+            exclude_nuts: Boolean(s.exclude_nuts),
+            prefer_cheapest: Boolean(s.prefer_cheapest),
+            prefer_brand: Boolean(s.prefer_brand),
+            prefer_bio: Boolean(s.prefer_bio),
+            prefer_vegan: Boolean(s.prefer_vegan),
+            prefer_animal_welfare: Boolean(s.prefer_animal_welfare),
+          };
+          setPrefs(nextPrefs);
+          setProductPreferences(nextPrefs);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [authLoading, user?.id]);
+
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        setDefaultStoreIdState(getDefaultStoreId());
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", onVisibilityChange);
+  }, []);
+
+  const handleLanguageChange = useCallback(
+    (newLocale: Locale) => {
+      if (newLocale === locale) return;
+      saveSettings({ preferred_language: newLocale }, user?.id).catch(() => {});
+      router.replace(pathname, { locale: newLocale });
+    },
+    [locale, pathname, router, user?.id]
+  );
+
+  const handleDefaultStoreChange = useCallback((storeId: string | null) => {
+    const value = storeId ?? null;
+    setDefaultStoreId(value);
+    setDefaultStoreIdState(value);
+    saveSettings({
+      preferred_language: locale,
+      default_store_id: value,
+      ...prefs,
+    }, user?.id).catch(() => {});
+    const selected = value ? stores.find((s) => s.store_id === value) : null;
+    setCountry(selected?.country?.toUpperCase() ?? "DE");
+  }, [locale, prefs, user?.id, stores, setCountry]);
+
+  const updatePref = useCallback(<K extends keyof ProductPreferences>(key: K, value: ProductPreferences[K]) => {
+    setPrefs((prev) => {
+      const next = { ...prev, [key]: value };
+      if (key === "prefer_cheapest" && value) {
+        next.prefer_bio = false;
+        next.prefer_vegan = false;
+        next.prefer_animal_welfare = false;
+        next.prefer_brand = false;
+      } else if ((key === "prefer_bio" || key === "prefer_vegan" || key === "prefer_animal_welfare" || key === "prefer_brand") && value) {
+        next.prefer_cheapest = false;
+      }
+      setProductPreferences(next);
+      saveSettings({
+        preferred_language: locale,
+        default_store_id: defaultStoreId,
+        ...next,
+      }, user?.id).catch(() => {});
+      return next;
+    });
+  }, [locale, defaultStoreId, user?.id]);
+
+  const qualityActive = prefs.prefer_bio || prefs.prefer_vegan || prefs.prefer_animal_welfare || prefs.prefer_brand;
+
+  const storeSearchNorm = normalizeForFilter(storeSearchQuery);
+  const filteredStores = useMemo(
+    () => filterAndSortStores(stores, storeSearchNorm),
+    [stores, storeSearchNorm]
+  );
+
+  return (
+    <main className="mx-auto min-h-screen max-w-lg bg-aldi-bg p-4">
+      <header className="sticky top-0 z-10 -mx-4 flex items-center gap-3 bg-aldi-bg px-4 py-3">
+        <Link
+          href="/"
+          className="touch-target flex items-center justify-center rounded-lg font-medium text-aldi-blue transition-colors hover:bg-aldi-muted-light/50"
+          aria-label={tCommon("back")}
+        >
+          ←
+        </Link>
+        <h1 className="text-xl font-bold text-aldi-blue">{t("title")}</h1>
+      </header>
+
+      <section className="space-y-8 pt-2">
+        {/* Account section */}
+        <div className="rounded-2xl border-2 border-aldi-muted-light bg-white p-4">
+          <label className="mb-3 block text-sm font-semibold uppercase tracking-wide text-aldi-muted">
+            {tAuth("accountSection")}
+          </label>
+          {authLoading ? (
+            <p className="text-sm text-aldi-muted">{tCommon("loading")}</p>
+          ) : !user || isAnonymous ? (
+            <div>
+              <p className="mb-3 text-sm text-aldi-text">{tAuth("anonymousHint")}</p>
+              <Link
+                href="/login"
+                className="min-h-touch flex w-full items-center justify-center rounded-xl bg-aldi-blue px-4 py-3 text-[15px] font-semibold text-white transition-colors hover:bg-aldi-blue/90"
+              >
+                {tAuth("createOrLogin")}
+              </Link>
+            </div>
+          ) : (
+            <div>
+              <p className="mb-3 text-sm text-aldi-text">
+                {tAuth("loggedInAs", { email: user.email ?? "–" })}
+              </p>
+              <button
+                type="button"
+                onClick={async () => {
+                  await signOut();
+                  router.push("/login");
+                }}
+                className="min-h-touch w-full rounded-xl border-2 border-aldi-muted-light bg-white px-4 py-3 text-[15px] font-medium text-aldi-text transition-colors hover:border-aldi-error hover:bg-red-50 hover:text-aldi-error"
+              >
+                {tAuth("signOut")}
+              </button>
+            </div>
+          )}
+        </div>
+
+        <hr className="border-aldi-muted-light" />
+
+        <div>
+          <label className="mb-2 block text-sm font-semibold uppercase tracking-wide text-aldi-muted">
+            {t("language")}
+          </label>
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={() => handleLanguageChange("de")}
+              className={`min-h-touch min-w-[120px] rounded-xl border-2 px-4 py-3 text-sm font-semibold transition-colors ${
+                locale === "de"
+                  ? "border-aldi-blue bg-aldi-blue text-white"
+                  : "border-aldi-muted-light bg-white text-aldi-text hover:border-aldi-blue/50 hover:bg-aldi-muted-light/30"
+              }`}
+            >
+              {t("languageDe")}
+            </button>
+            <button
+              type="button"
+              onClick={() => handleLanguageChange("en")}
+              className={`min-h-touch min-w-[120px] rounded-xl border-2 px-4 py-3 text-sm font-semibold transition-colors ${
+                locale === "en"
+                  ? "border-aldi-blue bg-aldi-blue text-white"
+                  : "border-aldi-muted-light bg-white text-aldi-text hover:border-aldi-blue/50 hover:bg-aldi-muted-light/30"
+              }`}
+            >
+              {t("languageEn")}
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <label className="mb-2 block text-sm font-semibold uppercase tracking-wide text-aldi-muted">
+            {t("defaultStore")}
+          </label>
+          <p className="mb-3 text-sm text-aldi-muted">{t("defaultStoreHint")}</p>
+          {loading ? (
+            <p className="text-sm text-aldi-muted">{tCommon("loading")}</p>
+          ) : (
+            <>
+              {defaultStoreId && (() => {
+                const selected = stores.find((s) => s.store_id === defaultStoreId);
+                if (!selected) return null;
+                return (
+                  <div className="mb-3 flex items-center gap-3 rounded-xl border-2 border-aldi-blue bg-aldi-blue/5 px-4 py-3">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-aldi-blue text-sm font-bold text-white">
+                      ✓
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold text-aldi-blue">{selected.address}</p>
+                      <p className="truncate text-xs text-aldi-muted">{selected.postal_code} {selected.city}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleDefaultStoreChange(null)}
+                      className="shrink-0 rounded-lg px-2 py-1 text-xs text-aldi-muted transition-colors hover:bg-red-50 hover:text-red-600"
+                      aria-label={t("noDefaultStore")}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                );
+              })()}
+
+              <div className="relative">
+                <input
+                  type="search"
+                  value={storeSearchQuery}
+                  onChange={(e) => setStoreSearchQuery(e.target.value)}
+                  placeholder={t("defaultStoreSearchPlaceholder")}
+                  className="min-h-touch w-full rounded-xl border-2 border-aldi-muted-light bg-white px-4 py-3 text-[15px] text-aldi-text placeholder:text-aldi-muted focus:border-aldi-blue focus:outline-none"
+                  aria-label={t("defaultStoreSearchPlaceholder")}
+                />
+
+                {storeSearchNorm.length > 0 && (
+                  <div className="absolute left-0 right-0 top-full z-10 mt-1 overflow-hidden rounded-xl border-2 border-aldi-muted-light bg-white shadow-lg">
+                    {filteredStores.length === 0 ? (
+                      <p className="px-4 py-4 text-center text-sm text-aldi-muted">
+                        {t("noStoresMatchSearch")}
+                      </p>
+                    ) : (
+                      filteredStores.slice(0, 5).map((s) => (
+                        <button
+                          key={s.store_id}
+                          type="button"
+                          onClick={() => {
+                            handleDefaultStoreChange(s.store_id);
+                            setStoreSearchQuery("");
+                          }}
+                          className="flex w-full items-start gap-3 border-b border-aldi-muted-light px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-gray-50"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium text-aldi-text">{s.address}</p>
+                            <p className="text-xs text-aldi-muted">{s.postal_code} {s.city}</p>
+                          </div>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+
+        <hr className="border-aldi-muted-light" />
+
+        {/* Dietary exclusions */}
+        <div>
+          <label className="mb-1 block text-sm font-semibold uppercase tracking-wide text-aldi-muted">
+            {t("exclusions")}
+          </label>
+          <p className="mb-3 text-xs text-aldi-muted">{t("exclusionsHint")}</p>
+          <div className="space-y-2">
+            {(["exclude_gluten", "exclude_lactose", "exclude_nuts"] as const).map((key) => {
+              const labelKey = key === "exclude_gluten" ? "excludeGluten" : key === "exclude_lactose" ? "excludeLactose" : "excludeNuts";
+              return (
+                <label key={key} className="flex cursor-pointer items-center gap-3 rounded-xl border-2 border-aldi-muted-light bg-white px-4 py-3 transition-colors hover:border-aldi-blue/30">
+                  <div className="relative inline-flex h-6 w-11 shrink-0 items-center">
+                    <input
+                      type="checkbox"
+                      className="peer sr-only"
+                      checked={prefs[key]}
+                      onChange={(e) => updatePref(key, e.target.checked)}
+                    />
+                    <div className="h-6 w-11 rounded-full bg-gray-200 transition-colors peer-checked:bg-aldi-blue peer-focus-visible:ring-2 peer-focus-visible:ring-aldi-blue/50" />
+                    <div className="absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform peer-checked:translate-x-5" />
+                  </div>
+                  <span className="text-sm font-medium text-aldi-text">{t(labelKey)}</span>
+                </label>
+              );
+            })}
+          </div>
+        </div>
+
+        <hr className="border-aldi-muted-light" />
+
+        {/* Product preferences */}
+        <div>
+          <label className="mb-1 block text-sm font-semibold uppercase tracking-wide text-aldi-muted">
+            {t("preferences")}
+          </label>
+          <p className="mb-3 text-xs text-aldi-muted">{t("preferencesHint")}</p>
+          <div className="space-y-2">
+            {/* Cheapest — mutually exclusive with quality preferences */}
+            <label className={`flex items-center gap-3 rounded-xl border-2 px-4 py-3 transition-colors ${
+              qualityActive
+                ? "cursor-not-allowed border-aldi-muted-light/60 bg-gray-50"
+                : "cursor-pointer border-aldi-muted-light bg-white hover:border-aldi-blue/30"
+            }`}>
+              <div className="relative inline-flex h-6 w-11 shrink-0 items-center">
+                <input
+                  type="checkbox"
+                  className="peer sr-only"
+                  checked={prefs.prefer_cheapest}
+                  disabled={qualityActive}
+                  onChange={(e) => updatePref("prefer_cheapest", e.target.checked)}
+                />
+                <div className={`h-6 w-11 rounded-full transition-colors ${qualityActive ? "bg-gray-100" : "bg-gray-200 peer-checked:bg-aldi-blue"} peer-focus-visible:ring-2 peer-focus-visible:ring-aldi-blue/50`} />
+                <div className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full shadow transition-transform peer-checked:translate-x-5 ${qualityActive ? "bg-gray-200" : "bg-white"}`} />
+              </div>
+              <span className={`text-sm font-medium ${qualityActive ? "text-aldi-muted" : "text-aldi-text"}`}>{t("preferCheapest")}</span>
+            </label>
+
+            {/* Quality preferences — mutually exclusive with cheapest */}
+            {([
+              { key: "prefer_brand" as const, label: "preferBrand" },
+              { key: "prefer_bio" as const, label: "preferBio" },
+              { key: "prefer_vegan" as const, label: "preferVegan" },
+              { key: "prefer_animal_welfare" as const, label: "preferAnimalWelfare" },
+            ]).map(({ key, label }) => (
+              <label key={key} className={`flex items-center gap-3 rounded-xl border-2 px-4 py-3 transition-colors ${
+                prefs.prefer_cheapest
+                  ? "cursor-not-allowed border-aldi-muted-light/60 bg-gray-50"
+                  : "cursor-pointer border-aldi-muted-light bg-white hover:border-aldi-blue/30"
+              }`}>
+                <div className="relative inline-flex h-6 w-11 shrink-0 items-center">
+                  <input
+                    type="checkbox"
+                    className="peer sr-only"
+                    checked={prefs[key]}
+                    disabled={prefs.prefer_cheapest}
+                    onChange={(e) => updatePref(key, e.target.checked)}
+                  />
+                  <div className={`h-6 w-11 rounded-full transition-colors ${prefs.prefer_cheapest ? "bg-gray-100" : "bg-gray-200 peer-checked:bg-aldi-blue"} peer-focus-visible:ring-2 peer-focus-visible:ring-aldi-blue/50`} />
+                  <div className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full shadow transition-transform peer-checked:translate-x-5 ${prefs.prefer_cheapest ? "bg-gray-200" : "bg-white"}`} />
+                </div>
+                <span className={`text-sm font-medium ${prefs.prefer_cheapest ? "text-aldi-muted" : "text-aldi-text"}`}>{t(label)}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        <hr className="border-aldi-muted-light" />
+
+        <div>
+          <label className="mb-2 block text-sm font-semibold uppercase tracking-wide text-aldi-muted">
+            {t("admin")}
+          </label>
+          <Link
+            href="/admin"
+            className="min-h-touch flex w-full items-center justify-center rounded-xl border-2 border-aldi-muted-light bg-white px-4 py-3 font-medium text-aldi-text transition-colors hover:border-aldi-blue hover:bg-aldi-muted-light/30"
+          >
+            {t("adminLink")}
+          </Link>
+        </div>
+
+        <div>
+          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-aldi-muted">
+            {t("about")}
+          </h2>
+          <p className="text-[15px] font-medium text-aldi-text">
+            {t("version", { version: APP_VERSION })}
+          </p>
+          <p className="mt-0.5 text-sm text-aldi-muted">{t("prototypeNote")}</p>
+        </div>
+      </section>
+    </main>
+  );
+}

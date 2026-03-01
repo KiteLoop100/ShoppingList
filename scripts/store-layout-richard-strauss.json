@@ -1,0 +1,287 @@
+{
+  "_comment": "Einkaufsreihenfolge für ALDI SÜD München-Bogenhausen, Richard-Strauss-Stra. 80+82",
+  "_hint": "Zeilen innerhalb von 'group_order' umsortieren = Level-1-Reihenfolge ändern. Zeilen innerhalb eines 'subgroup_order'-Eintrags umsortieren = Level-2-Reihenfolge ändern. Codes NICHT ändern.",
+
+  "store_match": {
+    "city_pattern": "München",
+    "address_pattern": "Richard"
+  },
+
+  "group_order": [
+    "56-Bake-Off",
+    "57-Brot/Kuchen",
+    "73-Gekühlte Feinkost",
+    "72-Gekühlte Fertiggerichte",
+    "69-Gekühlte Wurstwaren",
+    "74-Gekühlte Getränke",
+    "49-Dauerwurst/Speck",
+    "55-Eier",
+    "38-Gemüse",
+    "58-Obst",
+    "88-Salate",
+    "64-Fisch, frisch",
+    "71-Gekühlter verzehrfertiger Fisch",
+    "68-Schweinefleisch, frisch",
+    "67-Geflügel, frisch",
+    "70-Gekühltes verzehrfertiges Fleisch/Fleisc",
+    "82-Wurst-/Fleisch-/Fischkonserven",
+    "62-Frischfleisch (ohne Schwein/Geflügel)",
+    "47-Konserven",
+    "48-Fertiggerichte/Suppen",
+    "04-Bier",
+
+    "83-Milch/Sahne/Butter",
+    "51-Joghurts/Quark",
+    "60-Margarine/pflanzliche Fette",
+    "50-H-Milchprodukte/Milchersatzprodukte",
+    "54-Nährmittel",
+    "90-Cerealien/Snacks",
+    "52-Dressings/Öle/Soßen",
+    "05-Wasser",
+    "80-CO2 Erfrischungsgetränke",
+    "79-Funktionsgetränke/Eistee",
+    "81-Fruchtsäfte/Sirupe",
+    "87-Nüsse/Trockenfrüchte",
+    "86-Chips/Snacks",
+    "41-Schokolade/Pralinen",
+    "42-Gebäck",
+    "40-Bonbons/Kaugummi",
+    "43-Saisonartikel Süßwaren",
+    "44-Salzgebäck",
+    "25-Haushaltsartikel",
+    "07-Kosmetik/Körperpflege",
+    "08-Körperhygiene",
+    "09-Babyartikel",
+    "13-Apothekenprodukte",
+    "AK-Aktionsartikel",
+    "85-Tiernahrung",
+    "06-Wasch-/Putz-/Reinigungsmittel",
+    "10-Papierwaren",
+    "11-Folien/Tücher",
+    "89-Backartikel",
+    "53-Konfitüren/Brotaufstriche",
+    "75-TK Fleisch/Fisch",
+    "78-TK Fertiggerichte/Pizzas",
+    "76-TK Obst/Gemüse",
+    "77-TK Desserts/Backwaren/Eis",
+    "84-Käse/Käseersatzprodukte",
+    "45-Kaffee/Kakao",
+    "46-Tee",
+    "03-Wein",
+    "02-Sekt/Schaumwein",
+    "01-Spirituosen"
+   
+       
+  ],
+
+  "subgroup_order": {
+    "56-Bake-Off": [
+      "06-Brötchen/Semmeln",
+      "01-Weißbrot",
+      "02-Schwarz-/Vollkornbrot",
+      "03-Spezialbrot",
+      "05-Feinbackwaren",
+      "04-Pikante Snacks"
+    ],
+    "57-Brot/Kuchen": [
+      "02-Frischbrot",
+      "09-Brötchen/Semmeln",
+      "07-Haltbares Brot",
+      "10-Alternativen zum Sandwich",
+      "12-Kleingebäck",
+      "03-Frische Feinbackwaren",
+      "04-Frische Kleinbackwaren",
+      "11-Frischer Kuchen",
+      "05-Haltbare Feinbackwaren",
+      "06-Haltbarer Kuchen",
+      "01-Aufbackartikel"
+    ],
+    "73-Gekühlte Feinkost": [
+      "04-Salat, verzehrfertig",
+      "01-Feinkost",
+      "06-Sandwiches/Snacks",
+      "02-Aufstriche/Dips/Dressings",
+      "07-Desserts"
+    ],
+    "69-Gekühlte Wurstwaren": [
+      "06-Würstchen",
+      "02-Bratwurst",
+      "03-Brühwurst",
+      "05-Rohwurst",
+      "07-Schinken gekocht/gepökelt",
+      "08-Schinken roh/gepökelt/luftgetrocknet",
+      "09-Restliche Pökelware",
+      "04-Kochwurst",
+      "10-Sonstige Wurst",
+      "01-Aspikware/Sülze"
+    ],
+    "83-Milch/Sahne/Butter": [
+      "02-Milch",
+      "01-Milchgetränke",
+      "03-Sahne",
+      "04-Butter/tierische Fette"
+    ],
+    "51-Joghurts/Quark": [
+      "01-Joghurt, Natur",
+      "02-Joghurt, Frucht",
+      "04-Quark",
+      "03-Joghurtersatzprodukte"
+    ],
+    "50-H-Milchprodukte/Milchersatzprodukte": [
+      "02-H-Milch",
+      "03-H-Sahne",
+      "01-H-Käse",
+      "04-Milchersatzprodukte"
+    ],
+    "84-Käse/Käseersatzprodukte": [
+      "09-Käse geschnitten",
+      "01-Hart-/Schnittkäse",
+      "02-Weichkäse",
+      "03-Frischkäse",
+      "07-Käse gerieben/zerkleinert",
+      "05-Käseerzeugnisse eigener Art",
+      "04-Schmelzkäse",
+      "06-Cheddar am Stück",
+      "10-Käsesnacks"
+    ],
+    "38-Gemüse": [
+      "03-Tomaten",
+      "02-Paprika",
+      "07-Zwiebelgemüse",
+      "05-Wurzel-/Knollengemüse",
+      "06-Kartoffeln",
+      "04-Kohlgemüse",
+      "01-Gemüse (hart)",
+      "08-Pilze",
+      "11-Zucchini",
+      "12-Spargel",
+      "10-Kürbisse",
+      "13-Frische Kräuter",
+      "09-Hülsenfrüchte",
+      "16-Sonstiges Gemüse",
+      "17-Snacks/Gemüse, verzehrfertig"
+    ],
+    "58-Obst": [
+      "08-Bananen",
+      "01-Äpfel",
+      "02-Birnen",
+      "06-Zitrusfrüchte",
+      "04-Beeren",
+      "05-Trauben",
+      "03-Steinobst",
+      "07-Exotische Früchte",
+      "11-Mangos",
+      "12-Avocados",
+      "10-Melonen",
+      "15-Snacks/Obst, verzehrfertig"
+    ],
+    "54-Nährmittel": [
+      "02-Teigwaren",
+      "01-Reis",
+      "04-Kräuter/Gewürze/Würzzutaten",
+      "06-Hülsenfrüchte/Getreide",
+      "03-Kartoffelprodukte"
+    ],
+    "52-Dressings/Öle/Soßen": [
+      "02-Speiseöle",
+      "04-Soßen/Pesto",
+      "01-Ketchup/Senf",
+      "03-Mayonnaise",
+      "06-Dressings/Marinaden",
+      "05-Essig",
+      "07-Meerrettich"
+    ],
+    "47-Konserven": [
+      "02-Gemüsekonserven",
+      "03-Sauerkonserven",
+      "06-Antipasti, ungekühlt",
+      "01-Obstkonserven",
+      "04-Pilzkonserven"
+    ],
+    "48-Fertiggerichte/Suppen": [
+      "02-Eintöpfe/Nasssuppen",
+      "05-Trockensuppen/Fixprodukte/trockene Suppe",
+      "04-Instantgerichte",
+      "01-Fertiggerichte"
+    ],
+    "72-Gekühlte Fertiggerichte": [
+      "04-Teigwaren",
+      "01-Fertiggerichte",
+      "03-Kartoffelprodukte",
+      "05-Backwaren",
+      "02-Pizza"
+    ],
+    "89-Backartikel": [
+      "01-Mehl",
+      "02-Backzutaten",
+      "03-Zucker/Süßungsmittel",
+      "05-Backmischungen",
+      "04-Dessertpulver"
+    ],
+    "53-Konfitüren/Brotaufstriche": [
+      "04-Nussaufstriche",
+      "01-Fruchtaufstriche",
+      "02-Honig",
+      "06-Süße Aufstriche",
+      "05-Herzhafte Aufstriche",
+      "03-Sirup/Garnierung"
+    ],
+    "90-Cerealien/Snacks": [
+      "01-Cerealien",
+      "03-Snack-/Energie-/Müsliriegel"
+    ],
+    "41-Schokolade/Pralinen": [
+      "01-Tafelschokolade",
+      "02-Schokoriegel",
+      "04-Süßwaren mit Schokolade",
+      "03-Pralinen"
+    ],
+    "75-TK Fleisch/Fisch": [
+      "01-Fisch/Meeresfrüchte",
+      "02-Hühnchen",
+      "04-Schwein",
+      "05-Rind",
+      "07-Sonstige Fleischwaren",
+      "10-Fleischersatzprodukte"
+    ],
+    "78-TK Fertiggerichte/Pizzas": [
+      "02-Pizza/Baguettes",
+      "01-Fertig-/Teilfertiggerichte",
+      "03-Snacks/Kuchen"
+    ],
+    "76-TK Obst/Gemüse": [
+      "01-Gemüse",
+      "02-Kartoffelprodukte",
+      "03-Obst"
+    ],
+    "77-TK Desserts/Backwaren/Eis": [
+      "02-Eis",
+      "03-Desserts/Mehlspeisen",
+      "01-Backwaren"
+    ],
+    "45-Kaffee/Kakao": [
+      "02-Bohnenkaffee",
+      "05-Kaffeekapseln",
+      "01-Löslicher Kaffee",
+      "06-Einzelportionen/Trinkfertig",
+      "03-Kaffeehaltige Heißgetränke",
+      "04-Pulvergetränke"
+    ],
+    "03-Wein": [
+      "02-Weißwein",
+      "01-Rotwein",
+      "03-Roséwein",
+      "05-Weinhaltige Getränke/Weine, sortiert",
+      "04-Likör-/Dessertwein"
+    ],
+    "01-Spirituosen": [
+      "01-Spirituosen",
+      "02-Liköre/Bitter",
+      "03-Mixgetränke"
+    ],
+    "82-Wurst-/Fleisch-/Fischkonserven": [
+      "01-Fischkonserven",
+      "02-Wurst-/Fleischkonserven"
+    ]
+  }
+}

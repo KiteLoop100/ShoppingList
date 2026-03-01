@@ -1,0 +1,22 @@
+node_modules/
+.next/
+.env
+.env.local
+*.tsbuildinfo
+
+# Batch photo processing
+photos/DE/*.jpg
+photos/DE/*.jpeg
+photos/DE/*.png
+photos/DE/*.webp
+photos/AT/*.jpg
+photos/AT/*.jpeg
+photos/AT/*.png
+photos/AT/*.webp
+batch-results*.json
+
+# Flyer PDFs
+flyers/DE/*.pdf
+flyers/AT/*.pdf
+
+.vercel

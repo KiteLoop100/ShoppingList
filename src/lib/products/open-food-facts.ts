@@ -1,0 +1,30 @@
+/**
+ * Fetch product data from Open Food Facts by EAN barcode.
+ */
+export async function fetchOpenFoodFacts(ean: string): Promise<{
+  name?: string;
+  brand?: string;
+  nutrition_info?: Record<string, unknown>;
+  ingredients?: string;
+  allergens?: string;
+} | null> {
+  try {
+    const res = await fetch(
+      `https://world.openfoodfacts.org/api/v2/product/${ean}.json?fields=product_name,brands,nutriments,ingredients_text,allergens`,
+      { headers: { "User-Agent": "DigitalShoppingList/1.0" } }
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!data.product) return null;
+    const p = data.product;
+    return {
+      name: p.product_name ?? undefined,
+      brand: p.brands ?? undefined,
+      nutrition_info: (p.nutriments as Record<string, unknown>) ?? undefined,
+      ingredients: p.ingredients_text ?? undefined,
+      allergens: p.allergens ?? undefined,
+    };
+  } catch {
+    return null;
+  }
+}

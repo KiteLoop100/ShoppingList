@@ -1,0 +1,10 @@
+{"sessionId":"d629ff","location":"flyer/page.tsx:useEffect","message":"Effect fired","data":{"country":"DE"},"timestamp":1772003128647,"hypothesisId":"H3"}
+{"sessionId":"d629ff","location":"flyer/page.tsx:useEffect","message":"Effect fired","data":{"country":"DE"},"timestamp":1772003128648,"hypothesisId":"H3"}
+{"sessionId":"d629ff","location":"flyer/page.tsx:queryStart","message":"Querying flyers","data":{"countryUsed":"DE"},"timestamp":1772003128647,"hypothesisId":"H1"}
+{"sessionId":"d629ff","location":"flyer/page.tsx:queryStart","message":"Querying flyers","data":{"countryUsed":"DE"},"timestamp":1772003128648,"hypothesisId":"H1"}
+{"sessionId":"d629ff","location":"flyer/page.tsx:flyersResult","message":"Flyers query result","data":{"flyersCount":4,"flyersError":null,"flyersErrorCode":null},"timestamp":1772003128720,"hypothesisId":"H2,H4"}
+{"sessionId":"d629ff","location":"flyer/page.tsx:flyersResult","message":"Flyers query result","data":{"flyersCount":4,"flyersError":null,"flyersErrorCode":null},"timestamp":1772003128781,"hypothesisId":"H2,H4"}
+{"sessionId":"d629ff","location":"flyer/page.tsx:pagesResult","message":"Pages query result","data":{"pagesCount":4,"pagesError":null},"timestamp":1772003128782,"hypothesisId":"H5"}
+{"sessionId":"d629ff","location":"flyer/page.tsx:success","message":"Flyers loaded successfully","data":{"rowCount":4},"timestamp":1772003128783,"hypothesisId":"all"}
+{"sessionId":"d629ff","location":"flyer/page.tsx:pagesResult","message":"Pages query result","data":{"pagesCount":4,"pagesError":null},"timestamp":1772003128839,"hypothesisId":"H5"}
+{"sessionId":"d629ff","location":"flyer/page.tsx:success","message":"Flyers loaded successfully","data":{"rowCount":4},"timestamp":1772003128840,"hypothesisId":"all"}

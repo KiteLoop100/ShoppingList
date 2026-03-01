@@ -1,0 +1,154 @@
+1. Aufstriche & Marmeladen
+2. Konserven & Aufstriche
+3. Brotaufstriche & Konserven
+4. Brotaufstriche & Konfitüren
+5. Konfitüre & Brotaufstriche
+6. Marmelade & Aufstriche
+7. Babynahrung & Babypflege
+8. Süßwaren & Snacks
+9. Zeitschriften & Medien
+10. Drogerie
+11. Tiefkühl
+12. Getränke
+13. Kasse/Kassenbereich
+14. Süßwaren & Snacks
+15. Drogerie
+16. Getränke
+17. Tiefkühl
+18. Getränke
+19. Pflanzen & Gartenbedarf
+20. Tiefkühl
+21. Getränke
+22. Süßwaren & Snacks
+23. Getränke
+24. Tee
+25. Schreibwaren & Bürobedarf
+26. Drogerie
+27. Süßwaren & Snacks
+28. Getränke
+29. Schreibwaren & Bücher
+30. Getränke
+31. Drogerie
+32. Süßwaren & Snacks
+33. Spielwaren
+34. Haushalt & Drogerie
+35. Haushalt
+36. Spielwaren
+37. Süßwaren & Snacks
+38. Tiernahrung
+39. Süßwaren & Snacks
+40. Backwaren / Brot & Backwaren
+41. Süßwaren & Snacks
+42. Kühlwaren
+43. Aktionsware/Textilien & Haushalt
+44. Süßwaren & Snacks
+45. Spielwaren
+46. Süßwaren & Snacks
+47. Drogerie
+48. Milchprodukte
+49. Backwaren & Knäckebrot
+50. Getränke
+51. Süßwaren & Snacks
+52. Spielwaren
+53. Drogerie
+54. Aktionswaren / Sonderangebote
+55. Kasse/Kassenbereich
+56. Drogerie
+57. Haushalt
+58. Drogerie
+59. Schreibwaren & Bürobedarf
+60. Drogerie
+61. Spielwaren
+62. Brot & Backwaren
+63. Tiefkühl
+64. Getränke
+65. Tiefkühl
+66. Drogerie
+67. Asiatische Lebensmittel / Internationale Spezialitäten
+68. Süßwaren & Snacks
+69. Tiefkühl
+70. Getränke
+71. Süßwaren & Snacks
+72. Drogerie
+73. Snacks & Süßwaren
+74. Haushalt
+75. Drogerie
+76. Tierfutter & Tiernahrung
+77. Süßwaren & Snacks
+78. Getränke
+79. Drogerie
+80. Tiefkühl
+81. Tiefkühl / Brot & Backwaren
+82. Backwaren
+83. Tiefkühl
+84. Tiernahrung
+85. Süßwaren & Snacks
+86. Drogerie
+87. Tiefkühl
+88. Drogerie
+89. Süßwaren & Snacks
+90. Kühlwaren
+91. Kasse/Kassenbereich
+92. Kühlwaren
+93. Kühlung/Molkereiprodukte
+94. Getränke
+95. Kühlwaren
+96. Getränke
+97. Milchprodukte
+98. Körperpflege & Naturkosmetik
+99. Drogerie
+100. Milchprodukte
+101. Tiefkühl
+102. Milchprodukte
+103. Getränke
+104. Milchprodukte
+105. Tiefkühl
+106. Getränke
+107. Kaffee & Tee
+108. Milchprodukte
+109. Tiefkühl
+110. Milchprodukte
+111. Getränke
+112. Drogerie
+113. Tiefkühl
+114. Wurst & Käse
+115. Süßwaren & Snacks
+116. Tierfutter / Tiernahrung
+117. Süßwaren & Snacks
+118. Tiefkühl
+119. Süßwaren & Snacks
+120. Kühlwaren
+121. Wurst & Käse
+122. Kühlwaren
+123. Milchprodukte
+124. Süßwaren & Snacks
+125. Haushalt
+126. Drogerie
+127. Getränke
+128. Süßwaren & Snacks
+129. Spielwaren
+130. Getränke
+131. Drogerie
+132. Haushalt
+133. Kühlwaren
+134. Haushaltswaren & Küchenartikel
+135. Haushalt
+136. Haushalt & Non-Food
+137. Haushalt & Küchenartikel
+138. Getränke
+139. Kaffee & Tee
+140. Süßwaren & Snacks
+141. Spielwaren
+142. Süßwaren & Snacks
+143. Möbel & Einrichtung
+144. Süßwaren & Snacks
+145. Spielwaren & Haushaltswaren
+146. Haushalt & Non-Food
+147. Spielwaren
+148. Kühlwaren
+149. Süßwaren & Snacks
+150. Getränke
+151. Drogerie
+152. Spielwaren
+153. Süßwaren & Snacks
+154. Kühlwaren

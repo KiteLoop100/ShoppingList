@@ -1,0 +1,82 @@
+1. Haushalt
+2. Brot & Backwaren
+3. Drogerie
+4. Kaffee & Tee
+5. Drogerie
+6. Süßwaren & Snacks
+7. Brot & Backwaren
+8. Fleisch & Wurst (Kühlregal)
+9. Tiefkühl
+10. Süßwaren & Snacks
+11. Tiefkühl
+12. Spielwaren
+13. Süßwaren & Snacks
+14. Aktionswaren / Sonderangebote
+15. Brot & Backwaren
+16. Tiefkühl
+17. Süßwaren & Snacks
+18. Brot & Backwaren
+19. Süßwaren & Snacks
+20. Brot & Backwaren
+21. Süßwaren & Snacks
+22. Drogerie
+23. Süßwaren & Snacks
+24. Kühlwaren
+25. Süßwaren & Snacks
+26. Süßwaren & Schokolade
+27. Süßwaren & Snacks
+28. Süßwaren & Pralinen
+29. Süßwaren & Snacks
+30. Drogerie
+31. Gewürze & Würzmittel
+32. Getränke
+33. Drogerie
+34. Gewürze & Soßen
+35. Gewürze & Saucen
+36. Getränke
+37. Gewürze & Würzmittel
+38. Drogerie
+39. Getränke
+40. Tiefkühl
+41. Süßwaren & Snacks
+42. Textilien & Bekleidung
+43. Spielwaren
+44. Textilien & Bekleidung
+45. Bücher & Medien
+46. Obst & Gemüse
+47. Tiefkühl
+48. Obst & Gemüse
+49. Kühlwaren
+50. Fleisch & Wurst
+51. Tiefkühl
+52. Kühlwaren
+53. Tiefkühl
+54. Fleisch & Wurst
+55. Tiefkühl
+56. Fleisch & Wurstwaren
+57. Fleisch & Wurst
+58. Tiefkühl
+59. Tiernahrung
+60. Drogerie
+61. Getränke
+62. Süßwaren & Snacks
+63. Milchprodukte
+64. Drogerie
+65. Milchprodukte
+66. Katzenfutter / Tierbedarf
+67. Tiernahrung
+68. Süßwaren & Snacks
+69. Konserven & Fertiggerichte
+70. Süßwaren & Snacks
+71. Getränke
+72. Haushalt
+73. Öle & Feinkost
+74. Drogerie
+75. Öle & Essig
+76. Getränke
+77. Süßwaren & Snacks
+78. Konserven & Fertiggerichte
+79. Gewürze & Konserven
+80. Milchprodukte
+81. Drogerie
+82. Getränke

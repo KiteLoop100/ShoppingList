@@ -1,0 +1,48 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --aldi-blue: #001E5E;
+  --aldi-blue-light: #E8EDF5;
+  --aldi-orange: #F37D1E;
+  --aldi-text: #1A1A2E;
+  --aldi-text-secondary: #4A5568;
+  --aldi-muted: #6B7280;
+  --aldi-muted-light: #E5E7EB;
+  --aldi-bg: #F7F8FA;
+  --aldi-error: #E11921;
+  --aldi-success: #27AE60;
+  --transition-ui: 200ms;
+}
+
+body {
+  @apply bg-aldi-bg text-aldi-text antialiased;
+  font-feature-settings: "kern" 1, "liga" 1;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Minimum touch target 44×44px (Apple HIG, UI.md §5.4) */
+.touch-target {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* Short highlight when item is added (UI.md §5.5) */
+@keyframes add-flash {
+  0% { background-color: rgb(243 125 30 / 0.15); }
+  100% { background-color: transparent; }
+}
+.animate-add-flash {
+  animation: add-flash 0.25s ease-out;
+}
+
+/* Checkmark appear (quick, <300ms) */
+@keyframes check-pop {
+  0% { transform: scale(0.6); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.animate-check-pop {
+  animation: check-pop 0.18s ease-out;
+}
