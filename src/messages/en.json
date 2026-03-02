@@ -510,6 +510,13 @@
         "deferredLabel": "From Mar 6",
         "badgeSpecial": "Special"
       },
+      "multi-device": {
+        "title": "Use it on your desktop too",
+        "text": "The app runs in your browser \u2014 just open the same link on your computer. Your shopping list syncs automatically, so you can plan at your desk and shop on the go.",
+        "phone": "Phone",
+        "desktop": "Desktop",
+        "urlHint": "Same link \u2014 same list"
+      },
       "receipt-history": {
         "title": "Receipts & history",
         "text": "Take photos of your receipts to save prices. The app uses your purchase history for better product suggestions — and future spending analytics.",

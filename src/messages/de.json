@@ -511,6 +511,13 @@
         "deferredLabel": "Ab 06.03.",
         "badgeSpecial": "Aktion"
       },
+      "multi-device": {
+        "title": "Auch am Desktop nutzen",
+        "text": "Die App läuft im Browser \u2014 öffne einfach den gleichen Link auf deinem Computer. Deine Einkaufsliste ist automatisch synchronisiert, so kannst du bequem am Desktop planen und unterwegs einkaufen.",
+        "phone": "Handy",
+        "desktop": "Desktop",
+        "urlHint": "Gleicher Link \u2014 gleiche Liste"
+      },
       "receipt-history": {
         "title": "Kassenzettel & Verlauf",
         "text": "Fotografiere deine Kassenzettel, um Preise zu speichern. Die App nutzt deinen Einkaufsverlauf für bessere Produktvorschläge — und künftig für Auswertungen deiner Ausgaben.",
