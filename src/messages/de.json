@@ -513,7 +513,7 @@
       },
       "multi-device": {
         "title": "Auch am Desktop nutzen",
-        "text": "Die App läuft im Browser \u2014 öffne einfach den gleichen Link auf deinem Computer. Deine Einkaufsliste ist automatisch synchronisiert, so kannst du bequem am Desktop planen und unterwegs einkaufen.",
+        "text": "Die App läuft im Browser \u2014 öffne einfach den gleichen Link auf deinem Computer. Melde dich mit deinem Konto an, damit deine Einkaufsliste auf allen Geräten synchron bleibt.",
         "phone": "Handy",
         "desktop": "Desktop",
         "urlHint": "Gleicher Link \u2014 gleiche Liste"

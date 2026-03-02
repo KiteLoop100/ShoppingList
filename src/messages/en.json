@@ -512,7 +512,7 @@
       },
       "multi-device": {
         "title": "Use it on your desktop too",
-        "text": "The app runs in your browser \u2014 just open the same link on your computer. Your shopping list syncs automatically, so you can plan at your desk and shop on the go.",
+        "text": "The app runs in your browser \u2014 just open the same link on your computer. Sign in with your account to keep your shopping list in sync across all devices.",
         "phone": "Phone",
         "desktop": "Desktop",
         "urlHint": "Same link \u2014 same list"
