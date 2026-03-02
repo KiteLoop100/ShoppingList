@@ -274,7 +274,8 @@
     "preferVegan": "Prefer vegan products",
     "preferAnimalWelfare": "Prefer animal welfare products",
     "appGuide": "Get to know the app",
-    "appGuideLink": "Show introduction again"
+    "appGuideLink": "Show introduction again",
+    "privacyPolicy": "Privacy Policy"
   },
   "flyer": {
     "title": "Flyers",
@@ -463,7 +464,8 @@
     "accountSection": "Account",
     "loggedInAs": "Signed in as: {email}",
     "anonymousHint": "You are using the app without an account. Create an account to use your data across multiple devices.",
-    "signingOut": "Signing out…"
+    "signingOut": "Signing out…",
+    "privacyNotice": "By using this app you accept our <privacyLink>Privacy Policy</privacyLink>."
   },
   "onboarding": {
     "skip": "Skip",
@@ -530,6 +532,51 @@
         "totalLabel": "Total: €34.57"
       }
     }
+  },
+  "privacy": {
+    "title": "Privacy Policy",
+    "lastUpdated": "Last updated: March 2026",
+    "responsibleTitle": "Data Controller",
+    "responsibleText": "[Insert name and contact details]",
+    "dataCollectionTitle": "What Data We Collect",
+    "dataCollectionIntro": "We collect and process the following personal data:",
+    "dataEmail": "Email address and password (when registering with an email account)",
+    "dataShoppingData": "Shopping data (products, prices, quantities from receipt scans)",
+    "dataReceiptPhotos": "Receipt photos (for OCR recognition)",
+    "dataGps": "GPS location (client-side only for store detection, not transmitted to our servers)",
+    "dataDevice": "Device information (browser type, operating system – for error diagnosis)",
+    "purposeTitle": "Purpose of Data Collection",
+    "purposeIntro": "Your data is used for the following purposes:",
+    "purposeAuth": "Authentication and account management",
+    "purposeList": "Managing your shopping list",
+    "purposeReceipt": "Recognition and processing of receipt data",
+    "purposeStore": "Detection of the current store (GPS, local only)",
+    "purposeImprovement": "Improving app features (e.g. sorting, product suggestions)",
+    "storageTitle": "Storage and Hosting",
+    "storageIntro": "Your data is stored with the following services:",
+    "storageSupabase": "Supabase (PostgreSQL database and file storage) – Server location: EU/Frankfurt, Germany",
+    "storageVercel": "Vercel – Web application hosting (edge network, data processing in the EU)",
+    "storageSentry": "Sentry (planned) – Error monitoring and performance tracking",
+    "storageLocal": "Local data is stored in your browser's localStorage and is not shared with third parties.",
+    "thirdPartyTitle": "Third-Party Services",
+    "thirdPartyIntro": "The following external services are used for data processing:",
+    "thirdPartyClaude": "Anthropic Claude API – Receipt OCR recognition. Anthropic does not store any submitted data (Zero Data Retention).",
+    "thirdPartyGemini": "Google Gemini API – Flyer and product recognition.",
+    "thirdPartyNote": "Only the data necessary for the respective function is transmitted to third-party providers.",
+    "rightsTitle": "Your Rights",
+    "rightsIntro": "Under the GDPR, you have the following rights:",
+    "rightsAccess": "Access – You can request information about your stored data at any time.",
+    "rightsRectification": "Rectification – You can request the correction of inaccurate data.",
+    "rightsDeletion": "Erasure – You can request the deletion of your data.",
+    "rightsPortability": "Data portability – You can request your data in a machine-readable format.",
+    "rightsComplaint": "Right to complain – You have the right to lodge a complaint with a data protection authority.",
+    "deletionTitle": "Data Deletion",
+    "deletionText": "When you delete your account, all associated data is permanently deleted. This includes your shopping data, receipt photos, and account settings.",
+    "cookiesTitle": "Cookies and Tracking",
+    "cookiesText": "This app does not use cookies or tracking. All local data is stored exclusively in your browser's localStorage.",
+    "contactTitle": "Contact",
+    "contactText": "For questions about data protection, you can reach us at:",
+    "contactEmail": "[Insert email address]"
   },
   "receipts": {
     "title": "Purchases",

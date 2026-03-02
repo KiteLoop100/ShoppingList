@@ -274,7 +274,8 @@
     "preferVegan": "Vegane Produkte bevorzugen",
     "preferAnimalWelfare": "Tierwohlprodukte bevorzugen",
     "appGuide": "App kennenlernen",
-    "appGuideLink": "Einführung erneut anzeigen"
+    "appGuideLink": "Einführung erneut anzeigen",
+    "privacyPolicy": "Datenschutzerklärung"
   },
   "flyer": {
     "title": "Handzettel",
@@ -464,7 +465,8 @@
     "accountSection": "Konto",
     "loggedInAs": "Angemeldet als: {email}",
     "anonymousHint": "Du nutzt die App ohne Konto. Erstelle ein Konto, um deine Daten auf mehreren Geräten zu nutzen.",
-    "signingOut": "Abmelden…"
+    "signingOut": "Abmelden…",
+    "privacyNotice": "Mit der Nutzung akzeptierst du unsere <privacyLink>Datenschutzerklärung</privacyLink>."
   },
   "onboarding": {
     "skip": "Überspringen",
@@ -531,6 +533,51 @@
         "totalLabel": "Summe: 34,57 €"
       }
     }
+  },
+  "privacy": {
+    "title": "Datenschutzerklärung",
+    "lastUpdated": "Zuletzt aktualisiert: März 2026",
+    "responsibleTitle": "Verantwortlicher",
+    "responsibleText": "[Name und Kontaktdaten einfügen]",
+    "dataCollectionTitle": "Welche Daten werden erhoben",
+    "dataCollectionIntro": "Wir erheben und verarbeiten folgende personenbezogene Daten:",
+    "dataEmail": "E-Mail-Adresse und Passwort (bei Registrierung mit E-Mail-Konto)",
+    "dataShoppingData": "Einkaufsdaten (Produkte, Preise, Mengen aus Kassenzettel-Scans)",
+    "dataReceiptPhotos": "Kassenzettel-Fotos (für die OCR-Erkennung)",
+    "dataGps": "GPS-Standort (nur clientseitig zur Laden-Erkennung, wird nicht an Server übertragen)",
+    "dataDevice": "Geräteinformationen (Browser-Typ, Betriebssystem – für Fehlerdiagnose)",
+    "purposeTitle": "Zweck der Datenerhebung",
+    "purposeIntro": "Deine Daten werden für folgende Zwecke verwendet:",
+    "purposeAuth": "Authentifizierung und Kontoverwaltung",
+    "purposeList": "Verwaltung deiner Einkaufsliste",
+    "purposeReceipt": "Erkennung und Verarbeitung von Kassenzettel-Daten",
+    "purposeStore": "Erkennung des aktuellen Ladens (GPS, nur lokal)",
+    "purposeImprovement": "Verbesserung der App-Funktionen (z. B. Sortierung, Produktvorschläge)",
+    "storageTitle": "Speicherung und Hosting",
+    "storageIntro": "Deine Daten werden bei folgenden Diensten gespeichert:",
+    "storageSupabase": "Supabase (PostgreSQL-Datenbank und Dateispeicher) – Serverstandort: EU/Frankfurt, Deutschland",
+    "storageVercel": "Vercel – Hosting der Web-Applikation (Edge-Netzwerk, Datenverarbeitung in der EU)",
+    "storageSentry": "Sentry (geplant) – Fehler-Monitoring und Performance-Überwachung",
+    "storageLocal": "Lokale Daten werden im localStorage deines Browsers gespeichert und nicht an Dritte übermittelt.",
+    "thirdPartyTitle": "Drittanbieter",
+    "thirdPartyIntro": "Folgende externe Dienste werden zur Datenverarbeitung eingesetzt:",
+    "thirdPartyClaude": "Anthropic Claude API – Kassenzettel-OCR-Erkennung. Anthropic speichert keine übermittelten Daten (Zero Data Retention).",
+    "thirdPartyGemini": "Google Gemini API – Handzettel- und Produkterkennung.",
+    "thirdPartyNote": "An Drittanbieter werden nur die für die jeweilige Funktion notwendigen Daten übermittelt.",
+    "rightsTitle": "Deine Rechte",
+    "rightsIntro": "Gemäß DSGVO hast du folgende Rechte:",
+    "rightsAccess": "Auskunft – Du kannst jederzeit Auskunft über deine gespeicherten Daten verlangen.",
+    "rightsRectification": "Berichtigung – Du kannst die Berichtigung unrichtiger Daten verlangen.",
+    "rightsDeletion": "Löschung – Du kannst die Löschung deiner Daten verlangen.",
+    "rightsPortability": "Datenübertragbarkeit – Du kannst deine Daten in einem maschinenlesbaren Format anfordern.",
+    "rightsComplaint": "Beschwerderecht – Du hast das Recht, dich bei einer Datenschutzbehörde zu beschweren.",
+    "deletionTitle": "Löschung deiner Daten",
+    "deletionText": "Wenn du dein Konto löschst, werden alle damit verknüpften Daten unwiderruflich gelöscht. Dies umfasst deine Einkaufsdaten, Kassenzettel-Fotos und Kontoeinstellungen.",
+    "cookiesTitle": "Cookies und Tracking",
+    "cookiesText": "Diese App verwendet keine Cookies und kein Tracking. Alle lokalen Daten werden ausschließlich im localStorage deines Browsers gespeichert.",
+    "contactTitle": "Kontakt",
+    "contactText": "Bei Fragen zum Datenschutz erreichst du uns unter:",
+    "contactEmail": "[E-Mail-Adresse einfügen]"
   },
   "receipts": {
     "title": "Einkäufe",
