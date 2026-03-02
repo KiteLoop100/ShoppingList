@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import { Link } from "@/lib/i18n/navigation";
 import { createClientIfConfigured } from "@/lib/supabase/client";
 import { formatDateLong } from "@/lib/utils/format-date";
+import { getRetailerByName } from "@/lib/retailers/retailers";
 import {
   loadReceiptWithItems,
   type ReceiptData,
@@ -124,11 +125,21 @@ export default function ReceiptDetailPage() {
         <div className="rounded-2xl bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
           <div className="flex items-start justify-between">
             <div>
-              {receipt.store_name && (
-                <h2 className="text-lg font-semibold text-aldi-text">
-                  {receipt.store_name}
-                </h2>
-              )}
+              <div className="flex items-center gap-2">
+                {receipt.store_name && (
+                  <h2 className="text-lg font-semibold text-aldi-text">
+                    {receipt.store_name}
+                  </h2>
+                )}
+                {receipt.retailer && (() => {
+                  const cfg = getRetailerByName(receipt.retailer);
+                  return cfg ? (
+                    <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold leading-none ${cfg.color}`}>
+                      {cfg.name}
+                    </span>
+                  ) : null;
+                })()}
+              </div>
               {receipt.store_address && (
                 <p className="mt-0.5 text-xs text-aldi-muted">
                   {receipt.store_address}
@@ -181,17 +192,26 @@ export default function ReceiptDetailPage() {
 
         {/* Items list */}
         <div className="rounded-2xl bg-white shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
-          <div className="border-b border-aldi-muted-light px-5 py-3">
+          <div className="flex items-center justify-between border-b border-aldi-muted-light px-5 py-3">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-aldi-muted">
               {t("products")} ({items.length})
             </h3>
+            {items.length > 0 && (() => {
+              const linked = items.filter((i) => i.product_name).length;
+              const unlinked = items.length - linked;
+              return unlinked > 0 ? (
+                <span className="text-[11px] text-aldi-muted">
+                  {linked} {t("linked")}, {unlinked} {t("unlinked")}
+                </span>
+              ) : null;
+            })()}
           </div>
 
           <div className="divide-y divide-aldi-muted-light/50">
             {items.map((item) => {
               const displayName =
                 item.product_name || item.receipt_name;
-              const isLinked = !!item.product_name;
+              const isLinked = !!(item.product_id || item.competitor_product_id);
               const price =
                 item.total_price ??
                 (item.unit_price != null
@@ -211,7 +231,7 @@ export default function ReceiptDetailPage() {
                       className={`truncate text-sm ${
                         isLinked
                           ? "font-medium text-aldi-text"
-                          : "font-mono text-xs text-aldi-text-secondary"
+                          : "text-aldi-text-secondary"
                       }`}
                     >
                       {displayName}
@@ -226,9 +246,16 @@ export default function ReceiptDetailPage() {
                       {item.is_weight_item && item.weight_kg && (
                         <span>{item.weight_kg} kg</span>
                       )}
-                      {isLinked && (
+                      {isLinked ? (
                         <span className="rounded bg-green-50 px-1 text-green-600">
                           ✓
+                        </span>
+                      ) : (
+                        <span
+                          className="rounded bg-amber-50 px-1 text-amber-500"
+                          title={t("notLinkedTooltip")}
+                        >
+                          ?
                         </span>
                       )}
                     </span>

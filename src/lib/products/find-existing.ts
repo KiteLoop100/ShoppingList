@@ -4,7 +4,7 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { stripFlyerSuffixes } from "./normalize";
+import { stripFlyerSuffixes, normalizeArticleNumber } from "./normalize";
 
 export interface FindProductFields {
   article_number?: string | null;
@@ -106,6 +106,62 @@ export async function findExistingProduct(
     if (truncated.length < 6) break;
     const match = await queryByName(supabase, select, truncated);
     if (match) return match;
+  }
+
+  return null;
+}
+
+/**
+ * Dedicated receipt matching: article_number only, with normalization.
+ * Skips the name_normalized fallback (useless for receipt abbreviations)
+ * and the ean_barcode step (receipts don't carry EANs).
+ *
+ * Matching strategy:
+ *  1. Exact match  (receipt "123456" → DB "123456")
+ *  2. Prefix match (receipt "123456" → DB "123456001", "123456002", …)
+ *     ALDI uses 9-digit numbers (6-digit base + 3-digit variant suffix)
+ *     but receipts only print the 6-digit base.
+ *
+ * DB-side article_numbers are kept normalized by PG trigger;
+ * this function normalizes the receipt-side value before querying.
+ */
+export async function findProductByArticleNumber(
+  supabase: SupabaseClient,
+  articleNumber: string | null | undefined,
+  select = "product_id",
+): Promise<FindExistingResult | null> {
+  const normalized = normalizeArticleNumber(articleNumber);
+  if (!normalized) return null;
+
+  const { data: exact } = await supabase
+    .from("products")
+    .select(select)
+    .eq("article_number", normalized)
+    .eq("status", "active")
+    .maybeSingle();
+
+  if (exact) {
+    return {
+      ...(exact as unknown as Record<string, unknown>),
+      matched_by: "article_number",
+    } as FindExistingResult;
+  }
+
+  if (normalized.length >= 4 && normalized.length <= 7) {
+    const { data: prefix } = await supabase
+      .from("products")
+      .select(select)
+      .like("article_number", normalized + "%")
+      .eq("status", "active")
+      .limit(1)
+      .maybeSingle();
+
+    if (prefix) {
+      return {
+        ...(prefix as unknown as Record<string, unknown>),
+        matched_by: "article_number",
+      } as FindExistingResult;
+    }
   }
 
   return null;

@@ -2,6 +2,7 @@
 
 import type { TranslationValues } from "use-intl";
 import type { CapturedPhoto, ReceiptResult } from "./use-receipt-processing";
+import { getRetailerByName } from "@/lib/retailers/retailers";
 
 interface ReceiptProcessingPhaseProps {
   t: (key: string, values?: TranslationValues) => string;
@@ -46,7 +47,19 @@ export function ReceiptDonePhase({ t, result, onViewReceipt, onClose }: ReceiptD
       <div className="text-center">
         <p className="text-lg font-semibold text-white">{t("success")}</p>
         <div className="mt-3 space-y-1">
-          {result.store_name && (
+          {result.retailer && (
+            <p className="text-sm font-medium text-white/90">
+              {(() => {
+                const cfg = getRetailerByName(result.retailer);
+                return cfg ? (
+                  <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${cfg.color}`}>
+                    {cfg.name}
+                  </span>
+                ) : result.retailer;
+              })()}
+            </p>
+          )}
+          {result.store_name && result.store_name !== result.retailer && (
             <p className="text-sm text-white/70">{result.store_name}</p>
           )}
           {result.purchase_date && (

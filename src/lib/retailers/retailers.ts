@@ -6,7 +6,12 @@ export interface RetailerConfig {
   bgColor: string;
 }
 
+export const HOME_RETAILER: RetailerConfig = {
+  id: "aldi", name: "ALDI", countries: ["DE", "AT"], color: "bg-sky-100 text-sky-800", bgColor: "bg-sky-50/30",
+};
+
 export const RETAILERS: RetailerConfig[] = [
+  HOME_RETAILER,
   { id: "lidl",     name: "LIDL",     countries: ["DE", "AT"], color: "bg-blue-100 text-blue-800",     bgColor: "bg-blue-50/40" },
   { id: "rewe",     name: "REWE",     countries: ["DE"],       color: "bg-red-100 text-red-800",       bgColor: "bg-red-50/30" },
   { id: "edeka",    name: "EDEKA",    countries: ["DE"],       color: "bg-yellow-100 text-yellow-800", bgColor: "bg-yellow-50/30" },
@@ -21,15 +26,35 @@ export const RETAILERS: RetailerConfig[] = [
   { id: "mueller",  name: "Müller",   countries: ["DE", "AT"], color: "bg-orange-100 text-orange-800", bgColor: "bg-orange-50/30" },
 ];
 
+const HOME_ALIASES = new Set(["aldi", "aldi süd", "aldi sud", "aldi nord", "hofer"]);
+
+export function isHomeRetailer(name: string): boolean {
+  return HOME_ALIASES.has(name.toLowerCase().trim());
+}
+
+/**
+ * Normalize a retailer name from OCR output to the canonical name used in DB.
+ * Returns "ALDI" for all ALDI/Hofer variants, or the matching RETAILERS entry name.
+ */
+export function normalizeRetailerName(name: string): string | null {
+  if (isHomeRetailer(name)) return HOME_RETAILER.name;
+  const found = getRetailerByName(name);
+  return found?.name ?? null;
+}
+
 export function getRetailersForCountry(country: string): RetailerConfig[] {
   return RETAILERS.filter((r) => r.countries.includes(country));
 }
 
 export function getRetailerByName(name: string): RetailerConfig | undefined {
-  const lower = name.toLowerCase();
+  const lower = name.toLowerCase().trim();
   return RETAILERS.find((r) => r.name.toLowerCase() === lower);
 }
 
 export function getRetailerById(id: string): RetailerConfig | undefined {
   return RETAILERS.find((r) => r.id === id);
 }
+
+/** Names used in the Claude prompt to define which retailers are supported */
+export const SUPPORTED_RETAILER_NAMES = RETAILERS.map((r) => r.name);
+

@@ -16,6 +16,7 @@ export type ScannerPhase = "camera" | "fallback" | "processing" | "done" | "erro
 
 export interface ReceiptResult {
   receipt_id: string;
+  retailer?: string | null;
   store_name?: string;
   purchase_date?: string;
   total_amount?: number;
@@ -226,6 +227,17 @@ export function useReceiptProcessing(options: { open: boolean; onClose: () => vo
           throw new Error(t("rateLimitExceeded"));
         }
         const errData = await res.json().catch(() => ({}));
+        if (errData.error === "not_a_receipt") {
+          throw new Error(t("notAReceipt"));
+        }
+        if (errData.error === "unsupported_retailer") {
+          const name = errData.store_name;
+          throw new Error(
+            name
+              ? t("unsupportedRetailerNamed", { name })
+              : t("unsupportedRetailer")
+          );
+        }
         throw new Error(errData.error || `HTTP ${res.status}`);
       }
 

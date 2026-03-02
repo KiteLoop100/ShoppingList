@@ -434,7 +434,11 @@
     "fallbackCaptureHint": "Öffnet die Kamera-App",
     "fallbackAddMore": "Weiteres Foto",
     "fallbackDone": "Fertig – analysieren",
-    "rateLimitExceeded": "Du hast das Limit für Kassenzettel-Scans erreicht (max. 5 pro Stunde). Bitte versuche es später erneut."
+    "rateLimitExceeded": "Du hast das Limit für Kassenzettel-Scans erreicht (max. 5 pro Stunde). Bitte versuche es später erneut.",
+    "notAReceipt": "Das scheint kein Kassenzettel zu sein. Bitte fotografiere einen Kassenzettel.",
+    "unsupportedRetailer": "Dieser Händler wird noch nicht unterstützt. Aktuell können Kassenzettel von ALDI, LIDL, REWE, EDEKA und weiteren großen Ketten erfasst werden.",
+    "unsupportedRetailerNamed": "Der Händler \"{name}\" wird noch nicht unterstützt. Aktuell können Kassenzettel von ALDI, LIDL, REWE, EDEKA und weiteren großen Ketten erfasst werden.",
+    "retailerDetected": "Händler: {name}"
   },
   "autoReorder": {
     "title": "Nachkauf",
@@ -542,6 +546,11 @@
     "total": "Summe",
     "showPhotos": "Fotos anzeigen",
     "hidePhotos": "Fotos verbergen",
-    "photo": "Foto"
+    "photo": "Foto",
+    "linked": "zugeordnet",
+    "unlinked": "unbekannt",
+    "notLinkedTooltip": "Produkt nicht in der Datenbank gefunden",
+    "allRetailers": "Alle",
+    "noReceiptsForRetailer": "Noch keine {retailer}-Einkäufe erfasst."
   }
 }

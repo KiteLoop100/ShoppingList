@@ -168,7 +168,7 @@ These fixes ensure the elsewhere feature integrates correctly with existing logi
 |----|--------|-------------|
 | **B1** | Open | **Retailer Memory** – App remembers retailer assignments per product (e.g. "Hafermilch" always LIDL) |
 | **B2** | Open | **Back to ALDI** – Swipe gesture to move elsewhere items back to ALDI list |
-| **B3** | Open | **Receipt Retailer Detection** – Automatic retailer detection when scanning receipts via OCR, building a competitor price database |
+| **B3** | **Done** | **Receipt Retailer Detection** – Automatic retailer detection when scanning receipts via OCR, building a competitor price database. Claude identifies the retailer during OCR; non-ALDI receipt items are auto-created as `competitor_products` with prices written to `competitor_product_prices`. Unsupported retailers and non-receipts are rejected. See FEATURES-CAPTURE.md. |
 | **B4** | **Done** | **Competitor Product Database** – Competitor product database with manual form, barcode scan, checkoff capture, and photo auto-fill. See "B4: Competitor Product Database" section below. |
 
 ---

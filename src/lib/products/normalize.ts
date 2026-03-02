@@ -1,4 +1,16 @@
 /**
+ * Normalize an article number for receipt-to-product matching.
+ * Strips non-digits and leading zeros. Mirrors the PG function
+ * normalize_article_number() — keep both in sync.
+ */
+export function normalizeArticleNumber(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const digitsOnly = raw.replace(/\D/g, "");
+  const stripped = digitsOnly.replace(/^0+/, "");
+  return stripped || null;
+}
+
+/**
  * Normalize a product name for deduplication/matching.
  * Strips diacritics, lowercases, removes non-alphanumeric chars.
  */

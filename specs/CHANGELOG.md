@@ -5,6 +5,22 @@
 
 ---
 
+## 2026-03-02 – Multi-Retailer Receipt Scanning (B3)
+
+- **New: `supabase/migrations/20260302400000_multi_retailer_receipts.sql`** – Adds `retailer TEXT` to `receipts` (backfills existing as 'ALDI'), adds `competitor_product_id UUID` FK to `receipt_items`, new indexes.
+- **Modified: `src/lib/retailers/retailers.ts`** – Added ALDI as `HOME_RETAILER` with color config. New helpers: `isHomeRetailer()`, `normalizeRetailerName()`, `SUPPORTED_RETAILER_NAMES`. Hofer variants map to ALDI.
+- **Rewritten: `src/app/api/process-receipt/route.ts`** – Multi-retailer receipt prompt (replaces ALDI-only prompt). Three-status validation (valid / unsupported_retailer / not_a_receipt). Branched product matching: ALDI → `products` table, competitors → `competitor_products` (auto-create + price write). Photo cleanup on rejection. Stats upsert for competitor products.
+- **Modified: `src/app/[locale]/capture/use-receipt-processing.ts`** – `ReceiptResult` now includes `retailer` field. Error handling for `not_a_receipt` and `unsupported_retailer` with user-facing messages.
+- **Modified: `src/app/[locale]/capture/receipt-result-phase.tsx`** – Success screen shows colored retailer badge. Store name shown only when different from retailer name.
+- **Rewritten: `src/app/[locale]/receipts/receipts-client.tsx`** – Horizontal retailer filter chips (only for retailers with ≥1 receipt). Colored retailer badges on receipt cards. Empty state for filtered retailer.
+- **Modified: `src/app/[locale]/receipts/[receiptId]/page.tsx`** – Retailer badge in receipt header card. Items linked via `competitor_product_id` shown as linked (green ✓).
+- **Modified: `src/lib/receipts/receipt-service.ts`** – `ReceiptData` includes `retailer`. `ReceiptItem` includes `competitor_product_id`. Loads competitor product names alongside ALDI product names.
+- **Modified: `src/messages/de.json`** – New i18n keys: `receipt.notAReceipt`, `receipt.unsupportedRetailer`, `receipt.unsupportedRetailerNamed`, `receipt.retailerDetected`, `receipts.allRetailers`, `receipts.noReceiptsForRetailer`.
+- **Modified: `src/messages/en.json`** – Same new keys in English.
+- **Specs updated:** `FEATURES-CAPTURE.md` (multi-retailer scanner section), `DATA-MODEL.md` (receipts.retailer, receipt_items.competitor_product_id), `FEATURES-ELSEWHERE.md` (B3 marked Done), `CHANGELOG.md` (this entry).
+
+---
+
 ## 2026-03-02 – "Letzte Einkäufe" restricted to receipt data only
 
 - **Modified: `src/lib/list/recent-list-products.ts`** – Removed `list_items` data source. "Letzte Einkäufe" now exclusively uses `receipt_items` from scanned receipts. This makes the feature more reliable because receipt data reflects actual purchases, while list items may include speculatively added products.

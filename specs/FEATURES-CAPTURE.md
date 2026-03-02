@@ -46,7 +46,9 @@ Take/select photo
       - [Discard] → status: discarded
 ```
 
-### Receipts (Dedicated Scanner)
+### Receipts (Multi-Retailer Scanner)
+
+Supports receipts from ALDI and all competitor retailers defined in `retailers.ts` (LIDL, REWE, EDEKA, Penny, Netto, Kaufland, dm, Rossmann, Spar, BILLA, Hofer, Müller).
 
 ```
 "+" button on the Receipts page (or legacy capture page)
@@ -60,27 +62,61 @@ Take/select photo
 Upload flow (avoids 413/CORS issues):
   1. Each photo uploaded individually to /api/upload-receipt-photo
      → Server uploads to Supabase Storage (receipts/{user_id}/)
-     → Returns public URL
+     → Returns signed URL
   2. All URLs sent to /api/process-receipt (tiny JSON payload)
      → Claude receives image URLs directly (source.type: "url")
      → No server-side download needed
 
-Claude extracts full receipt data:
-  - Header: store, address, date, time, receipt number, cashier
-  - Products: article_number, receipt_name (abbreviation), quantity,
-    unit_price, total_price, position, weight for weight items, tax category
-  - Footer: total amount, payment method, tax details, extra info
-  - Multiple photos: Claude combines overlapping sections automatically
+Claude validates and extracts receipt data:
+  - Step 1: Validation
+      - Is this a receipt? If not → status "not_a_receipt", HTTP 422
+      - Is the retailer supported? If not → status "unsupported_retailer", HTTP 422
+      - Valid receipt from supported retailer → status "valid", continue
+  - Step 2: Extraction (only for valid receipts)
+      - Header: retailer (normalized), store name, address, date, time,
+        receipt number, cashier
+      - Products: article_number (if present — not all retailers have them),
+        receipt_name (abbreviation), quantity, unit_price, total_price,
+        position, weight for weight items, tax category
+      - Footer: total amount, payment method, tax details, extra info
+      - Multiple photos: Claude combines overlapping sections automatically
 
-  → Receipt + items saved to receipts / receipt_items tables (per user)
-  → Products matched by article_number → name_normalized
-  → Product prices updated if receipt date is newer than price_updated_at
-  → Receipt products feed into "Letzte Einkäufe" suggestions (see FEATURES-CORE.md)
-  → Success screen shows summary (store, date, total, items count, prices updated)
+Retailer detection:
+  → Claude returns "retailer" field (normalized to supported list)
+  → Server normalizes via normalizeRetailerName() from retailers.ts
+  → ALDI SÜD, ALDI Nord, Hofer → normalized to "ALDI"
+  → Stored in receipts.retailer column
+
+Product matching (branched by retailer):
+  - ALDI receipts:
+      → Match against products table by article_number (exact + prefix)
+      → Update ALDI product prices if receipt date is newer
+      → Set receipt_items.product_id
+  - Competitor receipts (LIDL, REWE, etc.):
+      → Find or create competitor_products by name_normalized
+      → Write price to competitor_product_prices (retailer, price, date)
+      → Set receipt_items.competitor_product_id
+      → Upsert competitor_product_stats for search ranking
+
+  → Non-product lines (PFAND, LEERGUT, EINWEG etc.) filtered before matching
+  → Article numbers normalized before matching (non-digits stripped, leading
+    zeros removed) — mirrors PG trigger on products table.
+  → Receipt products feed into "Letzte Einkäufe" suggestions (ALDI only,
+    see FEATURES-CORE.md)
+  → Competitor products from scans automatically appear in retailer
+    prefix searches (see SEARCH-ARCHITECTURE.md)
+  → Success screen shows summary with retailer badge, store name, date,
+    total, items count, prices updated
   → Link to receipt detail view (/receipts/{receipt_id})
+
+Rejection handling:
+  - "not_a_receipt": User sees "Das scheint kein Kassenzettel zu sein."
+  - "unsupported_retailer": User sees "Der Händler wird noch nicht unterstützt."
+    with list of supported retailers.
+  - Uploaded photos are cleaned up from storage on rejection.
 ```
 
-Receipt history available at /receipts – lists all scanned receipts by date with total amount. Detail view shows all products: linked products show their full DB name (bold, with ✓ badge), unlinked products show the receipt abbreviation (monospace, smaller).
+Receipt history available at /receipts – lists all scanned receipts with filter chips by retailer (only retailers with ≥1 receipt shown). Each receipt card shows a colored retailer badge. Detail view shows all products: linked products (ALDI or competitor) show their full DB name (medium weight, with ✓ badge), unlinked products show the receipt abbreviation (smaller text, with ? icon indicating the product could not be matched to the database).
 
 ### Flyer PDFs (Automatic, Two-Model Pipeline)
 
@@ -166,4 +202,4 @@ See [SECURITY-BACKLOG.md](SECURITY-BACKLOG.md) for open security items:
 
 ---
 
-*Last updated: 2026-03-01*
+*Last updated: 2026-03-02*

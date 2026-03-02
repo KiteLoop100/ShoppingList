@@ -4,6 +4,7 @@ export interface ReceiptData {
   receipt_id: string;
   store_name: string | null;
   store_address: string | null;
+  retailer: string | null;
   purchase_date: string | null;
   purchase_time: string | null;
   total_amount: number | null;
@@ -18,6 +19,7 @@ export interface ReceiptItem {
   article_number: string | null;
   receipt_name: string;
   product_id: string | null;
+  competitor_product_id: string | null;
   quantity: number;
   unit_price: number | null;
   total_price: number | null;
@@ -40,14 +42,14 @@ export async function loadReceiptWithItems(
     supabase
       .from("receipts")
       .select(
-        "receipt_id, store_name, store_address, purchase_date, purchase_time, total_amount, payment_method, items_count, photo_urls"
+        "receipt_id, store_name, store_address, retailer, purchase_date, purchase_time, total_amount, payment_method, items_count, photo_urls"
       )
       .eq("receipt_id", receiptId)
       .single(),
     supabase
       .from("receipt_items")
       .select(
-        "receipt_item_id, position, article_number, receipt_name, product_id, quantity, unit_price, total_price, is_weight_item, weight_kg"
+        "receipt_item_id, position, article_number, receipt_name, product_id, competitor_product_id, quantity, unit_price, total_price, is_weight_item, weight_kg"
       )
       .eq("receipt_id", receiptId)
       .order("position", { ascending: true }),
@@ -60,16 +62,21 @@ export async function loadReceiptWithItems(
 
   let items: ReceiptItem[] = [];
   if (itemsRes.data) {
-    const productIds = itemsRes.data
+    const aldiProductIds = itemsRes.data
       .filter((i) => i.product_id)
       .map((i) => i.product_id as string);
 
+    const competitorProductIds = itemsRes.data
+      .filter((i) => i.competitor_product_id)
+      .map((i) => i.competitor_product_id as string);
+
     let productNames: Record<string, string> = {};
-    if (productIds.length > 0) {
+
+    if (aldiProductIds.length > 0) {
       const { data: products } = await supabase
         .from("products")
         .select("product_id, name")
-        .in("product_id", productIds);
+        .in("product_id", aldiProductIds);
 
       if (products) {
         productNames = Object.fromEntries(
@@ -78,12 +85,27 @@ export async function loadReceiptWithItems(
       }
     }
 
-    items = itemsRes.data.map((item) => ({
-      ...item,
-      product_name: item.product_id
-        ? productNames[item.product_id] || null
-        : null,
-    }));
+    if (competitorProductIds.length > 0) {
+      const { data: cProducts } = await supabase
+        .from("competitor_products")
+        .select("product_id, name")
+        .in("product_id", competitorProductIds);
+
+      if (cProducts) {
+        for (const p of cProducts) {
+          productNames[p.product_id] = p.name;
+        }
+      }
+    }
+
+    items = itemsRes.data.map((item) => {
+      const linkedId = item.product_id || item.competitor_product_id;
+      return {
+        ...item,
+        competitor_product_id: item.competitor_product_id ?? null,
+        product_name: linkedId ? productNames[linkedId] || null : null,
+      };
+    });
   }
 
   return { receipt, items, photoUrls };

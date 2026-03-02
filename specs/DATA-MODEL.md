@@ -117,7 +117,7 @@ An ALDI SÜD product.
 | Field | Description |
 |-------|-------------|
 | product_id | Unique ID |
-| article_number | Internal ALDI article number (for identification and duplicate detection) |
+| article_number | Internal ALDI article number. Auto-normalized by PG trigger (strips non-digits + leading zeros). ALDI uses 6-digit base numbers and 9-digit variant numbers (base + 3-digit suffix, e.g. "100124001"). Indexed (`idx_products_article_number`). |
 | ean_barcode | EAN/barcode number (for barcode scanner) |
 | name | Product name (e.g. "Low-Fat Milk 1.5% 1L") |
 | name_normalized | Normalized name for search and duplicate detection (lowercase, no special chars) |
@@ -158,8 +158,14 @@ An ALDI SÜD product.
 - **inactive:** No longer available. NOT shown in search, remains in DB for history
 - Specials auto-set to inactive when special_end_date is passed
 
+### Article Number Normalization
+A PG trigger (`products_normalize_article_number`) automatically normalizes `article_number` on every INSERT/UPDATE: removes non-digit characters, strips leading zeros. This ensures consistent matching regardless of import source format. The corresponding TypeScript function is `normalizeArticleNumber()` in `src/lib/products/normalize.ts`.
+
 ### Duplicate Detection
 Priority: article_number → ean_barcode → name_normalized similarity
+
+### Receipt Matching
+Receipts use a dedicated matching path (`findProductByArticleNumber`): exact article_number match first, then prefix match (receipt shows 6-digit base, DB may have 9-digit base+variant). Name-based matching is not used for receipts (receipt abbreviations like "MILS.FETT.MI" cannot match full product names).
 
 ---
 
@@ -429,8 +435,9 @@ Average aisle order across all stores. Fallback for stores without own data.
 |-------|-------------|
 | receipt_id | Unique ID |
 | user_id | Device user ID (TEXT) |
-| store_name | Store name from receipt (e.g. "ALDI SÜD", "Hofer") |
+| store_name | Store name from receipt (e.g. "ALDI SÜD", "REWE City") |
 | store_address | Store address (if visible on receipt) |
+| retailer | Normalized retailer identifier (e.g. "ALDI", "LIDL", "REWE"). Maps to RETAILERS in retailers.ts. NULL = unknown. |
 | purchase_date | Date of purchase (YYYY-MM-DD) |
 | purchase_time | Time of purchase (HH:MM) |
 | total_amount | Total amount paid |
@@ -449,9 +456,10 @@ Average aisle order across all stores. Fallback for stores without own data.
 | receipt_item_id | Unique ID |
 | receipt_id | Reference to receipts.receipt_id |
 | position | Order on receipt (1, 2, 3, ...) |
-| article_number | Article number from receipt (leftmost number) |
+| article_number | Article number from receipt (if present) |
 | receipt_name | Abbreviated product name as printed on receipt |
-| product_id | Linked product (if matched by article_number or name) |
+| product_id | Linked ALDI product (if matched by article_number). NULL for competitor receipts. |
+| competitor_product_id | Linked competitor product (for non-ALDI receipts). NULL for ALDI receipts. Mutually exclusive with product_id. |
 | quantity | Quantity purchased |
 | unit_price | Price per unit |
 | total_price | Total price for this line |
@@ -459,7 +467,13 @@ Average aisle order across all stores. Fallback for stores without own data.
 | weight_kg | Weight in kg (if weight item) |
 | tax_category | Tax category letter (A, B) |
 
-Receipt items are matched to products by article_number first, then by normalized name. When matched, product prices are updated if the receipt date is newer than the product's price_updated_at.
+### Receipt Matching Logic
+
+**ALDI receipts** (`retailer = "ALDI"`): Items matched against `products` table by `article_number` (exact match, then prefix match for 9-digit variant numbers). Prices updated if receipt date is newer. `receipt_items.product_id` set.
+
+**Competitor receipts** (LIDL, REWE, etc.): Items matched against `competitor_products` by `name_normalized`. If no match exists, a new `competitor_product` is auto-created from the receipt data. Prices written to `competitor_product_prices`. `receipt_items.competitor_product_id` set. Purchase stats upserted in `competitor_product_stats`.
+
+**Unsupported retailers / non-receipts**: Rejected at OCR stage (HTTP 422). Photos cleaned up from storage.
 
 ---
 

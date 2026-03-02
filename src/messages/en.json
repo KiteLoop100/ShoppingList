@@ -434,7 +434,11 @@
     "fallbackCaptureHint": "Opens the camera app",
     "fallbackAddMore": "Add another photo",
     "fallbackDone": "Done – analyze",
-    "rateLimitExceeded": "You have reached the limit for receipt scans (max. 5 per hour). Please try again later."
+    "rateLimitExceeded": "You have reached the limit for receipt scans (max. 5 per hour). Please try again later.",
+    "notAReceipt": "This doesn't appear to be a receipt. Please take a photo of a receipt.",
+    "unsupportedRetailer": "This retailer is not yet supported. Currently, receipts from ALDI, LIDL, REWE, EDEKA and other major chains can be captured.",
+    "unsupportedRetailerNamed": "The retailer \"{name}\" is not yet supported. Currently, receipts from ALDI, LIDL, REWE, EDEKA and other major chains can be captured.",
+    "retailerDetected": "Retailer: {name}"
   },
   "autoReorder": {
     "title": "Reorder",
@@ -541,6 +545,11 @@
     "total": "Total",
     "showPhotos": "Show photos",
     "hidePhotos": "Hide photos",
-    "photo": "Photo"
+    "photo": "Photo",
+    "linked": "matched",
+    "unlinked": "unknown",
+    "notLinkedTooltip": "Product not found in database",
+    "allRetailers": "All",
+    "noReceiptsForRetailer": "No {retailer} purchases recorded yet."
   }
 }

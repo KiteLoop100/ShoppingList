@@ -1,22 +1,47 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { normalizeName } from "@/lib/products/normalize";
-import { findExistingProduct } from "@/lib/products/find-existing";
+import { normalizeName, normalizeArticleNumber } from "@/lib/products/normalize";
+import { findProductByArticleNumber } from "@/lib/products/find-existing";
 import { claudeRateLimit, checkRateLimit } from "@/lib/api/rate-limit";
 import { CLAUDE_MODEL_SONNET } from "@/lib/api/config";
 import { requireAuth, requireApiKey, requireSupabaseAdmin } from "@/lib/api/guards";
-import { callClaude, ClaudeApiError, parseClaudeJsonResponse } from "@/lib/api/claude-client";
+import { callClaude, parseClaudeJsonResponse } from "@/lib/api/claude-client";
 import { log } from "@/lib/utils/logger";
+import {
+  isHomeRetailer,
+  normalizeRetailerName,
+  SUPPORTED_RETAILER_NAMES,
+} from "@/lib/retailers/retailers";
+import type { SupabaseClient } from "@supabase/supabase-js";
+
+const NON_PRODUCT_PATTERN = /^(PFAND|LEERGUT|EINWEG|MEHRWEG|EC-ZAHLUNG|SUMME|ZWISCHENSUMME|RABATT|NACHLASS|TREUEPUNKTE|PAYBACK)/i;
 
 export const maxDuration = 300;
 
-const RECEIPT_PROMPT = `Du analysierst Fotos eines Kassenzettels von ALDI SÜD (Deutschland) oder Hofer (Österreich).
-Falls mehrere Fotos vorliegen, gehören alle zum SELBEN Kassenzettel. Kombiniere die Daten zu einem vollständigen Kassenzettel.
+const SUPPORTED_LIST = SUPPORTED_RETAILER_NAMES.join(", ");
 
-Extrahiere ALLE folgenden Informationen:
+const RECEIPT_PROMPT = `Du analysierst Fotos und prüfst ob es sich um einen Kassenzettel eines unterstützten Händlers handelt.
+
+UNTERSTÜTZTE HÄNDLER: ${SUPPORTED_LIST}
+Varianten wie "ALDI SÜD", "ALDI Nord", "Hofer" gelten als ALDI.
+
+SCHRITT 1 – VALIDIERUNG:
+Prüfe zuerst:
+- Ist das Bild ein Kassenzettel/Bon? Falls NEIN → status = "not_a_receipt"
+- Ist der Händler in der Liste oben? Falls NEIN → status = "unsupported_retailer"
+- Falls JA → status = "valid"
+
+Bei status "not_a_receipt": Antworte NUR mit:
+{"status": "not_a_receipt", "retailer": null, "store_name": null}
+
+Bei status "unsupported_retailer": Antworte NUR mit:
+{"status": "unsupported_retailer", "retailer": null, "store_name": "Name des Händlers falls erkennbar"}
+
+SCHRITT 2 – NUR bei status "valid", extrahiere ALLE folgenden Informationen:
 
 1. KOPFDATEN:
-- store_name: Name des Ladens (z.B. "ALDI SÜD", "Hofer")
+- retailer: Normalisierter Händlername aus der Liste oben (z.B. "ALDI", "LIDL", "REWE"). Für ALDI SÜD/Nord/Hofer immer "ALDI".
+- store_name: Voller Name wie auf dem Bon gedruckt (z.B. "ALDI SÜD", "REWE City")
 - store_address: Adresse des Ladens (falls sichtbar)
 - purchase_date: Datum im Format YYYY-MM-DD
 - purchase_time: Uhrzeit im Format HH:MM
@@ -26,8 +51,8 @@ Extrahiere ALLE folgenden Informationen:
 
 2. PRODUKTE – extrahiere JEDE Produktzeile:
 - position: Reihenfolge auf dem Kassenzettel (1, 2, 3, ...)
-- article_number: Die Nummer ganz LINKS auf jeder Zeile (4-7 stellig)
-- receipt_name: Der abgekürzte Produktname auf dem Kassenzettel (exakt wie gedruckt, z.B. "MILS.FETT.MI", "BIO TRINKM")
+- article_number: Artikelnummer falls vorhanden (bei manchen Händlern links auf der Zeile, bei anderen gar nicht vorhanden – dann null)
+- receipt_name: Der abgekürzte Produktname auf dem Kassenzettel (exakt wie gedruckt)
 - quantity: Anzahl (Standard 1, falls Stückzahl angegeben wie "2x" dann 2)
 - unit_price: Preis pro Stück
 - total_price: Gesamtpreis für diese Zeile
@@ -44,7 +69,7 @@ Extrahiere ALLE folgenden Informationen:
 
 WICHTIG:
 - Ignoriere KEINE Produktzeile. Extrahiere ALLE Produkte.
-- Die Artikelnummer steht am ANFANG jeder Produktzeile (links).
+- Nicht alle Händler haben Artikelnummern. Falls keine vorhanden, setze article_number auf null.
 - Unterscheide Produktzeilen von Summenzeilen, Steuerzeilen und Zahlungszeilen.
 - Wenn ein Produkt mit Rabatt erscheint, extrahiere den Endpreis.
 - Pfand-Positionen (PFAND, LEERGUT) auch als Produkt extrahieren.
@@ -53,6 +78,8 @@ WICHTIG:
 Antworte ausschließlich mit validem JSON. Kein Markdown, keine Backticks.
 
 {
+  "status": "valid",
+  "retailer": "string",
   "store_name": "string or null",
   "store_address": "string or null",
   "purchase_date": "YYYY-MM-DD or null",
@@ -92,6 +119,8 @@ interface ReceiptProduct {
 }
 
 interface ReceiptOcrResult {
+  status: "valid" | "unsupported_retailer" | "not_a_receipt";
+  retailer?: string | null;
   store_name?: string | null;
   store_address?: string | null;
   purchase_date?: string | null;
@@ -110,6 +139,57 @@ const processReceiptSchema = z.object({
   photo_urls: z.array(z.string().url()).min(1).max(5),
   photo_paths: z.array(z.string()).optional(),
 });
+
+/** Delete uploaded receipt photos from storage (fire-and-forget). */
+function cleanupPhotos(supabase: SupabaseClient, photoPaths: string[]) {
+  if (photoPaths.length === 0) return;
+  supabase.storage
+    .from("receipt-photos")
+    .remove(photoPaths)
+    .then(({ error }) => {
+      if (error) log.error("[process-receipt] Photo cleanup failed:", error.message);
+    });
+}
+
+/**
+ * Find or create a competitor product by name_normalized, return its product_id.
+ * Uses admin client (server-side) to bypass RLS created_by requirements.
+ */
+async function findOrCreateCompetitorProductServer(
+  supabase: SupabaseClient,
+  receiptName: string,
+  country: string,
+  userId: string,
+): Promise<string | null> {
+  const nameNorm = normalizeName(receiptName);
+
+  const { data: existing } = await supabase
+    .from("competitor_products")
+    .select("product_id")
+    .eq("name_normalized", nameNorm)
+    .eq("status", "active")
+    .limit(1)
+    .maybeSingle();
+
+  if (existing) return existing.product_id;
+
+  const { data: created, error } = await supabase
+    .from("competitor_products")
+    .insert({
+      name: receiptName,
+      name_normalized: nameNorm,
+      country,
+      created_by: userId,
+    })
+    .select("product_id")
+    .single();
+
+  if (error) {
+    log.error("[process-receipt] Failed to create competitor product:", error.message);
+    return null;
+  }
+  return created.product_id;
+}
 
 export async function POST(request: Request) {
   try {
@@ -187,6 +267,30 @@ export async function POST(request: Request) {
       );
     }
 
+    // --- Validation: reject non-receipts and unsupported retailers ---
+
+    if (ocrResult.status === "not_a_receipt") {
+      cleanupPhotos(supabase, photo_paths || []);
+      return NextResponse.json(
+        { error: "not_a_receipt", store_name: null },
+        { status: 422 }
+      );
+    }
+
+    if (ocrResult.status === "unsupported_retailer") {
+      cleanupPhotos(supabase, photo_paths || []);
+      return NextResponse.json(
+        { error: "unsupported_retailer", store_name: ocrResult.store_name || null },
+        { status: 422 }
+      );
+    }
+
+    // --- Valid receipt: determine retailer ---
+
+    const retailerRaw = ocrResult.retailer || ocrResult.store_name || "";
+    const retailerNormalized = normalizeRetailerName(retailerRaw);
+    const isAldi = retailerNormalized ? isHomeRetailer(retailerNormalized) : false;
+
     const products = ocrResult.products || [];
     const now = new Date().toISOString();
 
@@ -197,6 +301,7 @@ export async function POST(request: Request) {
         user_id: userId,
         store_name: ocrResult.store_name || null,
         store_address: ocrResult.store_address || null,
+        retailer: retailerNormalized,
         purchase_date: ocrResult.purchase_date || null,
         purchase_time: ocrResult.purchase_time || null,
         total_amount:
@@ -224,13 +329,14 @@ export async function POST(request: Request) {
 
     const receiptId = receiptRow.receipt_id;
 
-    // Process each product line: link to existing products, update prices
+    // Process each product line
     const receiptItems: {
       receipt_id: string;
       position: number;
       article_number: string | null;
       receipt_name: string;
       product_id: string | null;
+      competitor_product_id: string | null;
       quantity: number;
       unit_price: number | null;
       total_price: number | null;
@@ -240,11 +346,14 @@ export async function POST(request: Request) {
     }[] = [];
 
     let pricesUpdated = 0;
+    const competitorProductIds: string[] = [];
 
     for (const p of products) {
-      const articleNumber = p.article_number?.trim() || null;
       const receiptName = (p.receipt_name || "").trim();
       if (!receiptName) continue;
+
+      const isNonProduct = NON_PRODUCT_PATTERN.test(receiptName);
+      const articleNumber = normalizeArticleNumber(p.article_number);
 
       const quantity =
         typeof p.quantity === "number" && p.quantity > 0 ? p.quantity : 1;
@@ -254,32 +363,59 @@ export async function POST(request: Request) {
         typeof p.total_price === "number" ? p.total_price : null;
       const effectivePrice = unitPrice ?? totalPrice;
 
-      const nameNorm = normalizeName(receiptName);
-      const found = await findExistingProduct(supabase, {
-        article_number: articleNumber,
-        name_normalized: nameNorm,
-      }, { select: "product_id, price, price_updated_at" });
+      let productId: string | null = null;
+      let competitorProductId: string | null = null;
 
-      let productId: string | null = found?.product_id ?? null;
+      if (!isNonProduct) {
+        if (isAldi) {
+          // ALDI: match against products table by article_number
+          const found = await findProductByArticleNumber(
+            supabase,
+            articleNumber,
+            "product_id, price, price_updated_at",
+          );
 
-      if (found && effectivePrice != null && ocrResult.purchase_date) {
-        const shouldUpdatePrice = found.matched_by === "article_number" || !articleNumber;
-        if (shouldUpdatePrice) {
-          const receiptDate = new Date(ocrResult.purchase_date);
-          const lastPriceDate = found.price_updated_at
-            ? new Date(String(found.price_updated_at))
-            : new Date(0);
+          productId = found?.product_id ?? null;
 
-          if (receiptDate >= lastPriceDate) {
+          if (found && effectivePrice != null && ocrResult.purchase_date) {
+            const receiptDate = new Date(ocrResult.purchase_date);
+            const lastPriceDate = found.price_updated_at
+              ? new Date(String(found.price_updated_at))
+              : new Date(0);
+
+            if (receiptDate >= lastPriceDate) {
+              await supabase
+                .from("products")
+                .update({
+                  price: effectivePrice,
+                  price_updated_at: ocrResult.purchase_date,
+                  updated_at: now,
+                })
+                .eq("product_id", productId!);
+              pricesUpdated++;
+            }
+          }
+        } else if (retailerNormalized) {
+          // Competitor retailer: find or create in competitor_products
+          competitorProductId = await findOrCreateCompetitorProductServer(
+            supabase,
+            receiptName,
+            "DE",
+            userId,
+          );
+
+          if (competitorProductId && effectivePrice != null) {
             await supabase
-              .from("products")
-              .update({
+              .from("competitor_product_prices")
+              .insert({
+                product_id: competitorProductId,
+                retailer: retailerNormalized,
                 price: effectivePrice,
-                price_updated_at: ocrResult.purchase_date,
-                updated_at: now,
-              })
-              .eq("product_id", productId!);
+                observed_at: ocrResult.purchase_date || now,
+                observed_by: userId,
+              });
             pricesUpdated++;
+            competitorProductIds.push(competitorProductId);
           }
         }
       }
@@ -290,6 +426,7 @@ export async function POST(request: Request) {
         article_number: articleNumber,
         receipt_name: receiptName,
         product_id: productId,
+        competitor_product_id: competitorProductId,
         quantity,
         unit_price: unitPrice,
         total_price: totalPrice,
@@ -311,15 +448,42 @@ export async function POST(request: Request) {
       }
     }
 
+    // Upsert competitor_product_stats for purchase tracking (fire-and-forget)
+    if (competitorProductIds.length > 0 && retailerNormalized) {
+      const uniqueIds = [...new Set(competitorProductIds)];
+      for (const cpId of uniqueIds) {
+        supabase
+          .from("competitor_product_stats")
+          .upsert(
+            {
+              competitor_product_id: cpId,
+              retailer: retailerNormalized,
+              user_id: userId,
+              purchase_count: 1,
+              last_purchased_at: now,
+            },
+            { onConflict: "competitor_product_id,retailer,user_id" }
+          )
+          .then(({ error }) => {
+            if (error) log.error("[process-receipt] Stats upsert failed:", error.message);
+          });
+      }
+    }
+
+    const itemsLinked = receiptItems.filter(
+      (i) => i.product_id || i.competitor_product_id
+    ).length;
+
     return NextResponse.json({
       receipt_id: receiptId,
+      retailer: retailerNormalized,
       store_name: ocrResult.store_name,
       purchase_date: ocrResult.purchase_date,
       purchase_time: ocrResult.purchase_time,
       total_amount: ocrResult.total_amount,
       items_count: receiptItems.length,
       prices_updated: pricesUpdated,
-      items_linked: receiptItems.filter((i) => i.product_id).length,
+      items_linked: itemsLinked,
     });
   } catch (err) {
     log.error("[process-receipt] Unhandled error:", err);
@@ -329,4 +493,3 @@ export async function POST(request: Request) {
     );
   }
 }
-
