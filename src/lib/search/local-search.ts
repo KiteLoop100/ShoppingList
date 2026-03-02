@@ -90,23 +90,6 @@ export async function localSearch(
   // 4. Post-process (allergens, expired specials, limit)
   const filtered = postProcess(scored, preferences, limit);
 
-  // DEBUG: remove after testing
-  if (typeof window !== "undefined") {
-    console.table(
-      filtered.slice(0, 15).map((c) => ({
-        name: c.product.name.slice(0, 40),
-        matchType: c.matchType,
-        matchScore: c.matchScore.toFixed(1),
-        popularity: c.popularityScore.toFixed(1),
-        personal: c.personalScore.toFixed(1),
-        preference: c.preferenceScore.toFixed(1),
-        freshness: c.freshnessScore.toFixed(1),
-        total: c.totalScore.toFixed(2),
-        demandGroup: (c.product.demand_group ?? "").slice(0, 30),
-      }))
-    );
-  }
-
   // 5. Convert to SearchResult format
   return filtered.map((c) => ({
     product_id: c.product.product_id,

@@ -4,12 +4,17 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { DEMAND_GROUPS_INSTRUCTION } from "@/lib/products/demand-groups-prompt";
 import { CLAUDE_MODEL_HAIKU } from "@/lib/api/config";
 import { requireApiKey, requireAdminAuth, requireSupabaseAdmin } from "@/lib/api/guards";
 import { callClaudeJSON } from "@/lib/api/claude-client";
 
 const BATCH_SIZE = 50;
+
+const assignDemandGroupsSchema = z.object({
+  country: z.string().min(1).max(5).optional(),
+});
 
 export async function POST(request: NextRequest) {
   const authError = requireAdminAuth(request);
@@ -21,8 +26,20 @@ export async function POST(request: NextRequest) {
   const supabase = requireSupabaseAdmin();
   if (supabase instanceof NextResponse) return supabase;
 
-  const body = await request.json().catch(() => ({}));
-  const country: string | undefined = typeof body.country === "string" ? body.country : undefined;
+  let rawBody: unknown;
+  try {
+    rawBody = await request.json();
+  } catch {
+    rawBody = {};
+  }
+  const parsed = assignDemandGroupsSchema.safeParse(rawBody);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: "Invalid input", details: parsed.error.flatten() },
+      { status: 400 }
+    );
+  }
+  const { country } = parsed.data;
 
   let fetchQuery = supabase
     .from("products")

@@ -1,9 +1,18 @@
-import { NextResponse } from "next/server";
-import { requireSupabaseAdmin } from "@/lib/api/guards";
+import { NextRequest, NextResponse } from "next/server";
+import { requireAdminAuth, requireSupabaseAdmin } from "@/lib/api/guards";
+import { generalRateLimit, checkRateLimit, getIdentifier } from "@/lib/api/rate-limit";
 
-export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const flyerId = searchParams.get("flyer_id");
+export async function GET(request: NextRequest) {
+  const authError = requireAdminAuth(request);
+  if (authError) return authError;
+
+  const rateLimitResponse = await checkRateLimit(
+    generalRateLimit,
+    getIdentifier(request)
+  );
+  if (rateLimitResponse) return rateLimitResponse;
+
+  const flyerId = request.nextUrl.searchParams.get("flyer_id");
   if (!flyerId) {
     return NextResponse.json({ error: "flyer_id required" }, { status: 400 });
   }

@@ -10,7 +10,7 @@ const DELAY_MS = 3000;
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 15000;
 
-process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+// TLS bypass removed for security -- use proper certificates
 
 const FLYERS = [
   { flyer_id: "42c7f7ce-ac34-4b39-85c4-c1946d966887", upload_id: "463a4938-4bfa-43fc-9cd7-02d7468547eb", title: "KW 09 - Mo. 2.3. (DE)", total_pages: 23 },

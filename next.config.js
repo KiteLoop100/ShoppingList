@@ -8,6 +8,20 @@ const nextConfig = {
   eslint: { ignoreDuringBuilds: true },
   // Vercel expects .next; locally avoid Dropbox locking by using a cache dir
   distDir: process.env.VERCEL ? ".next" : "node_modules/.cache/next-build",
+  async headers() {
+    return [
+      {
+        source: "/(.*)",
+        headers: [
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          { key: "X-DNS-Prefetch-Control", value: "on" },
+          { key: "Permissions-Policy", value: "camera=(self), microphone=(), geolocation=(self)" },
+        ],
+      },
+    ];
+  },
 };
 
 const withPWA = require("next-pwa")({

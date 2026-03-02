@@ -4,12 +4,18 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { loadCategories, buildCategoryListPrompt } from "@/lib/categories/constants";
 import { CLAUDE_MODEL_HAIKU } from "@/lib/api/config";
 import { requireApiKey, requireAdminAuth, requireSupabaseAdmin } from "@/lib/api/guards";
 import { callClaudeJSON } from "@/lib/api/claude-client";
 
 const BATCH_SIZE = 40;
+
+const reclassifySchema = z.object({
+  offset: z.number().int().min(0).optional().default(0),
+  country: z.string().min(1).max(5).optional(),
+});
 
 export async function POST(request: NextRequest) {
   const authError = requireAdminAuth(request);
@@ -25,9 +31,20 @@ export async function POST(request: NextRequest) {
   const CATEGORY_LIST = buildCategoryListPrompt(CATEGORIES);
   const VALID_IDS = new Set(CATEGORIES.map((c) => c.id));
 
-  const body = await request.json().catch(() => ({}));
-  const offset = typeof body.offset === "number" ? body.offset : 0;
-  const country: string | undefined = typeof body.country === "string" ? body.country : undefined;
+  let rawBody: unknown;
+  try {
+    rawBody = await request.json();
+  } catch {
+    rawBody = {};
+  }
+  const parsed = reclassifySchema.safeParse(rawBody);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: "Invalid input", details: parsed.error.flatten() },
+      { status: 400 }
+    );
+  }
+  const { offset, country } = parsed.data;
 
   let query = supabase
     .from("products")

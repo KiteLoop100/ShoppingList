@@ -10,12 +10,22 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { DEMAND_GROUPS_INSTRUCTION } from "@/lib/products/demand-groups-prompt";
 import { loadCategories, buildCategoryListPrompt } from "@/lib/categories/constants";
 import { CLAUDE_MODEL_HAIKU } from "@/lib/api/config";
 import { requireApiKey, requireAdminAuth, requireSupabaseAdmin } from "@/lib/api/guards";
 import { callClaude, ClaudeApiError, cleanJsonFences } from "@/lib/api/claude-client";
+
+const batchJobContinueSchema = z.object({
+  job_id: z.string().min(1),
+});
+
+const batchJobStartSchema = z.object({
+  job_type: z.enum(["assign_demand_groups", "reclassify"]),
+  country: z.string().min(1).max(5).optional(),
+});
 
 export const maxDuration = 120;
 const BATCH_SIZE_ASSIGN = 50;
@@ -94,14 +104,21 @@ export async function POST(request: NextRequest) {
   const supabase = requireSupabaseAdmin();
   if (supabase instanceof NextResponse) return supabase;
 
-  const body = await request.json().catch(() => ({}));
+  let rawBody: unknown;
+  try {
+    rawBody = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  }
 
   // --- Mode 1: Continue an existing job (process one batch) ---
-  if (body.job_id && typeof body.job_id === "string") {
+  const continueResult = batchJobContinueSchema.safeParse(rawBody);
+  if (continueResult.success) {
+    const { job_id } = continueResult.data;
     const { data: job, error: jobErr } = await supabase
       .from("batch_jobs")
       .select("*")
-      .eq("job_id", body.job_id)
+      .eq("job_id", job_id)
       .single();
 
     if (jobErr || !job) {
@@ -122,13 +139,14 @@ export async function POST(request: NextRequest) {
   }
 
   // --- Mode 2: Start a new job ---
-  const jobType: string = body.job_type;
-  const country: string | undefined =
-    typeof body.country === "string" && body.country ? body.country : undefined;
-
-  if (jobType !== "assign_demand_groups" && jobType !== "reclassify") {
-    return NextResponse.json({ error: "Invalid job_type" }, { status: 400 });
+  const startResult = batchJobStartSchema.safeParse(rawBody);
+  if (!startResult.success) {
+    return NextResponse.json(
+      { error: "Invalid input", details: startResult.error.flatten() },
+      { status: 400 }
+    );
   }
+  const { job_type: jobType, country } = startResult.data;
 
   const jobId = generateJobId();
   await supabase.from("batch_jobs").insert({
