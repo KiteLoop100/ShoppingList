@@ -359,6 +359,7 @@ interface SortData {
   productPriceMap: Map<string, number>;
   productThumbnailMap: Map<string, string>;
   productIdsWithAdditionalInfo: Set<string>;
+  productDeferredInfo: Map<string, { assortment_type: string; special_start_date: string | null; country: string }>;
 }
 
 async function sortListItems(
@@ -580,6 +581,7 @@ export function useListData(sortMode: SortMode = "my-order"): UseListDataResult 
         productPriceMap,
         productThumbnailMap,
         productIdsWithAdditionalInfo,
+        productDeferredInfo,
       };
 
       const currentSortMode = sortModeRef.current;
@@ -619,14 +621,61 @@ export function useListData(sortMode: SortMode = "my-order"): UseListDataResult 
   /**
    * Re-sorts the already-loaded items client-side using the cached SortData.
    * Called when sortMode changes – avoids a full Supabase + IndexedDB reload.
+   * Re-applies deferred-status logic so time-sensitive status (e.g. specials
+   * whose start date just passed) is correctly reflected.
    */
   const resort = useCallback(async () => {
     const data = sortDataRef.current;
     if (!data) return;
     const currentSortMode = sortModeRef.current;
     try {
+      const todayStr = new Date().toISOString().slice(0, 10);
+      const freshItems = data.items.map(srcItem => {
+        const src = srcItem as ListItemWithMeta;
+        const item: LocalListItem & Partial<ListItemWithMeta> = { ...srcItem };
+        delete item.is_deferred;
+        delete item.available_from;
+        delete item.deferred_reason;
+        delete item.is_buy_elsewhere;
+
+        // Reorder items are synthetic (not from DB) — preserve their deferred state
+        if (src.deferred_reason === "reorder") {
+          item.is_deferred = src.is_deferred;
+          item.available_from = src.available_from;
+          item.deferred_reason = "reorder";
+          return item as LocalListItem;
+        }
+        if (srcItem.buy_elsewhere_retailer) {
+          item.is_deferred = true;
+          item.deferred_reason = "elsewhere";
+          item.is_buy_elsewhere = true;
+          item.buy_elsewhere_retailer = srcItem.buy_elsewhere_retailer;
+          item.competitor_product_id = srcItem.competitor_product_id ?? null;
+          return item as LocalListItem;
+        }
+        if (srcItem.deferred_until && srcItem.deferred_until !== "next_trip") {
+          if (srcItem.deferred_until > todayStr) {
+            item.is_deferred = true;
+            item.available_from = srcItem.deferred_until;
+            item.deferred_reason = "manual";
+          }
+        } else if (srcItem.deferred_until === "next_trip") {
+          item.is_deferred = true;
+          item.available_from = srcItem.deferred_until;
+          item.deferred_reason = "manual";
+        }
+        if (srcItem.product_id && !item.is_deferred) {
+          const info = data.productDeferredInfo.get(srcItem.product_id);
+          if (info && isDeferredSpecial(info.assortment_type, info.special_start_date, info.country)) {
+            item.is_deferred = true;
+            item.available_from = info.special_start_date;
+            item.deferred_reason = "special";
+          }
+        }
+        return item as LocalListItem;
+      });
       const { unchecked: u, checked: c, deferred: d } = await sortListItems(
-        data.items, currentSortMode, data.effectiveStoreId, data.categories,
+        freshItems, currentSortMode, data.effectiveStoreId, data.categories,
         data.categoryMap, data.productMetaMap, syncedStoreIdsRef,
       );
       assignPrices(u, c, data.productPriceMap, d);
@@ -644,11 +693,18 @@ export function useListData(sortMode: SortMode = "my-order"): UseListDataResult 
     }
   }, []); // stable – reads sortMode via sortModeRef.current
 
-  // Invalidate IDB products cache when contextProducts length changes (new products added via Capture/Scan)
+  // Invalidate IDB products cache when contextProducts length changes (new products added via Capture/Scan).
+  // When products first become available (0→N), trigger a full refetch so productMetaMap and
+  // deferred-status are computed with complete data (fixes race condition on app startup).
   useEffect(() => {
-    if (prevContextProductsLenRef.current !== contextProducts.length) {
-      prevContextProductsLenRef.current = contextProducts.length;
+    const prevLen = prevContextProductsLenRef.current;
+    const curLen = contextProducts.length;
+    if (prevLen !== curLen) {
+      prevContextProductsLenRef.current = curLen;
       idbProductsCacheRef.current = null;
+      if (prevLen === 0 && curLen > 0 && !isFirstLoad.current) {
+        refetchRef.current();
+      }
     }
   }, [contextProducts.length]);
 

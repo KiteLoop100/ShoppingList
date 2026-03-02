@@ -68,7 +68,7 @@ Summary of the ranking system:
 
 ### Quick-Action Chips
 Shown inside the search field (right side, when field is empty):
-- **"Recent Purchases"** – Products from last 4 weeks, sorted by frequency. Data sources: (1) IndexedDB list_items (products added to shopping list), (2) Supabase receipt_items (products from scanned receipts with linked product_id). Frequencies from both sources are combined.
+- **"Recent Purchases"** – Products from last 4 weeks, sorted by frequency. Data source: Supabase receipt_items (products from scanned receipts with linked product_id). Only receipt-based purchases are shown; manually added or checked-off list items are excluded. Empty state prompts user to scan their first receipt.
 
 Note: "Specials" is accessible via the magic keyword "aktionsartikel" (see below), not as a visible chip.
 

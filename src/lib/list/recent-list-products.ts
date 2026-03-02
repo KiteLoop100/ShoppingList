@@ -1,9 +1,7 @@
-﻿/**
+/**
  * "Letzte Einkäufe": products purchased in the last 28 days.
  * Grouped by product_id, sorted by frequency (DESC).
- * Data sources:
- *   1. Supabase list_items (products added to the shopping list)
- *   2. Supabase receipt_items (products from scanned receipts)
+ * Data source: Supabase receipt_items (products from scanned receipts).
  */
 
 import { getCurrentUserId } from "@/lib/auth/auth-context";
@@ -23,41 +21,10 @@ export async function getRecentListProducts(): Promise<RecentListProduct[]> {
 
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - DAYS);
-  const cutoffIso = cutoff.toISOString();
 
   const supabase = createClientIfConfigured();
   if (!supabase) return [];
 
-  // Source 1: Supabase list items
-  try {
-    const { data: lists } = await supabase
-      .from("shopping_lists")
-      .select("list_id")
-      .eq("user_id", userId);
-
-    if (lists && lists.length > 0) {
-      const listIds = lists.map((l) => l.list_id);
-
-      const { data: items } = await supabase
-        .from("list_items")
-        .select("product_id, added_at")
-        .in("list_id", listIds)
-        .not("product_id", "is", null)
-        .gte("added_at", cutoffIso);
-
-      if (items) {
-        for (const i of items) {
-          if (i.product_id) {
-            byProduct.set(i.product_id, (byProduct.get(i.product_id) ?? 0) + 1);
-          }
-        }
-      }
-    }
-  } catch (err) {
-    log.error("[recent-list-products] Failed to fetch list items for recent purchases:", err);
-  }
-
-  // Source 2: Scanned receipt items (Supabase)
   try {
     const cutoffDate = cutoff.toISOString().slice(0, 10);
 
@@ -88,7 +55,7 @@ export async function getRecentListProducts(): Promise<RecentListProduct[]> {
       }
     }
   } catch (err) {
-    log.error("[recent-list-products] Failed to fetch receipt products for recent purchases:", err);
+    log.error("[recent-list-products] Failed to fetch receipt products:", err);
   }
 
   const result: RecentListProduct[] = Array.from(byProduct.entries())

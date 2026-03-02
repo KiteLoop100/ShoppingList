@@ -2,6 +2,7 @@
 
 import { memo, useMemo } from "react";
 import { useTranslations } from "next-intl";
+import Link from "next/link";
 import type { Product } from "@/types";
 import type { RecentListProduct } from "@/lib/list";
 import { useProductSelection } from "./use-product-selection";
@@ -65,11 +66,27 @@ export const RecentPurchasesPanel = memo(function RecentPurchasesPanel({
           {loadingLabel}
         </div>
       ) : validRecentProducts.length === 0 ? (
-        <div className="flex flex-1 flex-col justify-center p-4">
+        <div className="flex flex-1 flex-col items-center justify-center p-6">
+          <svg
+            className="mb-4 h-16 w-16 text-aldi-muted-light"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            aria-hidden
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+          </svg>
           <p className="text-center text-sm text-aldi-muted">{noneLabel}</p>
+          <Link
+            href="/receipts"
+            className="touch-target mt-4 flex items-center gap-2 rounded-xl border-2 border-aldi-blue bg-aldi-blue px-5 py-3 font-semibold text-white transition-colors hover:bg-aldi-blue/90"
+            onClick={onCancel}
+          >
+            {t("recentPurchasesScanLink")}
+          </Link>
           <button
             type="button"
-            className="touch-target mt-4 w-full rounded-xl border-2 border-aldi-muted-light bg-white px-4 py-3 font-medium text-aldi-text transition-colors hover:bg-gray-50"
+            className="touch-target mt-3 w-full rounded-xl border-2 border-aldi-muted-light bg-white px-4 py-3 font-medium text-aldi-text transition-colors hover:bg-gray-50"
             onClick={onCancel}
           >
             {cancelLabel}

@@ -5,6 +5,16 @@
 
 ---
 
+## 2026-03-02 – "Letzte Einkäufe" restricted to receipt data only
+
+- **Modified: `src/lib/list/recent-list-products.ts`** – Removed `list_items` data source. "Letzte Einkäufe" now exclusively uses `receipt_items` from scanned receipts. This makes the feature more reliable because receipt data reflects actual purchases, while list items may include speculatively added products.
+- **Modified: `src/components/search/recent-purchases-panel.tsx`** – Empty state redesigned: receipt/clipboard icon, user-friendly prompt ("Scanne Deinen ersten Kassenzettel…"), and a primary CTA button linking to `/receipts` for scanning.
+- **Modified: `src/messages/de.json`** – Updated `recentPurchasesNone` text; added `recentPurchasesScanLink`.
+- **Modified: `src/messages/en.json`** – Updated `recentPurchasesNone` text; added `recentPurchasesScanLink`.
+- **Specs updated:** `FEATURES-CORE.md` (Quick-Action Chips data source description).
+
+---
+
 ## 2026-03-01 – Unified Demand-Group Labels & Per-Group Color Coding
 
 - **Modified: `src/lib/i18n/category-translations.ts`** – `translateCategoryName()` now detects demand-group codes (numeric prefix or "AK-") and converts them to user-friendly labels via new `formatDemandGroupLabel()`. Manual alias overrides for truncated/ugly codes. Both sort modes now consistently show demand-group names instead of app-category names.
