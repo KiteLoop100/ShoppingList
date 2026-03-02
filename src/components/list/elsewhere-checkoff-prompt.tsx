@@ -3,12 +3,12 @@
 import { useState, useRef, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import { useCurrentCountry } from "@/lib/current-country-context";
-import { createClientIfConfigured } from "@/lib/supabase/client";
 import {
   findOrCreateCompetitorProduct,
   addCompetitorPrice,
   updateCompetitorProduct,
 } from "@/lib/competitor-products/competitor-product-service";
+import { uploadCompetitorPhoto } from "@/lib/competitor-products/upload-competitor-photo";
 import { log } from "@/lib/utils/logger";
 
 interface ElsewhereCheckoffPromptProps {
@@ -47,24 +47,11 @@ export function ElsewhereCheckoffPrompt({
       }
 
       if (photoFile) {
-        const supabase = createClientIfConfigured();
-        if (supabase) {
-          const ext = photoFile.name.split(".").pop() ?? "jpg";
-          const path = `${product.product_id}.${ext}`;
-          const { error: uploadErr } = await supabase.storage
-            .from("competitor-product-photos")
-            .upload(path, photoFile, { upsert: true, contentType: photoFile.type });
-
-          if (!uploadErr) {
-            const { data: urlData } = supabase.storage
-              .from("competitor-product-photos")
-              .getPublicUrl(path);
-            if (urlData?.publicUrl) {
-              await updateCompetitorProduct(product.product_id, {
-                thumbnail_url: urlData.publicUrl,
-              });
-            }
-          }
+        const publicUrl = await uploadCompetitorPhoto(product.product_id, photoFile);
+        if (publicUrl) {
+          await updateCompetitorProduct(product.product_id, {
+            thumbnail_url: publicUrl,
+          });
         }
       }
 
@@ -87,9 +74,9 @@ export function ElsewhereCheckoffPrompt({
   const hasPriceOrPhoto = price.trim().length > 0 || photoFile !== null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center">
+    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
       <div className="absolute inset-0 bg-black/40" onClick={onSkip} />
-      <div className="relative w-full max-w-lg animate-in slide-in-from-bottom duration-300 rounded-t-2xl bg-white px-4 pb-8 pt-5 shadow-xl">
+      <div className="relative w-full max-w-lg animate-in slide-in-from-bottom duration-300 rounded-t-2xl bg-white px-4 pb-8 pt-5 shadow-xl sm:rounded-2xl">
         <div className="mb-1 flex justify-center">
           <div className="h-1 w-10 rounded-full bg-gray-300" />
         </div>

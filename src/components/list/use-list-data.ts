@@ -10,6 +10,7 @@ import {
   updateListItem,
   deleteListItem,
 } from "@/lib/list";
+import { recordCompetitorPurchase } from "@/lib/competitor-products/competitor-product-service";
 import {
   sortAndGroupItems,
   sortAndGroupItemsHierarchical,
@@ -705,6 +706,14 @@ export function useListData(sortMode: SortMode = "my-order"): UseListDataResult 
       );
       if (elsewhereItem && isChecked) {
         setDeferred(prev => prev.filter(i => i.item_id !== itemId));
+
+        if (elsewhereItem.competitor_product_id && elsewhereItem.buy_elsewhere_retailer) {
+          recordCompetitorPurchase(
+            elsewhereItem.competitor_product_id,
+            elsewhereItem.buy_elsewhere_retailer,
+          ).catch(e => log.error("[useListData] recordCompetitorPurchase failed:", e));
+        }
+
         deleteListItem(itemId).catch(e => {
           log.error("[useListData] remove elsewhere item failed:", e);
           setDeferred(prev => [...prev, elsewhereItem]);
@@ -788,11 +797,17 @@ export function useListData(sortMode: SortMode = "my-order"): UseListDataResult 
   const setItemQuantity = useCallback(
     async (itemId: string, quantity: number) => {
       if (quantity < 1) return;
+      const updateList = (list: ListItemWithMeta[]) =>
+        list.map(i => i.item_id === itemId ? { ...i, quantity } : i);
+      setUnchecked(updateList);
+      setChecked(updateList);
+      setDeferred(updateList);
       try {
         await updateListItem(itemId, { quantity });
         debouncedRefetch();
       } catch (e) {
         log.error("[useListData] setItemQuantity failed:", e);
+        refetchRef.current();
       }
     },
     [debouncedRefetch]
@@ -800,14 +815,23 @@ export function useListData(sortMode: SortMode = "my-order"): UseListDataResult 
 
   const removeItem = useCallback(
     async (itemId: string) => {
+      const originalUnchecked = uncheckedRef.current;
+      const originalChecked = checkedRef.current;
+      const originalDeferred = deferredRef.current;
+      setUnchecked(prev => prev.filter(i => i.item_id !== itemId));
+      setChecked(prev => prev.filter(i => i.item_id !== itemId));
+      setDeferred(prev => prev.filter(i => i.item_id !== itemId));
       try {
         await deleteListItem(itemId);
-        await refetchRef.current();
+        debouncedRefetch();
       } catch (e) {
         log.error("[useListData] removeItem failed:", e);
+        setUnchecked(originalUnchecked);
+        setChecked(originalChecked);
+        setDeferred(originalDeferred);
       }
     },
-    []
+    [debouncedRefetch]
   );
 
   const deferItem = useCallback(

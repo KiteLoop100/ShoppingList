@@ -7,6 +7,7 @@ import { getCurrentUserId } from "@/lib/auth/auth-context";
 import { createClientIfConfigured } from "@/lib/supabase/client";
 import { formatDateCompact } from "@/lib/utils/format-date";
 import { ReceiptScanner } from "@/app/[locale]/capture/receipt-scanner";
+import { CardSkeleton } from "@/components/ui/skeleton";
 
 interface ReceiptSummary {
   receipt_id: string;
@@ -59,8 +60,8 @@ export function ReceiptsClientPage() {
   };
 
   return (
-    <main className="mx-auto flex h-screen max-w-lg flex-col overflow-hidden bg-aldi-bg">
-      <header className="flex shrink-0 items-center gap-3 bg-white px-5 py-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+    <main className="mx-auto flex h-dvh max-w-lg flex-col overflow-hidden bg-aldi-bg md:max-w-2xl lg:max-w-4xl">
+      <header className="sticky top-0 z-10 flex shrink-0 items-center gap-3 bg-white px-5 py-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)] md:px-6 lg:px-8">
         <Link
           href="/"
           className="touch-target -ml-2 flex items-center justify-center rounded-xl text-aldi-blue transition-colors hover:bg-aldi-blue-light"
@@ -106,11 +107,13 @@ export function ReceiptsClientPage() {
         </button>
       </header>
 
-      <div className="flex min-h-0 flex-1 flex-col overflow-auto p-4">
+      <div className="flex min-h-0 flex-1 flex-col overflow-auto p-4 md:p-6 lg:p-8">
         {loading ? (
-          <p className="py-12 text-center text-sm text-aldi-muted">
-            {tCommon("loading")}
-          </p>
+          <div className="flex flex-col gap-2">
+            <CardSkeleton />
+            <CardSkeleton />
+            <CardSkeleton />
+          </div>
         ) : receipts.length === 0 ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-3 py-16">
             <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-aldi-blue-light">
@@ -143,7 +146,7 @@ export function ReceiptsClientPage() {
               <Link
                 key={receipt.receipt_id}
                 href={`/receipts/${receipt.receipt_id}` as never}
-                className="group flex items-center gap-4 rounded-2xl bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.08)] transition-all active:scale-[0.98]"
+                className="group flex items-center gap-4 rounded-2xl bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.08)] transition-all active:scale-[0.98] pointer-fine:hover:shadow-md pointer-fine:hover:border-aldi-blue/20"
               >
                 <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-aldi-blue-light text-aldi-blue">
                   <svg

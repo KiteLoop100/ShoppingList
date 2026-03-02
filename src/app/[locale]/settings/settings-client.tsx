@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useTranslations } from "next-intl";
 import { useLocale } from "next-intl";
 import { Link, useRouter, usePathname } from "@/lib/i18n/navigation";
@@ -18,6 +18,7 @@ import { createClientIfConfigured } from "@/lib/supabase/client";
 import type { LocalStore } from "@/lib/db";
 import { normalizeForFilter, filterAndSortStores } from "@/lib/store/store-filter";
 import { useCurrentCountry } from "@/lib/current-country-context";
+import { SettingsSkeleton } from "@/components/ui/skeleton";
 
 type Locale = "de" | "en";
 
@@ -162,6 +163,24 @@ export function SettingsClient() {
     setCountry(selected?.country?.toUpperCase() ?? "DE");
   }, [locale, prefs, user?.id, stores, setCountry]);
 
+  const saveSettingsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const debouncedSaveSettings = useCallback(
+    (settings: Parameters<typeof saveSettings>[0], userId?: string) => {
+      if (saveSettingsTimerRef.current) clearTimeout(saveSettingsTimerRef.current);
+      saveSettingsTimerRef.current = setTimeout(() => {
+        saveSettingsTimerRef.current = null;
+        saveSettings(settings, userId).catch(() => {});
+      }, 500);
+    },
+    []
+  );
+
+  useEffect(() => {
+    return () => {
+      if (saveSettingsTimerRef.current) clearTimeout(saveSettingsTimerRef.current);
+    };
+  }, []);
+
   const updatePref = useCallback(<K extends keyof ProductPreferences>(key: K, value: ProductPreferences[K]) => {
     setPrefs((prev) => {
       const next = { ...prev, [key]: value };
@@ -174,14 +193,14 @@ export function SettingsClient() {
         next.prefer_cheapest = false;
       }
       setProductPreferences(next);
-      saveSettings({
+      debouncedSaveSettings({
         preferred_language: locale,
         default_store_id: defaultStoreId,
         ...next,
-      }, user?.id).catch(() => {});
+      }, user?.id);
       return next;
     });
-  }, [locale, defaultStoreId, user?.id]);
+  }, [locale, defaultStoreId, user?.id, debouncedSaveSettings]);
 
   const qualityActive = prefs.prefer_bio || prefs.prefer_vegan || prefs.prefer_animal_welfare || prefs.prefer_brand;
 
@@ -192,7 +211,7 @@ export function SettingsClient() {
   );
 
   return (
-    <main className="mx-auto min-h-screen max-w-lg bg-aldi-bg p-4">
+    <main className="mx-auto min-h-screen max-w-lg bg-aldi-bg p-4 md:max-w-2xl md:p-6 lg:p-8">
       <header className="sticky top-0 z-10 -mx-4 flex items-center gap-3 bg-aldi-bg px-4 py-3">
         <Link
           href="/"
@@ -279,7 +298,7 @@ export function SettingsClient() {
           </label>
           <p className="mb-3 text-sm text-aldi-muted">{t("defaultStoreHint")}</p>
           {loading ? (
-            <p className="text-sm text-aldi-muted">{tCommon("loading")}</p>
+            <SettingsSkeleton />
           ) : (
             <>
               {defaultStoreId && (() => {

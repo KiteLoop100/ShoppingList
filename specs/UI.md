@@ -74,19 +74,15 @@ The user spends 100% of their time here. Search field on top, shopping list belo
 │ └──────────────────────────┘   │     and shows brief toast
 │                                 │
 │                                  │
-│ ── Fruits & Vegetables ─────── │  ← Category header (only in
-│                                  │     "Shopping Order" mode)
-│ ┃○ Apples             [-] 1 [+]│  ← Border + label in category
-│ ┃  Obst & Gemüse               │    color (Shopping Order only)
-│ ┃○ Bananas            [-] 2 [+]│
-│ ┃  Obst & Gemüse               │
-│                                  │
-│ ── Dairy ───────────────────── │
-│                                  │
-│ ┃○ Milsani Low-Fat    [-] 1 [+]│
-│ ┃  Milchprodukte                │
-│ ┃○ Gouda              [-] 1 [+]│
-│ ┃  Milchprodukte                │
+│ ┃ ○ Apples            [-] 1 [+]│  ← 4px colour bar groups
+│ ┃   Obst & Gemüse              │    consecutive items of
+│ ┃ ○ Bananas           [-] 2 [+]│    same category (green)
+│ ┃   Obst & Gemüse              │
+│                                  │  ← gap (category change)
+│ ┃ ○ Milsani Low-Fat   [-] 1 [+]│
+│ ┃   Milchprodukte               │    (blue bar)
+│ ┃ ○ Gouda             [-] 1 [+]│
+│ ┃   Milchprodukte               │
 │                                  │
 │ ── Checked Off ─────────────── │  ← Greyed out, at bottom
 │                                  │
@@ -372,7 +368,7 @@ Brief success animation (subtle, ALDI-style). Auto-switch to home after 1-2 seco
 - **Greyed out (checked):** Light grey (#CCCCCC)
 - **Error/Delete:** Red (#E74C3C)
 - **Success:** Green (#27AE60)
-- **Category Color Coding (Shopping Order mode only):** Each of the 19 app categories has a single bold colour used for both item border and category label text. Colours are inspired by typical ALDI product/packaging appearance and meet WCAG 4.5:1 contrast on white. Applied to unchecked, non-deferred items only. Checked/deferred items retain standard grey styling. Defined in `src/lib/categories/category-colors.ts`. Colour assignments: dark gold (Bakery), green (Fruits & Vegetables), red (Fresh Meat & Fish), blue (Dairy), teal (Chilled Convenience), blue-grey (Freezer), brown (Pantry, Breakfast), dark blue (Non-Alcoholic Beverages), dark green (Alcoholic Beverages), red-brown (Snacking), pink (Health, Beauty & Baby), neutral grey (Household, Electronics, Fashion, Home Improvement, Outdoor/Leisure, Services, Sonstiges).
+- **Category colour bar (Shopping Order mode only):** A continuous 4px vertical bar on the left side groups consecutive items of the same app category. When the category changes, a visible gap (12px) separates the groups. Colours are bold, ALDI-inspired, and defined in `src/lib/categories/category-colors.ts`. Applied to unchecked, non-deferred items only. Colour assignments: dark gold (Bakery), green (Fruits & Vegetables), red (Fresh Meat & Fish), blue (Dairy), teal (Chilled Convenience), blue-grey (Freezer), brown (Pantry, Breakfast), dark blue (Non-Alcoholic Beverages), dark green (Alcoholic Beverages), red-brown (Snacking), pink (Health, Beauty & Baby), neutral grey (Household, Electronics, Fashion, Home Improvement, Outdoor/Leisure, Services, Sonstiges).
 
 ### 5.2 Typography
 - Clear, readable sans-serif font
@@ -394,9 +390,73 @@ Brief success animation (subtle, ALDI-style). Auto-switch to home after 1-2 seco
 
 ## 6. Responsive Behavior
 
-- **Smartphone (primary):** 320px–428px width, single column, touch-optimized
-- **Tablet:** Same functionality, more white space
-- **Desktop:** Functional (for admin tasks), centered max-width ~480px
+Mobile-first design — desktop and tablet extend, never replace the mobile experience. Every action available on mobile must be equally reachable on desktop.
+
+### 6.1 Breakpoints
+
+| Breakpoint | Tailwind Prefix | Range | Primary Devices |
+|---|---|---|---|
+| Mobile (default) | — | < 768px | Smartphones |
+| Tablet | `md:` | 768px – 1023px | iPad Portrait/Landscape |
+| Desktop | `lg:` | ≥ 1024px | Laptops, Desktops |
+
+Standard Tailwind defaults — no custom breakpoint configuration.
+
+### 6.2 Layout per Screen and Breakpoint
+
+| Screen | Mobile (< 768px) | Tablet (md:) | Desktop (lg:) |
+|---|---|---|---|
+| **Main (List + Search)** | `max-w-lg`, single column | `max-w-2xl`, wider list | `max-w-4xl`, search above list (consistent with mobile/tablet pattern) |
+| **Flyer Overview** | `max-w-lg`, single column | `max-w-3xl`, 2-column grid | `max-w-5xl`, 3-column grid |
+| **Flyer Detail** | `max-w-lg`, touch zoom | Wider image | Split-View planned (flyer + details side by side), mouse zoom |
+| **Receipts** | `max-w-lg` | `max-w-2xl` | `max-w-4xl`, Master-Detail planned |
+| **Receipt Detail** | `max-w-lg` | `max-w-2xl` | `max-w-4xl` |
+| **Settings** | `max-w-lg` | `max-w-2xl` | Same, form width is appropriate |
+| **Login** | `max-w-sm` | Same | Same |
+| **Admin** | `max-w-4xl` | Same | Same, already desktop-optimized |
+| **Onboarding** | `max-w-[280px]` illustrations | `max-w-sm` illustrations | Same as tablet |
+| **Modals/Sheets** | Bottom-aligned sheets | Centered (`sm:items-center`) | Centered |
+
+### 6.3 Navigation
+
+- **Mobile**: Header icons (Receipts, Flyer, Settings) without labels
+- **Tablet (md:+)**: Header icons with text labels shown inline
+- **Desktop (lg:+)**: Horizontal top navigation bar with Logo + nav links + account status (planned for Phase 3)
+
+No sidebar — the app has too few navigation points to justify a full sidebar.
+
+### 6.4 Interaction Patterns per Input Type
+
+Gesture-based interactions on touch, with desktop equivalents on `pointer: fine` devices:
+
+| Mobile Gesture | Desktop Alternative | Discovery |
+|---|---|---|
+| Swipe left (delete) | Hover-action button (trash icon) | Tooltip on hover |
+| Swipe right (defer) | Hover-action button (clock icon) | Tooltip on hover |
+| Swipe far right (elsewhere) | Hover-action button (store icon) | Tooltip on hover |
+| Long-press (rename) | Right-click context menu + double-click | Pencil icon hint on generic items |
+| Pinch-to-zoom (flyer) | Mouse wheel zoom + zoom buttons (+/−) | Zoom indicator |
+| Pan when zoomed | Mouse drag | Cursor changes to "grab" |
+| Double-tap (zoom reset) | Reset button + double-click | Visible reset button |
+
+Detection via CSS `@media (pointer: fine)` — touch devices keep all gestures, desktop gets additional mouse/keyboard alternatives. Hybrid devices (iPad + Magic Keyboard) receive both.
+
+### 6.5 Typography & Spacing
+
+| Aspect | Mobile | Tablet (md:) | Desktop (lg:) |
+|---|---|---|---|
+| Base font size | 15px | 15px | 15px |
+| Header (h1) | 17px | 18px | 20px |
+| List item padding | `px-2 py-2` | `px-3 py-2.5` | `px-4 py-3` |
+| Page padding | `px-4` | `px-6` | `px-8` |
+| Touch/click targets | 44px min | 44px | 36px min (mouse precision) |
+
+### 6.6 Principles
+
+- **Progressive Enhancement**: Touch devices keep all gestures; desktop gets additional interaction patterns
+- **No Feature Parity Loss**: Every action reachable on mobile must be equally accessible on desktop
+- **Performance**: Desktop-specific components are code-split so the mobile bundle doesn't grow
+- **No User-Agent Sniffing**: Input detection via CSS media queries and `matchMedia` only
 
 ---
 

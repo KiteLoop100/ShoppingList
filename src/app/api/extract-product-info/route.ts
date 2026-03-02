@@ -38,6 +38,7 @@ interface ExtractedInfo {
   ean_barcode?: string | null;
   price?: number | null;
   weight_or_quantity?: string | null;
+  is_bio?: boolean | null;
 }
 
 export async function POST(request: Request) {
@@ -109,6 +110,7 @@ export async function POST(request: Request) {
       ean_barcode: scannedEan ?? result.ean_barcode ?? null,
       price: typeof result.price === "number" ? result.price : null,
       weight_or_quantity: result.weight_or_quantity ?? null,
+      is_bio: result.is_bio === true,
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Extraction failed";

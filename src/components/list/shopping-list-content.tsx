@@ -12,6 +12,8 @@ import { updateListItem, canFillWithTypicalProducts, fillListWithTypicalProducts
 import { db } from "@/lib/db";
 import { translateCategoryName } from "@/lib/i18n/category-translations";
 import { getCategoryColor } from "@/lib/categories/category-colors";
+import { ListSkeleton } from "@/components/ui/skeleton";
+import { formatPrice } from "@/lib/utils/format-price";
 
 import { RetailerPickerSheet } from "./retailer-picker-sheet";
 import { getRetailerByName } from "@/lib/retailers/retailers";
@@ -26,6 +28,24 @@ import type { UseListDataResult } from "./use-list-data";
 import type { SortMode, CompetitorProduct } from "@/types";
 import type { Product } from "@/types";
 
+interface CategoryGroup {
+  categoryName: string;
+  items: ListItemWithMeta[];
+}
+
+function groupConsecutiveByCategory(items: ListItemWithMeta[]): CategoryGroup[] {
+  const groups: CategoryGroup[] = [];
+  for (const item of items) {
+    const last = groups[groups.length - 1];
+    if (last && last.categoryName === item.category_name) {
+      last.items.push(item);
+    } else {
+      groups.push({ categoryName: item.category_name, items: [item] });
+    }
+  }
+  return groups;
+}
+
 export interface ShoppingListContentProps {
   /** "my-order" = flat add-order; "shopping-order" = grouped by category / demand group. */
   sortMode: SortMode;
@@ -37,6 +57,7 @@ export const ShoppingListContent = memo(function ShoppingListContent({
   listData,
 }: ShoppingListContentProps) {
   const t = useTranslations("list");
+  const tCommon = useTranslations("common");
   const locale = useLocale();
   const { products, refetch: refetchProducts } = useProducts();
   const { products: competitorProducts, refetch: refetchCompetitorProducts } = useCompetitorProducts();
@@ -58,6 +79,7 @@ export const ShoppingListContent = memo(function ShoppingListContent({
     setBuyElsewhere,
   } = listData;
 
+  const [checkedOpen, setCheckedOpen] = useState(false);
   const [detailProduct, setDetailProduct] = useState<Product | null>(null);
   const [editProduct, setEditProduct] = useState<Product | null>(null);
   const [genericPickerItem, setGenericPickerItem] = useState<ListItemWithMeta | null>(null);
@@ -72,6 +94,7 @@ export const ShoppingListContent = memo(function ShoppingListContent({
   const [competitorFormItemId, setCompetitorFormItemId] = useState<string | null>(null);
   const [competitorFormEditProduct, setCompetitorFormEditProduct] = useState<CompetitorProduct | null>(null);
   const [detailCompetitorProduct, setDetailCompetitorProduct] = useState<CompetitorProduct | null>(null);
+  const [detailCompetitorRetailer, setDetailCompetitorRetailer] = useState<string | null>(null);
 
   // Refs for stable callback references (prevents breaking React.memo on ListItemRow)
   const allItemsRef = useRef<ListItemWithMeta[]>([]);
@@ -157,17 +180,25 @@ export const ShoppingListContent = memo(function ShoppingListContent({
     async (productId: string) => {
       setCompetitorFormOpen(false);
       setCompetitorFormEditProduct(null);
+
+      const cp = await findCompetitorProductById(productId);
+
       if (competitorFormItemId) {
         try {
-          await updateListItem(competitorFormItemId, { competitor_product_id: productId });
+          await updateListItem(competitorFormItemId, {
+            competitor_product_id: productId,
+            ...(cp ? { display_name: cp.name } : {}),
+          });
         } catch { /* best effort */ }
       }
       setCompetitorFormItemId(null);
       await refetchCompetitorProducts();
       await refetchRef.current();
 
-      const cp = await findCompetitorProductById(productId);
-      if (cp) setDetailCompetitorProduct(cp);
+      if (cp) {
+        setDetailCompetitorProduct(cp);
+        setDetailCompetitorRetailer(competitorFormDefaults.retailer || null);
+      }
     },
     [refetchCompetitorProducts, competitorFormItemId]
   );
@@ -217,6 +248,7 @@ export const ShoppingListContent = memo(function ShoppingListContent({
             ?? await findCompetitorProductById(item.competitor_product_id);
           if (cp) {
             setDetailCompetitorProduct(cp);
+            setDetailCompetitorRetailer(item.buy_elsewhere_retailer || null);
             return;
           }
         }
@@ -306,6 +338,7 @@ export const ShoppingListContent = memo(function ShoppingListContent({
         ...item,
         display_name: cp.name,
         ...(cp.thumbnail_url ? { competitor_thumbnail_url: cp.thumbnail_url } : {}),
+        ...(cp.brand ? { competitor_brand: cp.brand } : {}),
       };
     }),
     [deferred, competitorProducts]
@@ -338,11 +371,10 @@ export const ShoppingListContent = memo(function ShoppingListContent({
     []
   );
 
-  const tCommon = useTranslations("common");
   if (loading && !detailProduct && !editProduct) {
     return (
-      <div className="flex flex-1 items-center justify-center p-8 text-aldi-muted">
-        {tCommon("loading")}
+      <div className="flex-1 px-1 pt-2">
+        <ListSkeleton rows={8} />
       </div>
     );
   }
@@ -360,14 +392,14 @@ export const ShoppingListContent = memo(function ShoppingListContent({
 
   const allRegularChecked = unchecked.length === 0 && checked.length > 0 && deferred.length > 0;
   const hasAnyItems = unchecked.length > 0 || checked.length > 0 || deferred.length > 0;
-  const priceFormatted = total.toFixed(2).replace(".", ",");
+  const priceFormatted = formatPrice(total);
 
   return (
     <>
       <div className="min-h-0 flex-1 space-y-8 overflow-auto overscroll-contain pb-2">
         {unchecked.length === 0 && checked.length === 0 && deferred.length === 0 ? (
-          <div className="py-10 space-y-6">
-            <p className="text-center text-[15px] text-aldi-muted leading-relaxed">
+          <div className="flex flex-col items-center py-10 space-y-6 lg:py-20">
+            <p className="max-w-sm text-center text-[15px] text-aldi-muted leading-relaxed lg:text-base">
               {t("emptyListHint")}
             </p>
             {canFillTypical && (
@@ -385,25 +417,52 @@ export const ShoppingListContent = memo(function ShoppingListContent({
           </div>
         ) : (
           <>
-            <ul className="space-y-1">
-              {(dataSortMode === "my-order" ? uncheckedSorted : unchecked).map((item) => (
-                <li key={item.item_id}>
-                  <ListItemRow
-                    item={item}
-                    onCheck={setItemChecked}
-                    onQuantityChange={setItemQuantity}
-                    onDelete={handleDelete}
-                    deleteLabel={t("delete")}
-                    onOpenDetail={handleOpenDetail}
-                    categoryLabel={translateCategoryName(item.demand_group || item.category_name, locale)}
-                    categoryColor={dataSortMode === "shopping-order" ? getCategoryColor(item.demand_group || item.category_name) : undefined}
-                    onDefer={handleDefer}
-                    onBuyElsewhere={handleBuyElsewhere}
-                    onRenameItem={handleRenameItem}
-                  />
-                </li>
-              ))}
-            </ul>
+            {dataSortMode === "shopping-order" ? (
+              <div className="space-y-3">
+                {groupConsecutiveByCategory(unchecked).map((group, gi) => (
+                  <div
+                    key={`${group.categoryName}-${gi}`}
+                    className="space-y-1 border-l-4 pl-1"
+                    style={{ borderColor: getCategoryColor(group.categoryName) }}
+                  >
+                    {group.items.map((item) => (
+                      <ListItemRow
+                        key={item.item_id}
+                        item={item}
+                        onCheck={setItemChecked}
+                        onQuantityChange={setItemQuantity}
+                        onDelete={handleDelete}
+                        deleteLabel={t("delete")}
+                        onOpenDetail={handleOpenDetail}
+                        categoryLabel={translateCategoryName(item.demand_group || item.category_name, locale)}
+                        onDefer={handleDefer}
+                        onBuyElsewhere={handleBuyElsewhere}
+                        onRenameItem={handleRenameItem}
+                      />
+                    ))}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <ul className="space-y-1">
+                {uncheckedSorted.map((item) => (
+                  <li key={item.item_id}>
+                    <ListItemRow
+                      item={item}
+                      onCheck={setItemChecked}
+                      onQuantityChange={setItemQuantity}
+                      onDelete={handleDelete}
+                      deleteLabel={t("delete")}
+                      onOpenDetail={handleOpenDetail}
+                      categoryLabel={translateCategoryName(item.demand_group || item.category_name, locale)}
+                      onDefer={handleDefer}
+                      onBuyElsewhere={handleBuyElsewhere}
+                      onRenameItem={handleRenameItem}
+                    />
+                  </li>
+                ))}
+              </ul>
+            )}
             {allRegularChecked && (
               <div className="flex items-center gap-2 rounded-lg bg-green-50 px-3 py-2.5 text-sm text-green-700">
                 <span className="flex h-6 w-6 items-center justify-center rounded-full bg-green-100 text-xs font-bold">✓</span>
@@ -444,24 +503,36 @@ export const ShoppingListContent = memo(function ShoppingListContent({
             )}
             {checked.length > 0 && (
               <section className="mt-6">
-                <h2 className="mb-3 text-category font-semibold uppercase tracking-wider text-aldi-muted">
-                  ✓ {t("checked")}
-                </h2>
-                <ul className="space-y-3">
-                  {checked.map((item) => (
-                    <li key={item.item_id}>
-                      <ListItemRow
-                        item={item}
-                        onCheck={setItemChecked}
-                        onQuantityChange={setItemQuantity}
-                        onDelete={handleDelete}
-                        deleteLabel={t("delete")}
-                        onOpenDetail={handleOpenDetail}
-                        onRenameItem={handleRenameItem}
-                      />
-                    </li>
-                  ))}
-                </ul>
+                <button
+                  type="button"
+                  onClick={() => setCheckedOpen(prev => !prev)}
+                  className="mb-3 flex w-full items-center gap-1 text-category font-semibold uppercase tracking-wider text-aldi-muted"
+                >
+                  <svg
+                    className={`h-3.5 w-3.5 transition-transform ${checkedOpen ? "rotate-90" : ""}`}
+                    fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" aria-hidden
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                  </svg>
+                  ✓ {t("checked")} ({checked.length})
+                </button>
+                {checkedOpen && (
+                  <ul className="space-y-3">
+                    {checked.map((item) => (
+                      <li key={item.item_id}>
+                        <ListItemRow
+                          item={item}
+                          onCheck={setItemChecked}
+                          onQuantityChange={setItemQuantity}
+                          onDelete={handleDelete}
+                          deleteLabel={t("delete")}
+                          onOpenDetail={handleOpenDetail}
+                          onRenameItem={handleRenameItem}
+                        />
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </section>
             )}
             {elsewhereByRetailer.length > 0 && (
@@ -518,9 +589,9 @@ export const ShoppingListContent = memo(function ShoppingListContent({
       </div>
 
       {hasAnyItems && (
-        <footer className="border-t border-aldi-muted-light bg-gray-50/50 px-4 py-4" role="region" aria-label={t("estimatedTotal", { price: `€${priceFormatted}` })}>
+        <footer className="border-t border-aldi-muted-light bg-gray-50/50 px-4 py-4" role="region" aria-label={t("estimatedTotal", { price: priceFormatted })}>
           <p className="text-base font-semibold text-aldi-text">
-            {t("estimatedTotal", { price: `€${priceFormatted}` })}
+            {t("estimatedTotal", { price: priceFormatted })}
           </p>
           {withoutPriceCount > 0 && (
             <p className="mt-0.5 text-sm text-aldi-muted">
@@ -587,9 +658,11 @@ export const ShoppingListContent = memo(function ShoppingListContent({
 
       <CompetitorProductDetailModal
         product={detailCompetitorProduct}
-        onClose={() => setDetailCompetitorProduct(null)}
+        retailer={detailCompetitorRetailer}
+        onClose={() => { setDetailCompetitorProduct(null); setDetailCompetitorRetailer(null); }}
         onEdit={(cp) => {
           setDetailCompetitorProduct(null);
+          setDetailCompetitorRetailer(null);
           setCompetitorFormEditProduct(cp);
           setCompetitorFormDefaults({});
           setCompetitorFormItemId(null);

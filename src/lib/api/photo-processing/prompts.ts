@@ -111,6 +111,7 @@ ${DEMAND_GROUPS_INSTRUCTION}
 Antworte ausschließlich mit validem JSON. Kein Markdown, keine Backticks.
 Gib nur Felder an, die du auf dem Foto erkennst. Fehlende Werte als null.
 Produktname in korrekter deutscher Groß-/Kleinschreibung (jedes Wort großgeschrieben, z. B. "Risotto Reis Mit Pilzen").
+is_bio: true wenn EU-Bio-Logo (grünes Blatt), deutsches Bio-Siegel (Sechseck), DE-ÖKO-Nummer oder "Bio" im Produktnamen/auf der Verpackung sichtbar ist.
 
 {
   "name": "string or null (Title Case)",
@@ -123,7 +124,8 @@ Produktname in korrekter deutscher Groß-/Kleinschreibung (jedes Wort großgesch
   "nutrition_info": { "energy_kcal": number or null, "fat": number or null, "carbs": number or null, "protein": number or null, "salt": number or null } or null,
   "allergens": "string or null",
   "demand_group": "string or null",
-  "demand_sub_group": "string or null"
+  "demand_sub_group": "string or null",
+  "is_bio": true or false
 }`;
 
 export const CROP_PROMPT = `Identify the main product in this image. Return the bounding box of the product as JSON: { "crop_x", "crop_y", "crop_width", "crop_height" } in pixels. The bounding box should tightly contain only the product, excluding background, shelves, hands, and other objects. Also return the image dimensions as { "image_width", "image_height" }.

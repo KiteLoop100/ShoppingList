@@ -62,7 +62,10 @@
     "cameraPermissionDenied": "Camera access was blocked. Please allow it in your browser settings.",
     "retailerHint": "Add {retailer} product. Press Enter.",
     "retailerItemsTitle": "Products at {retailer}",
-    "retailerNoItems": "No {retailer} products on your list."
+    "retailerNoItems": "No {retailer} products on your list.",
+    "retailerNoProducts": "No {retailer} products captured yet. Type a product name.",
+    "retailerMyPurchases": "My purchases",
+    "retailerOtherProducts": "Other products"
   },
   "list": {
     "title": "Shopping list",
@@ -118,6 +121,7 @@
     "competitorProductRetailer": "Retailer",
     "competitorProductPrice": "Price",
     "competitorProductEan": "EAN barcode",
+    "competitorProductBio": "Organic product",
     "competitorProductPhoto": "Photo",
     "competitorPhotoFront": "Photo product front",
     "competitorPhotoOther": "Other product photos",

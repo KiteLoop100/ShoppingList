@@ -4,11 +4,11 @@ import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { useLocale } from "next-intl";
 import { createClientIfConfigured } from "@/lib/supabase/client";
+import { getCachedCategories } from "@/lib/categories/category-service";
 import { translateCategoryName } from "@/lib/i18n/category-translations";
+import { BaseModal } from "@/components/ui/base-modal";
 import type { Product } from "@/types";
 import type { Category } from "@/types";
-
-let _cachedCategories: Category[] | null = null;
 
 export interface EditProductModalProps {
   product: Product;
@@ -36,36 +36,18 @@ export function EditProductModal({ product, onClose, onSaved }: EditProductModal
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (_cachedCategories) {
-      setCategories(_cachedCategories);
-      return;
-    }
-    const supabase = createClientIfConfigured();
-    if (!supabase) return;
-    supabase
-      .from("categories")
-      .select("category_id, name, name_translations, icon, default_sort_position")
-      .then(({ data }) => {
-        if (data?.length) {
-          const cats = data.map((r) => ({
-            category_id: String(r.category_id),
-            name: String(r.name),
-            name_translations: (r.name_translations as Record<string, string>) ?? {},
-            icon: String(r.icon ?? "📦"),
-            default_sort_position: Number(r.default_sort_position ?? 999),
-          }));
-          _cachedCategories = cats;
-          setCategories(cats);
-        }
-      });
-  }, []);
-
-  useEffect(() => {
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prev;
-    };
+    let cancelled = false;
+    getCachedCategories().then((rows) => {
+      if (cancelled) return;
+      setCategories(rows.map((r) => ({
+        category_id: String(r.category_id),
+        name: String(r.name),
+        name_translations: r.name_translations ?? {},
+        icon: String(r.icon ?? "📦"),
+        default_sort_position: Number(r.default_sort_position ?? 999),
+      })));
+    });
+    return () => { cancelled = true; };
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -103,26 +85,7 @@ export function EditProductModal({ product, onClose, onSaved }: EditProductModal
   };
 
   return (
-    <>
-      <div className="fixed inset-0 z-40 touch-none bg-black/40" aria-hidden onClick={onClose} />
-      <div
-        className="fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-white shadow-xl"
-        role="dialog"
-        aria-modal="true"
-        aria-label={t("title")}
-      >
-        <div className="flex max-h-[90vh] flex-col">
-          <div className="flex items-center justify-between border-b border-aldi-muted-light p-4">
-            <h2 className="text-lg font-semibold text-aldi-text">{t("title")}</h2>
-            <button
-              type="button"
-              className="touch-target -m-2 rounded-lg p-2 text-aldi-muted hover:bg-aldi-muted-light/50 hover:text-aldi-text"
-              onClick={onClose}
-              aria-label={t("close")}
-            >
-              ✕
-            </button>
-          </div>
+    <BaseModal open={true} onClose={onClose} title={t("title")}>
           <form onSubmit={handleSubmit} className="flex flex-1 flex-col overflow-hidden">
             <div className="overflow-y-auto overscroll-contain p-4 space-y-3">
               <label className="block">
@@ -262,8 +225,6 @@ export function EditProductModal({ product, onClose, onSaved }: EditProductModal
               </button>
             </div>
           </form>
-        </div>
-      </div>
-    </>
+    </BaseModal>
   );
 }

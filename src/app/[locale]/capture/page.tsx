@@ -15,7 +15,7 @@ export default function CapturePage() {
   const [receiptScannerOpen, setReceiptScannerOpen] = useState(false);
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-lg flex-col bg-aldi-bg">
+    <main className="mx-auto flex min-h-screen max-w-lg flex-col bg-aldi-bg md:max-w-2xl lg:max-w-4xl">
       <header className="flex shrink-0 items-center gap-3 bg-white px-5 py-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
         <Link
           href="/"

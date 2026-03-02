@@ -7,6 +7,7 @@ import { createClientIfConfigured } from "@/lib/supabase/client";
 import { useCurrentCountry } from "@/lib/current-country-context";
 import { FlyerPageImage } from "@/app/[locale]/flyer/flyer-page-image";
 import { formatFlyerDate } from "@/lib/utils/format-date";
+import { CardSkeleton } from "@/components/ui/skeleton";
 
 interface FlyerRow {
   flyer_id: string;
@@ -28,6 +29,7 @@ export function FlyerOverviewClientPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let cancelled = false;
     const supabase = createClientIfConfigured();
     if (!supabase) {
       setLoading(false);
@@ -35,26 +37,32 @@ export function FlyerOverviewClientPage() {
     }
     (async () => {
       try {
-        const { data: flyersData } = await supabase
-          .from("flyers")
-          .select("flyer_id, title, valid_from, valid_until, status, total_pages, created_at")
-          .eq("country", country ?? "DE")
-          .order("valid_until", { ascending: false })
-          .order("created_at", { ascending: false });
+        const countryCode = country ?? "DE";
+        const [flyersResult, pagesResult] = await Promise.all([
+          supabase
+            .from("flyers")
+            .select("flyer_id, title, valid_from, valid_until, status, total_pages, created_at")
+            .eq("country", countryCode)
+            .order("valid_until", { ascending: false })
+            .order("created_at", { ascending: false }),
+          supabase
+            .from("flyer_pages")
+            .select("flyer_id, image_url")
+            .eq("page_number", 1),
+        ]);
+        if (cancelled) return;
+        const flyersData = flyersResult.data;
         if (!flyersData?.length) {
           setFlyers([]);
           setLoading(false);
           return;
         }
-        const flyerIds = flyersData.map((f) => f.flyer_id);
-        const { data: pagesData } = await supabase
-          .from("flyer_pages")
-          .select("flyer_id, image_url")
-          .eq("page_number", 1)
-          .in("flyer_id", flyerIds);
+        const flyerIdSet = new Set(flyersData.map((f) => f.flyer_id));
         const firstPageByFlyer = new Map<string, string | null>();
-        for (const p of pagesData ?? []) {
-          firstPageByFlyer.set(p.flyer_id, p.image_url ?? null);
+        for (const p of pagesResult.data ?? []) {
+          if (flyerIdSet.has(p.flyer_id)) {
+            firstPageByFlyer.set(p.flyer_id, p.image_url ?? null);
+          }
         }
         const rows: FlyerRow[] = flyersData
           .map((f) => ({
@@ -67,18 +75,23 @@ export function FlyerOverviewClientPage() {
             if (untilB !== untilA) return untilB.localeCompare(untilA);
             return (b.created_at ?? "").localeCompare(a.created_at ?? "");
           });
-        setFlyers(rows);
-        setLoading(false);
+        if (!cancelled) {
+          setFlyers(rows);
+          setLoading(false);
+        }
       } catch {
-        setFlyers([]);
-        setLoading(false);
+        if (!cancelled) {
+          setFlyers([]);
+          setLoading(false);
+        }
       }
     })();
+    return () => { cancelled = true; };
   }, [country]);
 
   return (
-    <main className="mx-auto flex h-screen max-w-lg flex-col overflow-hidden bg-aldi-bg">
-      <header className="flex shrink-0 items-center gap-3 bg-white px-4 py-3 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+    <main className="mx-auto flex h-dvh max-w-lg flex-col overflow-hidden bg-aldi-bg md:max-w-3xl lg:max-w-5xl">
+      <header className="sticky top-0 z-10 flex shrink-0 items-center gap-3 bg-white px-4 py-3 shadow-[0_1px_3px_rgba(0,0,0,0.06)] md:px-6 lg:px-8">
         <button
           type="button"
           className="touch-target -ml-1 flex items-center justify-center rounded-lg text-aldi-blue transition-colors hover:bg-aldi-muted-light/50"
@@ -92,13 +105,16 @@ export function FlyerOverviewClientPage() {
         <h1 className="flex-1 text-lg font-bold text-aldi-blue">{t("title")}</h1>
       </header>
 
-      <div className="min-h-0 flex-1 overflow-auto p-4">
+      <div className="min-h-0 flex-1 overflow-auto p-4 md:p-6 lg:p-8">
         {loading ? (
-          <p className="py-8 text-center text-aldi-muted">{tCommon("loading")}</p>
+          <div className="flex flex-col gap-4">
+            <CardSkeleton />
+            <CardSkeleton />
+          </div>
         ) : flyers.length === 0 ? (
           <p className="py-8 text-center text-aldi-muted">{t("noFlyers")}</p>
         ) : (
-          <ul className="flex flex-col gap-4">
+          <ul className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
             {flyers.map((flyer) => {
               const isExpired = flyer.status === "expired";
               return (

@@ -1,4 +1,5 @@
 import type { Config } from "tailwindcss";
+import plugin from "tailwindcss/plugin";
 
 /**
  * ALDI SÜD Design System (UI.md §5, ARCHITECTURE §7).
@@ -51,7 +52,12 @@ const config: Config = {
       },
     },
   },
-  plugins: [],
+  plugins: [
+    plugin(function ({ addVariant }) {
+      addVariant("pointer-fine", "@media (pointer: fine)");
+      addVariant("pointer-coarse", "@media (pointer: coarse)");
+    }),
+  ],
 };
 
 export default config;

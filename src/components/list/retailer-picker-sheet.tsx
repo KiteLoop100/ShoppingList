@@ -48,12 +48,12 @@ export function RetailerPickerSheet({ open, itemName, onSelect, onClose }: Retai
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center">
+    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
       <div
         className="absolute inset-0 bg-black/40 animate-in fade-in duration-200"
         onClick={onClose}
       />
-      <div className="relative w-full max-w-lg animate-in slide-in-from-bottom duration-300 rounded-t-2xl bg-white px-4 pb-8 pt-6 shadow-xl">
+      <div className="relative w-full max-w-lg animate-in slide-in-from-bottom duration-300 rounded-t-2xl bg-white px-4 pb-8 pt-6 shadow-xl sm:rounded-2xl">
         <div className="mb-1 flex justify-center">
           <div className="h-1 w-10 rounded-full bg-gray-300" />
         </div>

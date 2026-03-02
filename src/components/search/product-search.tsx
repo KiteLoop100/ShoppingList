@@ -11,14 +11,22 @@ import type { Product, SearchResult } from "@/types";
 import {
   getOrCreateActiveList,
   addListItem,
+  addListItemsBatch,
   getRecentListProducts,
   type RecentListProduct,
 } from "@/lib/list";
+import dynamic from "next/dynamic";
 import { assignCategory, CategoryAssignmentError } from "@/lib/category/assign-category";
-import { BarcodeScannerModal } from "./barcode-scanner-modal";
+import { searchRetailerProducts, type RetailerProductResult } from "@/lib/competitor-products/competitor-product-service";
 import { SearchResultsPanel } from "./search-results-panel";
+
+const BarcodeScannerModal = dynamic(
+  () => import("./barcode-scanner-modal").then(m => m.BarcodeScannerModal),
+  { ssr: false }
+);
 import { RecentPurchasesPanel } from "./recent-purchases-panel";
 import { SpecialsPanel } from "./specials-panel";
+import { RetailerProductsPanel } from "./retailer-products-panel";
 
 const SEARCH_DEBOUNCE_MS = 150;
 const MIN_QUERY_LENGTH = 1;
@@ -56,6 +64,7 @@ export function ProductSearch({
     RecentListProduct[] | null | "pending"
   >(null);
   const [specialsProducts, setSpecialsProducts] = useState<Product[] | null | "pending">(null);
+  const [retailerProducts, setRetailerProducts] = useState<RetailerProductResult[]>([]);
   const [barcodeScannerOpen, setBarcodeScannerOpen] = useState(false);
   const [adding, setAdding] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -183,6 +192,21 @@ export function ProductSearch({
     setLoading(false);
   }, []);
 
+  const runRetailerSearch = useCallback(async (retailerName: string, productQuery: string, id: number) => {
+    setLoading(true);
+    try {
+      const countryCode = countryRef.current ?? "DE";
+      const list = await searchRetailerProducts(retailerName, countryCode, productQuery || undefined);
+      if (id !== searchIdRef.current) return;
+      setRetailerProducts(list);
+    } catch (e) {
+      log.error("[runRetailerSearch] failed:", e);
+      if (id === searchIdRef.current) setRetailerProducts([]);
+    } finally {
+      if (id === searchIdRef.current) setLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     const id = ++searchIdRef.current;
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -190,18 +214,22 @@ export function ProductSearch({
       if (isRecentCommand) {
         setResults([]);
         setSpecialsProducts(null);
+        setRetailerProducts([]);
         fetchRecentPurchases();
       } else if (isSpecialsCommand) {
         setResults([]);
         setRecentListProducts(null);
+        setRetailerProducts([]);
         fetchSpecials();
       } else if (retailerPrefix) {
         setRecentListProducts(null);
         setSpecialsProducts(null);
         setResults([]);
+        runRetailerSearch(retailerPrefix.retailer.name, retailerPrefix.productQuery, id);
       } else {
         setRecentListProducts(null);
         setSpecialsProducts(null);
+        setRetailerProducts([]);
         runSearch(query, id);
       }
       debounceRef.current = null;
@@ -209,7 +237,7 @@ export function ProductSearch({
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [query, isRecentCommand, isSpecialsCommand, retailerPrefix, runSearch, fetchRecentPurchases, fetchSpecials]);
+  }, [query, isRecentCommand, isSpecialsCommand, retailerPrefix, runSearch, runRetailerSearch, fetchRecentPurchases, fetchSpecials]);
 
   const ensureListId = useCallback(async () => {
     const list = await getOrCreateActiveList();
@@ -283,6 +311,43 @@ export function ProductSearch({
     [ensureListId, onAdded]
   );
 
+  const addCompetitorProduct = useCallback(
+    async (product: RetailerProductResult) => {
+      if (!retailerPrefix) return;
+      setErrorMsg(null);
+      setAdding(true);
+      try {
+        const lid = await ensureListId();
+        const categoryId = product.category_id
+          ?? (await assignCategory(product.name)).category_id;
+        await addListItem({
+          list_id: lid,
+          product_id: null,
+          custom_name: product.name,
+          display_name: product.name,
+          category_id: categoryId,
+          quantity: 1,
+          buy_elsewhere_retailer: retailerPrefix.retailer.name,
+          competitor_product_id: product.product_id,
+        });
+      } catch (e) {
+        log.error("[addCompetitorProduct] failed:", e);
+        setAdding(false);
+        setErrorMsg(e instanceof Error ? e.message : String(e));
+        return;
+      }
+      setAdding(false);
+      setQuery("");
+      setResults([]);
+      setRetailerProducts([]);
+      setJustAdded(true);
+      setTimeout(() => setJustAdded(false), 400);
+      onAdded?.();
+      inputRef.current?.focus();
+    },
+    [retailerPrefix, ensureListId, onAdded]
+  );
+
   const addProductFromBarcode = useCallback(
     async (product: Product) => {
       setErrorMsg(null);
@@ -325,6 +390,7 @@ export function ProductSearch({
     setResults([]);
     setRecentListProducts(null);
     setSpecialsProducts(null);
+    setRetailerProducts([]);
     inputRef.current?.focus();
   }, []);
 
@@ -333,18 +399,21 @@ export function ProductSearch({
       if (selectedItems.length === 0) return;
       const productMap = new Map(productsRef.current.map((p) => [p.product_id, p]));
       const lid = await ensureListId();
-      for (const { product_id, quantity } of selectedItems) {
-        const product = productMap.get(product_id);
-        if (!product) continue;
-        await addListItem({
-          list_id: lid,
-          product_id: product.product_id,
-          custom_name: null,
-          display_name: product.name,
-          category_id: product.category_id,
-          quantity,
-        });
-      }
+      const params = selectedItems
+        .map(({ product_id, quantity }) => {
+          const product = productMap.get(product_id);
+          if (!product) return null;
+          return {
+            list_id: lid,
+            product_id: product.product_id,
+            custom_name: null,
+            display_name: product.name,
+            category_id: product.category_id,
+            quantity,
+          };
+        })
+        .filter((p): p is NonNullable<typeof p> => p !== null);
+      await addListItemsBatch(params);
     },
     [ensureListId]
   );
@@ -447,17 +516,18 @@ export function ProductSearch({
         locale={locale}
       />
     ) : retailerPrefix ? (
-      <div className="p-4 text-center">
-        {retailerPrefix.productQuery ? (
-          <p className="text-sm text-aldi-muted">
-            {t("retailerHint", { retailer: retailerPrefix.retailer.name })}
-          </p>
-        ) : (
-          <p className="text-sm text-aldi-muted">
-            {t("retailerNoItems", { retailer: retailerPrefix.retailer.name })}
-          </p>
-        )}
-      </div>
+      <RetailerProductsPanel
+        loading={loading}
+        retailer={retailerPrefix.retailer}
+        products={retailerProducts}
+        productQuery={retailerPrefix.productQuery}
+        onSelect={addCompetitorProduct}
+        onAddGeneric={addGeneric}
+        searchingLabel={t("searching")}
+        noProductsLabel={t("retailerNoProducts", { retailer: retailerPrefix.retailer.name })}
+        myPurchasesLabel={t("retailerMyPurchases")}
+        otherProductsLabel={t("retailerOtherProducts")}
+      />
     ) : (
       <SearchResultsPanel
         loading={loading}

@@ -46,3 +46,15 @@ body {
 .animate-check-pop {
   animation: check-pop 0.18s ease-out;
 }
+
+/* Focus-visible ring for keyboard navigation (RESP-030) */
+@media (pointer: fine) {
+  :focus-visible {
+    outline: 2px solid rgb(0 30 94 / 0.4);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+  :focus:not(:focus-visible) {
+    outline: none;
+  }
+}

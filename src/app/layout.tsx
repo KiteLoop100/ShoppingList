@@ -30,6 +30,9 @@ export const metadata: Metadata = {
     capable: true,
     title: "ALDI Einkaufsliste",
   },
+  other: {
+    "mobile-web-app-capable": "yes",
+  },
 };
 
 export default function RootLayout({

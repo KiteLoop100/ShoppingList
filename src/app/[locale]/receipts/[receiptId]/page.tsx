@@ -46,7 +46,7 @@ export default function ReceiptDetailPage() {
 
   if (loading) {
     return (
-      <main className="mx-auto flex min-h-screen max-w-lg flex-col bg-aldi-bg">
+      <main className="mx-auto flex min-h-screen max-w-lg flex-col bg-aldi-bg md:max-w-2xl lg:max-w-4xl">
         <p className="py-16 text-center text-sm text-aldi-muted">
           {tCommon("loading")}
         </p>
@@ -56,8 +56,8 @@ export default function ReceiptDetailPage() {
 
   if (!receipt) {
     return (
-      <main className="mx-auto flex min-h-screen max-w-lg flex-col bg-aldi-bg">
-        <header className="flex shrink-0 items-center gap-3 bg-white px-5 py-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+      <main className="mx-auto flex min-h-screen max-w-lg flex-col bg-aldi-bg md:max-w-2xl lg:max-w-4xl">
+        <header className="flex shrink-0 items-center gap-3 bg-white px-5 py-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)] md:px-6 lg:px-8">
           <Link
             href="/receipts"
             className="touch-target -ml-2 flex items-center justify-center rounded-xl text-aldi-blue transition-colors hover:bg-aldi-blue-light"
@@ -92,8 +92,8 @@ export default function ReceiptDetailPage() {
   }, 0);
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-lg flex-col bg-aldi-bg">
-      <header className="flex shrink-0 items-center gap-3 bg-white px-5 py-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+    <main className="mx-auto flex min-h-screen max-w-lg flex-col bg-aldi-bg md:max-w-2xl lg:max-w-4xl">
+      <header className="flex shrink-0 items-center gap-3 bg-white px-5 py-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)] md:px-6 lg:px-8">
         <Link
           href="/receipts"
           className="touch-target -ml-2 flex items-center justify-center rounded-xl text-aldi-blue transition-colors hover:bg-aldi-blue-light"
@@ -119,7 +119,7 @@ export default function ReceiptDetailPage() {
         </h1>
       </header>
 
-      <div className="flex flex-col gap-3 p-4">
+      <div className="flex flex-col gap-3 p-4 md:p-6 lg:p-8">
         {/* Receipt header card */}
         <div className="rounded-2xl bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
           <div className="flex items-start justify-between">

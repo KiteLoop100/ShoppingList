@@ -46,16 +46,21 @@ Buy-elsewhere items are modeled as **deferred items** with `deferred_reason="els
 - **Only for:** unchecked, non-deferred items
 - Long swipe opens retailer picker sheet; user selects retailer, then confirms
 
-### 2. Search Field Prefix
+### 2. Search Field Prefix (Retailer Product Search)
 
 | Input Pattern | Action |
 |---------------|--------|
-| `{Retailer} {Product}` (e.g. "EDEKA Hafermilch") | Add product to list with retailer assigned |
-| `{Retailer}` alone | Show existing elsewhere items for that retailer |
+| `{Retailer}` alone (e.g. "Rossmann") | Show all competitor products at that retailer, ranked by purchase frequency |
+| `{Retailer} {Product}` (e.g. "EDEKA Hafermilch") | Show competitor products at that retailer filtered by product query |
 
 - **Case-insensitive** retailer matching
-- Retailer name + space + product name → adds product with `buy_elsewhere_retailer` set
-- Retailer name alone → filters/displays existing elsewhere items for that retailer
+- Results come from `competitor_products` + `competitor_product_prices` tables via `search_retailer_products` RPC
+- **Ranking**: Personal purchase count (DESC) → Global purchase count (DESC) → Name (ASC)
+- **Sections**: "Meine Einkaufe" (user's own purchases) shown above "Weitere Produkte" (other users' products)
+- Selecting a product adds it with `buy_elsewhere_retailer` + `competitor_product_id` set
+- Generic add ("+ Produktname") available when a product sub-query is entered
+- Empty state: "Noch keine {Retailer}-Produkte erfasst" with prompt to type a product name
+- **Purchase tracking**: When an elsewhere item with `competitor_product_id` is checked off, a record is upserted into `competitor_product_stats` (fire-and-forget)
 
 ### 3. Retailer Badge Tap
 
@@ -70,6 +75,18 @@ Buy-elsewhere items are modeled as **deferred items** with `deferred_reason="els
 | Field | Type | Description |
 |-------|------|-------------|
 | buy_elsewhere_retailer | TEXT DEFAULT NULL | Retailer code (e.g. "LIDL", "REWE"). NULL for non-elsewhere items. |
+
+### Database: `competitor_product_stats`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| competitor_product_id | UUID NOT NULL FK | References `competitor_products.product_id` |
+| retailer | TEXT NOT NULL | Retailer name (e.g. "Rossmann") |
+| user_id | UUID NOT NULL FK | References `auth.users` |
+| purchase_count | INTEGER NOT NULL DEFAULT 1 | Number of times this product was checked off for this retailer by this user |
+| last_purchased_at | TIMESTAMPTZ NOT NULL | Timestamp of most recent check-off |
+
+PK: `(competitor_product_id, retailer, user_id)`. Updated via fire-and-forget upsert when an elsewhere item with `competitor_product_id` is checked off.
 
 ### TypeScript
 
@@ -173,6 +190,11 @@ These fixes ensure the elsewhere feature integrates correctly with existing logi
 - `src/components/list/competitor-product-form-modal.tsx` – Manual competitor product capture form with photo auto-fill
 - `src/components/list/elsewhere-checkoff-prompt.tsx` – Lightweight price/photo capture on item check-off
 - `src/app/api/extract-product-info/route.ts` – API endpoint for product photo recognition (Claude Vision + ZXing)
+
+### New (Retailer Product Search)
+
+- `supabase/migrations/20260302200000_competitor_product_stats.sql` – `competitor_product_stats` table, RLS, `search_retailer_products` RPC
+- `src/components/search/retailer-products-panel.tsx` – Retailer product search results panel with personal/global sections
 
 ### Changed
 

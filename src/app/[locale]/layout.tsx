@@ -6,6 +6,7 @@ import { CurrentCountryProvider } from "@/lib/current-country-context";
 import { ProductsProvider } from "@/lib/products-context";
 import { CompetitorProductsProvider } from "@/lib/competitor-products/competitor-products-context";
 import { AuthProvider } from "@/lib/auth/auth-context";
+import { AppShell } from "@/components/layout/app-shell";
 
 export function generateStaticParams() {
   return routing.locales.map((locale) => ({ locale }));
@@ -29,7 +30,7 @@ export default async function LocaleLayout({
         <CurrentCountryProvider>
           <ProductsProvider>
             <CompetitorProductsProvider>
-              {children}
+              <AppShell>{children}</AppShell>
             </CompetitorProductsProvider>
           </ProductsProvider>
         </CurrentCountryProvider>

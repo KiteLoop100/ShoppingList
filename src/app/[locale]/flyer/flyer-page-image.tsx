@@ -157,10 +157,72 @@ export function FlyerPageImage({
     el.addEventListener("touchstart", onTouchStart, { passive: false });
     el.addEventListener("touchmove", onTouchMove, { passive: false });
     el.addEventListener("touchend", onTouchEnd);
+
+    // Mouse wheel zoom (pointer:fine devices)
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const delta = -e.deltaY * 0.002;
+      const newScale = Math.max(1, Math.min(4, scaleRef.current + delta));
+      scaleRef.current = newScale;
+      if (newScale <= 1) translateRef.current = { x: 0, y: 0 };
+      else translateRef.current = clampTranslate(translateRef.current.x, translateRef.current.y, newScale);
+      applyTransform();
+    };
+
+    // Mouse drag pan (when zoomed)
+    let isDragging = false;
+    let dragStartX = 0;
+    let dragStartY = 0;
+    let dragStartTx = 0;
+    let dragStartTy = 0;
+
+    const onMouseDown = (e: MouseEvent) => {
+      if (scaleRef.current <= 1 || e.button !== 0) return;
+      isDragging = true;
+      dragStartX = e.clientX;
+      dragStartY = e.clientY;
+      dragStartTx = translateRef.current.x;
+      dragStartTy = translateRef.current.y;
+      el.style.cursor = "grabbing";
+      e.preventDefault();
+    };
+
+    const onMouseMove = (e: MouseEvent) => {
+      if (!isDragging) return;
+      const dx = e.clientX - dragStartX;
+      const dy = e.clientY - dragStartY;
+      translateRef.current = clampTranslate(dragStartTx + dx, dragStartTy + dy, scaleRef.current);
+      applyTransform();
+    };
+
+    const onMouseUp = () => {
+      if (!isDragging) return;
+      isDragging = false;
+      el.style.cursor = scaleRef.current > 1 ? "grab" : "";
+    };
+
+    // Double-click to reset zoom
+    const onDblClick = () => {
+      scaleRef.current = 1;
+      translateRef.current = { x: 0, y: 0 };
+      applyTransform(true);
+    };
+
+    el.addEventListener("wheel", onWheel, { passive: false });
+    el.addEventListener("mousedown", onMouseDown);
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+    el.addEventListener("dblclick", onDblClick);
+
     return () => {
       el.removeEventListener("touchstart", onTouchStart);
       el.removeEventListener("touchmove", onTouchMove);
       el.removeEventListener("touchend", onTouchEnd);
+      el.removeEventListener("wheel", onWheel);
+      el.removeEventListener("mousedown", onMouseDown);
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+      el.removeEventListener("dblclick", onDblClick);
     };
   }, [applyTransform, clampTranslate]);
 
@@ -311,12 +373,61 @@ export function FlyerPageImage({
     </div>
   );
 
+  const handleZoomIn = useCallback(() => {
+    scaleRef.current = Math.min(4, scaleRef.current + 0.5);
+    applyTransform(true);
+  }, [applyTransform]);
+
+  const handleZoomOut = useCallback(() => {
+    const newScale = Math.max(1, scaleRef.current - 0.5);
+    scaleRef.current = newScale;
+    if (newScale <= 1) translateRef.current = { x: 0, y: 0 };
+    applyTransform(true);
+  }, [applyTransform]);
+
+  const handleZoomReset = useCallback(() => {
+    scaleRef.current = 1;
+    translateRef.current = { x: 0, y: 0 };
+    applyTransform(true);
+  }, [applyTransform]);
+
   return (
     <div
       ref={containerRef}
       className="relative overflow-hidden"
-      style={{ touchAction: isZoomed ? "none" : "pan-y" }}
+      style={{ touchAction: isZoomed ? "none" : "pan-y", cursor: isZoomed ? "grab" : undefined }}
     >
+      {/* Zoom controls – visible on pointer:fine devices when image is loaded */}
+      {loaded && (
+        <div className="pointer-coarse:hidden absolute right-2 top-2 z-20 flex flex-col gap-1 rounded-lg bg-white/90 p-1 shadow-md">
+          <button
+            type="button"
+            onClick={handleZoomIn}
+            className="flex h-8 w-8 items-center justify-center rounded text-aldi-text transition-colors hover:bg-aldi-muted-light"
+            aria-label="Zoom in"
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+          </button>
+          <button
+            type="button"
+            onClick={handleZoomOut}
+            className="flex h-8 w-8 items-center justify-center rounded text-aldi-text transition-colors hover:bg-aldi-muted-light"
+            aria-label="Zoom out"
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14" /></svg>
+          </button>
+          {isZoomed && (
+            <button
+              type="button"
+              onClick={handleZoomReset}
+              className="flex h-8 w-8 items-center justify-center rounded text-aldi-blue transition-colors hover:bg-aldi-blue/10"
+              aria-label="Reset zoom"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M9 9V4.5M9 9H4.5M9 9 3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5m0-4.5 5.25 5.25" /></svg>
+            </button>
+          )}
+        </div>
+      )}
       <div ref={transformElRef} style={{ transformOrigin: "center center" }}>
         {content}
 

@@ -16,11 +16,11 @@ export function OnboardingScreen({ illustration, title, text, hint }: Onboarding
 
       <div className="flex w-full shrink-0 flex-col items-center px-6 pb-4 pt-6">
         <h2 className="mb-3 text-center text-xl font-bold text-aldi-text">{title}</h2>
-        <p className="max-w-[300px] text-center text-[15px] leading-relaxed text-aldi-muted">
+        <p className="max-w-[300px] text-center text-[15px] leading-relaxed text-aldi-muted md:max-w-md">
           {text}
         </p>
         {hint && (
-          <p className="mt-3 max-w-[280px] rounded-xl bg-aldi-orange/10 px-4 py-2.5 text-center text-[13px] leading-snug text-aldi-orange">
+          <p className="mt-3 max-w-[280px] rounded-xl bg-aldi-orange/10 px-4 py-2.5 text-center text-[13px] leading-snug text-aldi-orange md:max-w-sm">
             {hint}
           </p>
         )}

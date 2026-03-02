@@ -4,12 +4,12 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { useCurrentCountry } from "@/lib/current-country-context";
 import { getRetailersForCountry } from "@/lib/retailers/retailers";
-import { createClientIfConfigured } from "@/lib/supabase/client";
 import {
   findOrCreateCompetitorProduct,
   addCompetitorPrice,
   updateCompetitorProduct,
 } from "@/lib/competitor-products/competitor-product-service";
+import { uploadCompetitorPhoto } from "@/lib/competitor-products/upload-competitor-photo";
 import { log } from "@/lib/utils/logger";
 import type { CompetitorProduct } from "@/types";
 
@@ -50,21 +50,7 @@ async function uploadPhoto(
   file: File,
   suffix: string,
 ): Promise<string | null> {
-  const supabase = createClientIfConfigured();
-  if (!supabase) return null;
-  const ext = file.name.split(".").pop() ?? "jpg";
-  const path = `${productId}_${suffix}.${ext}`;
-  const { error: uploadErr } = await supabase.storage
-    .from("competitor-product-photos")
-    .upload(path, file, { upsert: true, contentType: file.type });
-  if (uploadErr) {
-    log.error(`[CompetitorProductForm] ${suffix} photo upload failed:`, uploadErr);
-    return null;
-  }
-  const { data: urlData } = supabase.storage
-    .from("competitor-product-photos")
-    .getPublicUrl(path);
-  return urlData?.publicUrl ?? null;
+  return uploadCompetitorPhoto(productId, file, suffix);
 }
 
 export function CompetitorProductFormModal({
@@ -94,6 +80,7 @@ export function CompetitorProductFormModal({
   const [otherPhotoPreview, setOtherPhotoPreview] = useState<string | null>(null);
   const [frontPhotoRemoved, setFrontPhotoRemoved] = useState(false);
   const [otherPhotoRemoved, setOtherPhotoRemoved] = useState(false);
+  const [isBio, setIsBio] = useState(false);
   const [saving, setSaving] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -109,6 +96,7 @@ export function CompetitorProductFormModal({
       setPrice("");
       setRetailer("");
       setCustomRetailer("");
+      setIsBio(editProduct.is_bio ?? false);
       setFrontPhotoPreview(editProduct.thumbnail_url);
       setOtherPhotoPreview(editProduct.other_photo_url);
     } else {
@@ -118,6 +106,7 @@ export function CompetitorProductFormModal({
       setPrice("");
       setRetailer(initialRetailer);
       setCustomRetailer("");
+      setIsBio(false);
       setFrontPhotoPreview(null);
       setOtherPhotoPreview(null);
     }
@@ -154,6 +143,7 @@ export function CompetitorProductFormModal({
       if (data.brand && !brand) setBrand(data.brand);
       if (data.ean_barcode && !ean) setEan(data.ean_barcode);
       if (data.price != null && !price) setPrice(String(data.price).replace(".", ","));
+      if (data.is_bio === true) setIsBio(true);
     } catch (err) {
       log.error("[CompetitorProductForm] auto-fill failed:", err);
       setError(err instanceof Error ? err.message : String(err));
@@ -162,13 +152,38 @@ export function CompetitorProductFormModal({
     }
   }, [brand, ean, price]);
 
-  const handleOtherPhoto = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleOtherPhoto = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setOtherPhotoFile(file);
     setOtherPhotoPreview(URL.createObjectURL(file));
     setOtherPhotoRemoved(false);
-  }, []);
+
+    setAnalyzing(true);
+    setError(null);
+    try {
+      const { base64, mediaType } = await fileToBase64(file);
+      const res = await fetch("/api/extract-product-info", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image_base64: base64, media_type: mediaType }),
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error ?? `HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      if (data.name && !name) setName(titleCase(data.name));
+      if (data.brand && !brand) setBrand(data.brand);
+      if (data.ean_barcode && !ean) setEan(data.ean_barcode);
+      if (data.price != null && !price) setPrice(String(data.price).replace(".", ","));
+    } catch (err) {
+      log.error("[CompetitorProductForm] other-photo extraction failed:", err);
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setAnalyzing(false);
+    }
+  }, [name, brand, ean, price]);
 
   const effectiveRetailer = retailer === "__custom__" ? customRetailer.trim() : retailer;
 
@@ -187,6 +202,7 @@ export function CompetitorProductFormModal({
           name: name.trim(),
           brand: brand.trim() || null,
           ean_barcode: ean.trim() || null,
+          is_bio: isBio,
         });
       } else {
         const product = await findOrCreateCompetitorProduct(
@@ -196,11 +212,13 @@ export function CompetitorProductFormModal({
         );
         productId = product.product_id;
 
-        if (brand.trim() && !product.brand) {
-          await updateCompetitorProduct(productId, { brand: brand.trim() });
-        }
-        if (ean.trim() && !product.ean_barcode) {
-          await updateCompetitorProduct(productId, { ean_barcode: ean.trim() });
+        const updates: Partial<Pick<CompetitorProduct, "name" | "brand" | "ean_barcode" | "is_bio">> = {};
+        if (product.name !== name.trim()) updates.name = name.trim();
+        if (brand.trim() && !product.brand) updates.brand = brand.trim();
+        if (ean.trim() && !product.ean_barcode) updates.ean_barcode = ean.trim();
+        if (isBio !== (product.is_bio ?? false)) updates.is_bio = isBio;
+        if (Object.keys(updates).length > 0) {
+          await updateCompetitorProduct(productId, updates);
         }
       }
 
@@ -227,13 +245,16 @@ export function CompetitorProductFormModal({
 
       onSaved(productId);
       onClose();
-    } catch (e) {
+    } catch (e: unknown) {
       log.error("[CompetitorProductForm] save failed:", e);
-      setError(e instanceof Error ? e.message : String(e));
+      const msg = e instanceof Error ? e.message
+        : (e && typeof e === "object" && "message" in e) ? String((e as { message: unknown }).message)
+        : String(e);
+      setError(msg);
     } finally {
       setSaving(false);
     }
-  }, [name, brand, price, ean, effectiveRetailer, frontPhotoFile, otherPhotoFile, frontPhotoRemoved, otherPhotoRemoved, country, isEditMode, editProduct, onSaved, onClose]);
+  }, [name, brand, price, ean, isBio, effectiveRetailer, frontPhotoFile, otherPhotoFile, frontPhotoRemoved, otherPhotoRemoved, country, isEditMode, editProduct, onSaved, onClose]);
 
   if (!open) return null;
 
@@ -440,6 +461,16 @@ export function CompetitorProductFormModal({
               className="w-full rounded-xl border-2 border-aldi-muted-light px-3 py-2.5 text-sm focus:border-aldi-blue focus:outline-none"
             />
           </div>
+
+          <label className="flex items-center gap-2.5 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={isBio}
+              onChange={(e) => setIsBio(e.target.checked)}
+              className="h-4.5 w-4.5 rounded border-aldi-muted-light text-green-600 focus:ring-green-500"
+            />
+            <span className="text-sm text-aldi-text">{t("competitorProductBio")}</span>
+          </label>
 
           {error && (
             <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>

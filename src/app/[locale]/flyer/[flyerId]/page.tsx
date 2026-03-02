@@ -174,15 +174,15 @@ export default function FlyerDetailPage() {
   // Guard: invalid flyerId in URL
   if (!flyerId) {
     return (
-      <main className="mx-auto flex min-h-screen max-w-lg flex-col items-center justify-center bg-aldi-bg">
+      <main className="mx-auto flex min-h-screen max-w-lg flex-col items-center justify-center bg-aldi-bg md:max-w-3xl lg:max-w-5xl">
         <p className="p-4 text-aldi-muted">{t("invalidId")}</p>
       </main>
     );
   }
 
   return (
-    <main className="mx-auto flex h-screen max-w-lg flex-col overflow-hidden bg-aldi-bg">
-      <header className="flex shrink-0 items-center gap-3 bg-white px-4 py-3 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+    <main className="mx-auto flex h-screen max-w-lg flex-col overflow-hidden bg-aldi-bg md:max-w-3xl lg:h-[calc(100vh-49px)] lg:max-w-5xl">
+      <header className="flex shrink-0 items-center gap-3 bg-white px-4 py-3 shadow-[0_1px_3px_rgba(0,0,0,0.06)] md:px-6 lg:px-8">
         <button
           type="button"
           className="touch-target -ml-1 flex items-center justify-center rounded-lg text-aldi-blue transition-colors hover:bg-aldi-muted-light/50"

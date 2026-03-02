@@ -1,6 +1,6 @@
-﻿"use client";
+"use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useTranslations } from "next-intl";
 import { createClientIfConfigured } from "@/lib/supabase/client";
 import { useProducts } from "@/lib/products-context";
@@ -89,30 +89,30 @@ export function ReviewCard({ upload, userId, onConfirmed, onDiscarded }: ReviewC
   }, [upload.upload_id, first, isBackPhoto]);
 
   const nameNorm = normalizeName(name || "");
-  const matchedProduct =
-    linkedProductId !== null
-      ? products.find((p) => p.product_id === linkedProductId) ?? null
-      : (() => {
-          if (articleNumber) {
-            const byArticle = products.find(
-              (p) => p.article_number != null && String(p.article_number) === articleNumber.trim()
-            );
-            if (byArticle) return byArticle;
-          }
-          if (ean.trim()) {
-            const byEan = products.find(
-              (p) => p.ean_barcode != null && String(p.ean_barcode) === ean.trim()
-            );
-            if (byEan) return byEan;
-          }
-          if (nameNorm) {
-            const byName = products.find(
-              (p) => p.name_normalized && p.name_normalized === nameNorm
-            );
-            if (byName) return byName;
-          }
-          return null;
-        })();
+  const matchedProduct = useMemo(() => {
+    if (linkedProductId !== null) {
+      return products.find((p) => p.product_id === linkedProductId) ?? null;
+    }
+    if (articleNumber) {
+      const byArticle = products.find(
+        (p) => p.article_number != null && String(p.article_number) === articleNumber.trim()
+      );
+      if (byArticle) return byArticle;
+    }
+    if (ean.trim()) {
+      const byEan = products.find(
+        (p) => p.ean_barcode != null && String(p.ean_barcode) === ean.trim()
+      );
+      if (byEan) return byEan;
+    }
+    if (nameNorm) {
+      const byName = products.find(
+        (p) => p.name_normalized && p.name_normalized === nameNorm
+      );
+      if (byName) return byName;
+    }
+    return null;
+  }, [linkedProductId, articleNumber, ean, nameNorm, products]);
 
   const runProductSearch = useCallback(async (q: string) => {
     const supabase = createClientIfConfigured();

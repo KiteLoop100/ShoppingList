@@ -7,7 +7,7 @@ export function ReceiptHistoryScreen() {
   const t = useTranslations("onboarding.screens.receipt-history");
 
   const illustration = (
-    <div className="w-full max-w-[280px]">
+    <div className="w-full max-w-[280px] md:max-w-sm">
       {/* Receipt card mockup */}
       <div className="overflow-hidden rounded-xl border-2 border-aldi-muted-light bg-white shadow-sm">
         {/* Receipt header with camera icon */}

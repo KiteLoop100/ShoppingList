@@ -124,7 +124,7 @@ The MVP serves as a showcase for an internal presentation at ALDI SÜD and must 
 - **Performance:** Smooth with up to 4,000 active products in database
 - **Browser support:** iOS Safari (15+), Android Chrome (10+)
 - **GPS:** For store detection, with manual selection fallback
-- **Responsive:** Optimized for smartphone, functional on tablet/desktop
+- **Responsive:** Mobile-first with dedicated tablet (768px+) and desktop (1024px+) layouts. Desktop features: top navigation bar, split-view (list + search side by side), hover action buttons, mouse wheel zoom, keyboard shortcuts, right-click rename. See `UI.md` §6 for full responsive specification.
 
 ---
 

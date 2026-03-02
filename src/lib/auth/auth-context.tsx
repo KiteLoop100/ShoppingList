@@ -6,6 +6,7 @@ import {
   useEffect,
   useState,
   useCallback,
+  useMemo,
   useRef,
   type ReactNode,
 } from "react";
@@ -131,20 +132,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const isAnonymous = user?.is_anonymous === true;
 
+  const value = useMemo(() => ({
+    user, session, loading, isAnonymous,
+    signUp, signIn, signOut, linkEmail, resetPassword,
+  }), [user, session, loading, isAnonymous, signUp, signIn, signOut, linkEmail, resetPassword]);
+
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        session,
-        loading,
-        isAnonymous,
-        signUp,
-        signIn,
-        signOut,
-        linkEmail,
-        resetPassword,
-      }}
-    >
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );

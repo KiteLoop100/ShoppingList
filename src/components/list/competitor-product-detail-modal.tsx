@@ -10,12 +10,15 @@ export interface CompetitorProductDetailModalProps {
   product: CompetitorProduct | null;
   onClose: () => void;
   onEdit: (product: CompetitorProduct) => void;
+  /** Retailer name from the list item, shown when no price history exists yet. */
+  retailer?: string | null;
 }
 
 export function CompetitorProductDetailModal({
   product,
   onClose,
   onEdit,
+  retailer: retailerProp,
 }: CompetitorProductDetailModalProps) {
   const t = useTranslations("competitorDetail");
   const locale = useLocale();
@@ -36,6 +39,9 @@ export function CompetitorProductDetailModal({
   const hasBrand = product.brand != null && product.brand !== "";
   const hasEan = product.ean_barcode != null && product.ean_barcode !== "";
   const hasWeight = product.weight_or_quantity != null && product.weight_or_quantity !== "";
+  const retailerNames = prices.length > 0
+    ? [...new Set(prices.map(p => p.retailer))]
+    : (retailerProp ? [retailerProp] : []);
 
   return (
     <>
@@ -89,6 +95,12 @@ export function CompetitorProductDetailModal({
               <div className="min-w-0">
                 <p className="text-base font-medium text-aldi-text">{product.name}</p>
                 {hasBrand && <p className="mt-0.5 text-sm text-aldi-muted">{product.brand}</p>}
+                {retailerNames.length > 0 && (
+                  <p className="mt-1 text-sm text-aldi-muted">
+                    <span className="mr-1">🏪</span>
+                    {retailerNames.join(", ")}
+                  </p>
+                )}
               </div>
             </div>
 

@@ -41,6 +41,8 @@ export interface ListItemWithMeta extends LocalListItem {
   competitor_price?: number | null;
   /** B4: competitor product thumbnail URL. */
   competitor_thumbnail_url?: string | null;
+  /** B4: competitor product brand name. */
+  competitor_brand?: string | null;
 }
 
 export interface SortResult {

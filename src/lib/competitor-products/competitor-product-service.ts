@@ -88,7 +88,7 @@ export async function createCompetitorProduct(
     .select()
     .single();
 
-  if (error) throw error;
+  if (error) throw new Error(error.message);
   return rowToCompetitorProduct(data as Record<string, unknown>);
 }
 
@@ -122,7 +122,7 @@ export async function updateCompetitorProduct(
     .update(payload)
     .eq("product_id", productId);
 
-  if (error) throw error;
+  if (error) throw new Error(error.message);
 }
 
 export async function findCompetitorProductByEan(
@@ -194,7 +194,14 @@ export async function findOrCreateCompetitorProduct(
     .eq("status", "active")
     .maybeSingle();
 
-  if (existing) return rowToCompetitorProduct(existing as Record<string, unknown>);
+  if (existing) {
+    const product = rowToCompetitorProduct(existing as Record<string, unknown>);
+    if (product.name !== name && name !== normalized) {
+      await updateCompetitorProduct(product.product_id, { name });
+      product.name = name;
+    }
+    return product;
+  }
 
   return createCompetitorProduct({ name, country });
 }
@@ -213,7 +220,7 @@ export async function addCompetitorPrice(
     .select()
     .single();
 
-  if (error) throw error;
+  if (error) throw new Error(error.message);
   return rowToPrice(data as Record<string, unknown>);
 }
 
@@ -261,6 +268,120 @@ export async function getLatestPriceForRetailer(
     .maybeSingle();
 
   return data ? Number(data.price) : null;
+}
+
+/**
+ * Record a competitor product purchase (upsert into competitor_product_stats).
+ * Fire-and-forget: callers should not await this or block deletion on it.
+ */
+export async function recordCompetitorPurchase(
+  competitorProductId: string,
+  retailer: string,
+): Promise<void> {
+  const supabase = createClientIfConfigured();
+  if (!supabase) return;
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+
+  const { data: existing } = await supabase
+    .from("competitor_product_stats")
+    .select("purchase_count")
+    .eq("competitor_product_id", competitorProductId)
+    .eq("retailer", retailer)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (existing) {
+    await supabase
+      .from("competitor_product_stats")
+      .update({
+        purchase_count: (existing.purchase_count ?? 0) + 1,
+        last_purchased_at: new Date().toISOString(),
+      })
+      .eq("competitor_product_id", competitorProductId)
+      .eq("retailer", retailer)
+      .eq("user_id", user.id);
+  } else {
+    await supabase
+      .from("competitor_product_stats")
+      .insert({
+        competitor_product_id: competitorProductId,
+        retailer,
+        user_id: user.id,
+        purchase_count: 1,
+        last_purchased_at: new Date().toISOString(),
+      });
+  }
+}
+
+export interface RetailerProductResult {
+  product_id: string;
+  name: string;
+  name_normalized: string;
+  brand: string | null;
+  ean_barcode: string | null;
+  weight_or_quantity: string | null;
+  country: string;
+  thumbnail_url: string | null;
+  category_id: string | null;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  latest_price: number | null;
+  user_purchase_count: number;
+  global_purchase_count: number;
+}
+
+/**
+ * Search competitor products available at a given retailer, ranked by
+ * personal purchase frequency first, then global frequency.
+ * Calls the `search_retailer_products` Postgres RPC.
+ */
+export async function searchRetailerProducts(
+  retailer: string,
+  country: string,
+  query?: string,
+  limit = 50,
+): Promise<RetailerProductResult[]> {
+  const supabase = createClientIfConfigured();
+  if (!supabase) return [];
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return [];
+
+  const normalizedQuery = query ? normalizeName(query) : null;
+
+  const { data, error } = await supabase.rpc("search_retailer_products", {
+    p_retailer: retailer,
+    p_country: country,
+    p_user_id: user.id,
+    p_query: normalizedQuery || null,
+    p_limit: limit,
+  });
+
+  if (error) {
+    log.error("[competitor-product-service] searchRetailerProducts failed:", error.message);
+    return [];
+  }
+
+  return ((data as Record<string, unknown>[]) ?? []).map((row) => ({
+    product_id: String(row.product_id),
+    name: String(row.name),
+    name_normalized: String(row.name_normalized),
+    brand: row.brand != null ? String(row.brand) : null,
+    ean_barcode: row.ean_barcode != null ? String(row.ean_barcode) : null,
+    weight_or_quantity: row.weight_or_quantity != null ? String(row.weight_or_quantity) : null,
+    country: String(row.country),
+    thumbnail_url: row.thumbnail_url != null ? String(row.thumbnail_url) : null,
+    category_id: row.category_id != null ? String(row.category_id) : null,
+    status: String(row.status),
+    created_at: String(row.created_at),
+    updated_at: String(row.updated_at),
+    latest_price: row.latest_price != null ? Number(row.latest_price) : null,
+    user_purchase_count: Number(row.user_purchase_count ?? 0),
+    global_purchase_count: Number(row.global_purchase_count ?? 0),
+  }));
 }
 
 /** Fetch all active competitor products for a given country. */

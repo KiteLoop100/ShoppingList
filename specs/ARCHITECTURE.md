@@ -283,7 +283,22 @@ Receipts:
   /types                   ← TypeScript definitions
 ```
 
-### 7.2 State Management
+### 7.2 Responsive Design Architecture
+
+**Breakpoints:** Standard Tailwind defaults (md: 768px, lg: 1024px). No custom breakpoint configuration.
+
+**Input Detection:**
+- CSS: `@media (pointer: fine)` for mouse/trackpad, `@media (pointer: coarse)` for touch. Custom Tailwind variants `pointer-fine:` and `pointer-coarse:` configured in `tailwind.config.ts`.
+- JS: `usePointerType()` hook in `src/hooks/use-pointer-type.ts` — returns `"fine"` or `"coarse"`, reacts live to device changes (e.g. iPad connecting a trackpad).
+- `useBreakpoint()` hook in `src/hooks/use-breakpoint.ts` — returns `"mobile"`, `"tablet"`, or `"desktop"` for conditional rendering decisions.
+
+**Component Strategy:** CSS-only responsive where possible (breakpoint classes on existing elements). Conditional rendering only for structural differences (e.g. Split-View vs. single column). No separate desktop components — one component handles all viewports.
+
+**Gesture / Interaction Duality:** Touch gestures (swipe, long-press, pinch) coexist with mouse alternatives (hover actions, right-click, scroll-wheel zoom). Both are active simultaneously on hybrid devices. Progressive enhancement — desktop adds alternatives, never removes touch support.
+
+**Code Splitting:** Desktop-specific panels (Split-View, Master-Detail) use `next/dynamic` imports so the mobile JS bundle doesn't grow.
+
+### 7.3 State Management
 - Local React state for UI (search mode, picker open, etc.)
 - **Current (MVP):** IndexedDB (Dexie.js) for shopping list, trips, preferences. Supabase for products, receipts, auto-reorder.
 - **Planned (Pre-Launch):** Shopping list, trips, preferences move to Supabase. IndexedDB becomes a read-only cache for products. See FEATURES-ACCOUNT.md section 3.

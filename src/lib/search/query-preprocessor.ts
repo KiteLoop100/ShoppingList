@@ -10,21 +10,12 @@ import {
   PLURAL_SUFFIXES,
   MIN_STEM_LENGTH,
 } from "./constants";
+import { normalizeName } from "@/lib/products/normalize";
 
 /**
- * Core normalization: lowercase, ß→ss, strip diacritics, remove special chars.
- * Reuses the same logic as the existing normalizeName() in products/normalize.ts.
+ * Core normalization – delegates to the single canonical implementation.
  */
-export function normalize(input: string): string {
-  return input
-    .toLowerCase()
-    .replace(/ß/g, "ss")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9\s]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
+export const normalize = normalizeName;
 
 /**
  * Remove known ALDI-internal prefixes from a product name.

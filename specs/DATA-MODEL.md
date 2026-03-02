@@ -28,6 +28,7 @@ Product (ALDI)
 CompetitorProduct (other retailers)
   └── belongs to a Category (optional)
   └── has CompetitorProductPrices (append-only price history per retailer)
+  └── has CompetitorProductStats (purchase frequency per user per retailer)
   └── optionally linked from ListItem via competitor_product_id
 
 Store
@@ -300,6 +301,23 @@ Append-only price history for competitor products. One row per price observation
 | observed_by | User who observed it |
 
 Current price = latest row per (product_id, retailer).
+
+## 10c. Competitor Product Stats (Retailer Search Ranking)
+
+Purchase frequency tracking for competitor products. Used to rank retailer product search results by personal and global purchase frequency.
+
+| Field | Description |
+|-------|-------------|
+| competitor_product_id | FK to competitor_products (part of composite PK) |
+| retailer | Retailer name, e.g. "Rossmann" (part of composite PK) |
+| user_id | FK to auth.users (part of composite PK) |
+| purchase_count | Number of times this product was checked off at this retailer by this user |
+| last_purchased_at | Timestamp of most recent check-off |
+
+PK: (competitor_product_id, retailer, user_id). Upserted when an elsewhere item with `competitor_product_id` is checked off (fire-and-forget).
+
+**RPC: `search_retailer_products(p_retailer, p_country, p_user_id, p_query, p_limit)`**
+Returns competitor products for a retailer, ranked by user purchase count DESC, global count DESC, name ASC. Joins `competitor_products` with `competitor_product_stats` and `competitor_product_prices`. Optional text filter on `name_normalized` and `brand`.
 
 ---
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import { useTranslations } from "next-intl";
 import { formatShortDate } from "@/lib/utils/format-date";
 import type { Product } from "@/types";
@@ -18,7 +19,7 @@ export interface SpecialsPanelProps {
   locale: string;
 }
 
-export function SpecialsPanel({
+export const SpecialsPanel = memo(function SpecialsPanel({
   specials,
   loading,
   onConfirm,
@@ -157,4 +158,4 @@ export function SpecialsPanel({
       )}
     </div>
   );
-}
+});

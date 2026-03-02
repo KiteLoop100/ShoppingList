@@ -7,7 +7,7 @@ export function SwipeActionsScreen() {
   const t = useTranslations("onboarding.screens.swipe-actions");
 
   const illustration = (
-    <div className="w-full max-w-[280px] space-y-4">
+    <div className="w-full max-w-[280px] space-y-4 md:max-w-sm">
       {/* Swipe left demo */}
       <div className="relative overflow-hidden rounded-xl border-2 border-aldi-muted-light bg-white shadow-sm">
         <div className="flex items-center">

@@ -7,7 +7,7 @@ export function FlyerSpecialsScreen() {
   const t = useTranslations("onboarding.screens.flyer-specials");
 
   const illustration = (
-    <div className="w-full max-w-[280px] space-y-4">
+    <div className="w-full max-w-[280px] space-y-4 md:max-w-sm">
       {/* Flyer page mockup with tappable image area */}
       <div className="overflow-hidden rounded-xl border-2 border-aldi-muted-light bg-white shadow-sm">
         {/* Flyer header */}

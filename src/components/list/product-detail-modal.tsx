@@ -8,6 +8,7 @@ import { useAutoReorder } from "@/hooks/use-auto-reorder";
 import type { ReorderUnit } from "@/hooks/use-auto-reorder";
 import type { Product } from "@/types";
 import { formatNutritionInfo } from "@/lib/products/nutrition-utils";
+import { BaseModal } from "@/components/ui/base-modal";
 
 export interface ProductDetailModalProps {
   product: Product | null;
@@ -40,10 +41,7 @@ export function ProductDetailModal({ product, onClose, onEdit, onReorderChanged 
 
   useEffect(() => {
     if (!productId) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
     loadReorderSetting(productId);
-    return () => { document.body.style.overflow = prev; };
   }, [productId, loadReorderSetting]);
 
   if (!product) return null;
@@ -71,30 +69,7 @@ export function ProductDetailModal({ product, onClose, onEdit, onReorderChanged 
     u === "days" ? tReorder("unitDays") : u === "weeks" ? tReorder("unitWeeks") : tReorder("unitMonths");
 
   return (
-    <>
-      <div
-        className="fixed inset-0 z-40 bg-black/40 touch-none"
-        aria-hidden
-        onClick={onClose}
-      />
-      <div
-        className="fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-white shadow-xl"
-        role="dialog"
-        aria-modal="true"
-        aria-label={t("title")}
-      >
-        <div className="flex max-h-[85vh] flex-col">
-          <div className="flex items-start justify-between gap-2 border-b border-aldi-muted-light p-4">
-            <h2 className="text-lg font-semibold text-aldi-text">{t("title")}</h2>
-            <button
-              type="button"
-              className="touch-target -m-2 rounded-lg p-2 text-aldi-muted transition-colors hover:bg-aldi-muted-light/50 hover:text-aldi-text"
-              onClick={onClose}
-              aria-label={t("close")}
-            >
-              ✕
-            </button>
-          </div>
+    <BaseModal open={!!product} onClose={onClose} title={t("title")}>
           <div className="overflow-y-auto overscroll-contain p-4">
             <div className="mb-4 flex flex-col items-start gap-3">
               <div className="flex flex-wrap items-start gap-3">
@@ -271,8 +246,6 @@ export function ProductDetailModal({ product, onClose, onEdit, onReorderChanged 
               </div>
             )}
           </div>
-        </div>
-      </div>
-    </>
+    </BaseModal>
   );
 }

@@ -138,11 +138,31 @@ Bleibt unverändert:
 - `isLastTripCommand()` → Letzte Einkäufe
 - `isAktionsartikelCommand()` → Aktionsartikel
 
-### 3.3 EAN-Barcode-Erkennung
+### 3.3 Retailer-Prefix-Erkennung (Implementiert)
+
+`detectRetailerPrefix()` erkennt einen vollständigen Retailer-Namen am Anfang der Query (case-insensitive).
+
+```
+"Rossmann"          → { retailer: Rossmann, productQuery: "" }
+"Rossmann Shampoo"  → { retailer: Rossmann, productQuery: "Shampoo" }
+```
+
+**Verhalten:** Statt der normalen ALDI-Produktsuche wird die `search_retailer_products` Supabase-RPC aufgerufen. Diese gibt `competitor_products` zurück, die über `competitor_product_prices` oder `competitor_product_stats` dem Retailer zugeordnet sind.
+
+**Ranking:**
+1. Persönliche Kaufhäufigkeit (`competitor_product_stats.purchase_count` für den aktuellen User) DESC
+2. Globale Kaufhäufigkeit (Summe aller User) DESC
+3. Produktname ASC
+
+**Filterung:** Wenn ein Produkt-Subquery vorhanden ist (z.B. "Shampoo"), wird `ILIKE` auf `name_normalized` und `brand` angewandt.
+
+**Tracking:** Beim Abhaken eines Elsewhere-Items mit `competitor_product_id` wird ein Upsert in `competitor_product_stats` durchgeführt (fire-and-forget, blockiert nicht die Item-Löschung).
+
+### 3.4 EAN-Barcode-Erkennung
 
 Bleibt unverändert: Query besteht aus ≥ 4 Ziffern → EAN-Lookup.
 
-### 3.4 Textsuche
+### 3.5 Textsuche
 
 Alles andere → weiter zu Candidate Retrieval (§4).
 

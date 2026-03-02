@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { memo, useMemo } from "react";
 import { useTranslations } from "next-intl";
 import type { Product } from "@/types";
 import type { RecentListProduct } from "@/lib/list";
@@ -25,7 +25,7 @@ export interface RecentPurchasesPanelProps {
   loadingLabel: string;
 }
 
-export function RecentPurchasesPanel({
+export const RecentPurchasesPanel = memo(function RecentPurchasesPanel({
   recentProducts,
   products,
   loading,
@@ -161,4 +161,4 @@ export function RecentPurchasesPanel({
       )}
     </div>
   );
-}
+});

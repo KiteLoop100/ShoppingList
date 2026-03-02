@@ -1,14 +1,10 @@
 import type { LocalStore } from "@/lib/db";
+import { normalizeName } from "@/lib/products/normalize";
 
-export function normalizeForFilter(text: string): string {
-  return text
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9\s]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
+/**
+ * Alias for normalizeName used in store filtering context.
+ */
+export const normalizeForFilter = normalizeName;
 
 export function storeMatchesQuery(store: LocalStore, queryNorm: string): boolean {
   return storeMatchRelevance(store, queryNorm) > 0;

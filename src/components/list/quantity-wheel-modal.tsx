@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -8,6 +8,10 @@ const MIN = 1;
 const MAX = 99;
 const ITEM_HEIGHT = 40;
 const PADDING_Y = 90;
+
+const HIGHLIGHT_STYLE = { top: "50%", transform: "translateY(-50%)" } as const;
+const DIALOG_STYLE = { touchAction: "manipulation" } as const;
+const SNAP_ALIGN_STYLE = { scrollSnapAlign: "center" } as const;
 
 export interface QuantityWheelModalProps {
   open: boolean;
@@ -56,22 +60,25 @@ export function QuantityWheelModal({
     };
   }, [open, clampedValue]);
 
-  // Derive quantity from scrollTop: centre of viewport (110px) = centre of current item
-  const handleScroll = () => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const index = Math.round(el.scrollTop / ITEM_HEIGHT);
-    const q = Math.max(MIN, Math.min(MAX, MIN + index));
-    setSelected(q);
-  };
-
   const handleSelect = (q: number) => {
     onSelect(q);
     onClose();
   };
 
+  const rafRef = useRef<number | null>(null);
   const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const handleScrollDebounced = () => {
+
+  const handleScroll = () => {
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    rafRef.current = requestAnimationFrame(() => {
+      rafRef.current = null;
+      const el = scrollRef.current;
+      if (!el) return;
+      const index = Math.round(el.scrollTop / ITEM_HEIGHT);
+      const q = Math.max(MIN, Math.min(MAX, MIN + index));
+      setSelected(q);
+    });
+
     if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
     scrollTimeoutRef.current = setTimeout(() => {
       scrollTimeoutRef.current = null;
@@ -87,6 +94,7 @@ export function QuantityWheelModal({
   useEffect(() => {
     return () => {
       if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
   }, []);
 
@@ -149,11 +157,11 @@ export function QuantityWheelModal({
         onClick={onClose}
       />
       <div
-        className="fixed bottom-0 left-0 right-0 z-50 flex flex-col rounded-t-2xl bg-white shadow-lg"
+        className="fixed bottom-0 left-0 right-0 z-50 mx-auto flex max-w-lg flex-col rounded-t-2xl bg-white shadow-lg sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:w-[calc(100%-2rem)] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl"
         role="dialog"
         aria-modal="true"
         aria-label={t("selectQuantity")}
-        style={{ touchAction: "manipulation" }}
+        style={DIALOG_STYLE}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-aldi-muted-light px-4 py-3">
@@ -169,7 +177,7 @@ export function QuantityWheelModal({
         <div className="relative h-[220px] overflow-hidden">
           <div
             className="absolute left-0 right-0 h-[40px] border-y border-aldi-muted-light bg-aldi-muted-light/20"
-            style={{ top: "50%", transform: "translateY(-50%)" }}
+            style={HIGHLIGHT_STYLE}
             aria-hidden
           />
           <div
@@ -181,17 +189,14 @@ export function QuantityWheelModal({
               paddingBottom: PADDING_Y,
               touchAction: "pan-y",
             }}
-            onScroll={() => {
-              handleScroll();
-              handleScrollDebounced();
-            }}
+            onScroll={handleScroll}
           >
             {items.map((q) => (
               <button
                 key={q}
                 type="button"
                 className="flex h-10 w-full flex-shrink-0 items-center justify-center text-lg font-medium text-aldi-text transition-colors hover:bg-aldi-muted-light/30"
-                style={{ scrollSnapAlign: "center" }}
+                style={SNAP_ALIGN_STYLE}
                 onClick={() => handleSelect(q)}
               >
                 {q}

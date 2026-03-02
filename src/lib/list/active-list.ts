@@ -257,11 +257,142 @@ export async function deleteListItem(itemId: string): Promise<void> {
   await supabase.from("list_items").delete().eq("item_id", itemId);
 }
 
+export async function addListItemsBatch(
+  paramsList: AddItemParams[]
+): Promise<LocalListItem[]> {
+  if (paramsList.length === 0) return [];
+  if (paramsList.length === 1) return [await addListItem(paramsList[0])];
+
+  const supabase = createClientIfConfigured();
+  if (!supabase) throw new Error("Supabase not configured");
+
+  const listId = paramsList[0].list_id;
+
+  const { data: existingItems } = await supabase
+    .from("list_items")
+    .select("*")
+    .eq("list_id", listId)
+    .eq("is_checked", false);
+
+  const results: LocalListItem[] = [];
+  const toInsert: Record<string, unknown>[] = [];
+  const toUpdate: { item_id: string; quantity: number }[] = [];
+
+  for (const params of paramsList) {
+    const {
+      product_id,
+      custom_name,
+      display_name,
+      category_id,
+      quantity = 1,
+      buy_elsewhere_retailer = null,
+      competitor_product_id = null,
+    } = params;
+
+    const existing = existingItems?.find(
+      (i) =>
+        product_id != null
+          ? i.product_id === product_id
+            && (i.buy_elsewhere_retailer ?? null) === (buy_elsewhere_retailer ?? null)
+          : i.product_id == null
+            && i.display_name === display_name
+            && (i.buy_elsewhere_retailer ?? null) === (buy_elsewhere_retailer ?? null)
+    );
+
+    if (existing) {
+      const newQty = (existing.quantity ?? 1) + quantity;
+      toUpdate.push({ item_id: existing.item_id, quantity: newQty });
+      results.push({
+        item_id: existing.item_id,
+        list_id: existing.list_id,
+        product_id: existing.product_id ?? null,
+        custom_name: existing.custom_name ?? null,
+        display_name: existing.display_name,
+        quantity: newQty,
+        is_checked: existing.is_checked,
+        checked_at: existing.checked_at ?? null,
+        sort_position: existing.sort_position,
+        category_id: existing.category_id,
+        added_at: existing.added_at,
+      });
+    } else {
+      const item_id = generateId();
+      const now = new Date().toISOString();
+      const sort_position = -Date.now();
+      const insertPayload: Record<string, unknown> = {
+        item_id,
+        list_id: listId,
+        product_id,
+        custom_name,
+        display_name,
+        quantity,
+        is_checked: false,
+        checked_at: null,
+        sort_position,
+        category_id,
+        added_at: now,
+      };
+      if (buy_elsewhere_retailer) insertPayload.buy_elsewhere_retailer = buy_elsewhere_retailer;
+      if (competitor_product_id) insertPayload.competitor_product_id = competitor_product_id;
+      toInsert.push(insertPayload);
+      results.push({
+        item_id,
+        list_id: listId,
+        product_id: product_id ?? null,
+        custom_name: custom_name ?? null,
+        display_name,
+        quantity,
+        is_checked: false,
+        checked_at: null,
+        sort_position,
+        category_id,
+        added_at: now,
+      });
+    }
+  }
+
+  const promises: Promise<void>[] = [];
+  if (toInsert.length > 0) {
+    promises.push(
+      (async () => {
+        const { error } = await supabase.from("list_items").insert(toInsert);
+        if (error) throw new Error(`Batch insert failed: ${error.message}`);
+      })()
+    );
+  }
+  for (const u of toUpdate) {
+    promises.push(
+      (async () => {
+        await supabase.from("list_items").update({ quantity: u.quantity }).eq("item_id", u.item_id);
+      })()
+    );
+  }
+  await Promise.all(promises);
+
+  return results;
+}
+
+let cachedActiveListId: string | null = null;
+
 export async function getActiveListWithItems(): Promise<{
   list: LocalShoppingList;
   items: LocalListItem[];
 }> {
+  if (cachedActiveListId) {
+    const previousId = cachedActiveListId;
+    const [list, items] = await Promise.all([
+      getOrCreateActiveList(),
+      getListItems(previousId),
+    ]);
+    cachedActiveListId = list.list_id;
+    if (list.list_id !== previousId) {
+      const freshItems = await getListItems(list.list_id);
+      return { list, items: freshItems };
+    }
+    return { list, items };
+  }
   const list = await getOrCreateActiveList();
+  cachedActiveListId = list.list_id;
   const items = await getListItems(list.list_id);
   return { list, items };
 }

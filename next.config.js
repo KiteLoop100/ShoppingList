@@ -10,8 +10,43 @@ const nextConfig = {
   distDir: process.env.VERCEL ? ".next" : "node_modules/.cache/next-build",
 };
 
-// PWA: enable only in production to avoid dev issues; uncomment when ready
-// const withPWA = require("next-pwa")({ dest: "public", disable: process.env.NODE_ENV === "development" });
-// module.exports = withPWA(withNextIntl(nextConfig));
+const withPWA = require("next-pwa")({
+  dest: "public",
+  disable: process.env.NODE_ENV === "development",
+  runtimeCaching: [
+    {
+      urlPattern: /^https:\/\/.*\.supabase\.co\/rest\/v1\/products/,
+      handler: "StaleWhileRevalidate",
+      options: {
+        cacheName: "product-api-cache",
+        expiration: { maxEntries: 20, maxAgeSeconds: 60 * 60 },
+      },
+    },
+    {
+      urlPattern: /^https:\/\/.*\.supabase\.co\/rest\/v1\/categories/,
+      handler: "StaleWhileRevalidate",
+      options: {
+        cacheName: "category-api-cache",
+        expiration: { maxEntries: 5, maxAgeSeconds: 60 * 60 * 24 },
+      },
+    },
+    {
+      urlPattern: /\/_next\/static\/.*/,
+      handler: "CacheFirst",
+      options: {
+        cacheName: "static-assets",
+        expiration: { maxEntries: 100, maxAgeSeconds: 60 * 60 * 24 * 30 },
+      },
+    },
+    {
+      urlPattern: /\/_next\/image\?url=.*/,
+      handler: "CacheFirst",
+      options: {
+        cacheName: "next-images",
+        expiration: { maxEntries: 50, maxAgeSeconds: 60 * 60 * 24 * 7 },
+      },
+    },
+  ],
+});
 
-module.exports = withNextIntl(nextConfig);
+module.exports = withPWA(withNextIntl(nextConfig));

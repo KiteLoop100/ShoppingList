@@ -10,6 +10,9 @@ import { formatShortDate } from "@/lib/utils/format-date";
 const SWIPE_THRESHOLD = 60;
 const DELETE_WIDTH = 80;
 const DEFER_WIDTH = 80;
+
+const Z1_STYLE = { zIndex: 1 } as const;
+const Z2_HIDDEN_STYLE = { zIndex: 2, pointerEvents: "none" as const, opacity: 0 } as const;
 const ELSEWHERE_THRESHOLD = 100;
 const ELSEWHERE_WIDTH = 120;
 const THUMB_SIZE = 52;
@@ -28,8 +31,6 @@ export interface ListItemRowProps {
   onOpenDetail?: (item: ListItemWithMeta) => void;
   /** Small category/demand-group label shown below the product name (flat walking-order mode). */
   categoryLabel?: string;
-  /** Per-category colour for border + label (shopping-order mode only). */
-  categoryColor?: string;
   /** Called when user swipes right to defer the item to the next trip. */
   onDefer?: (itemId: string) => void;
   /** Called when user swipes right on a manually deferred item to un-defer it. */
@@ -48,7 +49,6 @@ export const ListItemRow = memo(function ListItemRow({
   deleteLabel,
   onOpenDetail,
   categoryLabel,
-  categoryColor,
   onDefer,
   onUndefer,
   onBuyElsewhere,
@@ -219,8 +219,35 @@ export const ListItemRow = memo(function ListItemRow({
 
   const isSnappedElsewhere = translateX <= -ELSEWHERE_THRESHOLD;
 
+  const [hovered, setHovered] = useState(false);
+  const showHoverActions = hovered && translateX === 0 && !item.is_checked && !editing;
+
+  const handleRowKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (editing) return;
+    if ((e.key === "Delete" || e.key === "Backspace") && !e.metaKey && !e.ctrlKey) {
+      e.preventDefault();
+      onDelete(item.item_id);
+    } else if (e.key === "d" && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      e.preventDefault();
+      if (canDefer) onDefer?.(item.item_id);
+      else if (canUndefer) onUndefer?.(item.item_id);
+    } else if (e.key === "e" && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      e.preventDefault();
+      if (canBuyElsewhere) onBuyElsewhere?.(item.item_id);
+    } else if (e.key === " " && !e.metaKey && !e.ctrlKey) {
+      e.preventDefault();
+      onCheck(item.item_id, !item.is_checked);
+    }
+  }, [editing, item.item_id, item.is_checked, canDefer, canUndefer, canBuyElsewhere, onDelete, onDefer, onUndefer, onBuyElsewhere, onCheck]);
+
   return (
-    <div className="relative min-w-0 w-full overflow-hidden rounded-xl">
+    <div
+      className="group relative min-w-0 w-full overflow-hidden rounded-xl focus-within:ring-2 focus-within:ring-aldi-blue/30 focus-within:ring-offset-1"
+      tabIndex={0}
+      onKeyDown={handleRowKeyDown}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
       {/* Right-swipe background zones */}
       {hasRightSwipe && (
         <>
@@ -228,7 +255,7 @@ export const ListItemRow = memo(function ListItemRow({
           <button
             type="button"
             className="absolute left-0 top-0 flex h-full w-20 items-center justify-center bg-aldi-blue text-[11px] font-medium leading-tight text-white transition-opacity duration-ui"
-            style={{ zIndex: 1 }}
+            style={Z1_STYLE}
             onClick={handleDeferTap}
             aria-label={canUndefer ? t("uncheckItem") : t("deferToNextTrip")}
           >
@@ -240,12 +267,10 @@ export const ListItemRow = memo(function ListItemRow({
             <button
               type="button"
               className="absolute left-0 top-0 flex h-full items-center justify-center bg-orange-500 text-[11px] font-semibold leading-tight text-white transition-opacity duration-200"
-              style={{
-                zIndex: 2,
-                width: ELSEWHERE_WIDTH,
-                opacity: isSnappedElsewhere ? 1 : 0,
-                pointerEvents: isSnappedElsewhere ? "auto" : "none",
-              }}
+              style={isSnappedElsewhere
+                ? { zIndex: 2, width: ELSEWHERE_WIDTH, opacity: 1, pointerEvents: "auto" as const }
+                : { ...Z2_HIDDEN_STYLE, width: ELSEWHERE_WIDTH }
+              }
               onClick={handleElsewhereTap}
               aria-label={t("elsewhereSwipeLabel")}
             >
@@ -259,7 +284,7 @@ export const ListItemRow = memo(function ListItemRow({
       <button
         type="button"
         className="absolute right-0 top-0 flex h-full w-20 items-center justify-center bg-aldi-error text-sm font-medium text-white transition-opacity duration-ui"
-        style={{ zIndex: 1 }}
+        style={Z1_STYLE}
         onClick={() => onDelete(item.item_id)}
         aria-label={deleteLabel}
       >
@@ -268,19 +293,14 @@ export const ListItemRow = memo(function ListItemRow({
 
       {/* Row content */}
       <div
-        className={`relative z-10 flex min-h-touch min-w-0 items-center gap-1.5 rounded-lg border border-aldi-muted-light px-2 py-2 transition-[transform,background-color,opacity] duration-200 ease-out ${isDeferred ? "bg-gray-100" : "bg-white"}`}
-        style={{
-          transform: `translateX(${-translateX}px)`,
-          ...(categoryColor && !item.is_checked && !isDeferred
-            ? { borderColor: categoryColor }
-            : undefined),
-        }}
+        className={`relative z-10 flex min-h-touch min-w-0 items-center gap-1.5 rounded-lg border border-aldi-muted-light px-2 py-2 transition-[transform,background-color,opacity] duration-200 ease-out md:gap-2 md:px-3 md:py-2.5 lg:gap-3 lg:px-4 lg:py-3 ${isDeferred ? "bg-gray-100" : "bg-white"}`}
+        style={{ transform: `translateX(${-translateX}px)` }}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       >
         {/* Circle checkbox – disabled and grey for deferred items */}
-        <div className="flex min-h-touch min-w-9 shrink-0 items-center justify-center">
+        <div className="flex min-h-touch min-w-touch shrink-0 items-center justify-center">
           <button
             type="button"
             className={`flex h-6 w-6 min-w-6 items-center justify-center rounded-full border-2 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 ${
@@ -313,10 +333,19 @@ export const ListItemRow = memo(function ListItemRow({
             onOpenDetail ? "cursor-pointer" : ""
           }`}
           onClick={handleNameTap}
+          onDoubleClick={canRename ? (e) => {
+            e.stopPropagation();
+            setEditValue(item.display_name || item.custom_name || "");
+            setEditing(true);
+          } : undefined}
           onTouchStart={canRename ? startLongPress : undefined}
           onTouchEnd={canRename ? cancelLongPress : undefined}
           onTouchMove={canRename ? cancelLongPress : undefined}
-          onContextMenu={canRename ? (e) => { e.preventDefault(); } : undefined}
+          onContextMenu={canRename ? (e) => {
+            e.preventDefault();
+            setEditValue(item.display_name || item.custom_name || "");
+            setEditing(true);
+          } : undefined}
         >
           {editing ? (
             <input
@@ -341,7 +370,13 @@ export const ListItemRow = memo(function ListItemRow({
             {item.display_name}
           </span>
           )}
-          {isElsewhere ? null : isDeferred && item.deferred_reason ? (
+          {isElsewhere ? (
+            item.competitor_brand ? (
+              <span className="block truncate text-[11px] leading-snug text-aldi-muted">
+                {item.competitor_brand}
+              </span>
+            ) : null
+          ) : isDeferred && item.deferred_reason ? (
             <span className={`mt-0.5 inline-block truncate rounded px-1 py-0.5 text-[11px] font-medium leading-snug ${
               item.deferred_reason === "special"
                 ? "bg-amber-100 text-amber-800"
@@ -358,10 +393,7 @@ export const ListItemRow = memo(function ListItemRow({
                     : t("deferredBadgeReorder")}
             </span>
           ) : categoryLabel ? (
-            <span
-              className="block truncate text-[11px] leading-snug text-aldi-muted"
-              style={categoryColor && !item.is_checked && !isDeferred ? { color: categoryColor } : undefined}
-            >
+            <span className="block truncate text-[11px] leading-snug text-aldi-muted">
               {categoryLabel}
             </span>
           ) : null}
@@ -387,7 +419,7 @@ export const ListItemRow = memo(function ListItemRow({
         <div className="shrink-0">
           <button
             type="button"
-            className={`flex min-h-8 min-w-8 items-center justify-center rounded-md border border-aldi-muted-light bg-gray-50 px-2 transition-colors hover:bg-aldi-muted-light/80 disabled:opacity-50 ${
+            className={`flex min-h-touch min-w-[36px] items-center justify-center rounded-md border border-aldi-muted-light bg-gray-50 px-2 transition-colors hover:bg-aldi-muted-light/80 disabled:opacity-50 ${
               item.is_checked ? "text-aldi-muted" : "text-aldi-text"
             }`}
             onClick={handleQuantityTap}
@@ -406,6 +438,55 @@ export const ListItemRow = memo(function ListItemRow({
           >
             {priceStr}
           </span>
+        )}
+
+        {/* Hover action buttons – visible only on pointer:fine devices */}
+        {showHoverActions && (
+          <div className="pointer-coarse:hidden flex shrink-0 items-center gap-0.5">
+            {(canDefer || canUndefer) && (
+              <button
+                type="button"
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-aldi-blue transition-colors hover:bg-aldi-blue/10"
+                onClick={(e) => { e.stopPropagation(); handleDeferTap(); }}
+                title={canUndefer ? t("uncheckItem") : t("deferToNextTrip")}
+                aria-label={canUndefer ? t("uncheckItem") : t("deferToNextTrip")}
+              >
+                {canUndefer ? (
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" aria-hidden>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3" />
+                  </svg>
+                ) : (
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" aria-hidden>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                  </svg>
+                )}
+              </button>
+            )}
+            {canBuyElsewhere && (
+              <button
+                type="button"
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-orange-500 transition-colors hover:bg-orange-50"
+                onClick={(e) => { e.stopPropagation(); handleElsewhereTap(); }}
+                title={t("elsewhereSwipeLabel")}
+                aria-label={t("elsewhereSwipeLabel")}
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 21v-7.5a.75.75 0 0 1 .75-.75h3a.75.75 0 0 1 .75.75V21m-4.5 0H2.36m11.14 0H18m0 0h3.64m-1.39 0V9.349M3.75 21V9.349m0 0a3.001 3.001 0 0 0 3.75-.615A2.993 2.993 0 0 0 9.75 9.75c.896 0 1.7-.393 2.25-1.016a2.993 2.993 0 0 0 2.25 1.016c.896 0 1.7-.393 2.25-1.015a3.001 3.001 0 0 0 3.75.614m-16.5 0a3.004 3.004 0 0 1-.621-4.72l1.189-1.19A1.5 1.5 0 0 1 5.378 3h13.243a1.5 1.5 0 0 1 1.06.44l1.19 1.189a3 3 0 0 1-.621 4.72M6.75 18h3.75a.75.75 0 0 0 .75-.75V13.5a.75.75 0 0 0-.75-.75H6.75a.75.75 0 0 0-.75.75v3.75c0 .414.336.75.75.75Z" />
+                </svg>
+              </button>
+            )}
+            <button
+              type="button"
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-aldi-error transition-colors hover:bg-red-50"
+              onClick={(e) => { e.stopPropagation(); onDelete(item.item_id); }}
+              title={deleteLabel}
+              aria-label={deleteLabel}
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+              </svg>
+            </button>
+          </div>
         )}
       </div>
 

@@ -36,11 +36,11 @@
 
 ---
 
-## 2026-03-01 – Category Color Coding in Shopping Order View
+## 2026-03-01 – Category Colour Bar in Shopping Order View
 
-- **New: `src/lib/categories/category-colors.ts`** – One bold colour per app category (19 categories), inspired by ALDI product/packaging appearance. Single colour used for both item border and category label text. All colours meet WCAG 4.5:1 contrast on white.
-- **Modified: `src/components/list/shopping-list-content.tsx`** – Passes `categoryColor` prop (string) to `ListItemRow` when `dataSortMode === "shopping-order"`.
-- **Modified: `src/components/list/list-item-row.tsx`** – New optional `categoryColor?: string` prop. Applies the colour to both border and category label via inline styles for active (unchecked, non-deferred) items.
+- **New: `src/lib/categories/category-colors.ts`** – One bold colour per app category (19 categories), inspired by ALDI product/packaging appearance. All colours meet WCAG 4.5:1 contrast on white.
+- **Modified: `src/components/list/shopping-list-content.tsx`** – In Shopping Order mode, consecutive items of the same category are grouped into container divs with a continuous 4px left colour bar (`border-l-4`). Groups separated by 12px gap (`space-y-3`), items within a group by 4px (`space-y-1`). Helper function `groupConsecutiveByCategory()` added. Removed per-item `categoryColor` prop.
+- **Modified: `src/components/list/list-item-row.tsx`** – Removed `categoryColor` prop and all related inline styles (border colour, label colour). Category label reverts to plain grey (`text-aldi-muted`).
 - **Specs updated:** `FEATURES-CORE.md` (F03 Display + Sort Modes), `UI.md` (screen wireframe + design language).
 
 ---

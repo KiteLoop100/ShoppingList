@@ -7,6 +7,7 @@ import {
   useEffect,
   useMemo,
   useCallback,
+  useRef,
   type ReactNode,
 } from "react";
 import type { CompetitorProduct } from "@/types";
@@ -27,11 +28,14 @@ export function CompetitorProductsProvider({ children }: { children: ReactNode }
   const { country } = useCurrentCountry();
   const [products, setProducts] = useState<CompetitorProduct[]>([]);
   const [loading, setLoading] = useState(true);
+  const fetchSeqRef = useRef(0);
 
   const fetchProducts = useCallback(async () => {
     if (country === null) return;
+    const seq = ++fetchSeqRef.current;
     try {
       const list = await fetchCompetitorProducts(country);
+      if (seq !== fetchSeqRef.current) return;
       setProducts(list);
 
       try {
@@ -52,6 +56,7 @@ export function CompetitorProductsProvider({ children }: { children: ReactNode }
       }
     } catch (err) {
       log.error("[CompetitorProductsProvider] fetch failed:", err);
+      if (seq !== fetchSeqRef.current) return;
 
       try {
         const cached = await db.competitor_products
@@ -63,7 +68,7 @@ export function CompetitorProductsProvider({ children }: { children: ReactNode }
         /* IndexedDB also unavailable */
       }
     } finally {
-      setLoading(false);
+      if (seq === fetchSeqRef.current) setLoading(false);
     }
   }, [country]);
 

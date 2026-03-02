@@ -7,7 +7,7 @@ export function SearchScreen() {
   const t = useTranslations("onboarding.screens.search");
 
   const illustration = (
-    <div className="w-full max-w-[280px]">
+    <div className="w-full max-w-[280px] md:max-w-sm">
       {/* Search bar mockup */}
       <div className="rounded-xl border-2 border-aldi-muted-light bg-white px-4 py-3 shadow-sm">
         <div className="flex items-center gap-2">

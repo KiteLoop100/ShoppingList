@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import type { SearchResult } from "@/types";
 
 export interface SearchResultsPanelProps {
@@ -12,7 +13,7 @@ export interface SearchResultsPanelProps {
   searchingLabel: string;
 }
 
-export function SearchResultsPanel({
+export const SearchResultsPanel = memo(function SearchResultsPanel({
   loading,
   results,
   query,
@@ -66,4 +67,4 @@ export function SearchResultsPanel({
       )}
     </div>
   );
-}
+});

@@ -206,11 +206,11 @@ For personalized queries:
 - Compact rows: product name, thumbnail (if available), quantity, price
 - Estimated total at bottom
 - **Category labels:** Both sort modes show the ALDI demand-group name as label below each product name (e.g. "Milch/Sahne/Butter", "Joghurts/Quark"). For items without a linked product (generic free-text entries), the app-category name is shown as fallback (e.g. "Milchprodukte"). Demand-group codes are converted to user-friendly labels by stripping the numeric prefix; manual overrides exist for truncated codes. See `src/lib/i18n/category-translations.ts`.
-- **Category color coding (Shopping Order only):** Each list item's border and category label share a unique bold colour per ALDI demand group (~61 colours), organized in colour families (e.g. all dairy groups in blue shades, all meat groups in red shades). This provides quick visual orientation -- items of the same demand group form visible colour clusters while remaining distinguishable from sibling groups. Applied only to active (unchecked, non-deferred) items. Defined in `src/lib/categories/category-colors.ts`.
+- **Category colour bar (Shopping Order only):** A continuous 4px vertical bar on the left side groups consecutive items of the same app category. When the category changes, a 12px gap separates the groups visually. This provides immediate orientation -- same-category items form a connected colour block, category transitions are obvious at a glance. Colours are bold, ALDI-inspired tones (19 categories, defined in `src/lib/categories/category-colors.ts`). Applied only to active (unchecked, non-deferred) items.
 
 ### Two Sort Modes
-- **"My Order"** (default at home): insertion order, demand-group label in grey, no color coding
-- **"Shopping Order"** (default in store): hierarchical by Demand Group → Sub-Group → Product (see LEARNING-ALGORITHMS.md), with per-demand-group color coding
+- **"My Order"** (default at home): insertion order, flat list, no colour bar
+- **"Shopping Order"** (default in store): hierarchical by Demand Group → Sub-Group → Product (see LEARNING-ALGORITHMS.md), with continuous category colour bar
 - Auto-switches when store is detected via GPS
 
 ### Interactions
@@ -499,6 +499,7 @@ Preferences are stored in Supabase `user_settings` (synced across devices) with 
 | F25 | Customer Feedback | MVP | **Spec ready** → see `FEATURES-FEEDBACK.md` |
 | F26 | Buy Elsewhere | MVP | **Spec ready** → see `FEATURES-ELSEWHERE.md` |
 | F27 | Export / Share List | Phase 3 | Planned |
+| F28 | Responsive Multi-Device (Desktop & Tablet) | Pre-Launch | **In progress** → see `UI.md` §6, `ARCHITECTURE.md` §7 |
 
 ---
 

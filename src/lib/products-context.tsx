@@ -7,6 +7,7 @@ import {
   useEffect,
   useMemo,
   useCallback,
+  useRef,
   type ReactNode,
 } from "react";
 import type { Product } from "@/types";
@@ -63,11 +64,13 @@ export function ProductsProvider({ children }: { children: ReactNode }) {
   const { country } = useCurrentCountry();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const fetchSeqRef = useRef(0);
 
   const fetchProducts = useCallback(async () => {
     if (country === null) {
       return;
     }
+    const seq = ++fetchSeqRef.current;
     const supabase = createClientIfConfigured();
     if (!supabase) {
       setLoading(false);
@@ -86,14 +89,16 @@ export function ProductsProvider({ children }: { children: ReactNode }) {
         .range(from, from + PAGE_SIZE - 1);
       if (error) {
         log.error("[ProductsProvider] Supabase products fetch failed:", error.message);
-        setLoading(false);
+        if (seq === fetchSeqRef.current) setLoading(false);
         return;
       }
+      if (seq !== fetchSeqRef.current) return;
       const rows = data ?? [];
       allRows.push(...rows);
       hasMore = rows.length === PAGE_SIZE;
       from += PAGE_SIZE;
     }
+    if (seq !== fetchSeqRef.current) return;
     try {
       const list = allRows.map(rowToProduct);
       setProducts(list);
@@ -105,7 +110,7 @@ export function ProductsProvider({ children }: { children: ReactNode }) {
       log.error("[ProductsProvider] rowToProduct mapping failed:", err);
       setProducts([]);
     } finally {
-      setLoading(false);
+      if (seq === fetchSeqRef.current) setLoading(false);
     }
   }, [country]);
 

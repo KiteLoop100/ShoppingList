@@ -13,7 +13,7 @@ export function ShoppingOrderScreen() {
   ];
 
   const illustration = (
-    <div className="w-full max-w-[280px]">
+    <div className="w-full max-w-[280px] md:max-w-sm">
       {/* GPS badge */}
       <div className="mb-4 flex items-center justify-center">
         <div className="flex items-center gap-2 rounded-full bg-green-100 px-4 py-1.5">
