@@ -23,9 +23,7 @@ import type {
   CheckoffSequence,
 } from "@/types";
 
-export interface LocalProduct extends Product {
-  id?: number;
-}
+export interface LocalProduct extends Product {}
 
 export interface LocalCategory extends Category {
   id?: number;
@@ -85,7 +83,7 @@ export interface LocalCompetitorProduct extends CompetitorProduct {
 }
 
 export class AppDatabase extends Dexie {
-  products!: Table<LocalProduct, number>;
+  products!: Table<LocalProduct, string>;
   competitor_products!: Table<LocalCompetitorProduct, number>;
   categories!: Table<LocalCategory, number>;
   category_aliases!: Table<LocalCategoryAlias, number>;
@@ -140,6 +138,9 @@ export class AppDatabase extends Dexie {
     this.version(7).stores({});
     this.version(8).stores({
       competitor_products: "++id, product_id, name_normalized, ean_barcode, country, status",
+    });
+    this.version(9).stores({
+      products: "product_id, name_normalized, category_id, status, name, country",
     });
   }
 }

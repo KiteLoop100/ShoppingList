@@ -51,6 +51,145 @@ function rowToProduct(row: Record<string, unknown>): Product {
   };
 }
 
+function lastSyncKey(country: string): string {
+  return `products-last-sync-${country}`;
+}
+
+function isIndexedDBAvailable(): boolean {
+  try {
+    return typeof window !== "undefined" && typeof indexedDB !== "undefined";
+  } catch {
+    return false;
+  }
+}
+
+async function getDb() {
+  const { db } = await import("@/lib/db");
+  return db;
+}
+
+async function loadFromCache(country: string): Promise<Product[]> {
+  if (!isIndexedDBAvailable()) return [];
+  try {
+    const db = await getDb();
+    const rows = await db.products
+      .where("country")
+      .equals(country)
+      .and((p) => p.status === "active")
+      .toArray();
+    return rows as Product[];
+  } catch (err) {
+    log.error("[ProductsSync] IndexedDB read failed:", err);
+    return [];
+  }
+}
+
+async function fetchAllFromSupabase(
+  country: string,
+  since?: string,
+): Promise<{ rows: Record<string, unknown>[]; error: boolean }> {
+  const supabase = createClientIfConfigured();
+  if (!supabase) return { rows: [], error: true };
+
+  const allRows: Record<string, unknown>[] = [];
+  const PAGE_SIZE = 1000;
+  let from = 0;
+  let hasMore = true;
+
+  while (hasMore) {
+    let query = supabase
+      .from("products")
+      .select("*")
+      .eq("country", country);
+
+    if (since) {
+      query = query.gt("updated_at", since);
+    } else {
+      query = query.eq("status", "active");
+    }
+
+    query = query.range(from, from + PAGE_SIZE - 1);
+
+    const { data, error } = await query;
+    if (error) {
+      log.error("[ProductsSync] Supabase fetch failed:", error.message);
+      return { rows: allRows, error: true };
+    }
+    const rows = data ?? [];
+    allRows.push(...rows);
+    hasMore = rows.length === PAGE_SIZE;
+    from += PAGE_SIZE;
+  }
+  return { rows: allRows, error: false };
+}
+
+async function deltaSync(country: string): Promise<Product[] | null> {
+  const lastSync = typeof window !== "undefined"
+    ? localStorage.getItem(lastSyncKey(country))
+    : null;
+
+  const isFullLoad = !lastSync;
+
+  const { rows, error } = await fetchAllFromSupabase(
+    country,
+    lastSync ?? undefined,
+  );
+
+  if (error && rows.length === 0) return null;
+
+  const products = rows.map(rowToProduct);
+
+  if (isIndexedDBAvailable()) {
+    try {
+      const db = await getDb();
+
+      if (isFullLoad) {
+        await db.products.where("country").equals(country).delete();
+        if (products.length > 0) {
+          await db.products.bulkPut(products);
+        }
+        console.info(`[ProductsSync] Full load: ${products.length} products (first start)`);
+      } else {
+        const active = products.filter((p) => p.status === "active");
+        const inactive = products.filter((p) => p.status !== "active");
+
+        if (active.length > 0) {
+          await db.products.bulkPut(active);
+        }
+        if (inactive.length > 0) {
+          await db.products.bulkDelete(inactive.map((p) => p.product_id));
+        }
+        console.info(`[ProductsSync] Delta: ${products.length} products synced from Supabase`);
+      }
+
+      if (typeof window !== "undefined") {
+        const maxUpdatedAt = products.reduce(
+          (max, p) => (p.updated_at > max ? p.updated_at : max),
+          lastSync ?? "",
+        );
+        if (maxUpdatedAt) {
+          localStorage.setItem(lastSyncKey(country), maxUpdatedAt);
+        }
+      }
+
+      const fullList = await db.products
+        .where("country")
+        .equals(country)
+        .and((p) => p.status === "active")
+        .toArray();
+      return fullList as Product[];
+    } catch (err) {
+      log.error("[ProductsSync] IndexedDB write failed:", err);
+      if (isFullLoad) return products;
+      return null;
+    }
+  }
+
+  // IndexedDB not available: return fetched products directly (full-load only)
+  if (isFullLoad) return products;
+  return null;
+}
+
 interface ProductsContextValue {
   products: Product[];
   loading: boolean;
@@ -66,65 +205,53 @@ export function ProductsProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const fetchSeqRef = useRef(0);
 
-  const fetchProducts = useCallback(async () => {
-    if (country === null) {
-      return;
-    }
+  const syncProducts = useCallback(async () => {
+    if (country === null) return;
     const seq = ++fetchSeqRef.current;
-    const supabase = createClientIfConfigured();
-    if (!supabase) {
-      setLoading(false);
-      return;
-    }
-    const allRows: Record<string, unknown>[] = [];
-    const PAGE_SIZE = 1000;
-    let from = 0;
-    let hasMore = true;
-    while (hasMore) {
-      const { data, error } = await supabase
-        .from("products")
-        .select("*")
-        .eq("status", "active")
-        .eq("country", country)
-        .range(from, from + PAGE_SIZE - 1);
-      if (error) {
-        log.error("[ProductsProvider] Supabase products fetch failed:", error.message);
-        if (seq === fetchSeqRef.current) setLoading(false);
-        return;
-      }
-      if (seq !== fetchSeqRef.current) return;
-      const rows = data ?? [];
-      allRows.push(...rows);
-      hasMore = rows.length === PAGE_SIZE;
-      from += PAGE_SIZE;
-    }
+
+    // Step 1: Load from cache for instant UI
+    const cached = await loadFromCache(country);
     if (seq !== fetchSeqRef.current) return;
-    try {
-      const list = allRows.map(rowToProduct);
-      setProducts(list);
-      setSearchProducts(indexProducts(list));
-      if (typeof window !== "undefined" && list.length > 0) {
-        console.info("[ProductsProvider]", list.length, "Produkte (country=" + country + ") aus Supabase geladen.");
-      }
-    } catch (err) {
-      log.error("[ProductsProvider] rowToProduct mapping failed:", err);
-      setProducts([]);
-    } finally {
-      if (seq === fetchSeqRef.current) setLoading(false);
+
+    if (cached.length > 0) {
+      setProducts(cached);
+      setSearchProducts(indexProducts(cached));
+      setLoading(false);
+      console.info(`[ProductsSync] Cache: ${cached.length} products loaded from IndexedDB`);
     }
+
+    // Step 2: Delta-sync in background
+    const synced = await deltaSync(country);
+    if (seq !== fetchSeqRef.current) return;
+
+    if (synced) {
+      setProducts(synced);
+      setSearchProducts(indexProducts(synced));
+    }
+
+    setLoading(false);
   }, [country]);
 
   useEffect(() => {
-    fetchProducts();
-  }, [fetchProducts]);
+    syncProducts();
+  }, [syncProducts]);
+
+  const refetch = useCallback(async () => {
+    if (country === null) return;
+    const seq = ++fetchSeqRef.current;
+
+    const synced = await deltaSync(country);
+    if (seq !== fetchSeqRef.current) return;
+
+    if (synced) {
+      setProducts(synced);
+      setSearchProducts(indexProducts(synced));
+    }
+  }, [country]);
 
   const value = useMemo(
-    () => ({
-      products,
-      loading,
-      refetch: fetchProducts,
-    }),
-    [products, loading, fetchProducts]
+    () => ({ products, loading, refetch }),
+    [products, loading, refetch],
   );
 
   return (
