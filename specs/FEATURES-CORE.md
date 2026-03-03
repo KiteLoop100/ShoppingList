@@ -206,7 +206,7 @@ For personalized queries:
 - Compact rows: product name, thumbnail (if available), quantity, price
 - Estimated total at bottom
 - **Category labels:** Both sort modes show the ALDI demand-group name as label below each product name (e.g. "Milch/Sahne/Butter", "Joghurts/Quark"). For items without a linked product (generic free-text entries), the app-category name is shown as fallback (e.g. "Milchprodukte"). Demand-group codes are converted to user-friendly labels by stripping the numeric prefix; manual overrides exist for truncated codes. See `src/lib/i18n/category-translations.ts`.
-- **Category colour bar (Shopping Order only):** A continuous 4px vertical bar on the left side groups consecutive items of the same app category. When the category changes, a 12px gap separates the groups visually. This provides immediate orientation -- same-category items form a connected colour block, category transitions are obvious at a glance. Colours are bold, ALDI-inspired tones (19 categories, defined in `src/lib/categories/category-colors.ts`). Applied only to active (unchecked, non-deferred) items.
+- **Category colour bar (Shopping Order only):** A continuous 4px vertical bar on the left side groups consecutive items of the same demand group. When the demand group changes, a 12px gap separates the groups visually. This provides immediate orientation -- same-group items form a connected colour block, transitions are obvious at a glance. Colours are bold, ALDI-inspired tones (~61 demand-group-specific colours, keyed by demand group code in `src/lib/categories/category-colors.ts`). Applied only to active (unchecked, non-deferred) items.
 
 ### Two Sort Modes
 - **"My Order"** (default at home): insertion order, flat list, no colour bar
@@ -496,7 +496,7 @@ Preferences are stored in Supabase `user_settings` (synced across devices) with 
 | F22 | Promotional Price Highlighting | Phase 3 | Planned |
 | F23 | List Item Comments | Phase 2 | Planned |
 | F24 | ALDI Insights (AI-powered analytics) | MVP | **Spec ready** → see `FEATURES-INSIGHTS.md` |
-| F25 | Customer Feedback | MVP | **Spec ready** → see `FEATURES-FEEDBACK.md` |
+| F25 | Customer Feedback | MVP | **Implemented** → see `FEATURES-FEEDBACK.md` |
 | F26 | Buy Elsewhere | MVP | **Spec ready** → see `FEATURES-ELSEWHERE.md` |
 | F27 | Export / Share List | Phase 3 | Planned |
 | F28 | Responsive Multi-Device (Desktop & Tablet) | Pre-Launch | **In progress** → see `UI.md` §6, `ARCHITECTURE.md` §7 |
@@ -877,5 +877,5 @@ Integration with grocery delivery services (e.g. REWE Lieferservice, Flink, Geti
 
 ---
 
-*Last updated: 2026-03-01*
+*Last updated: 2026-03-03*
 *See also: FEATURES-ACCOUNT.md (F17), LAUNCH-READINESS.md*

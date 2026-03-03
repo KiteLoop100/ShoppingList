@@ -49,15 +49,15 @@
 | **Vercel** | Hosting | Optimized for Next.js. Auto-deploy on git push. Free start. Global CDN |
 | **GitHub** | Version control | Repository: KiteLoop100/ShoppingList |
 
-### 2.4 Pre-Launch Extensions
+### 2.4 Active Extensions
 
-| Technology | Role | When |
-|------------|------|------|
-| **Supabase Auth** | Email/password + anonymous auth | Pre-Launch (see FEATURES-ACCOUNT.md) |
-| **Supabase Realtime** | Live sync for multi-device shopping list | Pre-Launch (with Account feature) |
-| **@sentry/nextjs** | Error tracking and monitoring | Pre-Launch (see LAUNCH-READINESS.md) |
-| **@upstash/ratelimit** | API rate limiting | Pre-Launch |
-| **zod** | API input validation | Pre-Launch |
+| Technology | Role | Status |
+|------------|------|--------|
+| **Supabase Auth** | Email/password + anonymous auth | Active (Block 0) |
+| **Supabase Realtime** | Live sync for multi-device shopping list | Active (with Account feature) |
+| **@sentry/nextjs** | Error tracking and monitoring | Active (Block 4) |
+| **@upstash/ratelimit** | API rate limiting | Active (Block 3) |
+| **zod** | API input validation | Active (Block 3) |
 
 ### 2.5 Later Extensions
 
@@ -238,7 +238,7 @@ Receipts:
 - `getCurrentUserId()` returns `auth.uid()` — replaces old `getDeviceUserId()`
 - `getDeviceUserId()` in `src/lib/list/device-id.ts` is **deprecated** (kept for data migration only)
 - Shopping list data (lists, items, trips) now lives in **Supabase** (not IndexedDB)
-- IndexedDB (Dexie) remains for: products, categories, stores, aisle_orders, pairwise_comparisons (read-only caches)
+- IndexedDB (Dexie) remains for: products, demand_groups, stores, aisle_orders, pairwise_comparisons (read-only caches, delta-synced)
 - Supabase Realtime subscription on `list_items` for live multi-device sync
 - One-time data migration in `src/lib/auth/auth-helpers.ts`: IndexedDB → Supabase + old device-ID reassignment
 - Login page: `src/app/[locale]/login/page.tsx`
@@ -301,7 +301,7 @@ Receipts:
 ### 7.3 State Management
 - Local React state for UI (search mode, picker open, etc.)
 - **Current (MVP):** IndexedDB (Dexie.js) for shopping list, trips, preferences. Supabase for products, receipts, auto-reorder.
-- **Planned (Pre-Launch):** Shopping list, trips, preferences move to Supabase. IndexedDB becomes a read-only cache for products. See FEATURES-ACCOUNT.md section 3.
+- **Implemented:** Shopping list, trips, preferences live in Supabase. IndexedDB is a read-only delta-sync cache for products and demand groups. See FEATURES-ACCOUNT.md section 3.
 - Supabase Realtime for live sync across devices (Post-Account feature)
 - No global state manager (Redux etc.) in MVP
 
@@ -328,9 +328,9 @@ Developer (Cursor) → Git Push → GitHub → Vercel (auto-deploy)
 - Password protection for preview URLs
 
 ### 8.4 Monitoring
-- **MVP:** Vercel built-in analytics, Supabase dashboard
-- **Pre-Launch:** Sentry for error tracking (see LAUNCH-READINESS.md Block 4)
-- **Pre-Launch:** Anthropic API budget monitoring
+- **Active:** Vercel built-in analytics, Supabase dashboard
+- **Active:** Sentry error tracking (`@sentry/nextjs`) – client, server, and edge configs. Global error boundary (`global-error.tsx`). All Claude-calling API routes report exceptions.
+- **Active:** Anthropic API budget monitoring (limit set in dashboard)
 
 ---
 

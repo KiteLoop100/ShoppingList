@@ -89,6 +89,17 @@ Zentrale Sammelstelle für alle Sicherheitsthemen, die nach MVP-Stabilisierung u
 
 ---
 
+## S7 – Zusätzliche Security-Härtung
+
+| Feld | Wert |
+|------|------|
+| **Priorität** | Mittel |
+| **Status** | 🟢 Erledigt (2026-03-03) |
+| **Betrifft** | `next.config.js`, Admin-API-Routes, `flyer-processing-status`, `reprocess-all-flyers.mjs` |
+| **Lösung** | (1) Security Headers in `next.config.js`: `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`, `X-XSS-Protection`, restriktive `Permissions-Policy`. (2) TLS-Bypass (`NODE_TLS_REJECT_UNAUTHORIZED = "0"`) aus `reprocess-all-flyers.mjs` entfernt. (3) Zod-Validierung für Admin-API-Routes (`reclassify-products`, `assign-demand-groups`, `batch-jobs`). (4) Auth-Check und Rate-Limiting für `/api/flyer-processing-status`. (5) Debug-Logging (`console.table`) aus `local-search.ts` entfernt. |
+
+---
+
 ## Umsetzungsreihenfolge (Empfehlung)
 
 | Schritt | Item | Status | Begründung |
@@ -98,8 +109,9 @@ Zentrale Sammelstelle für alle Sicherheitsthemen, die nach MVP-Stabilisierung u
 | 3 | **S1** Storage | 🟢 | Private Buckets + Signed URLs |
 | 4 | **S5** Validation | 🟢 | Zod-Schema-Validierung für alle API-Routes |
 | 5 | **S6** API-Schutz | 🟢 | Upstash Rate-Limiting + Anthropic Budget-Limit |
+| 6 | **S7** Härtung | 🟢 | Security Headers, TLS-Fix, Admin Validation, flyer-status Auth |
 
 ---
 
 *Erstellt: 2026-02-23*
-*Zuletzt aktualisiert: 2026-02-26 (S5 + S6 erledigt – alle Items abgeschlossen)*
+*Zuletzt aktualisiert: 2026-03-03 (S7 erledigt – alle Items abgeschlossen)*

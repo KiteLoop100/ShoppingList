@@ -5,6 +5,118 @@
 
 ---
 
+## 2026-03-03 – Category Color Bar Bugfix
+
+- **Modified: `src/components/list/shopping-list-content.tsx`** – `getCategoryColor()` was receiving demand group *names* (e.g. "Milch/Sahne/Butter") instead of demand group *codes* (e.g. "83"), causing all category bars to render in fallback gray. Fixed by adding `demandGroupCode` field to the `CategoryGroup` interface and populating it from `item.demand_group_code` in `groupConsecutiveByCategory()`. The `style` attribute now passes `group.demandGroupCode` to `getCategoryColor()`.
+
+---
+
+## 2026-03-03 – F25: Customer Feedback (Product, General, Post-Shopping)
+
+- **New: `supabase/migrations/20260303200000_feedback.sql`** – `feedback` table with `feedback_type` CHECK, `rating` range CHECK, `message` length CHECK, RLS policies (users INSERT own, admin SELECT/UPDATE/DELETE), indexes on `user_id`, `feedback_type`, `status`, `created_at`.
+- **New: `src/app/api/feedback/route.ts`** – POST endpoint with Zod validation, Upstash rate limiting (10 per day), duplicate detection (same user + product + message within 24h). Returns 201 on success.
+- **New: `src/components/feedback/feedback-shared.tsx`** – Shared components: `StarRating`, `CategoryChips`, `FeedbackTextArea` with character counter.
+- **New: `src/components/feedback/product-feedback-form.tsx`** – Collapsible form in Product Detail Modal with star rating, category chips, and text area.
+- **New: `src/components/feedback/general-feedback-form.tsx`** – Full-page general feedback form.
+- **New: `src/components/feedback/post-shopping-prompt.tsx`** – Post-shopping prompt with emoji face rating (maps to 1–5). Appears at most once per trip with 3+ items.
+- **New: `src/app/[locale]/feedback/page.tsx`** – General feedback page.
+- **New: `src/app/[locale]/admin/feedback-panel.tsx`** – Admin feedback viewer with type/category filter, status management, pagination.
+- **New: `src/lib/feedback/feedback-types.ts`** – TypeScript interfaces for feedback data.
+- **Modified: `src/components/list/product-detail-modal.tsx`** – Added collapsible product feedback section.
+- **Modified: `src/app/[locale]/settings/settings-client.tsx`** – Added "Feedback" link to Settings.
+- **Modified: `src/components/list/shopping-list-content.tsx`** – Post-shopping feedback trigger after last item checked off.
+- **Modified: `src/lib/api/rate-limit.ts`** – New `feedbackRateLimit` (10 req/day).
+- **Modified: `src/messages/de.json` + `en.json`** – Feedback i18n keys.
+- **Specs updated:** `FEATURES-FEEDBACK.md` (status: Implemented), `DATA-MODEL.md` (Section 20: Feedback table).
+
+---
+
+## 2026-03-03 – BL-62: Demand-Group Consolidation (Phases 1–3)
+
+### Phase 1: DB Schema
+- **New: `supabase/migrations/20260303120000_demand_groups_schema.sql`** – Creates `demand_groups` (code PK, name, name_en, icon, color, sort_position) and `demand_sub_groups` tables, populates ~61 demand groups and ~250 sub-groups, adds `demand_group_code` FK to `products`, RLS policies.
+- **Specs updated:** `DATA-MODEL.md` (Section 6c–6e: demand group model, migration strategy).
+
+### Phase 2: Backend Logic
+- **Modified: `src/types/index.ts`** – `Product`, `ListItem`, `AisleOrder`, `AggregatedAisleOrder`, `CheckoffSequenceItem` updated to use `demand_group_code` (required). `category_id` marked deprecated. New `DemandGroup` type.
+- **Modified: `src/lib/category/assign-category.ts`** – `assignDemandGroup()` uses `demand_groups` table, returns `demand_group_code`. `assignCategory()` deprecated wrapper.
+- **Modified: `src/lib/store/aisle-order.ts`** – `getDemandGroupOrderForList()` uses `db.demand_groups` and `demand_group_code`. `getCategoryOrderForList()` deprecated alias.
+- **Modified: `src/lib/list/list-helpers.ts`** – `sortAndGroupItems()` primarily uses `demand_group_code`. `sortAndGroupItemsHierarchical()` deprecated (merged).
+- **Modified: `src/lib/categories/category-colors.ts`** – `DEMAND_GROUP_COLORS` keyed by demand group codes. `CATEGORY_COLORS` removed.
+- **Modified: `src/lib/i18n/category-translations.ts`** – EN/DE maps removed. `translateDemandGroupName()` uses `demand_groups` table. `translateCategoryName()` deprecated.
+- **Modified: `src/lib/db/seed-data.ts`** – `SEED_DEMAND_GROUPS` primary, `SEED_CATEGORIES` deprecated alias.
+- **New: `supabase/migrations/20260303130000_bl62_demand_group_code_on_items.sql`** – Adds `demand_group_code` to `list_items` and `trip_items`.
+
+### Phase 3: Frontend Migration & Cleanup
+- **Modified (many files):** All UI components, API routes, and services migrated from `category_id` to `demand_group_code`.
+- **Removed deprecated code:** `SEED_CATEGORIES`, `assignCategory()`, `getCategoryOrderForList()`, `sortAndGroupItemsHierarchical()`, `fetchCategoriesFromSupabase()`, `getCachedCategories()`, `loadCategories()`, `buildCategoryListPrompt()`, `translateCategoryName()`, `getDefaultCategoryId()`, `getAktionsartikelCategoryId()`, `CATEGORY_COLORS`.
+- **Modified: `src/types/index.ts`** – `category_id` completely removed from all interfaces.
+- **Modified: `src/lib/db/indexed-db.ts`** – `categories` Dexie store dropped (v11). Added IndexedDB auto-recovery for schema upgrade failures.
+- **New: `supabase/migrations/20260303140000_bl62_category_id_nullable.sql`** – Makes `category_id` nullable on `list_items`/`trip_items`.
+- **New: `supabase/migrations/20260304000000_drop_unused_tables.sql`** – Drops FK constraints, `category_id` columns, and unused legacy tables (`categories`, `aisle_orders`, `aggregated_aisle_orders`).
+- **Specs updated:** `DATA-MODEL.md` (Phase status updated, data flow updated), `BACKLOG.md` (BL-62 P1–P3 marked complete, Phase 4 remaining).
+
+---
+
+## 2026-03-03 – Flyer Scroll Fix
+
+- **Modified: `src/app/[locale]/flyer/flyer-page-image.tsx`** – Conditionally prevents default for `wheel` events only when zoomed in. When not zoomed, the page scroll works normally instead of being trapped inside the flyer component.
+
+---
+
+## 2026-03-03 – Product Delta-Sync with IndexedDB Cache
+
+- **Modified: `src/lib/db/indexed-db.ts`** – Dexie version 9: changed `products` table PK from `++id` to `product_id`, added `country` index.
+- **Modified: `src/lib/products-context.tsx`** – Implemented `loadFromCache()` for instant startup from IndexedDB, `deltaSync()` for background synchronization using `updated_at` timestamps. On first load: serve cached products immediately, then sync deltas in background. Reduces initial load from full catalog download to near-instant startup after first visit.
+
+---
+
+## 2026-03-03 – Sentry Error Tracking
+
+- **New: `sentry.client.config.ts`** – Client-side Sentry config (2% trace sample rate, replay on error).
+- **New: `sentry.server.config.ts`** – Server-side Sentry config.
+- **New: `sentry.edge.config.ts`** – Edge runtime Sentry config.
+- **New: `src/app/global-error.tsx`** – Global React Error Boundary: captures exceptions via `Sentry.captureException`, shows user-friendly error page with retry button.
+- **Modified: `next.config.js`** – Wrapped with `withSentryConfig`. Sentry is optional (graceful skip if not configured).
+- **Modified: `src/app/api/process-receipt/route.ts`, `process-photo/route.ts`, `upload-receipt-photo/route.ts`, `process-flyer-page/route.ts`** – Added `Sentry.captureException()` in error handlers.
+- **Modified: `.env.example`** – Added `SENTRY_DSN`, `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_AUTH_TOKEN`.
+- **Modified: `.gitignore`** – Added `.sentryclirc`.
+- **Specs updated:** `ARCHITECTURE.md` (Sentry in Pre-Launch Extensions).
+
+---
+
+## 2026-03-03 – Privacy Page (DSGVO)
+
+- **New: `src/app/[locale]/privacy/page.tsx`** – Server Component, passes locale to client.
+- **New: `src/app/[locale]/privacy/privacy-client.tsx`** – Full DSGVO-compliant privacy policy page covering data collection, Supabase/Anthropic/Sentry/Vercel data processing, user rights, deletion, contact.
+- **Modified: `src/app/[locale]/settings/settings-client.tsx`** – Added "Datenschutzerklärung" link in Settings.
+- **Modified: `src/app/[locale]/login/page.tsx`** – Added privacy policy link on login page.
+- **Modified: `src/messages/de.json` + `en.json`** – Privacy page i18n keys.
+
+---
+
+## 2026-03-03 – Additional Security Hardening
+
+- **Modified: `next.config.js`** – Added `headers()` function returning security headers: `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`, `X-XSS-Protection: 1; mode=block`, `Permissions-Policy` (restrictive).
+- **Modified: `scripts/reprocess-all-flyers.mjs`** – Removed `NODE_TLS_REJECT_UNAUTHORIZED = "0"` (TLS certificate bypass).
+- **Modified: `src/app/api/admin/reclassify-products/route.ts`, `assign-demand-groups/route.ts`, `batch-jobs/route.ts`** – Added Zod schema validation for all admin API routes.
+- **Modified: `src/app/api/flyer-processing-status/route.ts`** – Added authentication check and rate limiting (was previously unprotected).
+- **Modified: `.env.example`** – Added `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`, `GOOGLE_GEMINI_API_KEY`.
+- **Modified: `src/lib/search/local-search.ts`** – Removed debug `console.table` block.
+
+---
+
+## 2026-03-03 – Documentation & Cleanup
+
+- **Modified: `src/app/api/extract-product-info/route.ts`** – Corrected comment from "ZXing" to "ZBar WASM".
+- **Modified: `src/lib/db/seed-category-aliases.ts`, `seed-data.ts`, `seed.ts`** – Cleaned up deprecated seed data markers.
+- **Modified: `src/lib/sync/README.md`, `src/lib/search/README.md`, `src/lib/sorting/README.md`** – Updated to reflect current implementations.
+- **Modified: `specs/LAUNCH-READINESS.md`** – Blocks 7 (Onboarding) and 8 (PWA) marked DONE.
+- **Modified: `specs/BACKLOG.md`** – BL-60, BL-61 marked as DONE.
+- **Modified: `specs/FEATURES-ELSEWHERE.md`** – ZBar WASM documented, B3 marked DONE.
+
+---
+
 ## 2026-03-02 – Multi-Retailer Receipt Scanning (B3)
 
 - **New: `supabase/migrations/20260302400000_multi_retailer_receipts.sql`** – Adds `retailer TEXT` to `receipts` (backfills existing as 'ALDI'), adds `competitor_product_id UUID` FK to `receipt_items`, new indexes.

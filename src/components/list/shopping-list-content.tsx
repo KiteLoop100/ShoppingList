@@ -29,6 +29,7 @@ import type { Product } from "@/types";
 
 interface CategoryGroup {
   categoryName: string;
+  demandGroupCode: string;
   items: ListItemWithMeta[];
 }
 
@@ -39,7 +40,7 @@ function groupConsecutiveByCategory(items: ListItemWithMeta[]): CategoryGroup[] 
     if (last && last.categoryName === item.category_name) {
       last.items.push(item);
     } else {
-      groups.push({ categoryName: item.category_name, items: [item] });
+      groups.push({ categoryName: item.category_name, demandGroupCode: item.demand_group_code, items: [item] });
     }
   }
   return groups;
@@ -422,7 +423,7 @@ export const ShoppingListContent = memo(function ShoppingListContent({
                   <div
                     key={`${group.categoryName}-${gi}`}
                     className="space-y-1 border-l-4 pl-1"
-                    style={{ borderColor: getCategoryColor(group.categoryName) }}
+                    style={{ borderColor: getCategoryColor(group.demandGroupCode) }}
                   >
                     {group.items.map((item) => (
                       <ListItemRow

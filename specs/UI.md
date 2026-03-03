@@ -368,7 +368,7 @@ Brief success animation (subtle, ALDI-style). Auto-switch to home after 1-2 seco
 - **Greyed out (checked):** Light grey (#CCCCCC)
 - **Error/Delete:** Red (#E74C3C)
 - **Success:** Green (#27AE60)
-- **Category colour bar (Shopping Order mode only):** A continuous 4px vertical bar on the left side groups consecutive items of the same app category. When the category changes, a visible gap (12px) separates the groups. Colours are bold, ALDI-inspired, and defined in `src/lib/categories/category-colors.ts`. Applied to unchecked, non-deferred items only. Colour assignments: dark gold (Bakery), green (Fruits & Vegetables), red (Fresh Meat & Fish), blue (Dairy), teal (Chilled Convenience), blue-grey (Freezer), brown (Pantry, Breakfast), dark blue (Non-Alcoholic Beverages), dark green (Alcoholic Beverages), red-brown (Snacking), pink (Health, Beauty & Baby), neutral grey (Household, Electronics, Fashion, Home Improvement, Outdoor/Leisure, Services, Sonstiges).
+- **Category colour bar (Shopping Order mode only):** A continuous 4px vertical bar on the left side groups consecutive items of the same demand group. When the demand group changes, a visible gap (12px) separates the groups. ~61 demand-group-specific colours are defined in `src/lib/categories/category-colors.ts`, keyed by demand group code (e.g. "83" → dairy blue, "56" → bakery gold). Colours are organized in families: amber (Bakery), green (Fruits & Vegetables), red (Fresh Meat), burgundy (Chilled Meat/Sausage), teal (Chilled Convenience), blue (Dairy), brown (Pantry), steel blue (Frozen), orange (Snacking), pink (Health/Beauty/Baby), slate (Household). Applied to unchecked, non-deferred items only.
 
 ### 5.2 Typography
 - Clear, readable sans-serif font

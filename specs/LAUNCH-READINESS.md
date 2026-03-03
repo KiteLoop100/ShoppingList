@@ -9,88 +9,62 @@
 
 - [x] **Vercel Pro Plan** ($20/Monat) — bereits vorhanden
 - [x] **Supabase Pro Plan** ($25/Monat) — wegen Bandwidth-Limits bei 100+ Nutzern
-- [x] **Anthropic API Budget-Limit** — auf $50/Monat setzen (Dashboard → Usage → Limits)
-- [ ] **Supabase Anonymous Auth aktivieren** — Dashboard → Authentication → Settings
-- [ ] **Supabase Email Provider aktivieren** — Dashboard → Authentication → Providers → Email
-- [ ] **Email-Bestätigung deaktivieren** — Dashboard → Authentication → Settings → Confirm email: OFF (für Test)
+- [x] **Anthropic API Budget-Limit** — deutlich höher als $50/Monat gesetzt
+- [x] **Supabase Anonymous Auth aktivieren** — Dashboard → Authentication → Settings
+- [x] **Supabase Email Provider aktivieren** — Dashboard → Authentication → Providers → Email
+- [x] **Email-Bestätigung deaktivieren** — Dashboard → Authentication → Settings → Confirm email: OFF (für Test)
 
 ---
 
 ## Umsetzungsreihenfolge
 
 ```
-Block 0: Account & Multi-Device ──────────────────────────────────
+Block 0: Account & Multi-Device [DONE] ──────────────────────────
   │  Auth, IndexedDB → Supabase, Realtime Sync
   │  Prompt: prompts/launch-readiness/00-account.md
-  │  Modell: Opus 4.6 Max Mode (komplexer Architektur-Umbau)
-  │  Branch: feature/account
   │
   ▼
-Block 1: Row-Level Security ──────────────────────────────────────
+Block 1: Row-Level Security [DONE] ──────────────────────────────
   │  RLS-Policies auf auth.uid() umstellen
   │  Prompt: prompts/launch-readiness/01-rls.md
-  │  Modell: Opus 4.6 (normal reicht)
-  │  Branch: feature/rls
-  │  Abhängigkeit: Block 0
   │
   ▼
-Block 2: Storage-Sicherheit ──────────────────────────────────────
+Block 2: Storage-Sicherheit [DONE] ──────────────────────────────
   │  Private Bucket für Kassenzettel, Signed URLs
   │  Prompt: prompts/launch-readiness/02-storage-security.md
-  │  Modell: Opus 4.6 (normal reicht)
-  │  Branch: feature/storage-security
-  │  Abhängigkeit: Block 0
   │
   ▼
-Block 3: Rate-Limiting & API-Validierung ─────────────────────────
+Block 3: Rate-Limiting & API-Validierung [DONE] ─────────────────
   │  Upstash Rate-Limit, Zod-Validierung
   │  Prompt: prompts/launch-readiness/03-rate-limiting.md
-  │  Modell: Opus 4.6 (normal reicht)
-  │  Branch: feature/rate-limiting
-  │  Abhängigkeit: Block 0 (für per-User Limits)
   │
   ▼
-Block 4: Error Tracking ─────────────────────────────────────────
-  │  Sentry einbinden
+Block 4: Error Tracking [DONE] ──────────────────────────────────
+  │  Sentry eingebunden (client, server, edge config)
   │  Prompt: prompts/launch-readiness/04-error-tracking.md
-  │  Modell: Opus 4.6 (normal reicht)
-  │  Branch: feature/error-tracking
-  │  Abhängigkeit: keine
   │
   ▼
-Block 5: Produkt-Sync optimieren ─────────────────────────────────
+Block 5: Produkt-Sync optimieren [DONE] ─────────────────────────
   │  Delta-Sync mit IndexedDB-Cache statt Full-Reload
   │  Prompt: prompts/launch-readiness/05-product-sync.md
-  │  Modell: Opus 4.6 Max Mode (Performance-kritisch)
-  │  Branch: feature/product-sync
-  │  Abhängigkeit: keine
   │
   ▼
-Block 6: Datenschutzerklärung ────────────────────────────────────
-  │  DSGVO-konforme Datenschutzseite
+Block 6: Datenschutzerklärung [DONE] ────────────────────────────
+  │  DSGVO-konforme Datenschutzseite unter /privacy
   │  Prompt: prompts/launch-readiness/06-privacy-page.md
-  │  Modell: Opus 4.6 (normal reicht)
-  │  Branch: feature/privacy
-  │  Abhängigkeit: Block 0 (Auth muss beschrieben sein)
   │
   ▼
 Block 7: Onboarding [DONE] ──────────────────────────────────────
   │  First-Start-Flow für neue Nutzer (7 Screens implementiert)
   │  Prompt: prompts/launch-readiness/07-onboarding.md
-  │  Modell: Opus 4.6 (normal reicht)
-  │  Branch: feature/onboarding
-  │  Abhängigkeit: Block 0 (Login-Flow muss stehen)
   │
   ▼
 Block 8: PWA aktivieren [DONE] ──────────────────────────────────
   │  Service Worker, Manifest, App-Icon (aktiv in next.config.js + manifest.json)
   │  Prompt: prompts/launch-readiness/08-pwa.md
-  │  Modell: Opus 4.6 (normal reicht)
-  │  Branch: feature/pwa
-  │  Abhängigkeit: keine
   │
   ▼
-🚀 LAUNCH – Friendly User Test
+🚀 LAUNCH – Friendly User Test (deployed to Vercel Production)
 ```
 
 ---
@@ -132,6 +106,13 @@ feature/rls      ──push──→  Vercel Preview URL  ──test──→  P
 
 Vor der Freigabe an Nutzer auf Production prüfen:
 
+- [x] Build & Compile check (npm run build)
+- [x] Alle Seiten erreichbar (HTTP 200), /api/feedback 401 (korrekt ohne Auth)
+- [x] Unit Tests bestanden (14/14)
+- [x] DB-Migrationen angewendet (Feedback, BL-62)
+- [x] HTML-Content aller Seiten verifiziert
+- [x] Keine Server-Errors in Logs
+- [x] Production-Deployment auf Vercel live
 - [ ] Neuer Nutzer: App öffnen → anonymer Account → Liste anlegen → Produkte suchen → abhaken
 - [ ] Konto erstellen → auf zweitem Gerät einloggen → gleiche Liste sichtbar
 - [ ] Kassenzettel scannen → Daten korrekt → nur eigene Kassenzettel sichtbar
@@ -185,4 +166,5 @@ Vor der Freigabe an Nutzer auf Production prüfen:
 ---
 
 *Created: 2026-02-25*
-*Status: In Progress (Block 7 + Block 8 done)*
+*Last updated: 2026-03-03*
+*Status: All blocks DONE. Deployed to Vercel Production.*

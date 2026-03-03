@@ -1,0 +1,28 @@
+---
+description: Supabase schema hygiene - detect orphaned tables, columns, and FK constraints
+globs: supabase/migrations/**/*.sql
+alwaysApply: false
+---
+
+# Supabase Schema Hygiene
+
+When creating, reviewing, or modifying SQL migrations, always check for orphaned schema objects.
+
+## Checklist
+
+1. **Orphaned tables**: Cross-reference all `CREATE TABLE` statements across `supabase/migrations/` against all `.from("table_name")` calls in `src/`. Any table not referenced in app code is a candidate for removal.
+
+2. **Orphaned columns**: When a migration adds a replacement column (e.g. `demand_group_code` replacing `category_id`), verify the old column is scheduled for removal. Check that no `.select()`, `.eq()`, `.update()` calls reference the old column name.
+
+3. **Dangling FK constraints**: When a referenced table is dropped or a column is removed, all FK constraints pointing to it must be dropped first (use `ALTER TABLE ... DROP CONSTRAINT IF EXISTS`).
+
+4. **Import/seed scripts**: When tables are dropped, update `supabase/imports/` to remove `DELETE FROM` and `INSERT INTO` statements for those tables.
+
+5. **Legacy scripts**: Check `scripts/` for `.from("dropped_table")` references.
+
+## When to suggest a cleanup migration
+
+- A new table replaces an old one (e.g. `demand_groups` replaced `categories`)
+- A feature is removed or was never implemented
+- FK constraints were dropped but the now-unreferenced table still exists
+- A column was made nullable as a "transition step" but the final DROP never happened
