@@ -7,7 +7,7 @@ const nextConfig = {
   reactStrictMode: true,
   eslint: { ignoreDuringBuilds: true },
   // Vercel expects .next; locally avoid Dropbox locking by using a cache dir
-  distDir: process.env.VERCEL ? ".next" : "node_modules/.cache/next-build",
+  distDir: process.env.VERCEL ? ".next" : ".next-local",
 };
 
 const withPWA = require("next-pwa")({
@@ -49,4 +49,27 @@ const withPWA = require("next-pwa")({
   ],
 });
 
-module.exports = withPWA(withNextIntl(nextConfig));
+const baseConfig = withPWA(withNextIntl(nextConfig));
+
+try {
+  if (process.env.SENTRY_ORG) {
+    const { withSentryConfig } = require("@sentry/nextjs");
+    module.exports = withSentryConfig(
+      baseConfig,
+      {
+        silent: true,
+        org: process.env.SENTRY_ORG,
+        project: process.env.SENTRY_PROJECT,
+      },
+      {
+        widenClientFileUpload: true,
+        hideSourceMaps: true,
+        disableLogger: true,
+      }
+    );
+  } else {
+    module.exports = baseConfig;
+  }
+} catch {
+  module.exports = baseConfig;
+}

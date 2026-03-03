@@ -17,6 +17,9 @@ import { processFlyer } from "@/lib/api/photo-processing/process-flyer";
 import { processVisionPhoto } from "@/lib/api/photo-processing/process-product-photo";
 import { log } from "@/lib/utils/logger";
 
+let Sentry: typeof import("@sentry/nextjs") | null = null;
+try { Sentry = require("@sentry/nextjs"); } catch {}
+
 const processPhotoSchema = z.object({
   upload_id: z.string().min(1).max(100),
   photo_url: z.string().url(),
@@ -100,6 +103,7 @@ export async function POST(request: Request) {
   try {
     preprocessed = await fetchAndPreprocessImage(photo_url, is_pdf);
   } catch (e) {
+    Sentry?.captureException(e, { extra: { upload_id } });
     const msg = e instanceof Error ? e.message : "Fetch failed";
     log.error("[process-photo] Fetch failed:", msg);
     await supabase
