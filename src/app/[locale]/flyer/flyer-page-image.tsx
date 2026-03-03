@@ -160,6 +160,7 @@ export function FlyerPageImage({
 
     // Mouse wheel zoom (pointer:fine devices)
     const onWheel = (e: WheelEvent) => {
+      if (scaleRef.current <= 1 && !e.ctrlKey && !e.metaKey) return;
       e.preventDefault();
       const delta = -e.deltaY * 0.002;
       const newScale = Math.max(1, Math.min(4, scaleRef.current + delta));
