@@ -5,8 +5,6 @@ import { createSupabaseServerFromRequest } from "@/lib/supabase/server";
 import { generalRateLimit, checkRateLimit } from "@/lib/api/rate-limit";
 import { log } from "@/lib/utils/logger";
 
-let Sentry: typeof import("@sentry/nextjs") | null = null;
-try { Sentry = require("@sentry/nextjs"); } catch {}
 
 const uploadReceiptPhotoSchema = z.object({
   base64: z.string().min(100).max(5_000_000),
@@ -79,7 +77,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ url: signedData.signedUrl, path });
   } catch (err) {
-    Sentry?.captureException(err, { extra: { photo_type: "receipt" } });
     log.error("[upload-receipt-photo] Upload error:", err);
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Upload failed" },

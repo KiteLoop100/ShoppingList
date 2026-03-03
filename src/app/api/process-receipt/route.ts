@@ -14,8 +14,6 @@ import {
 } from "@/lib/retailers/retailers";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-let Sentry: typeof import("@sentry/nextjs") | null = null;
-try { Sentry = require("@sentry/nextjs"); } catch {}
 
 const NON_PRODUCT_PATTERN = /^(PFAND|LEERGUT|EINWEG|MEHRWEG|EC-ZAHLUNG|SUMME|ZWISCHENSUMME|RABATT|NACHLASS|TREUEPUNKTE|PAYBACK)/i;
 
@@ -490,7 +488,6 @@ export async function POST(request: Request) {
       items_linked: itemsLinked,
     });
   } catch (err) {
-    Sentry?.captureException(err, { extra: { receipt_id: receiptId } });
     log.error("[process-receipt] Unhandled error:", err);
     return NextResponse.json(
       { error: "Internal server error" },
