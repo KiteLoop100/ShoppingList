@@ -13,6 +13,7 @@ import { usePersistedSort } from "@/hooks/use-persisted-sort";
 import { useStoreDetection } from "@/hooks/use-store-detection";
 import { OnboardingFlow, ONBOARDING_COMPLETE_KEY } from "@/components/onboarding/onboarding-flow";
 import { useAuth } from "@/lib/auth/auth-context";
+import { PostShoppingPrompt } from "@/components/feedback/post-shopping-prompt";
 
 const COMPLETION_DELAY_MS = 1800;
 
@@ -26,6 +27,9 @@ export default function MainScreenPage() {
 
   const [showCompletion, setShowCompletion] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [lastTripId, setLastTripId] = useState<string | null>(null);
+  const [lastCheckedCount, setLastCheckedCount] = useState(0);
+  const [showFeedbackPrompt, setShowFeedbackPrompt] = useState(false);
   const searchParams = useSearchParams();
   const { user, isAnonymous } = useAuth();
 
@@ -133,19 +137,27 @@ export default function MainScreenPage() {
 
   const handleLastItemChecked = useCallback(
     async (checkedListId: string, deferredItemIds: string[]) => {
+      const checkedCount = stableListData.checked.length;
       resetOnCompletion();
-      await archiveListAsTrip(checkedListId, deferredItemIds);
+      const tripId = await archiveListAsTrip(checkedListId, deferredItemIds);
       setUserHasManuallyChosenSort(false);
       setSortMode("my-order");
       setShowCompletion(true);
       refetch();
+      if (tripId) {
+        setLastTripId(tripId);
+        setLastCheckedCount(checkedCount);
+      }
       if (completionTimerRef.current) clearTimeout(completionTimerRef.current);
       completionTimerRef.current = setTimeout(() => {
         completionTimerRef.current = null;
         setShowCompletion(false);
+        if (tripId && checkedCount >= 3) {
+          setShowFeedbackPrompt(true);
+        }
       }, COMPLETION_DELAY_MS);
     },
-    [refetch, setSortMode, setUserHasManuallyChosenSort, resetOnCompletion]
+    [refetch, setSortMode, setUserHasManuallyChosenSort, resetOnCompletion, stableListData.checked.length]
   );
 
   // Detect "last item checked" directly from stableListData — avoids child → callback → parent cascade.
@@ -264,6 +276,14 @@ export default function MainScreenPage() {
             <span className="text-xl font-semibold">{tList("tripComplete")}</span>
           </div>
         </div>
+      )}
+
+      {showFeedbackPrompt && (
+        <PostShoppingPrompt
+          tripId={lastTripId}
+          checkedCount={lastCheckedCount}
+          onDismiss={() => setShowFeedbackPrompt(false)}
+        />
       )}
 
       {showOnboarding && (

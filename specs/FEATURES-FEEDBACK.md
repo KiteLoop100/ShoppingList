@@ -323,4 +323,4 @@ Add to DATA-MODEL.md as section 20:
 ---
 
 *Created: 2026-02-27*
-*Status: Planned — MVP*
+*Status: Implemented — MVP*

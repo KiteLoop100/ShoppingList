@@ -13,11 +13,12 @@ import { CategoryAliasPanel } from "./category-alias-panel";
 import { BatchJobsPanel } from "./batch-jobs-panel";
 import { GalleryUploadPanel } from "./gallery-upload-panel";
 import { SortingErrorsPanel } from "./sorting-errors-panel";
+import { FeedbackPanel } from "./feedback-panel";
 import { useBatchJobs } from "./use-batch-jobs";
 import { useGalleryUpload } from "./use-gallery-upload";
 import { CreateProductModal } from "@/app/[locale]/capture/create-product-modal";
 
-type Section = "products" | "aliases" | "errors";
+type Section = "products" | "aliases" | "errors" | "feedback";
 
 export function AdminClient() {
   const t = useTranslations("admin");
@@ -64,7 +65,7 @@ export function AdminClient() {
         </header>
 
         <nav className="mb-6 flex gap-2 border-b border-aldi-muted-light pb-2">
-          {(["products", "aliases", "errors"] as Section[]).map((s) => (
+          {(["products", "aliases", "errors", "feedback"] as Section[]).map((s) => (
             <button
               key={s}
               type="button"
@@ -104,6 +105,10 @@ export function AdminClient() {
 
         {section === "errors" && (
           <SortingErrorsPanel errors={errors} stores={stores} />
+        )}
+
+        {section === "feedback" && (
+          <FeedbackPanel />
         )}
         <CreateProductModal
           open={createProductOpen}

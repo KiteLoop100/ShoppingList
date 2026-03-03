@@ -9,6 +9,7 @@ import type { ReorderUnit } from "@/hooks/use-auto-reorder";
 import type { Product } from "@/types";
 import { formatNutritionInfo } from "@/lib/products/nutrition-utils";
 import { BaseModal } from "@/components/ui/base-modal";
+import { ProductFeedbackForm } from "@/components/feedback/product-feedback-form";
 
 export interface ProductDetailModalProps {
   product: Product | null;
@@ -233,6 +234,8 @@ export function ProductDetailModal({ product, onClose, onEdit, onReorderChanged 
                 </div>
               )}
             </div>
+
+            <ProductFeedbackForm product={product} />
 
             {onEdit && (
               <div className="mt-4 border-t border-aldi-muted-light pt-4">

@@ -45,6 +45,16 @@ export const generalRateLimit = redis
     })
   : null;
 
+/** 10 feedbacks per day per user – anti-spam for the feedback system (F25). */
+export const feedbackRateLimit = redis
+  ? new Ratelimit({
+      redis,
+      limiter: Ratelimit.slidingWindow(10, "1 d"),
+      analytics: true,
+      prefix: "ratelimit:feedback",
+    })
+  : null;
+
 export function getIdentifier(
   request: Request,
   userId?: string | null

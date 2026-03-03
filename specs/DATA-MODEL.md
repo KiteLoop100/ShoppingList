@@ -563,6 +563,24 @@ Average aisle order across all stores. Fallback for stores without own data.
 
 ---
 
+## 20. Feedback
+
+| Field | Description |
+|-------|-------------|
+| feedback_id | Unique ID |
+| user_id | Submitting user (auth.uid()) |
+| feedback_type | product / general / post_shopping |
+| product_id | Product reference (product feedback only) |
+| trip_id | Trip reference (post-shopping only) |
+| store_id | Store context (optional) |
+| category | Category tag (quality, price, app, etc.) |
+| rating | 1–5 stars or emoji rating (optional) |
+| message | Free-text feedback (max 2,000 chars) |
+| status | new / read / archived |
+| created_at | Submission timestamp |
+
+---
+
 ## 19. Data Flow Overview
 
 ```
@@ -601,4 +619,4 @@ ShoppingTrip archived → UserProductPreference updated
 ---
 
 *Last updated: 2026-03-03*
-*Status: Draft v7 – Demand groups schema added (demand_groups + demand_sub_groups tables, migration strategy from categories)*
+*Status: Draft v8 – Feedback table added (F25 Customer Feedback)*
