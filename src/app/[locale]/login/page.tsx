@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { useRouter } from "@/lib/i18n/navigation";
+import { useRouter, Link } from "@/lib/i18n/navigation";
 import { useAuth } from "@/lib/auth/auth-context";
 
 type Mode = "login" | "register";
@@ -157,6 +157,19 @@ export default function LoginPage() {
             {t("forgotPassword")}
           </button>
         </div>
+
+        <p className="mt-6 text-center text-xs text-aldi-muted">
+          {t.rich("privacyNotice", {
+            privacyLink: (chunks) => (
+              <Link
+                href="/privacy"
+                className="text-aldi-blue underline underline-offset-2 hover:text-aldi-blue/80"
+              >
+                {chunks}
+              </Link>
+            ),
+          })}
+        </p>
       </div>
     </main>
   );
