@@ -11,7 +11,7 @@ import { fetchOpenFoodFacts } from "@/lib/products/open-food-facts";
 import { getDemandGroupFallback } from "@/lib/products/demand-group-fallback";
 import { findExistingProduct } from "@/lib/products/find-existing";
 import { upsertProduct } from "@/lib/products/upsert-product";
-import { getDefaultCategoryId, getAktionsartikelCategoryId } from "@/lib/products/default-category";
+import { getDefaultDemandGroupCode, getAktionsartikelDemandGroupCode } from "@/lib/products/default-category";
 import type {
   ExtractedProduct,
   ExtractedProductWithPage,
@@ -71,9 +71,9 @@ export async function upsertExtractedProducts(
     thumbnail_url: string;
   }> = [];
 
-  const defaultCategoryId = await getDefaultCategoryId(supabase);
+  const defaultDemandGroupCode = getDefaultDemandGroupCode();
   const isFlyer = photoType === "flyer" || photoType === "flyer_pdf";
-  const aktionCategoryId = isFlyer ? await getAktionsartikelCategoryId(supabase) : null;
+  const aktionDemandGroupCode = isFlyer ? getAktionsartikelDemandGroupCode() : null;
 
   if (flyerIdForProducts) {
     const flyerPages = [
@@ -223,14 +223,14 @@ export async function upsertExtractedProducts(
           }, { onConflict: "flyer_id,page_number,product_id" });
         }
       }
-    } else if (defaultCategoryId) {
+    } else {
       const source = photoType === "flyer_pdf" ? "import" : "crowdsourcing";
       const resolvedThumbUrl = thumbnailUrl ?? photoUrl;
-      const newCategoryId = isFlyer ? (aktionCategoryId ?? defaultCategoryId) : defaultCategoryId;
+      const newDemandGroupCode = isFlyer ? (aktionDemandGroupCode ?? defaultDemandGroupCode) : defaultDemandGroupCode;
       const result = await upsertProduct(supabase, {
         name: displayName,
         name_normalized: nameNormalized,
-        category_id: newCategoryId,
+        demand_group_code: newDemandGroupCode,
         article_number: articleNumber,
         brand,
         price,

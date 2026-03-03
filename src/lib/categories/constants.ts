@@ -13,12 +13,6 @@ export interface DemandGroupEntry {
   name_en: string | null;
 }
 
-/** @deprecated Use DemandGroupEntry and loadDemandGroups instead. */
-export interface CategoryEntry {
-  id: string;
-  name: string;
-}
-
 let _cached: DemandGroupEntry[] | null = null;
 
 /**
@@ -50,17 +44,3 @@ export function buildDemandGroupListPrompt(
   return groups.map((g) => `- ${g.code}: ${g.name}`).join("\n");
 }
 
-/** @deprecated Use loadDemandGroups. Kept for backward compatibility during migration. */
-export async function loadCategories(
-  supabase: SupabaseClient,
-): Promise<CategoryEntry[]> {
-  const groups = await loadDemandGroups(supabase);
-  return groups.map((g) => ({ id: g.code, name: g.name }));
-}
-
-/** @deprecated Use buildDemandGroupListPrompt. */
-export function buildCategoryListPrompt(
-  categories: CategoryEntry[],
-): string {
-  return categories.map((c) => `- ${c.id}: ${c.name}`).join("\n");
-}

@@ -21,7 +21,7 @@ User
   └── has UserProductPreferences
 
 Product (ALDI)
-  └── belongs to a Category
+  └── belongs to a Demand Group (via demand_group_code FK)
   └── has optional price
   └── has assortment type (daily range / special)
 
@@ -92,7 +92,7 @@ A single product on the shopping list.
 | checked_at | Check-off timestamp (important for learning algorithm) |
 | sort_position | Current position in sorted list |
 | demand_group_code | Demand group code (FK to demand_groups). From product or Claude API assignment. |
-| category_id | *(deprecated)* Legacy category UUID. Kept for Phase 3 cleanup. |
+| category_id | *(DB-only)* Legacy column kept in Supabase. Not used by frontend. Will be dropped in Phase 4. |
 | added_at | Timestamp when added |
 | buy_elsewhere_retailer | Retailer name for "buy elsewhere" items (NULL for ALDI items) |
 | competitor_product_id | FK to competitor_products (NULL for ALDI items) |
@@ -123,9 +123,10 @@ An ALDI SÜD product.
 | name | Product name (e.g. "Low-Fat Milk 1.5% 1L") |
 | name_normalized | Normalized name for search and duplicate detection (lowercase, no special chars) |
 | brand | Brand/private label (e.g. "Milsani", "GutBio"). Empty for generic products |
-| demand_group | Customer Demand Group (e.g. "Dairy", "Fruits & Vegetables"). Used for aisle sorting |
+| demand_group_code | FK to demand_groups(code). Primary category key used for sorting and grouping. |
+| demand_group | Customer Demand Group text field (e.g. "Dairy", "Fruits & Vegetables"). Legacy, see demand_group_code. |
 | demand_sub_group | Customer Demand Sub-Group (e.g. "White Line", "Stone Fruit") |
-| category_id | App category (mapped from demand_group) |
+| category_id | *(DB-only)* Legacy column. Not used by frontend, will be dropped in Phase 4. |
 | price | Current price in EUR (optional) |
 | price_updated_at | Last price update timestamp |
 | weight_or_quantity | Weight or quantity description (e.g. "500g", "1L", "6 pieces") |
@@ -253,9 +254,9 @@ Sub-groups within a demand group. Used for fine-grained sorting within a demand 
 ## 6e. Migration Strategy: categories → demand_groups
 
 1. **Phase 1 (DB – DONE):** Create `demand_groups` and `demand_sub_groups` tables with seed data. Add `demand_group_code` column to `products`, populated from the existing `demand_group` text field. Migration: `20260303120000_demand_groups_schema.sql`.
-2. **Phase 2 (Backend – DONE):** Updated sorting logic, category assignment API, and all backend queries to use `demand_group_code` instead of `category_id`. Added `demand_group_code` to `list_items` and `trip_items` (migration `20260303130000_bl62_demand_group_code_on_items.sql`). Updated IndexedDB schema (version 10) with `demand_groups` table. All type interfaces (`Product`, `ListItem`, `TripItem`, `AisleOrder`, `AggregatedAisleOrder`, `CheckoffSequenceItem`) now use `demand_group_code` as primary key, with `category_id` kept as optional/deprecated. `sortAndGroupItems()` and `sortAndGroupItemsHierarchical()` merged into a unified sort function. `SEED_CATEGORIES` replaced by `SEED_DEMAND_GROUPS` (61 entries). Branch: `feature/bl62-backend`.
-3. **Phase 3 (Frontend):** Update all UI components (category bars, filters, shopping order view) to use demand groups. Remove references to old categories.
-4. **Phase 4 (Cleanup):** Drop `categories` table, `category_aliases` table, and all `category_id` columns. Remove `products.demand_group` text column (replaced by the normalized `demand_group_code` FK).
+2. **Phase 2 (Backend – DONE):** Updated sorting logic, category assignment API, and all backend queries to use `demand_group_code` instead of `category_id`. Added `demand_group_code` to `list_items` and `trip_items` (migration `20260303130000_bl62_demand_group_code_on_items.sql`). Updated IndexedDB schema (version 10) with `demand_groups` table. All type interfaces (`Product`, `ListItem`, `TripItem`, `AisleOrder`, `AggregatedAisleOrder`, `CheckoffSequenceItem`) now use `demand_group_code` as primary key. `sortAndGroupItems()` and `sortAndGroupItemsHierarchical()` merged into a unified sort function. `SEED_CATEGORIES` replaced by `SEED_DEMAND_GROUPS` (61 entries). Branch: `feature/bl62-backend`.
+3. **Phase 3 (Frontend – DONE):** All UI components, API routes, and services migrated to use `demand_group_code` exclusively. Removed deprecated code: `SEED_CATEGORIES`, `assignCategory()` wrapper, `getCategoryOrderForList()` alias, `sortAndGroupItemsHierarchical()` alias, `fetchCategoriesFromSupabase()`, `getCachedCategories()`, `loadCategories()`, `buildCategoryListPrompt()`, `translateCategoryName()`, `getDefaultCategoryId()`, `getAktionsartikelCategoryId()`. Removed `category_id` from all TypeScript interfaces (`Product`, `ListItem`, `TripItem`, `AisleOrder`, `CheckoffSequenceItem`, `AggregatedAisleOrder`, `SearchResult`). IndexedDB `categories` table dropped (Dexie v11). `CompetitorProduct.category_id` kept as-is (separate retailer system). `category_aliases` table and `CategoryAlias.category_id` kept (now stores demand group codes). Branch: `feature/bl62-frontend`.
+4. **Phase 4 (Cleanup):** Drop `categories` Supabase table, `category_aliases` table (or migrate `category_id` column to `demand_group_code`), and all `category_id` DB columns. Remove `products.demand_group` text column (replaced by the normalized `demand_group_code` FK).
 
 ---
 
@@ -313,7 +314,7 @@ A single product within a completed shopping trip (archived copy of ListItem).
 | quantity | Quantity |
 | price_at_purchase | Price at time of purchase (if known) |
 | demand_group_code | Demand group code (FK to demand_groups) |
-| category_id | *(deprecated)* Legacy category UUID. Kept for Phase 3 cleanup. |
+| category_id | *(DB-only)* Legacy column. Not used by frontend, will be dropped in Phase 4. |
 | check_position | Check-off order (1, 2, 3, ...) |
 | checked_at | Check-off timestamp |
 | was_removed | Was product swiped away instead of checked off |
@@ -390,12 +391,12 @@ Returns competitor products for a retailer, ranked by user purchase count DESC, 
 
 ## 11. Aisle Order
 
-Learned product/category order for a specific store.
+Learned demand-group order for a specific store.
 
 | Field | Description |
 |-------|-------------|
 | store_id | Store |
-| category_id | Category |
+| demand_group_code | Demand group code (FK to demand_groups) |
 | learned_position | Learned position in store (1 = first, ascending) |
 | confidence | Confidence value (0.0 to 1.0) |
 | data_points | Number of trips contributing to this calculation |
@@ -462,7 +463,7 @@ Average aisle order across all stores. Fallback for stores without own data.
 
 | Field | Description |
 |-------|-------------|
-| category_id | Category |
+| demand_group_code | Demand group code (FK to demand_groups) |
 | average_position | Average position across all stores |
 | std_deviation | Standard deviation |
 | contributing_stores | Number of stores in calculation |
@@ -590,14 +591,14 @@ User adds product
     │
     ▼
 ListItem created
-    │ (generic: category assigned algorithmically)
-    │ (specific: category from Product DB)
+    │ (generic: demand_group assigned via Claude API)
+    │ (specific: demand_group_code from Product DB)
     │
     ▼
 List sorted
     │ (using AisleOrder of detected store
     │  or AggregatedAisleOrder as fallback
-    │  or Category.default_sort_position as base fallback)
+    │  or DemandGroup.sort_position as base fallback)
     │
     ▼
 User checks off products (in store)
@@ -621,4 +622,4 @@ ShoppingTrip archived → UserProductPreference updated
 ---
 
 *Last updated: 2026-03-03*
-*Status: Draft v9 – BL-62 Phase 2: Backend migrated to demand_group_code. Types, API, sorting, seed data, IndexedDB schema updated. DB migration adds demand_group_code to list_items and trip_items.*
+*Status: Draft v10 – BL-62 Phase 3: Frontend fully migrated to demand_group_code. All UI components, API routes, services use demand_group_code exclusively. Deprecated category code removed. IndexedDB categories table dropped (Dexie v11). category_id DB columns remain for Phase 4 cleanup.*

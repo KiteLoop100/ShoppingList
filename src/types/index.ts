@@ -40,8 +40,6 @@ export interface Product {
   demand_group?: string | null;
   demand_sub_group?: string | null;
   demand_group_code: string;
-  /** @deprecated Use demand_group_code. Kept for Phase 3 cleanup. */
-  category_id?: string;
   price: number | null;
   price_updated_at: string | null;
   popularity_score?: number | null;
@@ -122,8 +120,6 @@ export interface ListItem {
   checked_at: string | null;
   sort_position: number;
   demand_group_code: string;
-  /** @deprecated Use demand_group_code. Kept for Phase 3 cleanup. */
-  category_id?: string;
   added_at: string;
   updated_at?: string;
   deferred_until?: string | null;
@@ -153,8 +149,6 @@ export interface TripItem {
   quantity: number;
   price_at_purchase: number | null;
   demand_group_code: string;
-  /** @deprecated Use demand_group_code. Kept for Phase 3 cleanup. */
-  category_id?: string;
   check_position: number;
   checked_at: string;
   was_removed: boolean;
@@ -171,8 +165,6 @@ export interface UserProductPreference {
 export interface AisleOrder {
   store_id: string;
   demand_group_code: string;
-  /** @deprecated Use demand_group_code. Kept for Phase 3 cleanup. */
-  category_id?: string;
   learned_position: number;
   confidence: number;
   data_points: number;
@@ -196,10 +188,7 @@ export interface PairwiseComparison {
 export interface CheckoffSequenceItem {
   item_id: string;
   demand_group_code: string;
-  /** @deprecated Use demand_group_code. Kept for Phase 3 cleanup. */
-  category_id?: string;
   checked_at: string;
-  /** Demand group code for pairwise extraction. */
   demand_group?: string | null;
   /** Demand sub-group (from product) for pairwise extraction. */
   demand_sub_group?: string | null;
@@ -229,8 +218,6 @@ export interface SortingError {
 
 export interface AggregatedAisleOrder {
   demand_group_code: string;
-  /** @deprecated Use demand_group_code. Kept for Phase 3 cleanup. */
-  category_id?: string;
   average_position: number;
   std_deviation: number;
   contributing_stores: number;
@@ -309,10 +296,6 @@ export interface SearchResult {
   name: string;
   demand_group_code: string;
   demand_group_name: string;
-  /** @deprecated Use demand_group_code. Kept for Phase 3 cleanup. */
-  category_id?: string;
-  /** @deprecated Use demand_group_name. Kept for Phase 3 cleanup. */
-  category_name?: string;
   price: number | null;
   score: number;
   source: SearchResultSource;

@@ -9,12 +9,6 @@ export interface DemandGroupAssignment {
   demand_group_name: string;
 }
 
-/** @deprecated Use DemandGroupAssignment. */
-export interface CategoryAssignment {
-  category_id: string;
-  category_name: string;
-}
-
 export class CategoryAssignmentError extends Error {
   constructor(message: string) {
     super(message);
@@ -49,13 +43,3 @@ export async function assignDemandGroup(
   };
 }
 
-/** @deprecated Use assignDemandGroup. Wraps new API for backward compatibility. */
-export async function assignCategory(
-  productName: string
-): Promise<CategoryAssignment> {
-  const result = await assignDemandGroup(productName);
-  return {
-    category_id: result.demand_group_code,
-    category_name: result.demand_group_name,
-  };
-}

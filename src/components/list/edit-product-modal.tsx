@@ -2,13 +2,10 @@
 
 import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
-import { useLocale } from "next-intl";
 import { createClientIfConfigured } from "@/lib/supabase/client";
-import { getCachedCategories } from "@/lib/categories/category-service";
-import { translateCategoryName } from "@/lib/i18n/category-translations";
+import { fetchDemandGroupsFromSupabase, toDemandGroups, type DemandGroupRow } from "@/lib/categories/category-service";
 import { BaseModal } from "@/components/ui/base-modal";
-import type { Product } from "@/types";
-import type { Category } from "@/types";
+import type { Product, DemandGroup } from "@/types";
 
 export interface EditProductModalProps {
   product: Product;
@@ -18,11 +15,10 @@ export interface EditProductModalProps {
 
 export function EditProductModal({ product, onClose, onSaved }: EditProductModalProps) {
   const t = useTranslations("editProduct");
-  const locale = useLocale();
 
   const [name, setName] = useState(product.name);
   const [brand, setBrand] = useState(product.brand ?? "");
-  const [categoryId, setCategoryId] = useState(product.category_id);
+  const [demandGroupCode, setDemandGroupCode] = useState(product.demand_group_code);
   const [price, setPrice] = useState(product.price != null ? String(product.price) : "");
   const [articleNumber, setArticleNumber] = useState(product.article_number ?? "");
   const [ean, setEan] = useState(product.ean_barcode ?? "");
@@ -30,22 +26,16 @@ export function EditProductModal({ product, onClose, onSaved }: EditProductModal
   const [demandSubGroup, setDemandSubGroup] = useState(product.demand_sub_group ?? "");
   const [weightOrQuantity, setWeightOrQuantity] = useState(product.weight_or_quantity ?? "");
   const [assortmentType, setAssortmentType] = useState(product.assortment_type ?? "daily_range");
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [demandGroups, setDemandGroups] = useState<DemandGroup[]>([]);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    getCachedCategories().then((rows) => {
-      if (cancelled) return;
-      setCategories(rows.map((r) => ({
-        category_id: String(r.category_id),
-        name: String(r.name),
-        name_translations: r.name_translations ?? {},
-        icon: String(r.icon ?? "📦"),
-        default_sort_position: Number(r.default_sort_position ?? 999),
-      })));
+    fetchDemandGroupsFromSupabase().then((rows) => {
+      if (cancelled || !rows) return;
+      setDemandGroups(toDemandGroups(rows));
     });
     return () => { cancelled = true; };
   }, []);
@@ -62,7 +52,7 @@ export function EditProductModal({ product, onClose, onSaved }: EditProductModal
           update_existing_product_id: product.product_id,
           name: name.trim(),
           brand: brand.trim() || null,
-          category_id: categoryId,
+          demand_group_code: demandGroupCode,
           price: price.trim() ? parseFloat(price) : null,
           article_number: articleNumber.trim() || null,
           ean_barcode: ean.trim() || null,
@@ -110,14 +100,14 @@ export function EditProductModal({ product, onClose, onSaved }: EditProductModal
               <label className="block">
                 <span className="text-xs font-medium uppercase text-aldi-muted">{t("category")}</span>
                 <select
-                  value={categoryId}
-                  onChange={(e) => setCategoryId(e.target.value)}
+                  value={demandGroupCode}
+                  onChange={(e) => setDemandGroupCode(e.target.value)}
                   className="mt-1 w-full rounded-xl border-2 border-aldi-muted-light px-4 py-2 focus:border-aldi-blue focus:outline-none"
                   required
                 >
-                  {categories.map((c) => (
-                    <option key={c.category_id} value={c.category_id}>
-                      {translateCategoryName(c.name, locale)}
+                  {demandGroups.map((dg) => (
+                    <option key={dg.code} value={dg.code}>
+                      {dg.name}
                     </option>
                   ))}
                 </select>

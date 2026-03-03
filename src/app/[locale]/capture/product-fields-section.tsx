@@ -1,8 +1,7 @@
 "use client";
 
-import { useLocale } from "next-intl";
 import { DEMAND_GROUPS_LIST } from "@/lib/products/demand-groups-list";
-import { translateCategoryName } from "@/lib/i18n/category-translations";
+import { formatDemandGroupLabel } from "@/lib/i18n/category-translations";
 import type { ProductFormFields } from "./use-product-creation";
 
 interface ProductFieldsSectionProps {
@@ -29,8 +28,6 @@ const INPUT_CLASS =
   "rounded-xl border border-aldi-muted-light bg-aldi-bg px-3.5 py-2.5 text-[15px] text-aldi-text transition-colors focus:border-aldi-blue focus:bg-white focus:outline-none focus:ring-1 focus:ring-aldi-blue/20";
 
 export function ProductFieldsSection({ t, tReview, fields, subGroupOptions, setters }: ProductFieldsSectionProps) {
-  const locale = useLocale();
-
   return (
     <div className="rounded-2xl bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
       <section className="grid gap-3.5">
@@ -64,7 +61,7 @@ export function ProductFieldsSection({ t, tReview, fields, subGroupOptions, sett
             <option value="">—</option>
             {DEMAND_GROUPS_LIST.map((g) => (
               <option key={g.group} value={g.group}>
-                {translateCategoryName(g.group, locale)}
+                {formatDemandGroupLabel(g.group)}
               </option>
             ))}
           </select>
@@ -76,7 +73,7 @@ export function ProductFieldsSection({ t, tReview, fields, subGroupOptions, sett
               <option value="">—</option>
               {subGroupOptions.map((sg) => (
                 <option key={sg} value={sg}>
-                  {translateCategoryName(sg, locale)}
+                  {formatDemandGroupLabel(sg)}
                 </option>
               ))}
             </select>

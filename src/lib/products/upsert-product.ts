@@ -18,6 +18,7 @@ export interface ProductData {
   name?: string | null;
   name_normalized?: string | null;
   category_id?: string;
+  demand_group_code?: string;
   article_number?: string | null;
   brand?: string | null;
   price?: number | null;

@@ -1,11 +1,11 @@
 /**
- * Admin: batch-reclassify products via Claude (category_id + assortment_type).
+ * Admin: batch-reclassify products via Claude (demand_group_code + assortment_type).
  * Processes BATCH_SIZE products per request. Caller loops until `done: true`.
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { loadCategories, buildCategoryListPrompt } from "@/lib/categories/constants";
+import { loadDemandGroups, buildDemandGroupListPrompt } from "@/lib/categories/constants";
 import { CLAUDE_MODEL_HAIKU } from "@/lib/api/config";
 import { requireApiKey, requireAdminAuth, requireSupabaseAdmin } from "@/lib/api/guards";
 import { callClaudeJSON } from "@/lib/api/claude-client";
@@ -27,9 +27,9 @@ export async function POST(request: NextRequest) {
   const supabase = requireSupabaseAdmin();
   if (supabase instanceof NextResponse) return supabase;
 
-  const CATEGORIES = await loadCategories(supabase);
-  const CATEGORY_LIST = buildCategoryListPrompt(CATEGORIES);
-  const VALID_IDS = new Set(CATEGORIES.map((c) => c.id));
+  const DEMAND_GROUPS = await loadDemandGroups(supabase);
+  const DEMAND_GROUP_LIST = buildDemandGroupListPrompt(DEMAND_GROUPS);
+  const VALID_CODES = new Set(DEMAND_GROUPS.map((dg) => dg.code));
 
   let rawBody: unknown;
   try {
@@ -37,18 +37,18 @@ export async function POST(request: NextRequest) {
   } catch {
     rawBody = {};
   }
-  const parsed = reclassifySchema.safeParse(rawBody);
-  if (!parsed.success) {
+  const validation = reclassifySchema.safeParse(rawBody);
+  if (!validation.success) {
     return NextResponse.json(
-      { error: "Invalid input", details: parsed.error.flatten() },
+      { error: "Invalid input", details: validation.error.flatten() },
       { status: 400 }
     );
   }
-  const { offset, country } = parsed.data;
+  const { offset, country } = validation.data;
 
   let query = supabase
     .from("products")
-    .select("product_id, name, brand, category_id, assortment_type")
+    .select("product_id, name, brand, demand_group_code, assortment_type")
     .eq("status", "active");
   if (country) query = query.eq("country", country);
   const { data: batch, error: fetchErr } = await query
@@ -70,10 +70,10 @@ export async function POST(request: NextRequest) {
     })
     .join("\n");
 
-  const prompt = `Du bist ein Supermarkt-Experte. Ordne jedem Produkt eine category_id, einen assortment_type, eine availability, is_private_label und is_seasonal zu.
+  const prompt = `Du bist ein Supermarkt-Experte. Ordne jedem Produkt einen demand_group_code, einen assortment_type, eine availability, is_private_label und is_seasonal zu.
 
-Verfügbare Kategorien:
-${CATEGORY_LIST}
+Verfügbare Warengruppen:
+${DEMAND_GROUP_LIST}
 
 Regeln für assortment_type – es gibt genau 3 Werte:
 - "daily_range": Dauersortiment – reguläre Supermarktprodukte die dauerhaft im Sortiment sind (Milch, Brot, Obst, Grundnahrungsmittel, Haushaltswaren usw.)
@@ -101,11 +101,11 @@ Produktliste:
 ${productList}
 
 Antworte NUR mit einem JSON-Array. Kein Markdown, keine Backticks.
-[{"product_id":"uuid","category_id":"uuid","assortment_type":"daily_range oder special_food oder special_nonfood","availability":"national oder regional oder seasonal","is_private_label":true oder false oder null,"is_seasonal":true oder false}, ...]`;
+[{"product_id":"uuid","demand_group_code":"code","assortment_type":"daily_range oder special_food oder special_nonfood","availability":"national oder regional oder seasonal","is_private_label":true oder false oder null,"is_seasonal":true oder false}, ...]`;
 
   let parsed: Array<{
     product_id: string;
-    category_id: string;
+    demand_group_code: string;
     assortment_type: string;
     availability?: string;
     is_private_label?: boolean | null;
@@ -132,7 +132,7 @@ Antworte NUR mit einem JSON-Array. Kein Markdown, keine Backticks.
 
   for (const item of parsed) {
     if (!batchIds.has(item.product_id)) continue;
-    if (!VALID_IDS.has(item.category_id)) continue;
+    if (!VALID_CODES.has(item.demand_group_code)) continue;
     const at = VALID_ASSORTMENT.has(item.assortment_type) ? item.assortment_type : "daily_range";
     const av = item.availability && VALID_AVAILABILITY.has(item.availability) ? item.availability : "national";
 
@@ -142,7 +142,7 @@ Antworte NUR mit einem JSON-Array. Kein Markdown, keine Backticks.
     const { error: updErr } = await supabase
       .from("products")
       .update({
-        category_id: item.category_id,
+        demand_group_code: item.demand_group_code,
         assortment_type: at,
         availability: av,
         is_private_label: plVal,

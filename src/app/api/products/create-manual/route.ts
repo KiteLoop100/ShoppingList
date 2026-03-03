@@ -17,7 +17,7 @@ import { generalRateLimit, checkRateLimit, getIdentifier } from "@/lib/api/rate-
 import { normalizeName } from "@/lib/products/normalize";
 import { findExistingProduct } from "@/lib/products/find-existing";
 import { upsertProduct } from "@/lib/products/upsert-product";
-import { getDefaultCategoryId } from "@/lib/products/default-category";
+import { getDefaultDemandGroupCode } from "@/lib/products/default-category";
 
 export async function POST(request: Request) {
   const validated = await validateBody(request, createManualSchema);
@@ -63,9 +63,9 @@ export async function POST(request: Request) {
   const userId = auth.user.id;
   const updateExistingProductId = validated.update_existing_product_id ?? null;
 
-  const defaultCategoryId = await getDefaultCategoryId(supabase);
-  if (!defaultCategoryId) {
-    return NextResponse.json({ error: "Keine Kategorie konfiguriert" }, { status: 500 });
+  const defaultDemandGroupCode = getDefaultDemandGroupCode();
+  if (!defaultDemandGroupCode) {
+    return NextResponse.json({ error: "Keine Warengruppe konfiguriert" }, { status: 500 });
   }
 
   let productId: string | null = updateExistingProductId || null;
@@ -182,7 +182,7 @@ export async function POST(request: Request) {
     const result = await upsertProduct(supabase, {
       name,
       name_normalized: nameNormalized,
-      category_id: defaultCategoryId,
+      demand_group_code: defaultDemandGroupCode,
       article_number: articleNumber,
       brand,
       price,

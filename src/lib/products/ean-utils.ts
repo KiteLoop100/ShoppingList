@@ -45,7 +45,6 @@ export async function findProductByEan(
         demand_group: data.demand_group != null ? String(data.demand_group) : null,
         demand_sub_group: data.demand_sub_group != null ? String(data.demand_sub_group) : null,
         demand_group_code: data.demand_group_code != null ? String(data.demand_group_code) : "AK",
-        category_id: data.category_id != null ? String(data.category_id) : undefined,
         price: data.price != null ? Number(data.price) : null,
         price_updated_at: data.price_updated_at != null ? String(data.price_updated_at) : null,
         popularity_score: data.popularity_score != null ? Number(data.popularity_score) : null,

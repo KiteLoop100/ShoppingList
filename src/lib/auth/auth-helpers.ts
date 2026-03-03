@@ -62,7 +62,7 @@ export async function migrateLocalDataToSupabase(
           is_checked: i.is_checked,
           checked_at: i.checked_at,
           sort_position: i.sort_position,
-          category_id: i.category_id,
+          category_id: i.demand_group_code ?? "AK",
           added_at: i.added_at,
         }));
         const { error } = await supabase.from("list_items").insert(rows);
@@ -107,7 +107,7 @@ export async function migrateLocalDataToSupabase(
           display_name: ti.display_name,
           quantity: ti.quantity,
           price_at_purchase: ti.price_at_purchase,
-          category_id: ti.category_id,
+          category_id: ti.demand_group_code ?? "AK",
           check_position: ti.check_position,
           checked_at: ti.checked_at,
           was_removed: ti.was_removed,

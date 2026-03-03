@@ -16,7 +16,6 @@ export interface LastTripInfo {
     display_name: string;
     quantity: number;
     demand_group_code: string;
-    category_id?: string;
   }>;
 }
 
@@ -51,8 +50,7 @@ export async function getLastTrip(): Promise<LastTripInfo | null> {
       custom_name: t.custom_name,
       display_name: t.display_name,
       quantity: t.quantity,
-      demand_group_code: t.demand_group_code ?? t.category_id ?? "AK",
-      category_id: t.category_id,
+      demand_group_code: t.demand_group_code ?? "AK",
     })),
   };
 }

@@ -128,14 +128,12 @@ export function ProductSearch({
         setResults([]);
         return;
       }
-      const json = (await res.json()) as { products?: Array<{ product_id: string; name: string; category_id: string; category_name: string; price: number | null }> };
+      const json = (await res.json()) as { products?: Array<{ product_id: string; name: string; demand_group_code: string; demand_group_name: string; price: number | null }> };
       const list: SearchResult[] = (json.products ?? []).map((p) => ({
         product_id: p.product_id,
         name: p.name,
-        demand_group_code: p.category_id,
-        demand_group_name: p.category_name ?? "",
-        category_id: p.category_id,
-        category_name: p.category_name ?? "",
+        demand_group_code: p.demand_group_code,
+        demand_group_name: p.demand_group_name ?? "",
         price: p.price,
         score: 1,
         source: "other" as const,
@@ -296,7 +294,6 @@ export function ProductSearch({
           custom_name: null,
           display_name: result.name,
           demand_group_code: result.demand_group_code,
-          category_id: result.category_id,
           quantity: 1,
         });
       } catch (e) {
@@ -329,7 +326,6 @@ export function ProductSearch({
           custom_name: product.name,
           display_name: product.name,
           demand_group_code: demandGroupCode,
-          category_id: product.category_id ?? undefined,
           quantity: 1,
           buy_elsewhere_retailer: retailerPrefix.retailer.name,
           competitor_product_id: product.product_id,
@@ -364,7 +360,6 @@ export function ProductSearch({
           custom_name: null,
           display_name: product.name,
           demand_group_code: product.demand_group_code,
-          category_id: product.category_id,
           quantity: 1,
         });
       } catch (e) {
@@ -414,7 +409,6 @@ export function ProductSearch({
             custom_name: null,
             display_name: product.name,
             demand_group_code: product.demand_group_code,
-            category_id: product.category_id,
             quantity,
           };
         })

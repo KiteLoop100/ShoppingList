@@ -5,15 +5,15 @@ import { useTranslations } from "next-intl";
 import { db, type LocalCategoryAlias } from "@/lib/db";
 import { normalizeName } from "@/lib/products/normalize";
 import { generateId } from "@/lib/utils/generate-id";
-import type { Category } from "@/types";
+import type { DemandGroup } from "@/types";
 
 interface CategoryAliasPanelProps {
   aliases: LocalCategoryAlias[];
-  categories: Category[];
+  demandGroups: DemandGroup[];
   onDataChanged: () => void;
 }
 
-export function CategoryAliasPanel({ aliases, categories, onDataChanged }: CategoryAliasPanelProps) {
+export function CategoryAliasPanel({ aliases, demandGroups, onDataChanged }: CategoryAliasPanelProps) {
   const t = useTranslations("admin");
   const [aliasForm, setAliasForm] = useState({ term_normalized: "", category_id: "" });
   const [editingAlias, setEditingAlias] = useState<LocalCategoryAlias | null>(null);
@@ -74,8 +74,8 @@ export function CategoryAliasPanel({ aliases, categories, onDataChanged }: Categ
           required
         >
           <option value="">{t("category")}</option>
-          {categories.map((c) => (
-            <option key={c.category_id} value={c.category_id}>{c.name}</option>
+          {demandGroups.map((dg) => (
+            <option key={dg.code} value={dg.code}>{dg.name}</option>
           ))}
         </select>
         <div className="flex gap-2">
@@ -98,7 +98,7 @@ export function CategoryAliasPanel({ aliases, categories, onDataChanged }: Categ
             {aliases.map((a) => (
               <tr key={a.alias_id} className="border-t border-aldi-muted-light">
                 <td className="p-3 font-medium">{a.term_normalized}</td>
-                <td className="p-3">{categories.find((c) => c.category_id === a.category_id)?.name ?? a.category_id}</td>
+                <td className="p-3">{demandGroups.find((dg) => dg.code === a.category_id)?.name ?? a.category_id}</td>
                 <td className="p-3">
                   <button type="button" onClick={() => { setEditingAlias(a); setAliasForm({ term_normalized: a.term_normalized, category_id: a.category_id }); }} className="font-medium text-aldi-blue">{t("edit")}</button>
                   {a.id != null && <><span className="mx-1 text-aldi-muted">|</span><button type="button" onClick={() => deleteAlias(a.id!)} className="font-medium text-aldi-error">{t("delete")}</button></>}

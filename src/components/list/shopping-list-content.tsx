@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef, useMemo, memo } from "react";
-import { useTranslations } from "next-intl";
-import { useLocale } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import { ListItemRow } from "./list-item-row";
 import { ProductDetailModal } from "./product-detail-modal";
 import { EditProductModal } from "./edit-product-modal";
@@ -10,7 +9,7 @@ import { GenericProductPicker } from "./generic-product-picker";
 import { useProducts } from "@/lib/products-context";
 import { updateListItem, canFillWithTypicalProducts, fillListWithTypicalProducts } from "@/lib/list";
 import { db } from "@/lib/db";
-import { translateCategoryName } from "@/lib/i18n/category-translations";
+import { formatDemandGroupLabel } from "@/lib/i18n/category-translations";
 import { getCategoryColor } from "@/lib/categories/category-colors";
 import { ListSkeleton } from "@/components/ui/skeleton";
 import { formatPrice } from "@/lib/utils/format-price";
@@ -300,7 +299,7 @@ export const ShoppingListContent = memo(function ShoppingListContent({
         product_id: product.product_id,
         display_name: product.name,
         custom_name: null,
-        category_id: product.category_id,
+        demand_group_code: product.demand_group_code,
       });
       setGenericPickerItem(null);
       await refetchRef.current();
@@ -434,7 +433,7 @@ export const ShoppingListContent = memo(function ShoppingListContent({
                         onDelete={handleDelete}
                         deleteLabel={t("delete")}
                         onOpenDetail={handleOpenDetail}
-                        categoryLabel={translateCategoryName(item.demand_group || item.category_name, locale)}
+                        categoryLabel={formatDemandGroupLabel(item.demand_group || item.category_name)}
                         onDefer={handleDefer}
                         onBuyElsewhere={handleBuyElsewhere}
                         onRenameItem={handleRenameItem}
@@ -454,7 +453,7 @@ export const ShoppingListContent = memo(function ShoppingListContent({
                       onDelete={handleDelete}
                       deleteLabel={t("delete")}
                       onOpenDetail={handleOpenDetail}
-                      categoryLabel={translateCategoryName(item.demand_group || item.category_name, locale)}
+                      categoryLabel={formatDemandGroupLabel(item.demand_group || item.category_name)}
                       onDefer={handleDefer}
                       onBuyElsewhere={handleBuyElsewhere}
                       onRenameItem={handleRenameItem}

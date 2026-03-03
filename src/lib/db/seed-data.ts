@@ -154,13 +154,3 @@ export const SEED_STORES: Store[] = [
   },
 ];
 
-/**
- * @deprecated Use SEED_DEMAND_GROUPS. Kept for backward compatibility.
- */
-export const SEED_CATEGORIES = SEED_DEMAND_GROUPS.map((dg) => ({
-  category_id: dg.code,
-  name: dg.name,
-  name_translations: { de: dg.name, en: dg.name_en ?? dg.name },
-  icon: dg.icon ?? "📦",
-  default_sort_position: dg.sort_position,
-}));

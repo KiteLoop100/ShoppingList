@@ -12,7 +12,7 @@ import { generalRateLimit, checkRateLimit, getIdentifier } from "@/lib/api/rate-
 import { normalizeName } from "@/lib/products/normalize";
 import { findExistingProduct } from "@/lib/products/find-existing";
 import { upsertProduct } from "@/lib/products/upsert-product";
-import { getDefaultCategoryId } from "@/lib/products/default-category";
+import { getDefaultDemandGroupCode } from "@/lib/products/default-category";
 
 export async function POST(request: Request) {
   const validated = await validateBody(request, confirmPhotoSchema);
@@ -140,7 +140,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Product name required or link to existing product" }, { status: 400 });
   }
 
-  const defaultCategoryId = await getDefaultCategoryId(supabase);
+  const defaultDemandGroupCode = getDefaultDemandGroupCode();
   const nameNormalized = normalizeName(name || "Unbekannt");
 
   let productId: string | null = null;
@@ -190,11 +190,11 @@ export async function POST(request: Request) {
       ...(photoType === "product_back" && thumbnailBackUrl ? { thumbnail_back_url: thumbnailBackUrl } : {}),
     }, productId);
     if (result) productsUpdated = 1;
-  } else if (defaultCategoryId && name) {
+  } else if (defaultDemandGroupCode && name) {
     const result = await upsertProduct(supabase, {
       name,
       name_normalized: nameNormalized,
-      category_id: defaultCategoryId,
+      demand_group_code: defaultDemandGroupCode,
       article_number: articleNumber,
       brand,
       price,

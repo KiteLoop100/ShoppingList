@@ -26,7 +26,7 @@ try { Sentry = require("@sentry/nextjs"); } catch {}
 import { fetchOpenFoodFacts } from "@/lib/products/open-food-facts";
 import { findExistingProduct } from "@/lib/products/find-existing";
 import { upsertProduct } from "@/lib/products/upsert-product";
-import { getDefaultCategoryId, getAktionsartikelCategoryId } from "@/lib/products/default-category";
+import { getDefaultDemandGroupCode, getAktionsartikelDemandGroupCode } from "@/lib/products/default-category";
 
 const processFlyerPageSchema = z.object({
   upload_id: z.string().min(1).max(100),
@@ -187,8 +187,8 @@ export async function POST(request: Request) {
   let productsCreated = 0;
   let productsUpdated = 0;
 
-  const defaultCategoryId = await getDefaultCategoryId(supabase);
-  const aktionCategoryId = await getAktionsartikelCategoryId(supabase);
+  const defaultDemandGroupCode = getDefaultDemandGroupCode();
+  const aktionDemandGroupCode = getAktionsartikelDemandGroupCode();
 
   await supabase
     .from("flyer_page_products")
@@ -247,14 +247,14 @@ export async function POST(request: Request) {
         productsUpdated++;
         resultProductId = result.product_id;
       }
-    } else if (defaultCategoryId) {
+    } else {
       const assortmentType = p.assortment_type === "special_nonfood"
         ? "special_nonfood"
         : "special_food";
       const result = await upsertProduct(supabase, {
         name: displayName,
         name_normalized: nameNormalized,
-        category_id: aktionCategoryId ?? defaultCategoryId,
+        demand_group_code: aktionDemandGroupCode ?? defaultDemandGroupCode,
         article_number: articleNumber,
         brand,
         price,

@@ -1,9 +1,8 @@
 "use client";
 
 import { useEffect } from "react";
-import { useTranslations } from "next-intl";
-import { useLocale } from "next-intl";
-import { translateCategoryName } from "@/lib/i18n/category-translations";
+import { useTranslations, useLocale } from "next-intl";
+import { formatDemandGroupLabel } from "@/lib/i18n/category-translations";
 import { useAutoReorder } from "@/hooks/use-auto-reorder";
 import type { ReorderUnit } from "@/hooks/use-auto-reorder";
 import type { Product } from "@/types";
@@ -154,7 +153,7 @@ export function ProductDetailModal({ product, onClose, onEdit, onReorderChanged 
               {hasDemandGroup && (
                 <div>
                   <dt className="text-xs font-medium uppercase tracking-wider text-aldi-muted">{t("demandGroup")}</dt>
-                  <dd className="mt-0.5 text-sm text-aldi-text">{translateCategoryName(product.demand_group!, locale)}</dd>
+                  <dd className="mt-0.5 text-sm text-aldi-text">{formatDemandGroupLabel(product.demand_group!)}</dd>
                 </div>
               )}
               {hasArticleNumber && (

@@ -13,11 +13,11 @@ export interface ListItemWithMeta extends LocalListItem {
   demand_group_name: string;
   demand_group_icon: string;
   demand_group_sort_position: number;
-  /** @deprecated Alias for demand_group_name. Kept for Phase 3 cleanup. */
+  /** Alias for demand_group_name (used in UI grouping). */
   category_name: string;
-  /** @deprecated Alias for demand_group_icon. Kept for Phase 3 cleanup. */
+  /** Alias for demand_group_icon (used in UI grouping). */
   category_icon: string;
-  /** @deprecated Alias for demand_group_sort_position. Kept for Phase 3 cleanup. */
+  /** Alias for demand_group_sort_position (used in sorting). */
   category_sort_position: number;
   price: number | null;
   /** Product thumbnail URL (from products.thumbnail_url). */
@@ -227,18 +227,6 @@ function sortHierarchical(
   return { unchecked, checked, deferred };
 }
 
-/**
- * @deprecated Use sortAndGroupItems with hierarchicalOrder parameter.
- * Alias for backward compatibility during frontend migration.
- */
-export function sortAndGroupItemsHierarchical(
-  items: LocalListItem[],
-  demandGroupMap: Map<string, DemandGroup>,
-  productMetaMap: Map<string, ProductMetaForSort>,
-  order: HierarchicalOrderResult,
-): SortResult {
-  return sortAndGroupItems(items, demandGroupMap, undefined, productMetaMap, order);
-}
 
 function applyToAllLists<T>(
   unchecked: ListItemWithMeta[],

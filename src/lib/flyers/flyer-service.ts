@@ -26,6 +26,7 @@ export interface ProductRow {
   price: number | null;
   price_in_flyer: number | null;
   category_id: string;
+  demand_group_code: string;
   flyer_page: number | null;
   bbox: BBox | null;
 }
@@ -43,6 +44,7 @@ interface FlyerPageProductJoin {
     name: string;
     price: number | null;
     category_id: string;
+    demand_group_code: string;
   };
 }
 
@@ -53,6 +55,7 @@ function mapJoinToProducts(rows: FlyerPageProductJoin[]): ProductRow[] {
     price: r.products.price,
     price_in_flyer: r.price_in_flyer,
     category_id: r.products.category_id,
+    demand_group_code: r.products.demand_group_code,
     flyer_page: r.page_number,
     bbox: r.bbox,
   }));
@@ -93,7 +96,7 @@ export async function loadFlyerWithPages(flyerId: string): Promise<FlyerLoadResu
 
   const { data: fppData } = await supabase
     .from("flyer_page_products")
-    .select("page_number, price_in_flyer, bbox, products!inner(product_id, name, price, category_id)")
+    .select("page_number, price_in_flyer, bbox, products!inner(product_id, name, price, category_id, demand_group_code)")
     .eq("flyer_id", flyerId);
 
   const products = mapJoinToProducts((fppData ?? []) as unknown as FlyerPageProductJoin[]);
@@ -111,7 +114,7 @@ export async function fetchFlyerProducts(flyerId: string): Promise<Map<number, P
 
   const { data: fppData } = await supabase
     .from("flyer_page_products")
-    .select("page_number, price_in_flyer, bbox, products!inner(product_id, name, price, category_id)")
+    .select("page_number, price_in_flyer, bbox, products!inner(product_id, name, price, category_id, demand_group_code)")
     .eq("flyer_id", flyerId);
 
   const products = mapJoinToProducts((fppData ?? []) as unknown as FlyerPageProductJoin[]);

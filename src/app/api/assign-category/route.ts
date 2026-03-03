@@ -71,9 +71,6 @@ Antworte NUR mit dem Code (z.B. "83"), nichts anderes. Keine Erklärung, kein Te
     return NextResponse.json({
       demand_group_code: matched.code,
       demand_group_name: matched.name,
-      // Legacy fields for backward compatibility during migration
-      category_id: matched.code,
-      category_name: matched.name,
     });
   } catch (err) {
     log.error("[assign-category] Claude error:", err);

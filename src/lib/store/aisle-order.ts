@@ -50,7 +50,3 @@ export async function getDemandGroupOrderForList(
   return defaultOrder;
 }
 
-/**
- * @deprecated Use getDemandGroupOrderForList. Alias for backward compatibility.
- */
-export const getCategoryOrderForList = getDemandGroupOrderForList;

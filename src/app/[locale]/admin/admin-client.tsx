@@ -6,7 +6,7 @@ import { Link } from "@/lib/i18n/navigation";
 import { db, type LocalProduct, type LocalCategoryAlias, type LocalSortingError } from "@/lib/db";
 import { getStoresSorted } from "@/lib/store/store-service";
 import { useProducts } from "@/lib/products-context";
-import type { Category } from "@/types";
+import type { DemandGroup } from "@/types";
 
 import { AdminAuthGuard } from "./admin-auth-guard";
 import { CategoryAliasPanel } from "./category-alias-panel";
@@ -29,7 +29,7 @@ export function AdminClient() {
   const [createProductOpen, setCreateProductOpen] = useState(false);
 
   const [products, setProducts] = useState<LocalProduct[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [demandGroups, setDemandGroups] = useState<DemandGroup[]>([]);
   const [aliases, setAliases] = useState<LocalCategoryAlias[]>([]);
   const [errors, setErrors] = useState<LocalSortingError[]>([]);
   const [stores, setStores] = useState<{ store_id: string; name: string }[]>([]);
@@ -38,15 +38,15 @@ export function AdminClient() {
   const gallery = useGalleryUpload();
 
   const loadData = useCallback(async () => {
-    const [prods, cats, al, errs, sts] = await Promise.all([
+    const [prods, dgs, al, errs, sts] = await Promise.all([
       db.products.toArray(),
-      db.categories.toArray(),
+      db.demand_groups.toArray(),
       db.category_aliases.toArray(),
       db.sorting_errors.toArray(),
       getStoresSorted().then((s) => s.map((x) => ({ store_id: x.store_id, name: x.name }))),
     ]);
     setProducts(prods as LocalProduct[]);
-    setCategories(cats);
+    setDemandGroups(dgs.map(dg => ({ code: dg.code, name: dg.name, name_en: dg.name_en, icon: dg.icon, color: dg.color, sort_position: dg.sort_position })));
     setAliases(al as LocalCategoryAlias[]);
     setErrors(errs as LocalSortingError[]);
     setStores(sts);
@@ -100,7 +100,7 @@ export function AdminClient() {
         )}
 
         {section === "aliases" && (
-          <CategoryAliasPanel aliases={aliases} categories={categories} onDataChanged={loadData} />
+          <CategoryAliasPanel aliases={aliases} demandGroups={demandGroups} onDataChanged={loadData} />
         )}
 
         {section === "errors" && (

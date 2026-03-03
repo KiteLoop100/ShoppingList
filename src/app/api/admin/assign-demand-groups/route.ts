@@ -32,14 +32,14 @@ export async function POST(request: NextRequest) {
   } catch {
     rawBody = {};
   }
-  const parsed = assignDemandGroupsSchema.safeParse(rawBody);
-  if (!parsed.success) {
+  const validation = assignDemandGroupsSchema.safeParse(rawBody);
+  if (!validation.success) {
     return NextResponse.json(
-      { error: "Invalid input", details: parsed.error.flatten() },
+      { error: "Invalid input", details: validation.error.flatten() },
       { status: 400 }
     );
   }
-  const { country } = parsed.data;
+  const { country } = validation.data;
 
   let fetchQuery = supabase
     .from("products")

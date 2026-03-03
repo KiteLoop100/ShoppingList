@@ -38,7 +38,7 @@ export async function GET(request: Request) {
 
   let query = supabase
     .from("products")
-    .select("product_id, name, name_normalized, category_id, price, status, country, categories(name)")
+    .select("product_id, name, name_normalized, demand_group_code, price, status, country, demand_groups!products_demand_group_code_fkey(name)")
     .eq("status", "active")
     .eq("country", country)
     .limit(limit * 3);
@@ -62,18 +62,18 @@ export async function GET(request: Request) {
 
   const rows = (data ?? []).slice(0, limit);
   const products = rows.map((row: Record<string, unknown>) => {
-    const cat = row.categories;
-    const categoryName =
-      Array.isArray(cat) && cat[0] != null && typeof (cat[0] as Record<string, unknown>).name === "string"
-        ? (cat[0] as Record<string, unknown>).name
-        : cat != null && typeof cat === "object" && !Array.isArray(cat) && typeof (cat as Record<string, unknown>).name === "string"
-          ? (cat as Record<string, unknown>).name
+    const dg = row.demand_groups;
+    const demandGroupName =
+      Array.isArray(dg) && dg[0] != null && typeof (dg[0] as Record<string, unknown>).name === "string"
+        ? (dg[0] as Record<string, unknown>).name
+        : dg != null && typeof dg === "object" && !Array.isArray(dg) && typeof (dg as Record<string, unknown>).name === "string"
+          ? (dg as Record<string, unknown>).name
           : "";
     return {
       product_id: row.product_id,
       name: row.name,
-      category_id: row.category_id,
-      category_name: categoryName,
+      demand_group_code: row.demand_group_code,
+      demand_group_name: demandGroupName,
       price: row.price,
     };
   });

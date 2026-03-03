@@ -26,14 +26,6 @@ export async function seedIfNeeded(): Promise<void> {
     localStorage.setItem(SEEDED_DG_KEY, "1");
   }
 
-  // Legacy: seed categories for backward compatibility (will be removed in Phase 3)
-  const categoryCount = await db.categories.count();
-  if (categoryCount === 0) {
-    const { SEED_CATEGORIES } = await import("./seed-data");
-    await db.categories.bulkAdd(SEED_CATEGORIES as never[]);
-    localStorage.setItem(SEEDED_KEY, "1");
-  }
-
   if (localStorage.getItem(SEEDED_STORES_KEY) !== "1") {
     const storeCount = await db.stores.count();
     if (storeCount === 0) {

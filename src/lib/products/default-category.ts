@@ -9,16 +9,11 @@ export const DEFAULT_DEMAND_GROUP_CODE = "AK";
 /** Demand group for promotional / Aktionsartikel items. */
 export const AKTIONSARTIKEL_DEMAND_GROUP_CODE = "AK";
 
-/** @deprecated Use DEFAULT_DEMAND_GROUP_CODE. */
-export async function getDefaultCategoryId(
-  supabase: import("@supabase/supabase-js").SupabaseClient,
-): Promise<string | null> {
+export function getDefaultDemandGroupCode(): string {
   return DEFAULT_DEMAND_GROUP_CODE;
 }
 
-/** @deprecated Use AKTIONSARTIKEL_DEMAND_GROUP_CODE. */
-export async function getAktionsartikelCategoryId(
-  supabase: import("@supabase/supabase-js").SupabaseClient,
-): Promise<string | null> {
+export function getAktionsartikelDemandGroupCode(): string {
   return AKTIONSARTIKEL_DEMAND_GROUP_CODE;
 }
+

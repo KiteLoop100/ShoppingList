@@ -10,7 +10,6 @@ import Dexie, { type Table } from "dexie";
 import type {
   Product,
   CompetitorProduct,
-  Category,
   DemandGroup,
   Store,
   ListItem,
@@ -28,11 +27,6 @@ import type {
 } from "@/types";
 
 export interface LocalProduct extends Product {}
-
-/** @deprecated Use LocalDemandGroup. Kept for Phase 3 cleanup. */
-export interface LocalCategory extends Category {
-  id?: number;
-}
 
 export interface LocalDemandGroup extends DemandGroup {
   id?: number;
@@ -94,8 +88,6 @@ export interface LocalCompetitorProduct extends CompetitorProduct {
 export class AppDatabase extends Dexie {
   products!: Table<LocalProduct, string>;
   competitor_products!: Table<LocalCompetitorProduct, number>;
-  /** @deprecated Use demand_groups. Kept for Phase 3 cleanup. */
-  categories!: Table<LocalCategory, number>;
   demand_groups!: Table<LocalDemandGroup, number>;
   category_aliases!: Table<LocalCategoryAlias, number>;
   sorting_errors!: Table<LocalSortingError, number>;
@@ -161,6 +153,10 @@ export class AppDatabase extends Dexie {
         "++id, item_id, list_id, product_id, demand_group_code, is_checked, sort_position",
       aisle_orders: "++id, store_id, demand_group_code, learned_position",
       aggregated: "++id, demand_group_code, average_position",
+    });
+    // BL-62 Phase 3: Remove legacy categories table
+    this.version(11).stores({
+      categories: null,
     });
   }
 }

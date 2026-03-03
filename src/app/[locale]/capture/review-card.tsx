@@ -123,7 +123,7 @@ export function ReviewCard({ upload, userId, onConfirmed, onDiscarded }: ReviewC
     setSearching(true);
     const { data } = await supabase
       .from("products")
-      .select("product_id, name, name_normalized, article_number, ean_barcode, brand, price, thumbnail_url, thumbnail_back_url, category_id, demand_group, demand_sub_group, assortment_type, availability, region, country, special_start_date, special_end_date, status, source, created_at, updated_at, photo_source_id, nutrition_info, ingredients, allergens, weight_or_quantity, price_updated_at, popularity_score")
+      .select("product_id, name, name_normalized, article_number, ean_barcode, brand, price, thumbnail_url, thumbnail_back_url, category_id, demand_group_code, demand_group, demand_sub_group, assortment_type, availability, region, country, special_start_date, special_end_date, status, source, created_at, updated_at, photo_source_id, nutrition_info, ingredients, allergens, weight_or_quantity, price_updated_at, popularity_score")
       .eq("status", "active")
       .ilike("name", `%${q.trim()}%`)
       .limit(20);

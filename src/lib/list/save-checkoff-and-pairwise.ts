@@ -14,7 +14,6 @@ import { generateId } from "@/lib/utils/generate-id";
 interface EnrichedSequenceItem extends SequenceItemForPairwise {
   item_id: string;
   demand_group_code: string;
-  category_id?: string;
 }
 
 /**
@@ -47,7 +46,6 @@ async function buildSequenceItems(
     return {
       item_id: item.item_id,
       demand_group_code: dgCode,
-      category_id: item.category_id,
       demand_group: product?.demand_group ?? dg?.name ?? null,
       demand_sub_group: product?.demand_sub_group ?? null,
       product_id: item.product_id ?? null,
@@ -60,7 +58,6 @@ function toCheckoffSequenceItems(seq: EnrichedSequenceItem[]): CheckoffSequenceI
   return seq.map((s) => ({
     item_id: s.item_id,
     demand_group_code: s.demand_group_code,
-    category_id: s.category_id,
     checked_at: s.checked_at,
     demand_group: s.demand_group,
     demand_sub_group: s.demand_sub_group,

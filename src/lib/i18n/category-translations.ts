@@ -53,14 +53,3 @@ export function translateDemandGroupName(
   return DEMAND_GROUP_ALIASES_DE[code] ?? code;
 }
 
-/**
- * @deprecated Use translateDemandGroupName.
- * Kept for backward compatibility during frontend migration.
- */
-export function translateCategoryName(name: string, locale: string): string {
-  if (DEMAND_GROUP_PREFIX_RE.test(name) || name.startsWith("AK-")) {
-    return formatDemandGroupLabel(name);
-  }
-  // Legacy EN category names -- pass through for now
-  return name;
-}

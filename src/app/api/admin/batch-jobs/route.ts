@@ -13,7 +13,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { DEMAND_GROUPS_INSTRUCTION } from "@/lib/products/demand-groups-prompt";
-import { loadCategories, buildCategoryListPrompt } from "@/lib/categories/constants";
+import { loadDemandGroups, buildDemandGroupListPrompt } from "@/lib/categories/constants";
 import { CLAUDE_MODEL_HAIKU } from "@/lib/api/config";
 import { requireApiKey, requireAdminAuth, requireSupabaseAdmin } from "@/lib/api/guards";
 import { callClaude, ClaudeApiError, cleanJsonFences } from "@/lib/api/claude-client";
@@ -277,16 +277,16 @@ async function processOneBatchReclassify(
   const currentOffset = (job.total_processed as number) ?? 0;
   const batchNum = ((job.current_batch as number) ?? 0) + 1;
 
-  const CATEGORIES = await loadCategories(supabase);
-  const CATEGORY_LIST = buildCategoryListPrompt(CATEGORIES);
-  const VALID_IDS = new Set(CATEGORIES.map((c) => c.id));
+  const DEMAND_GROUPS = await loadDemandGroups(supabase);
+  const DEMAND_GROUP_LIST = buildDemandGroupListPrompt(DEMAND_GROUPS);
+  const VALID_CODES = new Set(DEMAND_GROUPS.map((dg) => dg.code));
 
   const VALID_ASSORTMENT = new Set(["daily_range", "special_food", "special_nonfood"]);
   const VALID_AVAILABILITY = new Set(["national", "regional", "seasonal"]);
 
   let query = supabase
     .from("products")
-    .select("product_id, name, brand, category_id, assortment_type")
+    .select("product_id, name, brand, demand_group_code, assortment_type")
     .eq("status", "active");
   if (country) query = query.eq("country", country);
   const { data: batch, error: fetchErr } = await query
@@ -308,11 +308,11 @@ async function processOneBatchReclassify(
     return `${p.product_id}: ${p.name}${brandPart}`;
   }).join("\n");
 
-  const prompt = `Du bist ein Supermarkt-Experte. Ordne jedem Produkt eine category_id, einen assortment_type, eine availability, is_private_label und is_seasonal zu.\n\nVerfügbare Kategorien:\n${CATEGORY_LIST}\n\nRegeln für assortment_type – es gibt genau 3 Werte:\n- "daily_range": Dauersortiment\n- "special_food": Food-Aktionsartikel\n- "special_nonfood": Non-Food-Aktionsartikel\n\nis_private_label: true = Eigenmarke, false = Fremdmarke, null = unbekannt\nis_seasonal: true = Saisonprodukt, false = kein Saisonprodukt\n\nProduktliste:\n${productList}\n\nAntworte NUR mit einem JSON-Array. Kein Markdown, keine Backticks.\n[{"product_id":"uuid","category_id":"uuid","assortment_type":"...","availability":"national oder regional oder seasonal","is_private_label":true/false/null,"is_seasonal":true/false}]`;
+  const prompt = `Du bist ein Supermarkt-Experte. Ordne jedem Produkt einen demand_group_code, einen assortment_type, eine availability, is_private_label und is_seasonal zu.\n\nVerfügbare Warengruppen:\n${DEMAND_GROUP_LIST}\n\nRegeln für assortment_type – es gibt genau 3 Werte:\n- "daily_range": Dauersortiment\n- "special_food": Food-Aktionsartikel\n- "special_nonfood": Non-Food-Aktionsartikel\n\nis_private_label: true = Eigenmarke, false = Fremdmarke, null = unbekannt\nis_seasonal: true = Saisonprodukt, false = kein Saisonprodukt\n\nProduktliste:\n${productList}\n\nAntworte NUR mit einem JSON-Array. Kein Markdown, keine Backticks.\n[{"product_id":"uuid","demand_group_code":"code","assortment_type":"...","availability":"national oder regional oder seasonal","is_private_label":true/false/null,"is_seasonal":true/false}]`;
 
   let parsed: Array<{
     product_id: string;
-    category_id: string;
+    demand_group_code: string;
     assortment_type: string;
     availability?: string;
     is_private_label?: boolean | null;
@@ -339,7 +339,7 @@ async function processOneBatchReclassify(
 
   for (const item of parsed) {
     if (!batchIds.has(item.product_id)) continue;
-    if (!VALID_IDS.has(item.category_id)) continue;
+    if (!VALID_CODES.has(item.demand_group_code)) continue;
     const at = VALID_ASSORTMENT.has(item.assortment_type) ? item.assortment_type : "daily_range";
     const av = item.availability && VALID_AVAILABILITY.has(item.availability) ? item.availability : "national";
     const plVal = typeof item.is_private_label === "boolean" ? item.is_private_label : null;
@@ -348,7 +348,7 @@ async function processOneBatchReclassify(
     const { error: updErr } = await supabase
       .from("products")
       .update({
-        category_id: item.category_id,
+        demand_group_code: item.demand_group_code,
         assortment_type: at,
         availability: av,
         is_private_label: plVal,

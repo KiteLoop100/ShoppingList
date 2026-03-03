@@ -16,8 +16,6 @@ export interface TypicalProductItem {
   product_id: string | null;
   display_name: string;
   demand_group_code: string;
-  /** @deprecated Use demand_group_code. */
-  category_id?: string;
   quantity: number;
 }
 
@@ -74,7 +72,6 @@ export async function getTypicalProducts(): Promise<TypicalProductItem[]> {
       product_id: string | null;
       display_name: string;
       demand_group_code: string;
-      category_id?: string;
       quantity: number;
     }
   >();
@@ -82,7 +79,7 @@ export async function getTypicalProducts(): Promise<TypicalProductItem[]> {
   for (const item of allTripItems) {
     const completedAt = tripCompletedAt.get(item.trip_id) ?? "";
     const k = key(item);
-    const dgCode = item.demand_group_code ?? item.category_id ?? "AK";
+    const dgCode = item.demand_group_code ?? "AK";
     const existing = byKey.get(k);
     if (!existing) {
       byKey.set(k, {
@@ -91,7 +88,6 @@ export async function getTypicalProducts(): Promise<TypicalProductItem[]> {
         product_id: item.product_id,
         display_name: item.display_name,
         demand_group_code: dgCode,
-        category_id: item.category_id,
         quantity: item.quantity,
       });
     } else {
@@ -100,7 +96,6 @@ export async function getTypicalProducts(): Promise<TypicalProductItem[]> {
         existing.lastCompletedAt = completedAt;
         existing.quantity = item.quantity;
         existing.demand_group_code = dgCode;
-        existing.category_id = item.category_id;
       }
     }
   }
@@ -114,7 +109,6 @@ export async function getTypicalProducts(): Promise<TypicalProductItem[]> {
         product_id: v.product_id,
         display_name: v.display_name,
         demand_group_code: v.demand_group_code,
-        category_id: v.category_id,
         quantity: v.quantity,
       });
     }
@@ -131,7 +125,6 @@ export async function fillListWithTypicalProducts(listId: string): Promise<numbe
       custom_name: it.product_id ? null : it.display_name,
       display_name: it.display_name,
       demand_group_code: it.demand_group_code,
-      category_id: it.category_id,
       quantity: it.quantity,
     });
   }

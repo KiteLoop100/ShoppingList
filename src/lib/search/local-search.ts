@@ -6,7 +6,7 @@
  * See specs/SEARCH-ARCHITECTURE.md for full architecture.
  */
 
-import type { Category, DemandGroup, SearchResult } from "@/types";
+import type { DemandGroup, SearchResult } from "@/types";
 import type { SearchModuleInput } from "./types";
 import { indexProducts, type SearchableProduct } from "./search-indexer";
 import { preprocessQuery } from "./query-preprocessor";
@@ -20,7 +20,6 @@ import { MAX_RESULTS } from "./constants";
 
 let indexedProducts: SearchableProduct[] | null = null;
 let userHistory: Map<string, UserProductPreference> = new Map();
-let categoryMap: Map<string, Category> = new Map();
 let demandGroupMap: Map<string, DemandGroup> = new Map();
 
 /**
@@ -40,13 +39,6 @@ export function setUserHistory(preferences: UserProductPreference[]): void {
 }
 
 /**
- * Set the category lookup map. Call on app start after loading categories.
- */
-export function setCategories(categories: Category[]): void {
-  categoryMap = new Map(categories.map((c) => [c.category_id, c]));
-}
-
-/**
  * Set the demand group lookup map. Call on app start after loading demand groups.
  */
 export function setDemandGroups(groups: DemandGroup[]): void {
@@ -59,7 +51,6 @@ export function setDemandGroups(groups: DemandGroup[]): void {
 export function clearSearchCache(): void {
   indexedProducts = null;
   userHistory = new Map();
-  categoryMap = new Map();
   demandGroupMap = new Map();
 }
 
@@ -107,9 +98,7 @@ export async function localSearch(
       product_id: c.product.product_id,
       name: c.product.name,
       demand_group_code: dgCode,
-      demand_group_name: dg?.name ?? categoryMap.get(c.product.category_id ?? "")?.name ?? "",
-      category_id: c.product.category_id,
-      category_name: dg?.name ?? categoryMap.get(c.product.category_id ?? "")?.name ?? "",
+      demand_group_name: dg?.name ?? "",
       price: c.product.price,
       score: c.totalScore,
       source: "other" as const,
