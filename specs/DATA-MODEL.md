@@ -169,7 +169,9 @@ Receipts use a dedicated matching path (`findProductByArticleNumber`): exact art
 
 ---
 
-## 6. Category
+## 6. Category (LEGACY – being replaced by Demand Groups)
+
+> **Migration note:** The `categories` table (~20 app-level EN categories like "Dairy", "Bakery") is being replaced by `demand_groups` (~61 ALDI commodity group codes). The old table and all `category_id` FK columns remain in place during the transition and will be dropped after the frontend is fully migrated. See section 6c for the new system.
 
 Product categories for sorting and grouping.
 
@@ -183,7 +185,7 @@ Product categories for sorting and grouping.
 
 ---
 
-## 6b. Category Alias (CategoryAlias)
+## 6b. Category Alias (CategoryAlias) (LEGACY)
 
 Maps terms, brand names and colloquial expressions to categories. Core of automatic category assignment.
 
@@ -196,6 +198,63 @@ Maps terms, brand names and colloquial expressions to categories. Core of automa
 | confidence | Assignment confidence (1.0 = manual/certain, 0.8 = AI) |
 | created_at | Creation date |
 | updated_at | Last update |
+
+---
+
+## 6c. Demand Group (NEW – replaces Category)
+
+ALDI commodity group codes (~61 groups). Each product belongs to exactly one demand group, identified by a short numeric code (e.g. "83" for Milch/Sahne/Butter). The code "AK" is used for promotional items (Aktionsartikel).
+
+| Field | Description |
+|-------|-------------|
+| code | TEXT PRIMARY KEY – short code (e.g. "01", "83", "AK") |
+| name | German display name (e.g. "Milch/Sahne/Butter") |
+| name_en | English translation (e.g. "Milk / Cream / Butter") |
+| icon | Emoji icon for UI (e.g. "🥛") |
+| color | Hex color for visual coding in UI (e.g. "#2196F3") |
+| sort_position | Default display order (1–61) |
+| parent_group | Optional FK to demand_groups(code) for future hierarchy |
+| created_at | Creation timestamp |
+
+### Demand Group families (color-coded):
+- **Bakery** (amber): 56 Bake-Off, 57 Brot/Kuchen, 89 Backartikel
+- **Fruits & Vegetables** (green): 38 Gemüse, 58 Obst, 88 Salate
+- **Fresh Meat** (red): 62 Frischfleisch, 64 Fisch, 67 Geflügel, 68 Schweinefleisch
+- **Chilled Meat/Sausage** (burgundy): 49 Dauerwurst, 69 Wurstwaren, 70 Fertigfleisch, 82 Konserven
+- **Chilled Convenience** (teal): 71–74
+- **Dairy** (blue): 50 H-Milch, 51 Joghurt, 60 Margarine, 83 Milch/Sahne/Butter, 84 Käse
+- **Pantry** (brown): 47 Konserven, 48 Fertiggerichte, 52–54, 90 Cerealien
+- **Coffee/Tea** (dark brown): 45, 46
+- **Beverages non-alc** (blue): 05, 79–81
+- **Beverages alc** (green/wine): 01–04
+- **Snacking** (orange): 40–44, 86, 87
+- **Frozen** (steel blue): 75–78
+- **Health/Beauty/Baby** (pink): 07–09, 13
+- **Household** (slate): 06, 10, 11, 25, 85
+- **Promotional** (ALDI blue): AK
+
+---
+
+## 6d. Demand Sub Group
+
+Sub-groups within a demand group. Used for fine-grained sorting within a demand group section of the store.
+
+| Field | Description |
+|-------|-------------|
+| code | TEXT PRIMARY KEY – composite code (e.g. "83-02" for Milch within Milch/Sahne/Butter) |
+| name | German display name (e.g. "Milch") |
+| name_en | English translation (optional) |
+| demand_group_code | FK to demand_groups(code) |
+| sort_position | Sort order within the parent demand group |
+
+---
+
+## 6e. Migration Strategy: categories → demand_groups
+
+1. **Phase 1 (DB – this migration):** Create `demand_groups` and `demand_sub_groups` tables with seed data. Add `demand_group_code` column to `products`, populated from the existing `demand_group` text field.
+2. **Phase 2 (Backend):** Update sorting logic, category assignment, and API queries to use `demand_group_code` instead of `category_id`. Update `list_items` and `trip_items` to reference demand groups.
+3. **Phase 3 (Frontend):** Update all UI components (category bars, filters, shopping order view) to use demand groups. Remove references to old categories.
+4. **Phase 4 (Cleanup):** Drop `categories` table, `category_aliases` table, and all `category_id` columns. Remove `products.demand_group` text column (replaced by the normalized `demand_group_code` FK).
 
 ---
 
@@ -541,5 +600,5 @@ ShoppingTrip archived → UserProductPreference updated
 
 ---
 
-*Last updated: 2026-02-25*
-*Status: Draft v6 – Product dietary flags added (is_bio, is_vegan, is_gluten_free, is_lactose_free, animal_welfare_level)*
+*Last updated: 2026-03-03*
+*Status: Draft v7 – Demand groups schema added (demand_groups + demand_sub_groups tables, migration strategy from categories)*
