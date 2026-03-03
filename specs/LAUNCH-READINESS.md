@@ -8,8 +8,8 @@
 ## Voraussetzungen (vor dem Coding)
 
 - [x] **Vercel Pro Plan** ($20/Monat) — bereits vorhanden
-- [ ] **Supabase Pro Plan** ($25/Monat) — wegen Bandwidth-Limits bei 100+ Nutzern
-- [ ] **Anthropic API Budget-Limit** — auf $50/Monat setzen (Dashboard → Usage → Limits)
+- [x] **Supabase Pro Plan** ($25/Monat) — wegen Bandwidth-Limits bei 100+ Nutzern
+- [x] **Anthropic API Budget-Limit** — auf $50/Monat setzen (Dashboard → Usage → Limits)
 - [ ] **Supabase Anonymous Auth aktivieren** — Dashboard → Authentication → Settings
 - [ ] **Supabase Email Provider aktivieren** — Dashboard → Authentication → Providers → Email
 - [ ] **Email-Bestätigung deaktivieren** — Dashboard → Authentication → Settings → Confirm email: OFF (für Test)
@@ -74,16 +74,16 @@ Block 6: Datenschutzerklärung ────────────────�
   │  Abhängigkeit: Block 0 (Auth muss beschrieben sein)
   │
   ▼
-Block 7: Onboarding ─────────────────────────────────────────────
-  │  First-Start-Flow für neue Nutzer
+Block 7: Onboarding [DONE] ──────────────────────────────────────
+  │  First-Start-Flow für neue Nutzer (7 Screens implementiert)
   │  Prompt: prompts/launch-readiness/07-onboarding.md
   │  Modell: Opus 4.6 (normal reicht)
   │  Branch: feature/onboarding
   │  Abhängigkeit: Block 0 (Login-Flow muss stehen)
   │
   ▼
-Block 8: PWA aktivieren ─────────────────────────────────────────
-  │  Service Worker, Manifest, App-Icon
+Block 8: PWA aktivieren [DONE] ──────────────────────────────────
+  │  Service Worker, Manifest, App-Icon (aktiv in next.config.js + manifest.json)
   │  Prompt: prompts/launch-readiness/08-pwa.md
   │  Modell: Opus 4.6 (normal reicht)
   │  Branch: feature/pwa
@@ -185,4 +185,4 @@ Vor der Freigabe an Nutzer auf Production prüfen:
 ---
 
 *Created: 2026-02-25*
-*Status: Planned*
+*Status: In Progress (Block 7 + Block 8 done)*

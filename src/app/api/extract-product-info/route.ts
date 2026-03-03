@@ -1,6 +1,6 @@
 /**
  * Lightweight endpoint for extracting product info (name, brand, EAN, price)
- * from a product photo via Claude Vision + ZXing barcode scan.
+ * from a product photo via Claude Vision + ZBar WASM barcode scan.
  *
  * Reuses DATA_EXTRACTION_PROMPT and decodeEanFromImageBuffer from the existing
  * photo-processing pipeline but skips photo_uploads tracking and ALDI-specific logic.

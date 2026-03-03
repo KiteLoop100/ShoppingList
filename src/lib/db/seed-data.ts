@@ -2,10 +2,10 @@
  * Seed data for IndexedDB bootstrap (categories + stores).
  *
  * Categories match the official ALDI category set in Supabase.
- * Products are no longer seeded — all product data comes from the ALDI import.
+ * Products come from the ALDI import and are not seeded here.
  */
 
-import type { Category, Product, Store } from "@/types";
+import type { Category, Store } from "@/types";
 
 function now(): string {
   return new Date().toISOString();
@@ -79,6 +79,3 @@ export const SEED_STORES: Store[] = [
     updated_at: now(),
   },
 ];
-
-/** @deprecated Products are now imported from official ALDI data, not seeded. */
-export const SEED_PRODUCTS: Product[] = [];

@@ -189,7 +189,7 @@ These fixes ensure the elsewhere feature integrates correctly with existing logi
 - `src/lib/competitor-products/competitor-products-context.tsx` – React Context Provider (country-filtered download + IndexedDB sync)
 - `src/components/list/competitor-product-form-modal.tsx` – Manual competitor product capture form with photo auto-fill
 - `src/components/list/elsewhere-checkoff-prompt.tsx` – Lightweight price/photo capture on item check-off
-- `src/app/api/extract-product-info/route.ts` – API endpoint for product photo recognition (Claude Vision + ZXing)
+- `src/app/api/extract-product-info/route.ts` – API endpoint for product photo recognition (Claude Vision + ZBar WASM)
 
 ### New (Retailer Product Search)
 
@@ -248,7 +248,7 @@ Current price = latest row per (product_id, retailer).
 1. **Manual form** (`CompetitorProductFormModal`): Name, brand, price, photo, EAN, retailer. Opened via pencil icon on elsewhere items or "+ Produkt erfassen" button.
 2. **Barcode scan** (extended `BarcodeScannerModal`): EAN -> ALDI lookup -> competitor lookup -> Open Food Facts auto-fill.
 3. **Checkoff prompt** (`ElsewhereCheckoffPrompt`): When checking off an elsewhere item, lightweight price + photo capture.
-4. **Photo auto-fill** (via `/api/extract-product-info`): "Foto Produktseite" button in the form sends photo to Claude Vision + ZXing barcode scan, auto-fills name, brand, EAN, price into empty fields.
+4. **Photo auto-fill** (via `/api/extract-product-info`): "Foto Produktseite" button in the form sends photo to Claude Vision + ZBar WASM barcode scan, auto-fills name, brand, EAN, price into empty fields.
 
 ### Photos
 
@@ -266,7 +266,7 @@ The `CompetitorProductFormModal` offers two photo buttons at the top of the form
 **API Endpoint:** `POST /api/extract-product-info`
 - Input: `{ image_base64, media_type }`
 - Output: `{ name, brand, ean_barcode, price, weight_or_quantity }`
-- Reuses: `DATA_EXTRACTION_PROMPT`, `decodeEanFromImageBuffer` (ZXing), `callClaudeJSON` (Haiku)
+- Reuses: `DATA_EXTRACTION_PROMPT`, `decodeEanFromImageBuffer` (ZBar WASM), `callClaudeJSON` (Haiku)
 - No `photo_uploads` tracking; lightweight and stateless
 
 **Auto-fill rules:** Only empty fields are overwritten. If the user has already typed a name or brand, the auto-fill does not replace it.
