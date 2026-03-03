@@ -553,6 +553,7 @@ export function useListData(sortMode: SortMode = "my-order"): UseListDataResult 
       const { list, items, idbProducts, demandGroups, demandGroupMap, reorderMap, storeResult } =
         await fetchListData(caches);
 
+
       const currentContextProducts = contextProductsRef.current;
       const { productPriceMap, productThumbnailMap, productMetaMap, productIdsWithAdditionalInfo, productDeferredInfo } =
         buildProductMaps(idbProducts, currentContextProducts);

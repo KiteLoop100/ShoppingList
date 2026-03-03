@@ -333,17 +333,6 @@ async function main() {
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-  // Get default category
-  const { data: categories } = await supabase
-    .from("categories")
-    .select("category_id")
-    .limit(1);
-  const defaultCategoryId = categories?.[0]?.category_id;
-  if (!defaultCategoryId && !opts.dryRun) {
-    console.error("❌ Keine Kategorien in der Datenbank. Bitte zuerst Seed-Daten importieren.");
-    process.exit(1);
-  }
-
   const allResults: BatchResult[] = [];
   let totalCreated = 0;
   let totalUpdated = 0;
@@ -514,7 +503,7 @@ async function main() {
           const { error: insErr } = await supabase.from("products").insert({
             name: displayName,
             name_normalized: finalNameNorm,
-            category_id: defaultCategoryId,
+            category_id: null,
             article_number: articleNumber,
             brand: brand ?? offData?.brand ?? null,
             price,

@@ -30,7 +30,6 @@ ALTER TABLE products ADD CONSTRAINT products_assortment_type_check
 -- Archive tables (safe copy before deletion)
 CREATE TABLE IF NOT EXISTS products_archive_20260227 AS SELECT * FROM products;
 CREATE TABLE IF NOT EXISTS stores_archive_20260227 AS SELECT * FROM stores;
-CREATE TABLE IF NOT EXISTS categories_archive_20260227 AS SELECT * FROM categories;
 CREATE TABLE IF NOT EXISTS list_items_archive_20260227 AS SELECT * FROM list_items;
 
 -- ═══════════════════════════════════════════════════════════
@@ -41,13 +40,9 @@ CREATE TABLE IF NOT EXISTS list_items_archive_20260227 AS SELECT * FROM list_ite
 DELETE FROM trip_items;
 DELETE FROM shopping_trips;
 DELETE FROM checkoff_sequences;
-DELETE FROM sorting_errors;
-DELETE FROM user_product_preferences;
-DELETE FROM aisle_orders;
-DELETE FROM aggregated_aisle_orders;
 DELETE FROM list_items;
 DELETE FROM shopping_lists;
-DELETE FROM pairwise_order;
+DELETE FROM pairwise_comparisons;
 DELETE FROM auto_reorder_settings;
 DELETE FROM receipt_items;
 DELETE FROM receipts;
@@ -55,11 +50,9 @@ DELETE FROM receipts;
 -- Then main tables
 DELETE FROM products;
 DELETE FROM stores;
-DELETE FROM categories;
 
 -- ═══════════════════════════════════════════════════════════
 -- 0d. Verify clean state
 -- ═══════════════════════════════════════════════════════════
 SELECT 'products' as tbl, COUNT(*) FROM products
-UNION ALL SELECT 'stores', COUNT(*) FROM stores
-UNION ALL SELECT 'categories', COUNT(*) FROM categories;
+UNION ALL SELECT 'stores', COUNT(*) FROM stores;

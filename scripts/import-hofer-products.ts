@@ -71,43 +71,29 @@ function normalize(text: string): string {
     .trim();
 }
 
-async function ensureCategories(): Promise<Map<string, string>> {
-  const categoryNames = Array.from(new Set(Object.values(CATEGORY_MAP)));
-  const categoryMap = new Map<string, string>();
-
-  // Check existing categories
-  const { data: existing } = await supabase
-    .from('categories')
-    .select('category_id, name');
-
-  if (existing) {
-    for (const cat of existing) {
-      categoryMap.set(cat.name, cat.category_id);
-    }
-  }
-
-  // Create missing categories
-  for (const name of categoryNames) {
-    if (!categoryMap.has(name)) {
-      const id = randomUUID();
-      const { error } = await supabase.from('categories').insert({
-        category_id: id,
-        name,
-        name_translations: { de: name, en: name },
-        icon: '',
-        default_sort_position: categoryNames.indexOf(name),
-      });
-      if (error) {
-        console.error(`⚠️  Category "${name}": ${error.message}`);
-      } else {
-        categoryMap.set(name, id);
-        console.log(`  ✅ Category created: ${name}`);
-      }
-    }
-  }
-
-  return categoryMap;
-}
+/** Map Hofer category name to demand_group_code (from demand_groups table). */
+const DEMAND_GROUP_MAP: Record<string, string> = {
+  'Obst & Gemüse': '38',
+  'Milchprodukte': '83',
+  'Käse': '84',
+  'Wurst & Aufschnitt': '69',
+  'Fleisch & Geflügel': '67',
+  'Fisch & Meeresfrüchte': '64',
+  'Getränke': '80',
+  'Kaffee & Tee': '45',
+  'Frühstück & Cerealien': '90',
+  'Grundnahrungsmittel': '54',
+  'Gewürze & Saucen': '52',
+  'Konserven & Fertiggerichte': '47',
+  'Feinkost': '73',
+  'Süßwaren & Snacks': '41',
+  'Wein & Spirituosen': '03',
+  'Drogerie & Körperpflege': '07',
+  'Waschmittel & Reinigung': '06',
+  'Haushalt & Papier': '25',
+  'Tierbedarf': '85',
+  'Sonstiges': 'AK',
+};
 
 interface HoferRow {
   '#': number;
@@ -155,11 +141,6 @@ async function main() {
   const rows = XLSX.utils.sheet_to_json<HoferRow>(sheet);
   console.log(`   ${rows.length} products found\n`);
 
-  // Ensure categories exist
-  console.log('📁 Checking categories...');
-  const categoryMap = await ensureCategories();
-  console.log(`   ${categoryMap.size} categories ready\n`);
-
   // Optional: Clear existing Hofer products (source = 'import' and country = 'AT')
   const { error: deleteError } = await supabase
     .from('products')
@@ -180,7 +161,7 @@ async function main() {
 
   const products = rows.map((row) => {
     const appCategory = CATEGORY_MAP[row['Kategorie']] || 'Sonstiges';
-    const categoryId = categoryMap.get(appCategory) || null;
+    const demandGroupCode = DEMAND_GROUP_MAP[appCategory] || 'AK';
     const isEigenmarke = row['Eigenmarke'] === 'Ja';
 
     return {
@@ -188,9 +169,9 @@ async function main() {
       name: row['Produktname'],
       name_normalized: normalize(row['Produktname']),
       brand: row['Marke'] || null,
-      category_id: categoryId,
-      demand_group: row['Kategorie'],           // Hofer Kategorie → demand_group
-      demand_sub_group: row['Unterkategorie'],   // Hofer Unterkategorie → demand_sub_group
+      demand_group_code: demandGroupCode,
+      demand_group: row['Kategorie'],
+      demand_sub_group: row['Unterkategorie'],
       price: row['Preis (€)'] || null,
       price_updated_at: row['Preis (€)'] ? new Date().toISOString() : null,
       assortment_type: 'daily_range',
@@ -229,29 +210,6 @@ async function main() {
   console.log(`❌ Errors:    ${errors}`);
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
-  // Also populate alias table with brands
-  console.log('\n📝 Updating alias table with Hofer brands...');
-  const brands = [...new Set(rows.filter(r => r['Eigenmarke'] === 'Ja').map(r => r['Marke']))];
-  let aliasCount = 0;
-
-  for (const brand of brands) {
-    const matchingRow = rows.find(r => r['Marke'] === brand);
-    const appCategory = matchingRow ? CATEGORY_MAP[matchingRow['Kategorie']] || 'Sonstiges' : 'Sonstiges';
-    const categoryId = categoryMap.get(appCategory);
-    if (!categoryId) continue;
-
-    const { error } = await supabase.from('category_aliases').upsert({
-      alias_id: randomUUID(),
-      term_normalized: normalize(brand),
-      category_id: categoryId,
-      source: 'manual',
-      confidence: 1.0,
-    }, { onConflict: 'term_normalized' });
-
-    if (!error) aliasCount++;
-  }
-
-  console.log(`   ${aliasCount} brand aliases added/updated`);
   console.log('\n🎉 Done!');
 }
 

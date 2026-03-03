@@ -28,18 +28,18 @@ function toUuid(seed: string): string {
   return [h.slice(0, 8), h.slice(8, 12), "4" + h.slice(13, 16), ((parseInt(h.slice(16, 18), 16) & 0x3f) | 0x80).toString(16) + h.slice(18, 20), h.slice(20, 32)].join("-");
 }
 
-/** Category name -> deterministic UUID (so script is idempotent for categories). */
-const CATEGORY_IDS: Record<string, string> = {
-  "Obst & Gemüse": toUuid("cat-obst-gemuese"),
-  "Brot & Backwaren": toUuid("cat-brot"),
-  "Milchprodukte": toUuid("cat-milch"),
-  "Fleisch & Wurst": toUuid("cat-fleisch"),
-  "Tiefkühl": toUuid("cat-tiefkuehl"),
-  "Getränke": toUuid("cat-getraenke"),
-  "Süßwaren & Snacks": toUuid("cat-suess"),
-  "Grundnahrungsmittel": toUuid("cat-grundnahrung"),
-  "Haushalt & Reinigung": toUuid("cat-haushalt"),
-  "Sonstiges": toUuid("cat-sonstiges"),
+/** Category name -> demand_group_code (from demand_groups table). */
+const DEMAND_GROUP_CODES: Record<string, string> = {
+  "Obst & Gemüse": "38",
+  "Brot & Backwaren": "57",
+  "Milchprodukte": "83",
+  "Fleisch & Wurst": "68",
+  "Tiefkühl": "75",
+  "Getränke": "80",
+  "Süßwaren & Snacks": "41",
+  "Grundnahrungsmittel": "54",
+  "Haushalt & Reinigung": "06",
+  "Sonstiges": "AK",
 };
 
 const NOW = new Date().toISOString();
@@ -248,7 +248,7 @@ interface ProductRow {
   product_id: string;
   name: string;
   name_normalized: string;
-  category_id: string;
+  demand_group_code: string;
   price: number | null;
   price_updated_at: null;
   assortment_type: "daily_range" | "special";
@@ -268,8 +268,8 @@ function buildProducts(): ProductRow[] {
   const rows: ProductRow[] = [];
   let idx = 0;
   for (const [categoryName, names] of Object.entries(PRODUCTS_BY_CATEGORY)) {
-    const categoryId = CATEGORY_IDS[categoryName];
-    if (!categoryId) continue;
+    const dgCode = DEMAND_GROUP_CODES[categoryName];
+    if (!dgCode) continue;
     for (const name of names) {
       const productId = toUuid(`prod-import-${name}-${idx}`);
       const price = Math.round((0.49 + Math.random() * 4.5) * 100) / 100;
@@ -277,7 +277,7 @@ function buildProducts(): ProductRow[] {
         product_id: productId,
         name,
         name_normalized: normalize(name),
-        category_id: categoryId,
+        demand_group_code: dgCode,
         price: Math.random() > 0.2 ? price : null,
         price_updated_at: null,
         assortment_type: "daily_range",
@@ -337,44 +337,6 @@ async function main() {
   }
 
   const supabase = createClient(url, key);
-
-  // Ensure categories exist (insert if empty)
-  const { data: existingCats, error: catError } = await supabase.from("categories").select("category_id, name");
-  if (catError) {
-    if (catError.message?.includes("Invalid API key") || catError.message?.includes("invalid") || catError.code === "PGRST301") {
-      console.error("Supabase lehnt den API-Key ab. Bitte prüfen:");
-      console.error("  1. .env.local: NEXT_PUBLIC_SUPABASE_URL und KEY ohne Leerzeichen/Zeilenumbruch.");
-      console.error("  2. Im Supabase Dashboard: Project Settings → API → 'service_role' Key kopieren und als SUPABASE_SERVICE_ROLE_KEY eintragen.");
-      process.exit(1);
-    }
-    throw catError;
-  }
-  if (!existingCats || existingCats.length === 0) {
-    console.log("Inserting default categories…");
-    for (const [name, id] of Object.entries(CATEGORY_IDS)) {
-      const { error: upsertErr } = await supabase.from("categories").upsert(
-        {
-          category_id: id,
-          name,
-          name_translations: {},
-          icon: "📦",
-          default_sort_position: Object.keys(CATEGORY_IDS).indexOf(name) + 1,
-          created_at: NOW,
-          updated_at: NOW,
-        },
-        { onConflict: "category_id" }
-      );
-      if (upsertErr) {
-        if (upsertErr.message?.includes("Invalid API key") || upsertErr.message?.includes("JWT")) {
-          console.error("Supabase: Ungültiger API-Key. Bitte in .env.local prüfen:");
-          console.error("  - SUPABASE_SERVICE_ROLE_KEY aus Supabase Dashboard → Project Settings → API (unter 'Project API keys') verwenden.");
-          console.error("  - Key ohne Anführungszeichen und ohne Zeilenumbruch am Ende eintragen.");
-          process.exit(1);
-        }
-        throw upsertErr;
-      }
-    }
-  }
 
   const products = buildProducts();
   console.log(`Inserting ${products.length} test products…`);

@@ -162,3 +162,19 @@ export class AppDatabase extends Dexie {
 }
 
 export const db = new AppDatabase();
+
+/**
+ * Eagerly open IndexedDB. If the upgrade fails (e.g. primary-key change
+ * between schema versions), delete the database and reopen it.
+ * IndexedDB is only a local cache; authoritative data lives in Supabase.
+ */
+db.open().catch((err) => {
+  const isUpgradeError =
+    (err?.inner?.name === "UpgradeError") ||
+    (err?.message?.includes("changing primary key"));
+  if (isUpgradeError) {
+    console.warn("[IDB] Irrecoverable upgrade error – deleting and recreating database.", err);
+    return db.delete().then(() => db.open());
+  }
+  console.error("[IDB] Failed to open IndexedDB:", err);
+});

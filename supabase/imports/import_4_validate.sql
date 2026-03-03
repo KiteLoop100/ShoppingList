@@ -14,12 +14,12 @@ ORDER BY country, assortment_type;
 SELECT country, COUNT(*) FROM stores GROUP BY country;
 -- Expected: DE=2050, AT=558
 
--- Category distribution
-SELECT c.name, c.default_sort_position, COUNT(p.product_id) as product_count
-FROM categories c 
-LEFT JOIN products p ON c.category_id = p.category_id 
-GROUP BY c.name, c.default_sort_position 
-ORDER BY c.default_sort_position;
+-- Demand group distribution
+SELECT dg.code, dg.name, COUNT(p.product_id) as product_count
+FROM demand_groups dg
+LEFT JOIN products p ON dg.code = p.demand_group_code
+GROUP BY dg.code, dg.name
+ORDER BY dg.sort_position;
 
 -- EAN format check
 SELECT ean_barcode, LENGTH(ean_barcode) 
@@ -44,5 +44,4 @@ WHERE latitude = 0 OR longitude = 0;
 
 -- Archive verification (should match old counts)
 SELECT 'products_archive' as tbl, COUNT(*) FROM products_archive_20260227
-UNION ALL SELECT 'stores_archive', COUNT(*) FROM stores_archive_20260227
-UNION ALL SELECT 'categories_archive', COUNT(*) FROM categories_archive_20260227;
+UNION ALL SELECT 'stores_archive', COUNT(*) FROM stores_archive_20260227;
