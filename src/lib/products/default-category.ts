@@ -1,29 +1,24 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+/**
+ * Default demand group codes for fallback scenarios.
+ * Uses the new demand_groups table codes instead of category UUIDs.
+ */
 
+/** Default demand group for unclassified items. */
+export const DEFAULT_DEMAND_GROUP_CODE = "AK";
+
+/** Demand group for promotional / Aktionsartikel items. */
+export const AKTIONSARTIKEL_DEMAND_GROUP_CODE = "AK";
+
+/** @deprecated Use DEFAULT_DEMAND_GROUP_CODE. */
 export async function getDefaultCategoryId(
-  supabase: SupabaseClient,
+  supabase: import("@supabase/supabase-js").SupabaseClient,
 ): Promise<string | null> {
-  const { data } = await supabase
-    .from("categories")
-    .select("category_id")
-    .eq("name", "Sonstiges")
-    .limit(1);
-  return data?.[0]?.category_id ?? null;
+  return DEFAULT_DEMAND_GROUP_CODE;
 }
 
-let cachedAktionsartikelId: string | null = null;
-let aktionsartikelLoaded = false;
-
+/** @deprecated Use AKTIONSARTIKEL_DEMAND_GROUP_CODE. */
 export async function getAktionsartikelCategoryId(
-  supabase: SupabaseClient,
+  supabase: import("@supabase/supabase-js").SupabaseClient,
 ): Promise<string | null> {
-  if (aktionsartikelLoaded) return cachedAktionsartikelId;
-  const { data } = await supabase
-    .from("categories")
-    .select("category_id")
-    .eq("name", "Aktionsartikel")
-    .limit(1);
-  cachedAktionsartikelId = data?.[0]?.category_id ?? null;
-  aktionsartikelLoaded = true;
-  return cachedAktionsartikelId;
+  return AKTIONSARTIKEL_DEMAND_GROUP_CODE;
 }

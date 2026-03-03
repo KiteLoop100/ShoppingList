@@ -13,7 +13,8 @@ import { generateId } from "@/lib/utils/generate-id";
 
 interface EnrichedSequenceItem extends SequenceItemForPairwise {
   item_id: string;
-  category_id: string;
+  demand_group_code: string;
+  category_id?: string;
 }
 
 /**
@@ -28,8 +29,8 @@ async function buildSequenceItems(
     return ta - tb;
   });
 
-  const categoryMap = new Map(
-    (await db.categories.toArray()).map((c) => [c.category_id, c])
+  const demandGroupMap = new Map(
+    (await db.demand_groups.toArray()).map((dg) => [dg.code, dg])
   );
   const productIds = [...new Set(sorted.map((i) => i.product_id).filter(Boolean))] as string[];
   const products = await db.products
@@ -40,12 +41,14 @@ async function buildSequenceItems(
   const productMap = new Map(products.map((p) => [p.product_id, p]));
 
   return sorted.map((item) => {
-    const cat = categoryMap.get(item.category_id);
+    const dgCode = item.demand_group_code;
+    const dg = demandGroupMap.get(dgCode);
     const product = item.product_id ? productMap.get(item.product_id) : null;
     return {
       item_id: item.item_id,
+      demand_group_code: dgCode,
       category_id: item.category_id,
-      demand_group: product?.demand_group ?? cat?.name ?? null,
+      demand_group: product?.demand_group ?? dg?.name ?? null,
       demand_sub_group: product?.demand_sub_group ?? null,
       product_id: item.product_id ?? null,
       checked_at: item.checked_at ?? new Date().toISOString(),
@@ -56,6 +59,7 @@ async function buildSequenceItems(
 function toCheckoffSequenceItems(seq: EnrichedSequenceItem[]): CheckoffSequenceItem[] {
   return seq.map((s) => ({
     item_id: s.item_id,
+    demand_group_code: s.demand_group_code,
     category_id: s.category_id,
     checked_at: s.checked_at,
     demand_group: s.demand_group,

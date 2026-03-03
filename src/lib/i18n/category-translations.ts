@@ -1,79 +1,66 @@
 /**
- * Translates category and demand-group names for display.
+ * Translates demand-group names for display.
  *
- * Categories are stored in English (official ALDI names) in the DB.
- * Demand groups use ALDI commodity group codes with numeric prefix
- * (e.g. "54-Nährmittel", "83-Milch/Sahne/Butter").
+ * Demand groups use ALDI commodity group codes with a `name` (DE) and
+ * `name_en` field in the `demand_groups` table. Translation is done via
+ * a runtime map populated from IndexedDB or Supabase.
  *
- * `translateCategoryName` handles both: demand-group codes are converted
- * to user-friendly labels via `formatDemandGroupLabel`; plain category
- * names are translated via the EN↔DE map.
+ * For cases where the runtime map is not available (e.g. static rendering),
+ * `formatDemandGroupLabel` strips the numeric prefix from legacy
+ * demand_group strings like "83-Milch/Sahne/Butter".
  */
 
-// ── Category names (EN → DE) ────────────────────────────────────────
-const EN_TO_DE: Record<string, string> = {
-  "Alcoholic Beverages": "Alkoholische Getränke",
-  "Bakery": "Brot & Backwaren",
-  "Breakfast": "Frühstück",
-  "Dairy": "Milchprodukte",
-  "Chilled Convenience": "Kühlregal",
-  "Fresh Meat & Fish": "Frischfleisch & Fisch",
-  "Freezer": "Tiefkühl",
-  "Fruits & Vegetables": "Obst & Gemüse",
-  "Pantry": "Vorratskammer",
-  "Non-Alcoholic Beverages": "Alkoholfreie Getränke",
-  "Snacking": "Süßwaren & Snacks",
-  "Electronics": "Elektronik",
-  "Fashion": "Textilien",
-  "Health, Beauty & Baby": "Gesundheit, Pflege & Baby",
-  "Home Improvement": "Haus & Garten",
-  "Household": "Haushalt",
-  "Outdoor/Leisure": "Freizeit & Outdoor",
-  "Services": "Services",
-  "Sonstiges": "Sonstiges",
-};
-
-const DE_TO_EN: Record<string, string> = Object.fromEntries(
-  Object.entries(EN_TO_DE).map(([en, de]) => [de, en]),
-);
+import type { DemandGroup } from "@/types";
 
 // ── Demand-group display aliases ────────────────────────────────────
-// Manual overrides for codes whose auto-stripped name is ugly/truncated.
-const DEMAND_GROUP_ALIASES: Record<string, string> = {
-  "70-Gekühltes verzehrfertiges Fleisch/Fleisc": "Fertigfleisch/-wurst, gekühlt",
-  "50-H-Milchprodukte/Milchersatzprodukte": "H-Milch & Milchersatz",
-  "82-Wurst-/Fleisch-/Fischkonserven": "Wurst-, Fleisch- & Fischkonserven",
-  "80-CO2 Erfrischungsgetränke": "Erfrischungsgetränke",
-  "62-Frischfleisch (ohne Schwein/Geflügel)": "Frischfleisch (Rind, Lamm u.a.)",
-  "AK-Aktionsartikel": "Aktionsartikel",
+// Manual overrides for codes whose DB name is truncated or ugly.
+const DEMAND_GROUP_ALIASES_DE: Record<string, string> = {
+  "70": "Fertigfleisch/-wurst, gekühlt",
+  "50": "H-Milch & Milchersatz",
+  "82": "Wurst-, Fleisch- & Fischkonserven",
+  "80": "Erfrischungsgetränke",
+  "62": "Frischfleisch (Rind, Lamm u.a.)",
+  "AK": "Aktionsartikel",
 };
 
 const DEMAND_GROUP_PREFIX_RE = /^\d+-/;
 
 /**
- * Converts a demand-group code to a user-friendly label.
- * Checks manual alias first, then strips the numeric prefix.
+ * Converts a legacy demand-group string (e.g. "83-Milch/Sahne/Butter")
+ * to a user-friendly label by stripping the numeric prefix.
  */
-export function formatDemandGroupLabel(code: string): string {
-  if (DEMAND_GROUP_ALIASES[code]) return DEMAND_GROUP_ALIASES[code];
-  return code.replace(DEMAND_GROUP_PREFIX_RE, "");
-}
-
-function isDemandGroupCode(name: string): boolean {
-  return DEMAND_GROUP_PREFIX_RE.test(name) || name.startsWith("AK-");
+export function formatDemandGroupLabel(codeOrLegacy: string): string {
+  if (DEMAND_GROUP_ALIASES_DE[codeOrLegacy]) return DEMAND_GROUP_ALIASES_DE[codeOrLegacy];
+  return codeOrLegacy.replace(DEMAND_GROUP_PREFIX_RE, "");
 }
 
 /**
- * Translate a category or demand-group name for display.
- * Demand-group codes (numeric prefix or "AK-") are converted to friendly
- * labels; plain category names are translated via the EN↔DE map.
+ * Translate a demand-group code for display using the runtime map.
+ * Falls back to the code itself if no map entry exists.
+ */
+export function translateDemandGroupName(
+  code: string,
+  locale: string,
+  demandGroupMap?: Map<string, DemandGroup>,
+): string {
+  if (demandGroupMap) {
+    const dg = demandGroupMap.get(code);
+    if (dg) {
+      if (locale === "en" && dg.name_en) return dg.name_en;
+      return DEMAND_GROUP_ALIASES_DE[code] ?? dg.name;
+    }
+  }
+  return DEMAND_GROUP_ALIASES_DE[code] ?? code;
+}
+
+/**
+ * @deprecated Use translateDemandGroupName.
+ * Kept for backward compatibility during frontend migration.
  */
 export function translateCategoryName(name: string, locale: string): string {
-  if (isDemandGroupCode(name)) {
+  if (DEMAND_GROUP_PREFIX_RE.test(name) || name.startsWith("AK-")) {
     return formatDemandGroupLabel(name);
   }
-  if (locale === "de") {
-    return EN_TO_DE[name] ?? name;
-  }
-  return DE_TO_EN[name] ?? name;
+  // Legacy EN category names -- pass through for now
+  return name;
 }

@@ -1,6 +1,9 @@
 /**
  * Dexie.js IndexedDB schema for offline-first storage.
  * Aligned with ARCHITECTURE.md and OFFLINE-STRATEGY.md.
+ *
+ * BL-62: Added demand_groups table, migrated aisle_orders + aggregated
+ * to use demand_group_code instead of category_id.
  */
 
 import Dexie, { type Table } from "dexie";
@@ -8,6 +11,7 @@ import type {
   Product,
   CompetitorProduct,
   Category,
+  DemandGroup,
   Store,
   ListItem,
   AisleOrder,
@@ -25,7 +29,12 @@ import type {
 
 export interface LocalProduct extends Product {}
 
+/** @deprecated Use LocalDemandGroup. Kept for Phase 3 cleanup. */
 export interface LocalCategory extends Category {
+  id?: number;
+}
+
+export interface LocalDemandGroup extends DemandGroup {
   id?: number;
 }
 
@@ -85,7 +94,9 @@ export interface LocalCompetitorProduct extends CompetitorProduct {
 export class AppDatabase extends Dexie {
   products!: Table<LocalProduct, string>;
   competitor_products!: Table<LocalCompetitorProduct, number>;
+  /** @deprecated Use demand_groups. Kept for Phase 3 cleanup. */
   categories!: Table<LocalCategory, number>;
+  demand_groups!: Table<LocalDemandGroup, number>;
   category_aliases!: Table<LocalCategoryAlias, number>;
   sorting_errors!: Table<LocalSortingError, number>;
   stores!: Table<LocalStore, number>;
@@ -141,6 +152,15 @@ export class AppDatabase extends Dexie {
     });
     this.version(9).stores({
       products: "product_id, name_normalized, category_id, status, name, country",
+    });
+    // BL-62: Add demand_groups table; update aisle_orders + aggregated indexes
+    this.version(10).stores({
+      demand_groups: "++id, code, sort_position",
+      products: "product_id, name_normalized, demand_group_code, status, name, country",
+      list_items:
+        "++id, item_id, list_id, product_id, demand_group_code, is_checked, sort_position",
+      aisle_orders: "++id, store_id, demand_group_code, learned_position",
+      aggregated: "++id, demand_group_code, average_position",
     });
   }
 }

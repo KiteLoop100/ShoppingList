@@ -93,6 +93,7 @@ export async function getListItems(listId: string): Promise<LocalListItem[]> {
     is_checked: row.is_checked,
     checked_at: row.checked_at ?? null,
     sort_position: row.sort_position,
+    demand_group_code: row.demand_group_code ?? row.category_id ?? "AK",
     category_id: row.category_id,
     added_at: row.added_at,
     deferred_until: row.deferred_until ?? null,
@@ -106,7 +107,9 @@ export interface AddItemParams {
   product_id: string | null;
   custom_name: string | null;
   display_name: string;
-  category_id: string;
+  demand_group_code: string;
+  /** @deprecated Use demand_group_code. */
+  category_id?: string;
   quantity?: number;
   buy_elsewhere_retailer?: string | null;
   competitor_product_id?: string | null;
@@ -118,6 +121,7 @@ export async function addListItem(params: AddItemParams): Promise<LocalListItem>
     product_id,
     custom_name,
     display_name,
+    demand_group_code,
     category_id,
     quantity = 1,
     buy_elsewhere_retailer = null,
@@ -160,6 +164,7 @@ export async function addListItem(params: AddItemParams): Promise<LocalListItem>
       is_checked: existing.is_checked,
       checked_at: existing.checked_at ?? null,
       sort_position: existing.sort_position,
+      demand_group_code: existing.demand_group_code ?? existing.category_id ?? demand_group_code,
       category_id: existing.category_id,
       added_at: existing.added_at,
     };
@@ -179,7 +184,8 @@ export async function addListItem(params: AddItemParams): Promise<LocalListItem>
     is_checked: false,
     checked_at: null,
     sort_position,
-    category_id,
+    demand_group_code,
+    category_id: category_id ?? demand_group_code,
     added_at: now,
   };
   if (buy_elsewhere_retailer) {
@@ -209,6 +215,7 @@ export async function addListItem(params: AddItemParams): Promise<LocalListItem>
     is_checked: newItem.is_checked,
     checked_at: newItem.checked_at ?? null,
     sort_position: newItem.sort_position,
+    demand_group_code: newItem.demand_group_code ?? newItem.category_id ?? demand_group_code,
     category_id: newItem.category_id,
     added_at: newItem.added_at,
   };
@@ -223,6 +230,7 @@ export async function updateListItem(
     product_id?: string | null;
     display_name?: string;
     custom_name?: string | null;
+    demand_group_code?: string;
     category_id?: string;
     deferred_until?: string | null;
     buy_elsewhere_retailer?: string | null;
@@ -239,6 +247,7 @@ export async function updateListItem(
   if (updates.product_id !== undefined) updatePayload.product_id = updates.product_id;
   if (updates.display_name !== undefined) updatePayload.display_name = updates.display_name;
   if (updates.custom_name !== undefined) updatePayload.custom_name = updates.custom_name;
+  if (updates.demand_group_code !== undefined) updatePayload.demand_group_code = updates.demand_group_code;
   if (updates.category_id !== undefined) updatePayload.category_id = updates.category_id;
   if (updates.deferred_until !== undefined) updatePayload.deferred_until = updates.deferred_until;
   if (updates.buy_elsewhere_retailer !== undefined) updatePayload.buy_elsewhere_retailer = updates.buy_elsewhere_retailer;
@@ -283,6 +292,7 @@ export async function addListItemsBatch(
       product_id,
       custom_name,
       display_name,
+      demand_group_code,
       category_id,
       quantity = 1,
       buy_elsewhere_retailer = null,
@@ -312,6 +322,7 @@ export async function addListItemsBatch(
         is_checked: existing.is_checked,
         checked_at: existing.checked_at ?? null,
         sort_position: existing.sort_position,
+        demand_group_code: existing.demand_group_code ?? existing.category_id ?? demand_group_code,
         category_id: existing.category_id,
         added_at: existing.added_at,
       });
@@ -329,7 +340,8 @@ export async function addListItemsBatch(
         is_checked: false,
         checked_at: null,
         sort_position,
-        category_id,
+        demand_group_code,
+        category_id: category_id ?? demand_group_code,
         added_at: now,
       };
       if (buy_elsewhere_retailer) insertPayload.buy_elsewhere_retailer = buy_elsewhere_retailer;
@@ -345,7 +357,8 @@ export async function addListItemsBatch(
         is_checked: false,
         checked_at: null,
         sort_position,
-        category_id,
+        demand_group_code,
+        category_id: category_id ?? demand_group_code,
         added_at: now,
       });
     }

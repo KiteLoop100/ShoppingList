@@ -76,6 +76,7 @@ export async function archiveListAsTrip(
     display_name: item.display_name,
     quantity: item.quantity,
     price_at_purchase: null,
+    demand_group_code: item.demand_group_code,
     category_id: item.category_id,
     check_position: idx + 1,
     checked_at: item.checked_at ?? completedAt,
@@ -139,6 +140,7 @@ export async function archiveListAsTrip(
         is_checked: i.is_checked,
         checked_at: i.checked_at ?? null,
         sort_position: i.sort_position,
+        demand_group_code: i.demand_group_code ?? i.category_id ?? "AK",
         category_id: i.category_id,
         added_at: i.added_at,
       }));

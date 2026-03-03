@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { loadCategories, buildCategoryListPrompt } from "@/lib/categories/constants";
+import { loadDemandGroups, buildDemandGroupListPrompt } from "@/lib/categories/constants";
 import { claudeRateLimit, checkRateLimit, getIdentifier } from "@/lib/api/rate-limit";
 import { CLAUDE_MODEL_HAIKU } from "@/lib/api/config";
 import { requireApiKey, requireSupabaseAdmin } from "@/lib/api/guards";
@@ -40,17 +40,17 @@ export async function POST(req: Request) {
   );
   if (rateLimitResponse) return rateLimitResponse;
 
-  const CATEGORIES = await loadCategories(supabase);
-  const CATEGORY_LIST = buildCategoryListPrompt(CATEGORIES);
+  const DEMAND_GROUPS = await loadDemandGroups(supabase);
+  const GROUP_LIST = buildDemandGroupListPrompt(DEMAND_GROUPS);
 
-  const prompt = `Du bist ein Supermarkt-Kategorie-Zuordner. Ordne das folgende Produkt genau EINER Kategorie zu.
+  const prompt = `Du bist ein Supermarkt-Kategorie-Zuordner für ALDI SÜD. Ordne das folgende Produkt genau EINER Warengruppe (Demand Group) zu.
 
 Produkt: "${productName}"
 
-Verfügbare Kategorien:
-${CATEGORY_LIST}
+Verfügbare Warengruppen (Code: Name):
+${GROUP_LIST}
 
-Antworte NUR mit der category_id (UUID), nichts anderes. Keine Erklärung, kein Text drumherum.`;
+Antworte NUR mit dem Code (z.B. "83"), nichts anderes. Keine Erklärung, kein Text drumherum.`;
 
   try {
     const text = (await callClaude({
@@ -59,9 +59,9 @@ Antworte NUR mit der category_id (UUID), nichts anderes. Keine Erklärung, kein 
       max_tokens: 100,
     })).trim();
 
-    const matched = CATEGORIES.find((c) => text.includes(c.id));
+    const matched = DEMAND_GROUPS.find((g) => text.includes(g.code));
     if (!matched) {
-      log.error("[assign-category] Could not parse category from response:", text);
+      log.error("[assign-category] Could not parse demand_group from response:", text);
       return NextResponse.json(
         { error: "Could not determine category" },
         { status: 502 }
@@ -69,7 +69,10 @@ Antworte NUR mit der category_id (UUID), nichts anderes. Keine Erklärung, kein 
     }
 
     return NextResponse.json({
-      category_id: matched.id,
+      demand_group_code: matched.code,
+      demand_group_name: matched.name,
+      // Legacy fields for backward compatibility during migration
+      category_id: matched.code,
       category_name: matched.name,
     });
   } catch (err) {

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * F01 + LEARNING-LOGIC.md §6: "Fill list with typical products".
  * Products that appeared on >=50% of the last 10 trips, with last-used quantity.
  * Data source: Supabase (shopping_trips + trip_items).
@@ -15,7 +15,9 @@ const MIN_TRIPS_FOR_FEATURE = 3;
 export interface TypicalProductItem {
   product_id: string | null;
   display_name: string;
-  category_id: string;
+  demand_group_code: string;
+  /** @deprecated Use demand_group_code. */
+  category_id?: string;
   quantity: number;
 }
 
@@ -54,7 +56,7 @@ export async function getTypicalProducts(): Promise<TypicalProductItem[]> {
   const tripIds = trips.map((t) => t.trip_id);
   const { data: allTripItems } = await supabase
     .from("trip_items")
-    .select("trip_id, product_id, display_name, category_id, quantity")
+    .select("trip_id, product_id, display_name, demand_group_code, category_id, quantity")
     .in("trip_id", tripIds);
 
   if (!allTripItems) return [];
@@ -71,7 +73,8 @@ export async function getTypicalProducts(): Promise<TypicalProductItem[]> {
       lastCompletedAt: string;
       product_id: string | null;
       display_name: string;
-      category_id: string;
+      demand_group_code: string;
+      category_id?: string;
       quantity: number;
     }
   >();
@@ -79,6 +82,7 @@ export async function getTypicalProducts(): Promise<TypicalProductItem[]> {
   for (const item of allTripItems) {
     const completedAt = tripCompletedAt.get(item.trip_id) ?? "";
     const k = key(item);
+    const dgCode = item.demand_group_code ?? item.category_id ?? "AK";
     const existing = byKey.get(k);
     if (!existing) {
       byKey.set(k, {
@@ -86,6 +90,7 @@ export async function getTypicalProducts(): Promise<TypicalProductItem[]> {
         lastCompletedAt: completedAt,
         product_id: item.product_id,
         display_name: item.display_name,
+        demand_group_code: dgCode,
         category_id: item.category_id,
         quantity: item.quantity,
       });
@@ -94,6 +99,7 @@ export async function getTypicalProducts(): Promise<TypicalProductItem[]> {
       if (completedAt > existing.lastCompletedAt) {
         existing.lastCompletedAt = completedAt;
         existing.quantity = item.quantity;
+        existing.demand_group_code = dgCode;
         existing.category_id = item.category_id;
       }
     }
@@ -107,6 +113,7 @@ export async function getTypicalProducts(): Promise<TypicalProductItem[]> {
       result.push({
         product_id: v.product_id,
         display_name: v.display_name,
+        demand_group_code: v.demand_group_code,
         category_id: v.category_id,
         quantity: v.quantity,
       });
@@ -123,6 +130,7 @@ export async function fillListWithTypicalProducts(listId: string): Promise<numbe
       product_id: it.product_id,
       custom_name: it.product_id ? null : it.display_name,
       display_name: it.display_name,
+      demand_group_code: it.demand_group_code,
       category_id: it.category_id,
       quantity: it.quantity,
     });

@@ -1,9 +1,15 @@
 /**
- * Assign category to a generic product name via Claude API.
+ * Assign demand group to a generic product name via Claude API.
  * Requires internet + working API. Throws on failure so the caller
  * can prevent adding the product with a wrong category.
  */
 
+export interface DemandGroupAssignment {
+  demand_group_code: string;
+  demand_group_name: string;
+}
+
+/** @deprecated Use DemandGroupAssignment. */
 export interface CategoryAssignment {
   category_id: string;
   category_name: string;
@@ -16,9 +22,9 @@ export class CategoryAssignmentError extends Error {
   }
 }
 
-export async function assignCategory(
+export async function assignDemandGroup(
   productName: string
-): Promise<CategoryAssignment> {
+): Promise<DemandGroupAssignment> {
   const res = await fetch("/api/assign-category", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -33,12 +39,23 @@ export async function assignCategory(
   }
 
   const data = await res.json();
-  if (!data.category_id) {
-    throw new CategoryAssignmentError("No category returned from API");
+  if (!data.demand_group_code) {
+    throw new CategoryAssignmentError("No demand_group_code returned from API");
   }
 
   return {
-    category_id: data.category_id,
-    category_name: data.category_name ?? "",
+    demand_group_code: data.demand_group_code,
+    demand_group_name: data.demand_group_name ?? "",
+  };
+}
+
+/** @deprecated Use assignDemandGroup. Wraps new API for backward compatibility. */
+export async function assignCategory(
+  productName: string
+): Promise<CategoryAssignment> {
+  const result = await assignDemandGroup(productName);
+  return {
+    category_id: result.demand_group_code,
+    category_name: result.demand_group_name,
   };
 }

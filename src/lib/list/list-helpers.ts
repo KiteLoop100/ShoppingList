@@ -1,21 +1,30 @@
 /**
- * Sort and group list items by category; compute estimated total.
+ * Sort and group list items by demand group; compute estimated total.
  * F03 Modus 2: hierarchical sort uses group_rank, subgroup_rank, product_rank.
+ *
+ * BL-62: unified sort function using demand_group_code instead of category_id.
  */
 
-import type { LocalListItem, LocalCategory } from "@/lib/db";
+import type { LocalListItem } from "@/lib/db";
+import type { DemandGroup } from "@/types";
 import type { HierarchicalOrderResult } from "@/lib/store/hierarchical-order";
 
 export interface ListItemWithMeta extends LocalListItem {
+  demand_group_name: string;
+  demand_group_icon: string;
+  demand_group_sort_position: number;
+  /** @deprecated Alias for demand_group_name. Kept for Phase 3 cleanup. */
   category_name: string;
+  /** @deprecated Alias for demand_group_icon. Kept for Phase 3 cleanup. */
   category_icon: string;
+  /** @deprecated Alias for demand_group_sort_position. Kept for Phase 3 cleanup. */
   category_sort_position: number;
   price: number | null;
   /** Product thumbnail URL (from products.thumbnail_url). */
   thumbnail_url?: string | null;
   /** True if product has additional info (brand, nutrition, ingredients, etc.) to show in detail modal. */
   has_additional_info?: boolean;
-  /** F03 Modus 2: demand group (from product or category name). */
+  /** F03 Modus 2: demand group (from product or demand_group_code). */
   demand_group?: string;
   /** F03 Modus 2: demand sub-group (from product). */
   demand_sub_group?: string;
@@ -52,39 +61,76 @@ export interface SortResult {
 }
 
 /** Virtual demand group for active promotional items (assortment_type = special/special_food/special_nonfood). */
-export const VIRTUAL_GROUP_AKTIONSARTIKEL = "AK-Aktionsartikel";
+export const VIRTUAL_GROUP_AKTIONSARTIKEL = "AK";
 
 export interface ProductMetaForSort {
   demand_group: string | null;
   demand_sub_group: string | null;
   popularity_score: number | null;
-  /** True if product is a special/promotional item (assortment_type special, special_food, or special_nonfood). */
+  /** True if product is a special/promotional item. */
   is_special?: boolean;
 }
 
+const FALLBACK_DG: DemandGroup = {
+  code: "??",
+  name: "Sonstiges",
+  name_en: "Other",
+  icon: "📦",
+  color: "#708090",
+  sort_position: 999,
+};
+
+/**
+ * Unified sort function: sorts and groups items by demand group order.
+ * When a HierarchicalOrderResult is provided, uses 3-level hierarchical sorting
+ * (demand group -> sub-group -> product). Otherwise falls back to flat demand-group sorting.
+ */
 export function sortAndGroupItems(
   items: LocalListItem[],
-  categoryMap: Map<string, LocalCategory>,
-  categoryOrder?: Map<string, number>,
+  demandGroupMap: Map<string, DemandGroup>,
+  demandGroupOrder?: Map<string, number>,
+  productMetaMap?: Map<string, ProductMetaForSort>,
+  hierarchicalOrder?: HierarchicalOrderResult,
+): SortResult {
+  if (hierarchicalOrder) {
+    return sortHierarchical(items, demandGroupMap, productMetaMap ?? new Map(), hierarchicalOrder);
+  }
+  return sortFlat(items, demandGroupMap, demandGroupOrder, productMetaMap);
+}
+
+function buildItemMeta(
+  item: LocalListItem,
+  dg: DemandGroup,
+  sortPos: number,
+  meta: ProductMetaForSort | null | undefined,
+): ListItemWithMeta {
+  return {
+    ...item,
+    demand_group_name: dg.name,
+    demand_group_icon: dg.icon ?? "📦",
+    demand_group_sort_position: sortPos,
+    category_name: dg.name,
+    category_icon: dg.icon ?? "📦",
+    category_sort_position: sortPos,
+    demand_group: meta?.demand_group ?? undefined,
+    price: null,
+  };
+}
+
+function sortFlat(
+  items: LocalListItem[],
+  demandGroupMap: Map<string, DemandGroup>,
+  demandGroupOrder?: Map<string, number>,
   productMetaMap?: Map<string, ProductMetaForSort>,
 ): SortResult {
   const withMeta: ListItemWithMeta[] = items.map((item) => {
-    const cat = categoryMap.get(item.category_id);
-    const sortPos =
-      categoryOrder?.get(item.category_id) ??
-      cat?.default_sort_position ??
-      999;
+    const dgCode = item.demand_group_code;
+    const dg = demandGroupMap.get(dgCode) ?? FALLBACK_DG;
+    const sortPos = demandGroupOrder?.get(dgCode) ?? dg.sort_position;
     const meta = productMetaMap && item.product_id
       ? productMetaMap.get(item.product_id)
       : null;
-    return {
-      ...item,
-      category_name: cat?.name ?? "",
-      category_icon: cat?.icon ?? "📦",
-      category_sort_position: sortPos,
-      demand_group: meta?.demand_group ?? undefined,
-      price: null,
-    };
+    return buildItemMeta(item, dg, sortPos, meta);
   });
 
   const deferred = withMeta
@@ -97,7 +143,7 @@ export function sortAndGroupItems(
     .filter((i) => !i.is_checked && !i.is_deferred)
     .sort(
       (a, b) =>
-        a.category_sort_position - b.category_sort_position ||
+        a.demand_group_sort_position - b.demand_group_sort_position ||
         a.sort_position - b.sort_position
     );
   const checked = withMeta
@@ -111,14 +157,11 @@ export function sortAndGroupItems(
   return { unchecked, checked, deferred };
 }
 
-/**
- * F03 Modus 2: Sort and group by hierarchical order (Demand Group → Sub-Group → Product).
- */
-export function sortAndGroupItemsHierarchical(
+function sortHierarchical(
   items: LocalListItem[],
-  categoryMap: Map<string, LocalCategory>,
+  demandGroupMap: Map<string, DemandGroup>,
   productMetaMap: Map<string, ProductMetaForSort>,
-  order: HierarchicalOrderResult
+  order: HierarchicalOrderResult,
 ): SortResult {
   const { groupOrder, subgroupOrder, productOrder } = order;
   const groupRank = new Map<string, number>();
@@ -133,14 +176,15 @@ export function sortAndGroupItemsHierarchical(
   );
 
   const withMeta: ListItemWithMeta[] = items.map((item) => {
-    const cat = categoryMap.get(item.category_id);
+    const dgCode = item.demand_group_code;
+    const dg = demandGroupMap.get(dgCode) ?? FALLBACK_DG;
     const meta = item.product_id ? productMetaMap.get(item.product_id) : null;
     const group = meta?.demand_group ?? null;
     const subgroup = meta?.demand_sub_group ?? null;
     const isSpecialActive = meta?.is_special && !(item as ListItemWithMeta).is_deferred;
     const demand_group = isSpecialActive
       ? VIRTUAL_GROUP_AKTIONSARTIKEL
-      : (group ?? cat?.name ?? "");
+      : (group ?? dg.name);
     const demand_sub_group = isSpecialActive ? "" : (subgroup ?? "");
     const scope = demand_sub_group ? `${demand_group}|${demand_sub_group}` : demand_group;
     const gr = groupRank.get(demand_group) ?? 999;
@@ -149,16 +193,12 @@ export function sortAndGroupItemsHierarchical(
       ? productRank.get(`${scope}\t${item.product_id}`) ?? 999
       : item.sort_position;
     return {
-      ...item,
-      category_name: cat?.name ?? "",
-      category_icon: cat?.icon ?? "📦",
-      category_sort_position: gr,
+      ...buildItemMeta(item, dg, gr, meta),
       demand_group,
       demand_sub_group,
       group_rank: gr,
       subgroup_rank: sr,
       product_rank: pr,
-      price: null,
     };
   });
 
@@ -185,6 +225,19 @@ export function sortAndGroupItemsHierarchical(
         a.sort_position - b.sort_position
     );
   return { unchecked, checked, deferred };
+}
+
+/**
+ * @deprecated Use sortAndGroupItems with hierarchicalOrder parameter.
+ * Alias for backward compatibility during frontend migration.
+ */
+export function sortAndGroupItemsHierarchical(
+  items: LocalListItem[],
+  demandGroupMap: Map<string, DemandGroup>,
+  productMetaMap: Map<string, ProductMetaForSort>,
+  order: HierarchicalOrderResult,
+): SortResult {
+  return sortAndGroupItems(items, demandGroupMap, undefined, productMetaMap, order);
 }
 
 function applyToAllLists<T>(

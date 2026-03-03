@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import { log } from "@/lib/utils/logger";
-import { setCategories } from "@/lib/search/local-search";
+import { setCategories, setDemandGroups } from "@/lib/search/local-search";
 import { db } from "@/lib/db";
 import {
   getActiveListWithItems,
@@ -22,7 +22,7 @@ import {
   type ListItemWithMeta,
   type ProductMetaForSort,
 } from "@/lib/list/list-helpers";
-import { getCategoryOrderForList } from "@/lib/store/aisle-order";
+import { getDemandGroupOrderForList } from "@/lib/store/aisle-order";
 import { getHierarchicalOrder } from "@/lib/store/hierarchical-order";
 import { syncPairwiseFromSupabase } from "@/lib/store/sync-pairwise-from-supabase";
 import { useProducts } from "@/lib/products-context";
@@ -30,14 +30,14 @@ import { createClientIfConfigured } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth/auth-context";
 import { getStoreById } from "@/lib/store/store-service";
 import { getDefaultStoreId } from "@/lib/settings/default-store";
-import { fetchCategoriesFromSupabase } from "@/lib/categories/category-service";
+import { fetchCategoriesFromSupabase, fetchDemandGroupsFromSupabase, toDemandGroups } from "@/lib/categories/category-service";
 import {
   fetchActiveAutoReorderSettings,
   touchAutoReorderOnCheckoff,
   type AutoReorderSetting,
 } from "@/lib/list/auto-reorder-service";
-import type { LocalCategory, LocalListItem, LocalShoppingList, LocalStore } from "@/lib/db";
-import type { Product, SortMode, AssortmentType } from "@/types";
+import type { LocalCategory, LocalDemandGroup, LocalListItem, LocalShoppingList, LocalStore } from "@/lib/db";
+import type { DemandGroup, Product, SortMode, AssortmentType } from "@/types";
 
 export type { AutoReorderSetting } from "@/lib/list/auto-reorder-service";
 
@@ -122,6 +122,7 @@ export interface UseListDataResult {
 
 interface ListDataCaches {
   categoriesCache: { current: LocalCategory[] | null };
+  demandGroupsCache: { current: DemandGroup[] | null };
   autoReorderCache: { current: AutoReorderSetting[] | null };
   idbProductsCache: { current: Product[] | null };
 }
@@ -132,21 +133,26 @@ interface FetchedListData {
   idbProducts: Product[];
   categories: LocalCategory[];
   categoryMap: Map<string, LocalCategory>;
+  demandGroups: DemandGroup[];
+  demandGroupMap: Map<string, DemandGroup>;
   reorderMap: Map<string, AutoReorderSetting>;
   storeResult: LocalStore | null;
 }
 
 async function fetchListData(caches: ListDataCaches): Promise<FetchedListData> {
   const shouldFetchCategories = caches.categoriesCache.current === null;
+  const shouldFetchDemandGroups = caches.demandGroupsCache.current === null;
   const shouldFetchReorder = caches.autoReorderCache.current === null;
   const shouldFetchIdbProducts = caches.idbProductsCache.current === null;
 
-  const [listResult, idbCats, idbProductsResult, catsRows, reorderRows] = await Promise.all([
+  const [listResult, idbCats, idbProductsResult, catsRows, reorderRows, idbDgs, dgRows] = await Promise.all([
     getActiveListWithItems(),
     shouldFetchCategories ? db.categories.toArray() : Promise.resolve([] as LocalCategory[]),
     shouldFetchIdbProducts ? db.products.toArray() : Promise.resolve([] as Product[]),
     shouldFetchCategories ? fetchCategoriesFromSupabase() : Promise.resolve(null),
     shouldFetchReorder ? fetchActiveAutoReorderSettings() : Promise.resolve(null),
+    shouldFetchDemandGroups ? db.demand_groups.toArray() : Promise.resolve([] as LocalDemandGroup[]),
+    shouldFetchDemandGroups ? fetchDemandGroupsFromSupabase() : Promise.resolve(null),
   ]);
 
   const { list, items } = listResult;
@@ -185,6 +191,24 @@ async function fetchListData(caches: ListDataCaches): Promise<FetchedListData> {
     setCategories(categories);
   }
 
+  let demandGroups: DemandGroup[];
+  if (caches.demandGroupsCache.current) {
+    demandGroups = caches.demandGroupsCache.current;
+  } else {
+    demandGroups = idbDgs.map(dg => ({ code: dg.code, name: dg.name, name_en: dg.name_en, icon: dg.icon, color: dg.color, sort_position: dg.sort_position }));
+    if (dgRows?.length) {
+      const codeSet = new Set(demandGroups.map(dg => dg.code));
+      for (const row of toDemandGroups(dgRows)) {
+        if (!codeSet.has(row.code)) {
+          codeSet.add(row.code);
+          demandGroups.push(row);
+        }
+      }
+    }
+    caches.demandGroupsCache.current = demandGroups;
+    setDemandGroups(demandGroups);
+  }
+
   if (caches.autoReorderCache.current === null) {
     caches.autoReorderCache.current = ((reorderRows ?? []) as AutoReorderSetting[]).map(row => ({
       ...row,
@@ -193,11 +217,12 @@ async function fetchListData(caches: ListDataCaches): Promise<FetchedListData> {
   }
 
   const categoryMap = new Map(categories.map((c) => [c.category_id, c]));
+  const demandGroupMap = new Map(demandGroups.map(dg => [dg.code, dg]));
   const reorderMap = new Map<string, AutoReorderSetting>();
   for (const row of caches.autoReorderCache.current) {
     reorderMap.set(row.product_id, row);
   }
-  return { list, items, idbProducts, categories, categoryMap, reorderMap, storeResult };
+  return { list, items, idbProducts, categories, categoryMap, demandGroups, demandGroupMap, reorderMap, storeResult };
 }
 
 interface ProductMaps {
@@ -254,6 +279,7 @@ async function processAutoReorder(
   contextProducts: Product[],
   list: LocalShoppingList,
   categoryMap: Map<string, LocalCategory>,
+  demandGroupMap: Map<string, DemandGroup>,
   todayStr: string,
 ): Promise<void> {
   for (const item of items) {
@@ -314,11 +340,12 @@ async function processAutoReorder(
         product_id: productId,
         custom_name: null,
         display_name: product.name,
+        demand_group_code: product.demand_group_code,
         category_id: product.category_id,
         quantity: 1,
       });
     } else {
-      const cat = categoryMap.get(product.category_id);
+      const dg = demandGroupMap.get(product.demand_group_code);
       items.push({
         item_id: `reorder-${productId}`,
         list_id: list.list_id,
@@ -330,13 +357,14 @@ async function processAutoReorder(
         checked_at: null,
         sort_position: 999,
         category_id: product.category_id,
+        demand_group_code: product.demand_group_code,
         added_at: new Date().toISOString(),
         is_deferred: true,
         available_from: activationDate,
         deferred_reason: "reorder",
-        category_name: cat?.name ?? "",
-        category_icon: cat?.icon ?? "📦",
-        category_sort_position: cat?.default_sort_position ?? 999,
+        category_name: dg?.name ?? "",
+        category_icon: dg?.icon ?? "📦",
+        category_sort_position: dg?.sort_position ?? 999,
         price: null,
       } as ListItemWithMeta & { is_deferred: boolean; available_from: string; deferred_reason: "reorder" });
     }
@@ -355,6 +383,8 @@ interface SortData {
   effectiveStoreId: string | null;
   categories: LocalCategory[];
   categoryMap: Map<string, LocalCategory>;
+  demandGroups: DemandGroup[];
+  demandGroupMap: Map<string, DemandGroup>;
   productMetaMap: Map<string, ProductMetaForSort>;
   productPriceMap: Map<string, number>;
   productThumbnailMap: Map<string, string>;
@@ -368,12 +398,14 @@ async function sortListItems(
   effectiveStoreId: string | null,
   categories: LocalCategory[],
   categoryMap: Map<string, LocalCategory>,
+  demandGroups: DemandGroup[],
+  demandGroupMap: Map<string, DemandGroup>,
   productMetaMap: Map<string, ProductMetaForSort>,
   syncedStoreIds: { current: Set<string> },
 ): Promise<SortedItems> {
   const runCategorySort = async () => {
-    const categoryOrder = await getCategoryOrderForList(effectiveStoreId);
-    return sortAndGroupItems(items, categoryMap, categoryOrder, productMetaMap);
+    const demandGroupOrder = await getDemandGroupOrderForList(effectiveStoreId);
+    return sortAndGroupItems(items, demandGroupMap, demandGroupOrder, productMetaMap);
   };
 
   let u: ListItemWithMeta[];
@@ -386,12 +418,12 @@ async function sortListItems(
       const subgroupsByGroup = new Map<string, Set<string>>();
       const productsByScope = new Map<string, Set<string>>();
       for (const item of items) {
-        const cat = categoryMap.get(item.category_id);
+        const dg = demandGroupMap.get(item.demand_group_code);
         const meta = item.product_id ? productMetaMap.get(item.product_id) : null;
         const isSpecialActive = meta?.is_special && !(item as ListItemWithMeta).is_deferred;
         const group = isSpecialActive
           ? VIRTUAL_GROUP_AKTIONSARTIKEL
-          : (meta?.demand_group ?? cat?.name ?? "");
+          : (meta?.demand_group ?? dg?.name ?? "");
         const subgroup = isSpecialActive ? "" : (meta?.demand_sub_group ?? "");
         if (group) groups.add(group);
         if (group && subgroup) {
@@ -402,9 +434,9 @@ async function sortListItems(
           if (item.product_id) productsByScope.get(scope)!.add(item.product_id);
         }
       }
-      const defaultGroupOrder = [...categories]
-        .sort((a, b) => (a.default_sort_position ?? 999) - (b.default_sort_position ?? 999))
-        .map((cat) => cat.name);
+      const defaultGroupOrder = [...demandGroups]
+        .sort((a, b) => (a.sort_position ?? 999) - (b.sort_position ?? 999))
+        .map((dg) => dg.name);
       if (effectiveStoreId && !syncedStoreIds.current.has(effectiveStoreId)) {
         await syncPairwiseFromSupabase(effectiveStoreId);
         syncedStoreIds.current.add(effectiveStoreId);
@@ -435,7 +467,7 @@ async function sortListItems(
       });
       const out = sortAndGroupItemsHierarchical(
         items,
-        categoryMap,
+        demandGroupMap,
         productMetaMap,
         order
       );
@@ -533,6 +565,7 @@ export function useListData(sortMode: SortMode = "my-order"): UseListDataResult 
   const isFirstLoad = useRef(true);
   const refetchSeqRef = useRef(0);
   const categoriesCacheRef = useRef<LocalCategory[] | null>(null);
+  const demandGroupsCacheRef = useRef<DemandGroup[] | null>(null);
   const autoReorderCacheRef = useRef<AutoReorderSetting[] | null>(null);
   const idbProductsCacheRef = useRef<Product[] | null>(null);
   const prevContextProductsLenRef = useRef(contextProducts.length);
@@ -553,11 +586,12 @@ export function useListData(sortMode: SortMode = "my-order"): UseListDataResult 
       const todayStr = new Date().toISOString().slice(0, 10);
       const caches: ListDataCaches = {
         categoriesCache: categoriesCacheRef,
+        demandGroupsCache: demandGroupsCacheRef,
         autoReorderCache: autoReorderCacheRef,
         idbProductsCache: idbProductsCacheRef,
       };
 
-      const { list, items, idbProducts, categories, categoryMap, reorderMap, storeResult } =
+      const { list, items, idbProducts, categories, categoryMap, demandGroups, demandGroupMap, reorderMap, storeResult } =
         await fetchListData(caches);
 
       const currentContextProducts = contextProductsRef.current;
@@ -566,7 +600,7 @@ export function useListData(sortMode: SortMode = "my-order"): UseListDataResult 
 
       await processAutoReorder(
         items, reorderMap, productDeferredInfo,
-        idbProducts, currentContextProducts, list, categoryMap, todayStr,
+        idbProducts, currentContextProducts, list, categoryMap, demandGroupMap, todayStr,
       );
 
       const effectiveStoreId = list.store_id ?? getDefaultStoreId();
@@ -577,6 +611,8 @@ export function useListData(sortMode: SortMode = "my-order"): UseListDataResult 
         effectiveStoreId,
         categories,
         categoryMap,
+        demandGroups,
+        demandGroupMap,
         productMetaMap,
         productPriceMap,
         productThumbnailMap,
@@ -586,7 +622,8 @@ export function useListData(sortMode: SortMode = "my-order"): UseListDataResult 
 
       const currentSortMode = sortModeRef.current;
       const { unchecked: u, checked: c, deferred: d } = await sortListItems(
-        items, currentSortMode, effectiveStoreId, categories, categoryMap, productMetaMap, syncedStoreIdsRef,
+        items, currentSortMode, effectiveStoreId, categories, categoryMap,
+        demandGroups, demandGroupMap, productMetaMap, syncedStoreIdsRef,
       );
 
       if (seq !== refetchSeqRef.current) return;
@@ -676,7 +713,7 @@ export function useListData(sortMode: SortMode = "my-order"): UseListDataResult 
       });
       const { unchecked: u, checked: c, deferred: d } = await sortListItems(
         freshItems, currentSortMode, data.effectiveStoreId, data.categories,
-        data.categoryMap, data.productMetaMap, syncedStoreIdsRef,
+        data.categoryMap, data.demandGroups, data.demandGroupMap, data.productMetaMap, syncedStoreIdsRef,
       );
       assignPrices(u, c, data.productPriceMap, d);
       assignThumbnails(u, c, data.productThumbnailMap, d);

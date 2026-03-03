@@ -6,7 +6,7 @@
  * See specs/SEARCH-ARCHITECTURE.md for full architecture.
  */
 
-import type { Category, SearchResult } from "@/types";
+import type { Category, DemandGroup, SearchResult } from "@/types";
 import type { SearchModuleInput } from "./types";
 import { indexProducts, type SearchableProduct } from "./search-indexer";
 import { preprocessQuery } from "./query-preprocessor";
@@ -21,6 +21,7 @@ import { MAX_RESULTS } from "./constants";
 let indexedProducts: SearchableProduct[] | null = null;
 let userHistory: Map<string, UserProductPreference> = new Map();
 let categoryMap: Map<string, Category> = new Map();
+let demandGroupMap: Map<string, DemandGroup> = new Map();
 
 /**
  * Set the indexed product list. Call this on app start after loading
@@ -46,12 +47,20 @@ export function setCategories(categories: Category[]): void {
 }
 
 /**
+ * Set the demand group lookup map. Call on app start after loading demand groups.
+ */
+export function setDemandGroups(groups: DemandGroup[]): void {
+  demandGroupMap = new Map(groups.map((g) => [g.code, g]));
+}
+
+/**
  * Clear cached data (e.g. on logout).
  */
 export function clearSearchCache(): void {
   indexedProducts = null;
   userHistory = new Map();
   categoryMap = new Map();
+  demandGroupMap = new Map();
 }
 
 /**
@@ -91,16 +100,22 @@ export async function localSearch(
   const filtered = postProcess(scored, preferences, limit);
 
   // 5. Convert to SearchResult format
-  return filtered.map((c) => ({
-    product_id: c.product.product_id,
-    name: c.product.name,
-    category_id: c.product.category_id,
-    category_name: categoryMap.get(c.product.category_id)?.name ?? "",
-    price: c.product.price,
-    score: c.totalScore,
-    source: "other" as const,
-    product: c.product,
-  }));
+  return filtered.map((c) => {
+    const dgCode = c.product.demand_group_code;
+    const dg = demandGroupMap.get(dgCode);
+    return {
+      product_id: c.product.product_id,
+      name: c.product.name,
+      demand_group_code: dgCode,
+      demand_group_name: dg?.name ?? categoryMap.get(c.product.category_id ?? "")?.name ?? "",
+      category_id: c.product.category_id,
+      category_name: dg?.name ?? categoryMap.get(c.product.category_id ?? "")?.name ?? "",
+      price: c.product.price,
+      score: c.totalScore,
+      source: "other" as const,
+      product: c.product,
+    };
+  });
 }
 
 /**

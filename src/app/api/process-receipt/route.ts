@@ -425,7 +425,7 @@ export async function POST(request: Request) {
       }
 
       receiptItems.push({
-        receipt_id: receiptId,
+        receipt_id: receiptId!,
         position: p.position || receiptItems.length + 1,
         article_number: articleNumber,
         receipt_name: receiptName,

@@ -15,7 +15,8 @@ export interface LastTripInfo {
     custom_name: string | null;
     display_name: string;
     quantity: number;
-    category_id: string;
+    demand_group_code: string;
+    category_id?: string;
   }>;
 }
 
@@ -37,7 +38,7 @@ export async function getLastTrip(): Promise<LastTripInfo | null> {
 
   const { data: tripItems } = await supabase
     .from("trip_items")
-    .select("product_id, custom_name, display_name, quantity, category_id")
+    .select("product_id, custom_name, display_name, quantity, demand_group_code, category_id")
     .eq("trip_id", trip.trip_id)
     .order("check_position", { ascending: true });
 
@@ -50,6 +51,7 @@ export async function getLastTrip(): Promise<LastTripInfo | null> {
       custom_name: t.custom_name,
       display_name: t.display_name,
       quantity: t.quantity,
+      demand_group_code: t.demand_group_code ?? t.category_id ?? "AK",
       category_id: t.category_id,
     })),
   };

@@ -1,41 +1,64 @@
 /**
- * Category helpers — loads the category list from Supabase at runtime.
+ * Demand-group helpers — loads demand groups from Supabase at runtime.
  * Used by API routes for Claude-based classification.
  *
- * No hardcoded UUIDs: the source of truth is the `categories` table.
+ * Source of truth is the `demand_groups` table (~61 ALDI commodity group codes).
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+export interface DemandGroupEntry {
+  code: string;
+  name: string;
+  name_en: string | null;
+}
+
+/** @deprecated Use DemandGroupEntry and loadDemandGroups instead. */
 export interface CategoryEntry {
   id: string;
   name: string;
 }
 
-let _cached: CategoryEntry[] | null = null;
+let _cached: DemandGroupEntry[] | null = null;
 
 /**
- * Load categories from Supabase. The result is cached in-memory for the
- * lifetime of the serverless function (categories rarely change).
+ * Load demand groups from Supabase. Cached in-memory for the lifetime of
+ * the serverless function (demand groups rarely change).
  */
-export async function loadCategories(
+export async function loadDemandGroups(
   supabase: SupabaseClient,
-): Promise<CategoryEntry[]> {
+): Promise<DemandGroupEntry[]> {
   if (_cached) return _cached;
   const { data, error } = await supabase
-    .from("categories")
-    .select("category_id, name")
-    .order("name");
-  if (error) throw new Error(`Failed to load categories: ${error.message}`);
+    .from("demand_groups")
+    .select("code, name, name_en")
+    .order("sort_position");
+  if (error) throw new Error(`Failed to load demand_groups: ${error.message}`);
   _cached = (data ?? []).map(
-    (c: { category_id: string; name: string }) => ({
-      id: c.category_id,
-      name: c.name,
+    (dg: { code: string; name: string; name_en: string | null }) => ({
+      code: dg.code,
+      name: dg.name,
+      name_en: dg.name_en,
     }),
   );
   return _cached;
 }
 
+export function buildDemandGroupListPrompt(
+  groups: DemandGroupEntry[],
+): string {
+  return groups.map((g) => `- ${g.code}: ${g.name}`).join("\n");
+}
+
+/** @deprecated Use loadDemandGroups. Kept for backward compatibility during migration. */
+export async function loadCategories(
+  supabase: SupabaseClient,
+): Promise<CategoryEntry[]> {
+  const groups = await loadDemandGroups(supabase);
+  return groups.map((g) => ({ id: g.code, name: g.name }));
+}
+
+/** @deprecated Use buildDemandGroupListPrompt. */
 export function buildCategoryListPrompt(
   categories: CategoryEntry[],
 ): string {

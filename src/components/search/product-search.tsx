@@ -16,7 +16,7 @@ import {
   type RecentListProduct,
 } from "@/lib/list";
 import dynamic from "next/dynamic";
-import { assignCategory, CategoryAssignmentError } from "@/lib/category/assign-category";
+import { assignDemandGroup, CategoryAssignmentError } from "@/lib/category/assign-category";
 import { searchRetailerProducts, type RetailerProductResult } from "@/lib/competitor-products/competitor-product-service";
 import { SearchResultsPanel } from "./search-results-panel";
 
@@ -132,6 +132,8 @@ export function ProductSearch({
       const list: SearchResult[] = (json.products ?? []).map((p) => ({
         product_id: p.product_id,
         name: p.name,
+        demand_group_code: p.category_id,
+        demand_group_name: p.category_name ?? "",
         category_id: p.category_id,
         category_name: p.category_name ?? "",
         price: p.price,
@@ -254,13 +256,13 @@ export function ProductSearch({
     setAdding(true);
     try {
       const lid = await ensureListId();
-      const { category_id } = await assignCategory(name);
+      const { demand_group_code } = await assignDemandGroup(name);
       await addListItem({
         list_id: lid,
         product_id: null,
         custom_name: name,
         display_name: name,
-        category_id,
+        demand_group_code,
         quantity: 1,
         buy_elsewhere_retailer: rp ? rp.retailer.name : null,
       });
@@ -293,6 +295,7 @@ export function ProductSearch({
           product_id: result.product_id,
           custom_name: null,
           display_name: result.name,
+          demand_group_code: result.demand_group_code,
           category_id: result.category_id,
           quantity: 1,
         });
@@ -318,14 +321,15 @@ export function ProductSearch({
       setAdding(true);
       try {
         const lid = await ensureListId();
-        const categoryId = product.category_id
-          ?? (await assignCategory(product.name)).category_id;
+        const demandGroupCode = product.category_id
+          ?? (await assignDemandGroup(product.name)).demand_group_code;
         await addListItem({
           list_id: lid,
           product_id: null,
           custom_name: product.name,
           display_name: product.name,
-          category_id: categoryId,
+          demand_group_code: demandGroupCode,
+          category_id: product.category_id ?? undefined,
           quantity: 1,
           buy_elsewhere_retailer: retailerPrefix.retailer.name,
           competitor_product_id: product.product_id,
@@ -359,6 +363,7 @@ export function ProductSearch({
           product_id: product.product_id,
           custom_name: null,
           display_name: product.name,
+          demand_group_code: product.demand_group_code,
           category_id: product.category_id,
           quantity: 1,
         });
@@ -408,6 +413,7 @@ export function ProductSearch({
             product_id: product.product_id,
             custom_name: null,
             display_name: product.name,
+            demand_group_code: product.demand_group_code,
             category_id: product.category_id,
             quantity,
           };

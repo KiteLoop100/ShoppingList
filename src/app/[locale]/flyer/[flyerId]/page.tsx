@@ -160,6 +160,7 @@ export default function FlyerDetailPage() {
         product_id: product.product_id,
         custom_name: null,
         display_name: product.name,
+        demand_group_code: product.category_id ?? "AK",
         category_id: product.category_id,
         quantity: 1,
       });
