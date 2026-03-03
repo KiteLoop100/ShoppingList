@@ -20,6 +20,9 @@ import {
   matchBboxesToProducts,
 } from "@/lib/api/photo-processing/gemini-detect";
 import { normalizeName } from "@/lib/products/normalize";
+
+let Sentry: typeof import("@sentry/nextjs") | null = null;
+try { Sentry = require("@sentry/nextjs"); } catch {}
 import { fetchOpenFoodFacts } from "@/lib/products/open-food-facts";
 import { findExistingProduct } from "@/lib/products/find-existing";
 import { upsertProduct } from "@/lib/products/upsert-product";
@@ -131,6 +134,7 @@ export async function POST(request: Request) {
     const buf = await res.arrayBuffer();
     pdfBase64 = Buffer.from(buf).toString("base64");
   } catch (e) {
+    Sentry?.captureException(e, { extra: { flyer_id, page_number } });
     const msg = e instanceof Error ? e.message : "Failed to fetch page PDF";
     return NextResponse.json({ error: msg }, { status: 502 });
   }

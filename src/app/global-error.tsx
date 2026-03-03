@@ -1,9 +1,8 @@
 "use client";
 
-/**
- * Catches errors that bubble to the root. In production this replaces the
- * entire UI so the user sees the error instead of "Internal Server Error".
- */
+import * as Sentry from "@sentry/nextjs";
+import { useEffect } from "react";
+
 export default function GlobalError({
   error,
   reset,
@@ -11,23 +10,26 @@ export default function GlobalError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  useEffect(() => {
+    Sentry.captureException(error);
+  }, [error]);
+
   return (
     <html lang="de">
-      <body style={{ fontFamily: "system-ui", padding: "2rem", maxWidth: "600px" }}>
-        <h1 style={{ color: "#c00" }}>Error</h1>
-        <p>{error.message || "An unexpected error occurred."}</p>
-        {process.env.NODE_ENV === "development" && error.stack && (
-          <pre style={{ overflow: "auto", fontSize: "12px", background: "#f5f5f5", padding: "1rem" }}>
-            {error.stack}
-          </pre>
-        )}
-        <button
-          type="button"
-          onClick={() => reset()}
-          style={{ marginTop: "1rem", padding: "0.5rem 1rem", cursor: "pointer" }}
-        >
-          Try again
-        </button>
+      <body className="bg-white text-aldi-text flex items-center justify-center min-h-screen p-6">
+        <div className="max-w-md text-center space-y-4">
+          <h1 className="text-2xl font-bold">Etwas ist schiefgelaufen</h1>
+          <p className="text-gray-600">
+            Der Fehler wurde automatisch gemeldet.
+          </p>
+          <button
+            type="button"
+            onClick={() => reset()}
+            className="bg-aldi-blue text-white px-6 py-2 rounded-lg font-medium hover:opacity-90 transition-opacity"
+          >
+            Erneut versuchen
+          </button>
+        </div>
       </body>
     </html>
   );
