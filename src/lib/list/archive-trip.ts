@@ -126,7 +126,7 @@ export async function archiveListAsTrip(
     await supabase.from("list_items").delete().in("item_id", deferredIds);
   }
 
-  const gpsConfirmed = list.gps_confirmed_in_store;
+  const gpsConfirmed = (list as unknown as Record<string, unknown>).gps_confirmed_in_store;
   if (list.store_id && gpsConfirmed) {
     try {
       const localItems = tripItems.map((i) => ({

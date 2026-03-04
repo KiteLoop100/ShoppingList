@@ -1,0 +1,42 @@
+---
+description: Testing requirements — every feature or bug fix must include tests
+alwaysApply: true
+---
+
+# Testing Standards
+
+## Rule: Every Change Gets a Test
+After implementing a feature or fixing a bug, **always write or update tests** before considering the task complete.
+
+## What to Test
+- **Business logic** in `src/lib/` — unit tests with Vitest
+- **Search pipeline** — add regression test cases for any new search behavior
+- **API routes** — test input validation (Zod schemas), error responses, and happy path
+- **Hooks with complex logic** — test state transitions and edge cases
+
+## Test File Location
+- Co-locate tests: `src/lib/feature/__tests__/feature.test.ts`
+- Name pattern: `*.test.ts` or `*.test.tsx`
+
+## Test Structure
+```typescript
+describe("featureName", () => {
+  test("does X when Y", () => {
+    // Arrange → Act → Assert
+  });
+
+  test("handles error case Z", () => {
+    // ...
+  });
+});
+```
+
+## Running Tests
+- `npx vitest run` — run all tests once
+- `npx vitest run src/lib/feature` — run specific test folder
+- After writing tests, **always run them** to confirm they pass.
+
+## Minimum Coverage for New Code
+- At least 1 happy-path test per function
+- At least 1 edge-case or error test per function
+- For bug fixes: write a test that reproduces the bug FIRST, then fix it

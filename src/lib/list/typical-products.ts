@@ -54,7 +54,7 @@ export async function getTypicalProducts(): Promise<TypicalProductItem[]> {
   const tripIds = trips.map((t) => t.trip_id);
   const { data: allTripItems } = await supabase
     .from("trip_items")
-    .select("trip_id, product_id, display_name, demand_group_code, category_id, quantity")
+    .select("trip_id, product_id, display_name, demand_group_code, quantity")
     .in("trip_id", tripIds);
 
   if (!allTripItems) return [];

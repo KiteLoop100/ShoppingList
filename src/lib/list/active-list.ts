@@ -6,6 +6,7 @@
 import { createClientIfConfigured } from "@/lib/supabase/client";
 import { generateId } from "@/lib/utils/generate-id";
 import type { LocalListItem, LocalShoppingList } from "@/lib/db";
+import type { ListStatus } from "@/types";
 
 export async function getOrCreateActiveList(): Promise<LocalShoppingList> {
   const supabase = createClientIfConfigured();
@@ -37,7 +38,7 @@ export async function getOrCreateActiveList(): Promise<LocalShoppingList> {
       list_id: existing.list_id,
       user_id: existing.user_id,
       store_id: existing.store_id ?? null,
-      status: existing.status,
+      status: existing.status as ListStatus,
       created_at: existing.created_at,
       completed_at: existing.completed_at ?? null,
     };
@@ -66,7 +67,7 @@ export async function getOrCreateActiveList(): Promise<LocalShoppingList> {
     list_id: newList.list_id,
     user_id: newList.user_id,
     store_id: newList.store_id ?? null,
-    status: newList.status,
+    status: newList.status as ListStatus,
     created_at: newList.created_at,
     completed_at: newList.completed_at ?? null,
   };
@@ -133,6 +134,10 @@ export async function addListItem(params: AddItemParams): Promise<LocalListItem>
     .eq("list_id", list_id)
     .eq("is_checked", false);
 
+  // #region agent log
+  console.log('[DBG-acf716] addListItem:fetch', {list_id,product_id,display_name,buy_elsewhere_retailer,existingCount:existingItems?.length??0,existingItems:existingItems?.map(i=>({pid:i.product_id,ber:i.buy_elsewhere_retailer??null,berRaw:i.buy_elsewhere_retailer,name:i.display_name}))??[]});
+  // #endregion
+
   const existing = existingItems?.find(
     (i) =>
       product_id != null
@@ -142,6 +147,10 @@ export async function addListItem(params: AddItemParams): Promise<LocalListItem>
           && i.display_name === display_name
           && (i.buy_elsewhere_retailer ?? null) === (buy_elsewhere_retailer ?? null)
   );
+
+  // #region agent log
+  console.log('[DBG-acf716] addListItem:dedup', {product_id,display_name,buy_elsewhere_retailer,existingFound:!!existing,existingBer:existing?.buy_elsewhere_retailer??null,existingBerRaw:existing?.buy_elsewhere_retailer,action:existing?'UPDATE_QTY':'INSERT'});
+  // #endregion
 
   if (existing) {
     const newQty = (existing.quantity ?? 1) + quantity;
@@ -169,7 +178,7 @@ export async function addListItem(params: AddItemParams): Promise<LocalListItem>
   const now = new Date().toISOString();
   const sort_position = -Date.now();
 
-  const insertPayload: Record<string, unknown> = {
+  const insertPayload = {
     item_id,
     list_id,
     product_id,
@@ -177,17 +186,13 @@ export async function addListItem(params: AddItemParams): Promise<LocalListItem>
     display_name,
     quantity,
     is_checked: false,
-    checked_at: null,
+    checked_at: null as string | null,
     sort_position,
     demand_group_code,
     added_at: now,
+    ...(buy_elsewhere_retailer ? { buy_elsewhere_retailer } : {}),
+    ...(competitor_product_id ? { competitor_product_id } : {}),
   };
-  if (buy_elsewhere_retailer) {
-    insertPayload.buy_elsewhere_retailer = buy_elsewhere_retailer;
-  }
-  if (competitor_product_id) {
-    insertPayload.competitor_product_id = competitor_product_id;
-  }
 
   const { data: newItem, error } = await supabase
     .from("list_items")
@@ -274,6 +279,10 @@ export async function addListItemsBatch(
     .eq("list_id", listId)
     .eq("is_checked", false);
 
+  // #region agent log
+  console.log('[DBG-acf716] addListItemsBatch:start', {listId,batchSize:paramsList.length,existingCount:existingItems?.length??0,inputs:paramsList.map(p=>({pid:p.product_id,name:p.display_name,ber:p.buy_elsewhere_retailer??null})),hasDuplicatesInInput:paramsList.length!==new Set(paramsList.map(p=>p.product_id??p.display_name)).size});
+  // #endregion
+
   const results: LocalListItem[] = [];
   const toInsert: Record<string, unknown>[] = [];
   const toUpdate: { item_id: string; quantity: number }[] = [];
@@ -299,6 +308,9 @@ export async function addListItemsBatch(
             && (i.buy_elsewhere_retailer ?? null) === (buy_elsewhere_retailer ?? null)
     );
 
+    // #region agent log
+    console.log('[DBG-acf716] addListItemsBatch:loop', {product_id,display_name,buy_elsewhere_retailer,existingFound:!!existing,existingItemId:existing?.item_id??null,action:existing?'UPDATE_QTY':'INSERT'});
+    // #endregion
     if (existing) {
       const newQty = (existing.quantity ?? 1) + quantity;
       toUpdate.push({ item_id: existing.item_id, quantity: newQty });
@@ -319,7 +331,7 @@ export async function addListItemsBatch(
       const item_id = generateId();
       const now = new Date().toISOString();
       const sort_position = -Date.now();
-      const insertPayload: Record<string, unknown> = {
+      const insertPayload = {
         item_id,
         list_id: listId,
         product_id,
@@ -327,13 +339,13 @@ export async function addListItemsBatch(
         display_name,
         quantity,
         is_checked: false,
-        checked_at: null,
+        checked_at: null as string | null,
         sort_position,
         demand_group_code,
         added_at: now,
+        ...(buy_elsewhere_retailer ? { buy_elsewhere_retailer } : {}),
+        ...(competitor_product_id ? { competitor_product_id } : {}),
       };
-      if (buy_elsewhere_retailer) insertPayload.buy_elsewhere_retailer = buy_elsewhere_retailer;
-      if (competitor_product_id) insertPayload.competitor_product_id = competitor_product_id;
       toInsert.push(insertPayload);
       results.push({
         item_id,
@@ -378,6 +390,9 @@ export async function getActiveListWithItems(): Promise<{
   list: LocalShoppingList;
   items: LocalListItem[];
 }> {
+  // #region agent log
+  console.log('[DBG-acf716] getActiveListWithItems:called', {cachedActiveListId});
+  // #endregion
   if (cachedActiveListId) {
     const previousId = cachedActiveListId;
     const [list, items] = await Promise.all([

@@ -11,43 +11,25 @@ import {
   type ReactNode,
 } from "react";
 import type { Product } from "@/types";
+import type { Database } from "@/types/supabase";
 import { createClientIfConfigured } from "@/lib/supabase/client";
 import { useCurrentCountry } from "@/lib/current-country-context";
 import { log } from "@/lib/utils/logger";
 import { setSearchProducts } from "@/lib/search/local-search";
 import { indexProducts } from "@/lib/search/search-indexer";
 
-function rowToProduct(row: Record<string, unknown>): Product {
+type ProductRow = Database["public"]["Tables"]["products"]["Row"];
+
+function rowToProduct(row: ProductRow): Product {
   return {
-    product_id: String(row.product_id),
-    article_number: row.article_number != null ? String(row.article_number) : null,
-    ean_barcode: row.ean_barcode != null ? String(row.ean_barcode) : null,
-    name: String(row.name),
-    name_normalized: String(row.name_normalized),
-    brand: row.brand != null ? String(row.brand) : null,
-    demand_group: row.demand_group != null ? String(row.demand_group) : null,
-    demand_sub_group: row.demand_sub_group != null ? String(row.demand_sub_group) : null,
-    demand_group_code: row.demand_group_code != null ? String(row.demand_group_code) : "AK",
-    price: row.price != null ? Number(row.price) : null,
-    price_updated_at: row.price_updated_at != null ? String(row.price_updated_at) : null,
-    popularity_score: row.popularity_score != null ? Number(row.popularity_score) : null,
+    ...row,
+    country: row.country ?? "DE",
+    demand_group_code: row.demand_group_code ?? "AK",
     assortment_type: (row.assortment_type as Product["assortment_type"]) ?? "daily_range",
     availability: (row.availability as Product["availability"]) ?? "national",
-    region: row.region != null ? String(row.region) : null,
-    country: row.country != null ? String(row.country) : "DE",
-    special_start_date: row.special_start_date != null ? String(row.special_start_date) : null,
-    special_end_date: row.special_end_date != null ? String(row.special_end_date) : null,
     status: (row.status as Product["status"]) ?? "active",
     source: (row.source as Product["source"]) ?? "admin",
-    created_at: String(row.created_at),
-    updated_at: String(row.updated_at),
-    thumbnail_url: row.thumbnail_url != null ? String(row.thumbnail_url) : null,
-    thumbnail_back_url: row.thumbnail_back_url != null ? String(row.thumbnail_back_url) : null,
-    photo_source_id: row.photo_source_id != null ? String(row.photo_source_id) : null,
-    nutrition_info: row.nutrition_info != null ? (row.nutrition_info as Product["nutrition_info"]) : null,
-    ingredients: row.ingredients != null ? String(row.ingredients) : null,
-    allergens: row.allergens != null ? String(row.allergens) : null,
-    weight_or_quantity: row.weight_or_quantity != null ? String(row.weight_or_quantity) : null,
+    nutrition_info: row.nutrition_info as Record<string, unknown> | null,
   };
 }
 
@@ -87,11 +69,11 @@ async function loadFromCache(country: string): Promise<Product[]> {
 async function fetchAllFromSupabase(
   country: string,
   since?: string,
-): Promise<{ rows: Record<string, unknown>[]; error: boolean }> {
+): Promise<{ rows: ProductRow[]; error: boolean }> {
   const supabase = createClientIfConfigured();
   if (!supabase) return { rows: [], error: true };
 
-  const allRows: Record<string, unknown>[] = [];
+  const allRows: ProductRow[] = [];
   const PAGE_SIZE = 1000;
   let from = 0;
   let hasMore = true;
@@ -115,7 +97,7 @@ async function fetchAllFromSupabase(
       log.error("[ProductsSync] Supabase fetch failed:", error.message);
       return { rows: allRows, error: true };
     }
-    const rows = data ?? [];
+    const rows = (data ?? []) as ProductRow[];
     allRows.push(...rows);
     hasMore = rows.length === PAGE_SIZE;
     from += PAGE_SIZE;

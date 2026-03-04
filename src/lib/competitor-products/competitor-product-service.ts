@@ -356,7 +356,7 @@ export async function searchRetailerProducts(
     p_retailer: retailer,
     p_country: country,
     p_user_id: user.id,
-    p_query: normalizedQuery || null,
+    p_query: normalizedQuery ?? undefined,
     p_limit: limit,
   });
 

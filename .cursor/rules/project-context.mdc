@@ -1,0 +1,31 @@
+---
+description: Project context and architecture overview for the DigitalShoppingList PWA
+alwaysApply: true
+---
+
+# Project Context
+
+**ALDI Einkaufsliste** — a Next.js 14 PWA for smart grocery shopping lists.
+
+## Tech Stack
+- Next.js 14 (App Router), TypeScript strict, Tailwind CSS
+- Supabase (PostgreSQL, Auth, Storage) — source of truth
+- Dexie.js (IndexedDB) — offline-first local cache with delta sync
+- Gemini AI — photo/flyer/receipt processing
+- next-intl (DE/EN), next-pwa, Zod validation
+
+## Architecture Principles
+1. **Offline-first**: All read operations go through IndexedDB first. Supabase syncs in background.
+2. **Optimistic UI**: State updates immediately, reverts on error.
+3. **Thin API routes**: Route handlers delegate to `src/lib/` modules.
+4. **Service modules**: Business logic lives in `src/lib/{domain}/`, not in components.
+
+## Key Directories
+- `src/lib/search/` — 4-stage pipeline: preprocess → retrieve → score → post-process
+- `src/lib/list/` — shopping list CRUD, auto-reorder, archive
+- `src/lib/store/` — store-specific aisle ordering
+- `specs/` — canonical feature specs and backlog
+
+## Design System
+- ALDI SÜD brand: blue `#001E5E`, orange `#F37D1E`
+- Mobile-first, 44px touch targets, PWA installable

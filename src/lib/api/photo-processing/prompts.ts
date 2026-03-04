@@ -7,7 +7,7 @@ import { DEMAND_GROUPS_INSTRUCTION } from "@/lib/products/demand-groups-prompt";
 export const PDF_PAGES_INITIAL_MAX = 5;
 
 export const FLYER_PDF_FIRST_PAGE_PROMPT = `Dies ist die ERSTE Seite eines Supermarkt-Handzettels. Extrahiere: (1) Handzettel-Titel (flyer_title, z.B. "KW 09 – Angebote ab 24.02."), (2) Gültigkeitszeitraum (special_valid_from, special_valid_to, YYYY-MM-DD), (3) JEDES Produkt auf dieser Seite, (4) das Land anhand des Logos/Brandings.
-Das aktuelle Jahr ist 2026. Wenn auf dem Handzettel kein Jahr angegeben ist, verwende 2026 für alle Datumsangaben.
+Das aktuelle Jahr ist ${new Date().getFullYear()}. Wenn auf dem Handzettel kein Jahr angegeben ist, verwende ${new Date().getFullYear()} für alle Datumsangaben.
 
 LAND-ERKENNUNG (detected_country):
 Erkenne anhand des Logos und Brandings ob es sich um einen ALDI SÜD (Deutschland) oder Hofer (Österreich) Handzettel handelt.
@@ -50,7 +50,7 @@ Antworte ausschließlich mit validem JSON. Kein Markdown, keine Backticks.
 }`;
 
 export const FLYER_PDF_PAGE_PROMPT = `Dies ist eine Seite eines Supermarkt-Handzettels (nicht die erste). Extrahiere JEDES Produkt auf dieser Seite.
-Das aktuelle Jahr ist 2026. Wenn auf dem Handzettel kein Jahr angegeben ist, verwende 2026 für alle Datumsangaben.
+Das aktuelle Jahr ist ${new Date().getFullYear()}. Wenn auf dem Handzettel kein Jahr angegeben ist, verwende ${new Date().getFullYear()} für alle Datumsangaben.
 Pro Produkt: article_number (falls sichtbar), name (vollständiger Produktname), price (Preis), weight_or_quantity (Gewicht/Menge falls angegeben), brand (Marke falls sichtbar), special_start_date, special_end_date (YYYY-MM-DD), demand_group, demand_sub_group, assortment_type, is_private_label, is_seasonal.
 
 WICHTIG für assortment_type – es gibt genau 3 Werte:

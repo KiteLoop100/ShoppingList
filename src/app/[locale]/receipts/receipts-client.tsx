@@ -39,30 +39,17 @@ export function ReceiptsClientPage() {
     const { data: { user } } = await supabase.auth.getUser();
     const userId = user?.id ?? getCurrentUserId();
 
-    let { data, error } = await supabase
+    const { data: rawData, error } = await supabase
       .from("receipts")
       .select(
-        "receipt_id, store_name, retailer, purchase_date, purchase_time, total_amount, items_count, created_at"
+        "receipt_id, store_name, purchase_date, purchase_time, total_amount, items_count, created_at"
       )
       .eq("user_id", userId)
       .order("purchase_date", { ascending: false, nullsFirst: false })
       .order("created_at", { ascending: false });
 
-    if (error?.message?.includes("column") && error.message.includes("retailer")) {
-      const fallback = await supabase
-        .from("receipts")
-        .select(
-          "receipt_id, store_name, purchase_date, purchase_time, total_amount, items_count, created_at"
-        )
-        .eq("user_id", userId)
-        .order("purchase_date", { ascending: false, nullsFirst: false })
-        .order("created_at", { ascending: false });
-      data = (fallback.data ?? []).map((r) => ({ ...r, retailer: null })) as typeof data;
-      error = fallback.error;
-    }
-
-    if (!error && data) {
-      setReceipts(data);
+    if (!error && rawData) {
+      setReceipts(rawData.map((r) => ({ ...r, retailer: null })));
     }
     setLoading(false);
   }, []);

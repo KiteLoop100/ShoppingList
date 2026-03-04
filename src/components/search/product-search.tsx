@@ -9,15 +9,12 @@ import { useProducts } from "@/lib/products-context";
 import { useCurrentCountry } from "@/lib/current-country-context";
 import type { Product, SearchResult } from "@/types";
 import {
-  getOrCreateActiveList,
-  addListItem,
-  addListItemsBatch,
   getRecentListProducts,
   type RecentListProduct,
 } from "@/lib/list";
 import dynamic from "next/dynamic";
-import { assignDemandGroup, CategoryAssignmentError } from "@/lib/category/assign-category";
 import { searchRetailerProducts, type RetailerProductResult } from "@/lib/competitor-products/competitor-product-service";
+import { useAddToList } from "./hooks/use-add-to-list";
 import { SearchResultsPanel } from "./search-results-panel";
 
 const BarcodeScannerModal = dynamic(
@@ -59,15 +56,12 @@ export function ProductSearch({
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
-  const [justAdded, setJustAdded] = useState(false);
   const [recentListProducts, setRecentListProducts] = useState<
     RecentListProduct[] | null | "pending"
   >(null);
   const [specialsProducts, setSpecialsProducts] = useState<Product[] | null | "pending">(null);
   const [retailerProducts, setRetailerProducts] = useState<RetailerProductResult[]>([]);
   const [barcodeScannerOpen, setBarcodeScannerOpen] = useState(false);
-  const [adding, setAdding] = useState(false);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [sortToastText, setSortToastText] = useState<string | null>(null);
   const sortToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -99,6 +93,40 @@ export function ProductSearch({
   productsRef.current = products;
   const countryRef = useRef(country);
   countryRef.current = country;
+
+  const resetSearch = useCallback(() => {
+    setQuery("");
+    setResults([]);
+    setRecentListProducts(null);
+    setSpecialsProducts(null);
+    setRetailerProducts([]);
+  }, []);
+
+  const focusInput = useCallback(() => {
+    inputRef.current?.focus();
+  }, []);
+
+  const {
+    adding,
+    errorMsg,
+    justAdded,
+    clearError,
+    setError,
+    addGeneric,
+    addSpecific,
+    addCompetitorProduct,
+    addFromBarcode,
+    confirmBatchAdd,
+  } = useAddToList({
+    query,
+    country,
+    retailerPrefix,
+    products,
+    onAdded,
+    resetSearch,
+    focusInput,
+    t: t as (key: string, values?: Record<string, string>) => string,
+  });
 
   const runSearch = useCallback(async (q: string, id: number) => {
     const trimmed = q.trim();
@@ -239,141 +267,6 @@ export function ProductSearch({
     };
   }, [query, isRecentCommand, isSpecialsCommand, retailerPrefix, runSearch, runRetailerSearch, fetchRecentPurchases, fetchSpecials]);
 
-  const ensureListId = useCallback(async () => {
-    const list = await getOrCreateActiveList();
-    return list.list_id;
-  }, []);
-
-  const addGeneric = useCallback(async () => {
-    const raw = query.trim();
-    if (!raw) return;
-    const rp = detectRetailerPrefix(raw, country ?? "DE");
-    const name = rp ? rp.productQuery : raw;
-    if (!name) return;
-    setErrorMsg(null);
-    setAdding(true);
-    try {
-      const lid = await ensureListId();
-      const { demand_group_code } = await assignDemandGroup(name);
-      await addListItem({
-        list_id: lid,
-        product_id: null,
-        custom_name: name,
-        display_name: name,
-        demand_group_code,
-        quantity: 1,
-        buy_elsewhere_retailer: rp ? rp.retailer.name : null,
-      });
-    } catch (e) {
-      log.error("[addGeneric] failed:", e);
-      setAdding(false);
-      if (e instanceof CategoryAssignmentError) {
-        setErrorMsg(t("categoryAssignmentFailed"));
-      } else {
-        setErrorMsg(e instanceof Error ? e.message : String(e));
-      }
-      return;
-    }
-    setAdding(false);
-    setQuery("");
-    setResults([]);
-    setJustAdded(true);
-    setTimeout(() => setJustAdded(false), 400);
-    onAdded?.();
-    inputRef.current?.focus();
-  }, [query, country, ensureListId, onAdded, t]);
-
-  const addSpecific = useCallback(
-    async (result: SearchResult) => {
-      setErrorMsg(null);
-      try {
-        const lid = await ensureListId();
-        await addListItem({
-          list_id: lid,
-          product_id: result.product_id,
-          custom_name: null,
-          display_name: result.name,
-          demand_group_code: result.demand_group_code,
-          quantity: 1,
-        });
-      } catch (e) {
-        log.error("[addSpecific] failed:", e);
-        setErrorMsg(e instanceof Error ? e.message : String(e));
-        return;
-      }
-      setQuery("");
-      setResults([]);
-      setJustAdded(true);
-      setTimeout(() => setJustAdded(false), 400);
-      onAdded?.();
-      inputRef.current?.focus();
-    },
-    [ensureListId, onAdded]
-  );
-
-  const addCompetitorProduct = useCallback(
-    async (product: RetailerProductResult) => {
-      if (!retailerPrefix) return;
-      setErrorMsg(null);
-      setAdding(true);
-      try {
-        const lid = await ensureListId();
-        const demandGroupCode = product.category_id
-          ?? (await assignDemandGroup(product.name)).demand_group_code;
-        await addListItem({
-          list_id: lid,
-          product_id: null,
-          custom_name: product.name,
-          display_name: product.name,
-          demand_group_code: demandGroupCode,
-          quantity: 1,
-          buy_elsewhere_retailer: retailerPrefix.retailer.name,
-          competitor_product_id: product.product_id,
-        });
-      } catch (e) {
-        log.error("[addCompetitorProduct] failed:", e);
-        setAdding(false);
-        setErrorMsg(e instanceof Error ? e.message : String(e));
-        return;
-      }
-      setAdding(false);
-      setQuery("");
-      setResults([]);
-      setRetailerProducts([]);
-      setJustAdded(true);
-      setTimeout(() => setJustAdded(false), 400);
-      onAdded?.();
-      inputRef.current?.focus();
-    },
-    [retailerPrefix, ensureListId, onAdded]
-  );
-
-  const addProductFromBarcode = useCallback(
-    async (product: Product) => {
-      setErrorMsg(null);
-      try {
-        const lid = await ensureListId();
-        if (!lid) return;
-        await addListItem({
-          list_id: lid,
-          product_id: product.product_id,
-          custom_name: null,
-          display_name: product.name,
-          demand_group_code: product.demand_group_code,
-          quantity: 1,
-        });
-      } catch (e) {
-        log.error("[addProductFromBarcode] failed:", e);
-        setErrorMsg(t("unexpectedError", { message: e instanceof Error ? e.message : String(e) }));
-        return;
-      }
-      setJustAdded(true);
-      setTimeout(() => setJustAdded(false), 400);
-      onAdded?.();
-    },
-    [ensureListId, onAdded, t]
-  );
-
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (e.key === "Enter") {
@@ -386,73 +279,23 @@ export function ProductSearch({
   );
 
   const clearSearch = useCallback(() => {
-    setQuery("");
-    setResults([]);
-    setRecentListProducts(null);
-    setSpecialsProducts(null);
-    setRetailerProducts([]);
-    inputRef.current?.focus();
-  }, []);
-
-  const addSelectedItemsToList = useCallback(
-    async (selectedItems: { product_id: string; quantity: number }[]): Promise<void> => {
-      if (selectedItems.length === 0) return;
-      const productMap = new Map(productsRef.current.map((p) => [p.product_id, p]));
-      const lid = await ensureListId();
-      const params = selectedItems
-        .map(({ product_id, quantity }) => {
-          const product = productMap.get(product_id);
-          if (!product) return null;
-          return {
-            list_id: lid,
-            product_id: product.product_id,
-            custom_name: null,
-            display_name: product.name,
-            demand_group_code: product.demand_group_code,
-            quantity,
-          };
-        })
-        .filter((p): p is NonNullable<typeof p> => p !== null);
-      await addListItemsBatch(params);
-    },
-    [ensureListId]
-  );
+    resetSearch();
+    focusInput();
+  }, [resetSearch, focusInput]);
 
   const confirmRecentPurchases = useCallback(
     async (selectedItems: { product_id: string; quantity: number }[]) => {
-      setErrorMsg(null);
-      try {
-        await addSelectedItemsToList(selectedItems);
-      } catch (e) {
-        log.error("[confirmRecentPurchases] failed:", e);
-        setErrorMsg(t("unexpectedError", { message: e instanceof Error ? e.message : String(e) }));
-        return;
-      }
-      setQuery("");
-      setResults([]);
-      setRecentListProducts(null);
-      onAdded?.();
-      inputRef.current?.focus();
+      const ok = await confirmBatchAdd(selectedItems);
+      if (ok) focusInput();
     },
-    [addSelectedItemsToList, onAdded, t]
+    [confirmBatchAdd, focusInput],
   );
 
   const confirmSpecials = useCallback(
     async (selectedItems: { product_id: string; quantity: number }[]) => {
-      setErrorMsg(null);
-      try {
-        await addSelectedItemsToList(selectedItems);
-      } catch (e) {
-        log.error("[confirmSpecials] failed:", e);
-        setErrorMsg(t("unexpectedError", { message: e instanceof Error ? e.message : String(e) }));
-        return;
-      }
-      setQuery("");
-      setResults([]);
-      setSpecialsProducts(null);
-      onAdded?.();
+      await confirmBatchAdd(selectedItems);
     },
-    [addSelectedItemsToList, onAdded, t]
+    [confirmBatchAdd],
   );
 
   const triggerRecentPurchases = useCallback(() => {
@@ -650,7 +493,7 @@ export function ProductSearch({
           <button
             type="button"
             className="ml-2 font-bold"
-            onClick={() => setErrorMsg(null)}
+            onClick={clearError}
           >
             ✕
           </button>
@@ -672,9 +515,9 @@ export function ProductSearch({
       <BarcodeScannerModal
         open={barcodeScannerOpen}
         onClose={() => setBarcodeScannerOpen(false)}
-        onProductAdded={addProductFromBarcode}
+        onProductAdded={addFromBarcode}
         onProductNotFound={() => {
-          setErrorMsg(t("barcodeNotFound"));
+          setError(t("barcodeNotFound"));
         }}
       />
     </div>

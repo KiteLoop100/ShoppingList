@@ -1,0 +1,48 @@
+---
+description: Core coding standards and architecture constraints for the DigitalShoppingList project
+alwaysApply: true
+---
+
+# Coding Standards
+
+## File Size Limits
+- **Max 300 lines per file.** If a file exceeds 300 lines, extract logic into separate hooks, utilities, or components.
+- When editing a file >300 lines, proactively suggest decomposition.
+
+## No Module-Level Singletons
+```typescript
+// BAD
+let cachedUserId: string | null = null;
+
+// GOOD — use React Context or a cache class
+const cache = new Map<string, string>();
+```
+
+## No Empty Catch Blocks
+```typescript
+// BAD
+catch { /* best effort */ }
+
+// GOOD
+catch (e) { log.warn("[context] operation failed:", e); }
+```
+
+## DRY: Extract Shared Patterns
+- If a pattern appears 3+ times, extract it into a helper function.
+- The `createClientIfConfigured()` guard should be a wrapper, not repeated inline.
+
+## No Hardcoded Dates
+```typescript
+// BAD
+"Das aktuelle Jahr ist 2026."
+
+// GOOD
+`Das aktuelle Jahr ist ${new Date().getFullYear()}.`
+```
+
+## Supabase Types
+- Use generated Supabase types (`npx supabase gen types typescript`) instead of manual `Record<string, unknown>` conversions.
+
+## Imports
+- Use `@/` path alias for all imports from `src/`.
+- Group: React → Next.js → external libs → internal modules → types.

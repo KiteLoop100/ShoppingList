@@ -37,7 +37,7 @@ export async function getLastTrip(): Promise<LastTripInfo | null> {
 
   const { data: tripItems } = await supabase
     .from("trip_items")
-    .select("product_id, custom_name, display_name, quantity, demand_group_code, category_id")
+    .select("product_id, custom_name, display_name, quantity, demand_group_code")
     .eq("trip_id", trip.trip_id)
     .order("check_position", { ascending: true });
 

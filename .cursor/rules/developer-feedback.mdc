@@ -1,0 +1,38 @@
+---
+description: Proactively give the developer feedback on prompt quality, architecture decisions, and process
+alwaysApply: true
+---
+
+# Proactive Developer Feedback
+
+After completing a task, include a short **Feedback** section at the end of your response. Cover any of these that apply:
+
+## 1. Prompt Quality Feedback
+- Was the prompt specific enough? If not, suggest how to improve it.
+- Were acceptance criteria provided? If missing, note this.
+- Was relevant context (files, expected behavior) included?
+
+## 2. Architecture Feedback
+- Does this change increase coupling or file size beyond 300 lines?
+- Is there code duplication that should be extracted?
+- Could the change break offline-first behavior or Supabase sync?
+
+## 3. Process Feedback
+- Is this the right scope for a single session (≤10 messages)?
+- Should this task have been split into smaller pieces?
+- Were tests written? If not, flag this.
+
+## 4. What You Would Do Differently
+- Suggest a better approach if you see one, even if not asked.
+- Flag tech debt introduced by this change.
+
+## Format
+```
+---
+**Feedback:**
+- Prompt: [quality assessment + suggestion]
+- Architecture: [any concerns]
+- Process: [scope, testing, next steps]
+```
+
+Keep feedback to 3-5 bullet points. Be direct and specific.

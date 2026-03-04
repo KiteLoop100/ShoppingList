@@ -77,7 +77,7 @@ export async function loadSettings(forceUserId?: string): Promise<UserSettings> 
 
     if (data) {
       const settings: UserSettings = {
-        preferred_language: data.preferred_language ?? DEFAULTS.preferred_language,
+        preferred_language: (data.preferred_language as UserSettings["preferred_language"]) ?? DEFAULTS.preferred_language,
         default_store_id: data.default_store_id ?? DEFAULTS.default_store_id,
         exclude_gluten: data.exclude_gluten ?? DEFAULTS.exclude_gluten,
         exclude_lactose: data.exclude_lactose ?? DEFAULTS.exclude_lactose,

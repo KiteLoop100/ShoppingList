@@ -1,0 +1,3 @@
+{"sessionId":"75b9cc","location":"product-search.tsx:ADD_SPECIFIC_START","message":"addSpecific called","data":{"product_id":"3f3da025-b2dd-4a48-b6c0-9792972fe4c3","name":"Landliebe H-Milch 3,5%","demand_group_code":"50"},"timestamp":1772554846227,"hypothesisId":"H5"}
+{"sessionId":"75b9cc","location":"active-list.ts:INSERT_RESULT","message":"addListItem insert result","data":{"error":null,"hasNewItem":true,"newItemId":"e859a28b-d4a9-4440-a52b-c5db0edb2c7f","display_name":"Landliebe H-Milch 3,5%","demand_group_code":"50"},"timestamp":1772554846551,"hypothesisId":"H3"}
+{"sessionId":"75b9cc","location":"product-search.tsx:ADD_SPECIFIC_SUCCESS","message":"addSpecific succeeded, calling onAdded","data":{"hasOnAdded":true},"timestamp":1772554846552,"hypothesisId":"H5"}

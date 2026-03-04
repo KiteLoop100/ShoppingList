@@ -1,0 +1,144 @@
+import { describe, test, expect } from "vitest";
+import { modalReducer, initialState } from "../use-list-modals";
+import type { Product, CompetitorProduct } from "@/types";
+import type { ListItemWithMeta } from "@/lib/list/list-helpers";
+
+function makeProduct(overrides: Partial<Product> = {}): Product {
+  return {
+    product_id: "p1", name: "Milk", name_normalized: "milk", brand: null,
+    demand_group_code: "01", price: 1.29, price_updated_at: null,
+    assortment_type: "daily_range", availability: "national", region: null,
+    country: "DE", special_start_date: null, special_end_date: null,
+    status: "active", source: "admin", created_at: "", updated_at: "",
+    ...overrides,
+  };
+}
+
+function makeCompetitorProduct(overrides: Partial<CompetitorProduct> = {}): CompetitorProduct {
+  return {
+    product_id: "cp1", name: "LIDL Milk", name_normalized: "lidl milk",
+    brand: "Milbona", ean_barcode: null, article_number: null,
+    weight_or_quantity: null, country: "DE", thumbnail_url: null,
+    other_photo_url: null, category_id: null, status: "active",
+    is_bio: false, is_vegan: false, is_gluten_free: false, is_lactose_free: false,
+    animal_welfare_level: null, created_at: "", updated_at: "",
+    ...overrides,
+  };
+}
+
+function makeListItem(overrides: Partial<ListItemWithMeta> = {}): ListItemWithMeta {
+  return {
+    item_id: "i1", list_id: "l1", product_id: "p1", custom_name: null,
+    display_name: "Milk", quantity: 1, is_checked: false, checked_at: null,
+    sort_position: 0, demand_group_code: "01", added_at: "",
+    demand_group_name: "Dairy", demand_group_icon: "", demand_group_sort_position: 1,
+    category_name: "Dairy", category_icon: "", category_sort_position: 1, price: 1.29,
+    ...overrides,
+  } as ListItemWithMeta;
+}
+
+describe("modalReducer", () => {
+  test("initial state has all modals closed", () => {
+    expect(initialState.detailProduct).toBeNull();
+    expect(initialState.editProduct).toBeNull();
+    expect(initialState.genericPickerItem).toBeNull();
+    expect(initialState.competitorFormOpen).toBe(false);
+    expect(initialState.checkedOpen).toBe(false);
+  });
+
+  test("OPEN_DETAIL / CLOSE_DETAIL", () => {
+    const product = makeProduct();
+    let s = modalReducer(initialState, { type: "OPEN_DETAIL", product });
+    expect(s.detailProduct).toEqual(product);
+
+    s = modalReducer(s, { type: "CLOSE_DETAIL" });
+    expect(s.detailProduct).toBeNull();
+  });
+
+  test("DETAIL_TO_EDIT transitions from detail to edit", () => {
+    const product = makeProduct();
+    let s = modalReducer(initialState, { type: "OPEN_DETAIL", product });
+    s = modalReducer(s, { type: "DETAIL_TO_EDIT", product });
+    expect(s.detailProduct).toBeNull();
+    expect(s.editProduct).toEqual(product);
+  });
+
+  test("OPEN_GENERIC_PICKER / CLOSE_GENERIC_PICKER", () => {
+    const item = makeListItem();
+    let s = modalReducer(initialState, { type: "OPEN_GENERIC_PICKER", item });
+    expect(s.genericPickerItem).toEqual(item);
+
+    s = modalReducer(s, { type: "CLOSE_GENERIC_PICKER" });
+    expect(s.genericPickerItem).toBeNull();
+  });
+
+  test("OPEN_ELSEWHERE_PICKER / CLOSE_ELSEWHERE_PICKER", () => {
+    const item = makeListItem();
+    let s = modalReducer(initialState, { type: "OPEN_ELSEWHERE_PICKER", item });
+    expect(s.elsewherePickerItem).toEqual(item);
+
+    s = modalReducer(s, { type: "CLOSE_ELSEWHERE_PICKER" });
+    expect(s.elsewherePickerItem).toBeNull();
+  });
+
+  test("OPEN_COMPETITOR_FORM stores defaults and itemId", () => {
+    const s = modalReducer(initialState, {
+      type: "OPEN_COMPETITOR_FORM",
+      defaults: { name: "Test", retailer: "LIDL" },
+      itemId: "item-1",
+    });
+    expect(s.competitorFormOpen).toBe(true);
+    expect(s.competitorFormDefaults).toEqual({ name: "Test", retailer: "LIDL" });
+    expect(s.competitorFormItemId).toBe("item-1");
+  });
+
+  test("CLOSE_COMPETITOR_FORM clears editProduct", () => {
+    const cp = makeCompetitorProduct();
+    let s = modalReducer(initialState, { type: "SET_COMPETITOR_EDIT", product: cp });
+    s = modalReducer(s, { type: "OPEN_COMPETITOR_FORM", defaults: {}, itemId: null });
+    expect(s.competitorFormEditProduct).toEqual(cp);
+
+    s = modalReducer(s, { type: "CLOSE_COMPETITOR_FORM" });
+    expect(s.competitorFormOpen).toBe(false);
+    expect(s.competitorFormEditProduct).toBeNull();
+  });
+
+  test("EDIT_FROM_COMPETITOR_DETAIL transitions to form", () => {
+    const cp = makeCompetitorProduct();
+    let s = modalReducer(initialState, { type: "OPEN_COMPETITOR_DETAIL", product: cp, retailer: "LIDL" });
+    expect(s.detailCompetitorProduct).toEqual(cp);
+
+    s = modalReducer(s, { type: "EDIT_FROM_COMPETITOR_DETAIL", product: cp });
+    expect(s.detailCompetitorProduct).toBeNull();
+    expect(s.detailCompetitorRetailer).toBeNull();
+    expect(s.competitorFormOpen).toBe(true);
+    expect(s.competitorFormEditProduct).toEqual(cp);
+    expect(s.competitorFormDefaults).toEqual({});
+    expect(s.competitorFormItemId).toBeNull();
+  });
+
+  test("TOGGLE_CHECKED_SECTION toggles", () => {
+    let s = modalReducer(initialState, { type: "TOGGLE_CHECKED_SECTION" });
+    expect(s.checkedOpen).toBe(true);
+    s = modalReducer(s, { type: "TOGGLE_CHECKED_SECTION" });
+    expect(s.checkedOpen).toBe(false);
+  });
+
+  test("OPEN_CHECKOFF_PROMPT / CLOSE_CHECKOFF_PROMPT", () => {
+    const item = makeListItem();
+    let s = modalReducer(initialState, { type: "OPEN_CHECKOFF_PROMPT", item });
+    expect(s.checkoffPromptItem).toEqual(item);
+
+    s = modalReducer(s, { type: "CLOSE_CHECKOFF_PROMPT" });
+    expect(s.checkoffPromptItem).toBeNull();
+  });
+
+  test("OPEN_EDIT / CLOSE_EDIT", () => {
+    const product = makeProduct();
+    let s = modalReducer(initialState, { type: "OPEN_EDIT", product });
+    expect(s.editProduct).toEqual(product);
+
+    s = modalReducer(s, { type: "CLOSE_EDIT" });
+    expect(s.editProduct).toBeNull();
+  });
+});
