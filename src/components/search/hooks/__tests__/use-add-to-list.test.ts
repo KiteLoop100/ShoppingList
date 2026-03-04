@@ -49,7 +49,7 @@ vi.mock("@/lib/utils/logger", () => ({
 
 import { useAddToList } from "../use-add-to-list";
 
-function createHook(overrides: Partial<Parameters<typeof useAddToList>[0]> = {}) {
+function useCreateHook(overrides: Partial<Parameters<typeof useAddToList>[0]> = {}) {
   return useAddToList({
     query: "",
     country: "DE",
@@ -77,7 +77,7 @@ describe("useAddToList", () => {
       const onAdded = vi.fn();
       const resetSearch = vi.fn();
       const focusInput = vi.fn();
-      const hook = createHook({
+      const hook = useCreateHook({
         query: "Bananen",
         onAdded,
         resetSearch,
@@ -104,14 +104,14 @@ describe("useAddToList", () => {
     });
 
     test("does nothing when query is empty", async () => {
-      const hook = createHook({ query: "  " });
+      const hook = useCreateHook({ query: "  " });
       await hook.addGeneric();
       expect(mockGetOrCreateActiveList).not.toHaveBeenCalled();
     });
 
     test("creates list when none exists", async () => {
       mockGetOrCreateActiveList.mockResolvedValue({ list_id: "new-list" });
-      const hook = createHook({ query: "Milch" });
+      const hook = useCreateHook({ query: "Milch" });
 
       await hook.addGeneric();
 
@@ -126,7 +126,7 @@ describe("useAddToList", () => {
     test("adds product with product_id", async () => {
       const resetSearch = vi.fn();
       const onAdded = vi.fn();
-      const hook = createHook({ resetSearch, onAdded });
+      const hook = useCreateHook({ resetSearch, onAdded });
 
       await hook.addSpecific({
         product_id: "prod-42",
@@ -158,7 +158,7 @@ describe("useAddToList", () => {
       const error = new Error("Network error");
       mockAddListItem.mockRejectedValue(error);
       const resetSearch = vi.fn();
-      const hook = createHook({ query: "Brot", resetSearch });
+      const hook = useCreateHook({ query: "Brot", resetSearch });
 
       await hook.addGeneric();
 
@@ -168,7 +168,7 @@ describe("useAddToList", () => {
     test("logs error on addSpecific failure", async () => {
       mockAddListItem.mockRejectedValue(new Error("DB error"));
       const resetSearch = vi.fn();
-      const hook = createHook({ resetSearch });
+      const hook = useCreateHook({ resetSearch });
 
       await hook.addSpecific({
         product_id: "prod-1",
@@ -187,7 +187,7 @@ describe("useAddToList", () => {
   describe("addFromBarcode", () => {
     test("adds product from barcode scan", async () => {
       const onAdded = vi.fn();
-      const hook = createHook({ onAdded });
+      const hook = useCreateHook({ onAdded });
 
       await hook.addFromBarcode({
         product_id: "prod-99",
@@ -230,7 +230,7 @@ describe("useAddToList", () => {
           status: "active",
         },
       ];
-      const hook = createHook({ products });
+      const hook = useCreateHook({ products });
 
       const result = await hook.confirmBatchAdd([
         { product_id: "p1", quantity: 2 },
@@ -256,7 +256,7 @@ describe("useAddToList", () => {
 
     test("returns false on batch add failure", async () => {
       mockAddListItemsBatch.mockRejectedValue(new Error("Batch failed"));
-      const hook = createHook({
+      const hook = useCreateHook({
         products: [
           {
             product_id: "p1",
@@ -277,7 +277,7 @@ describe("useAddToList", () => {
     });
 
     test("returns true for empty list", async () => {
-      const hook = createHook();
+      const hook = useCreateHook();
       const result = await hook.confirmBatchAdd([]);
       expect(result).toBe(true);
       expect(mockAddListItemsBatch).not.toHaveBeenCalled();
