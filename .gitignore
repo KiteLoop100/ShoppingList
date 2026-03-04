@@ -6,7 +6,7 @@ node_modules/
 *.tsbuildinfo
 
 #data files
-data/*.*
+data/**/*.*
 
 # Batch photo processing
 photos/DE/*.jpg
