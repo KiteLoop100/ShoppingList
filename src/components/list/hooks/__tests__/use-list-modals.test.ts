@@ -19,9 +19,13 @@ function makeCompetitorProduct(overrides: Partial<CompetitorProduct> = {}): Comp
     product_id: "cp1", name: "LIDL Milk", name_normalized: "lidl milk",
     brand: "Milbona", ean_barcode: null, article_number: null,
     weight_or_quantity: null, country: "DE", thumbnail_url: null,
-    other_photo_url: null, category_id: null, status: "active",
+    other_photo_url: null, category_id: null,
+    demand_group_code: null, demand_sub_group: null, assortment_type: null,
+    status: "active",
     is_bio: false, is_vegan: false, is_gluten_free: false, is_lactose_free: false,
-    animal_welfare_level: null, created_at: "", updated_at: "",
+    animal_welfare_level: null, ingredients: null, nutrition_info: null,
+    allergens: null, nutri_score: null, country_of_origin: null, retailer: null,
+    created_at: "", updated_at: "",
     ...overrides,
   };
 }
@@ -55,12 +59,15 @@ describe("modalReducer", () => {
     expect(s.detailProduct).toBeNull();
   });
 
-  test("DETAIL_TO_EDIT transitions from detail to edit", () => {
+  test("DETAIL_TO_EDIT transitions from detail to capture modal", () => {
     const product = makeProduct();
     let s = modalReducer(initialState, { type: "OPEN_DETAIL", product });
     s = modalReducer(s, { type: "DETAIL_TO_EDIT", product });
     expect(s.detailProduct).toBeNull();
-    expect(s.editProduct).toEqual(product);
+    expect(s.captureOpen).toBe(true);
+    expect(s.captureConfig?.mode).toBe("edit");
+    expect(s.captureConfig?.editAldiProduct).toEqual(product);
+    expect(s.captureConfig?.hiddenFields).toContain("retailer");
   });
 
   test("OPEN_GENERIC_PICKER / CLOSE_GENERIC_PICKER", () => {
@@ -81,21 +88,22 @@ describe("modalReducer", () => {
     expect(s.elsewherePickerItem).toBeNull();
   });
 
-  test("OPEN_COMPETITOR_FORM stores defaults and itemId", () => {
+  test("OPEN_COMPETITOR_FORM routes to capture modal", () => {
     const s = modalReducer(initialState, {
       type: "OPEN_COMPETITOR_FORM",
       defaults: { name: "Test", retailer: "LIDL" },
       itemId: "item-1",
     });
-    expect(s.competitorFormOpen).toBe(true);
-    expect(s.competitorFormDefaults).toEqual({ name: "Test", retailer: "LIDL" });
-    expect(s.competitorFormItemId).toBe("item-1");
+    expect(s.captureOpen).toBe(true);
+    expect(s.captureConfig?.mode).toBe("create");
+    expect(s.captureConfig?.initialValues?.name).toBe("Test");
+    expect(s.captureConfig?.initialValues?.retailer).toBe("LIDL");
+    expect(s.captureConfig?.itemId).toBe("item-1");
   });
 
   test("CLOSE_COMPETITOR_FORM clears editProduct", () => {
     const cp = makeCompetitorProduct();
     let s = modalReducer(initialState, { type: "SET_COMPETITOR_EDIT", product: cp });
-    s = modalReducer(s, { type: "OPEN_COMPETITOR_FORM", defaults: {}, itemId: null });
     expect(s.competitorFormEditProduct).toEqual(cp);
 
     s = modalReducer(s, { type: "CLOSE_COMPETITOR_FORM" });
@@ -103,7 +111,22 @@ describe("modalReducer", () => {
     expect(s.competitorFormEditProduct).toBeNull();
   });
 
-  test("EDIT_FROM_COMPETITOR_DETAIL transitions to form", () => {
+  test("OPEN_CAPTURE / CLOSE_CAPTURE", () => {
+    const product = makeProduct();
+    let s = modalReducer(initialState, {
+      type: "OPEN_CAPTURE",
+      config: { mode: "edit", editAldiProduct: product, hiddenFields: ["retailer"] },
+    });
+    expect(s.captureOpen).toBe(true);
+    expect(s.captureConfig?.mode).toBe("edit");
+    expect(s.captureConfig?.editAldiProduct).toEqual(product);
+
+    s = modalReducer(s, { type: "CLOSE_CAPTURE" });
+    expect(s.captureOpen).toBe(false);
+    expect(s.captureConfig).toBeNull();
+  });
+
+  test("EDIT_FROM_COMPETITOR_DETAIL transitions to capture modal", () => {
     const cp = makeCompetitorProduct();
     let s = modalReducer(initialState, { type: "OPEN_COMPETITOR_DETAIL", product: cp, retailer: "LIDL" });
     expect(s.detailCompetitorProduct).toEqual(cp);
@@ -111,10 +134,9 @@ describe("modalReducer", () => {
     s = modalReducer(s, { type: "EDIT_FROM_COMPETITOR_DETAIL", product: cp });
     expect(s.detailCompetitorProduct).toBeNull();
     expect(s.detailCompetitorRetailer).toBeNull();
-    expect(s.competitorFormOpen).toBe(true);
-    expect(s.competitorFormEditProduct).toEqual(cp);
-    expect(s.competitorFormDefaults).toEqual({});
-    expect(s.competitorFormItemId).toBeNull();
+    expect(s.captureOpen).toBe(true);
+    expect(s.captureConfig?.mode).toBe("edit");
+    expect(s.captureConfig?.editCompetitorProduct).toEqual(cp);
   });
 
   test("TOGGLE_CHECKED_SECTION toggles", () => {

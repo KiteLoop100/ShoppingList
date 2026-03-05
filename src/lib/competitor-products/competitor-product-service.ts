@@ -23,6 +23,9 @@ function rowToCompetitorProduct(row: Record<string, unknown>): CompetitorProduct
     thumbnail_url: row.thumbnail_url != null ? String(row.thumbnail_url) : null,
     other_photo_url: row.other_photo_url != null ? String(row.other_photo_url) : null,
     category_id: row.category_id != null ? String(row.category_id) : null,
+    demand_group_code: row.demand_group_code != null ? String(row.demand_group_code) : null,
+    demand_sub_group: row.demand_sub_group != null ? String(row.demand_sub_group) : null,
+    assortment_type: row.assortment_type != null ? String(row.assortment_type) : null,
     status: (row.status as CompetitorProduct["status"]) ?? "active",
     is_bio: row.is_bio === true,
     is_vegan: row.is_vegan === true,
@@ -61,6 +64,9 @@ export interface CreateCompetitorProductParams {
   thumbnail_url?: string | null;
   other_photo_url?: string | null;
   category_id?: string | null;
+  demand_group_code?: string | null;
+  demand_sub_group?: string | null;
+  assortment_type?: string | null;
   is_bio?: boolean;
   is_vegan?: boolean;
   is_gluten_free?: boolean;
@@ -88,6 +94,9 @@ export async function createCompetitorProduct(
       thumbnail_url: params.thumbnail_url ?? null,
       other_photo_url: params.other_photo_url ?? null,
       category_id: params.category_id ?? null,
+      demand_group_code: params.demand_group_code ?? null,
+      demand_sub_group: params.demand_sub_group ?? null,
+      assortment_type: params.assortment_type ?? null,
       is_bio: params.is_bio ?? false,
       is_vegan: params.is_vegan ?? false,
       is_gluten_free: params.is_gluten_free ?? false,
@@ -104,6 +113,7 @@ export async function createCompetitorProduct(
 type UpdatableFields =
   | "name" | "brand" | "ean_barcode" | "article_number" | "weight_or_quantity"
   | "retailer" | "thumbnail_url" | "other_photo_url" | "category_id"
+  | "demand_group_code" | "demand_sub_group" | "assortment_type"
   | "is_bio" | "is_vegan" | "is_gluten_free" | "is_lactose_free" | "animal_welfare_level"
   | "ingredients" | "nutrition_info" | "allergens" | "nutri_score" | "country_of_origin";
 
@@ -127,6 +137,9 @@ export async function updateCompetitorProduct(
   if (updates.thumbnail_url !== undefined) payload.thumbnail_url = updates.thumbnail_url;
   if (updates.other_photo_url !== undefined) payload.other_photo_url = updates.other_photo_url;
   if (updates.category_id !== undefined) payload.category_id = updates.category_id;
+  if (updates.demand_group_code !== undefined) payload.demand_group_code = updates.demand_group_code;
+  if (updates.demand_sub_group !== undefined) payload.demand_sub_group = updates.demand_sub_group;
+  if (updates.assortment_type !== undefined) payload.assortment_type = updates.assortment_type;
   if (updates.is_bio !== undefined) payload.is_bio = updates.is_bio;
   if (updates.is_vegan !== undefined) payload.is_vegan = updates.is_vegan;
   if (updates.is_gluten_free !== undefined) payload.is_gluten_free = updates.is_gluten_free;

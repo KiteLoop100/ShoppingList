@@ -57,6 +57,11 @@ export async function POST(request: Request) {
   const assortmentType = validated.assortment_type ?? "daily_range";
   const isPrivateLabel = validated.is_private_label ?? null;
   const isSeasonal = validated.is_seasonal === true;
+  const isBio = validated.is_bio ?? null;
+  const isVegan = validated.is_vegan ?? null;
+  const isGlutenFree = validated.is_gluten_free ?? null;
+  const isLactoseFree = validated.is_lactose_free ?? null;
+  const animalWelfareLevel = validated.animal_welfare_level ?? null;
   const thumbnailUrl = validated.thumbnail_url ?? null;
   const extraPhotoUrls = validated.extra_photo_urls;
   const dataUploadIds = validated.data_upload_ids;
@@ -106,6 +111,11 @@ export async function POST(request: Request) {
       assortment_type: assortmentType,
       is_private_label: isPrivateLabel,
       is_seasonal: isSeasonal,
+      is_bio: isBio,
+      is_vegan: isVegan,
+      is_gluten_free: isGlutenFree,
+      is_lactose_free: isLactoseFree,
+      animal_welfare_level: animalWelfareLevel,
     };
     if (thumbnailUrl) {
       try {

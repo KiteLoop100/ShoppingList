@@ -119,7 +119,7 @@ PK: `(competitor_product_id, retailer, user_id)`. Updated via fire-and-forget up
 - **No price** shown for elsewhere items
 - **Not counted** in estimated total
 - Retailer badge on each item (tappable to change retailer)
-- Pencil icon on generic items opens `CompetitorProductFormModal` (not ALDI product picker)
+- Pencil icon on generic items opens `ProductCaptureModal` (unified capture module, not ALDI product picker)
 
 ### Check-Off Behavior
 
@@ -187,9 +187,9 @@ These fixes ensure the elsewhere feature integrates correctly with existing logi
 - `supabase/migrations/20260301210000_competitor_products.sql` – `competitor_products` + `competitor_product_prices` tables, RLS, indexes
 - `src/lib/competitor-products/competitor-product-service.ts` – CRUD for competitor products and prices
 - `src/lib/competitor-products/competitor-products-context.tsx` – React Context Provider (country-filtered download + IndexedDB sync)
-- `src/components/list/competitor-product-form-modal.tsx` – Manual competitor product capture form with photo auto-fill
+- `src/components/product-capture/product-capture-modal.tsx` – Unified product capture modal (replaces former `competitor-product-form-modal.tsx` and `edit-product-modal.tsx`)
 - `src/components/list/elsewhere-checkoff-prompt.tsx` – Lightweight price/photo capture on item check-off
-- `src/app/api/extract-product-info/route.ts` – API endpoint for product photo recognition (Claude Vision + ZBar WASM)
+- `src/app/api/analyze-product-photos/route.ts` – Unified product photo analysis endpoint (replaces former `/api/extract-product-info` and `/api/analyze-competitor-photos`)
 
 ### New (Retailer Product Search)
 
@@ -215,7 +215,7 @@ These fixes ensure the elsewhere feature integrates correctly with existing logi
 - `src/messages/de.json`, `src/messages/en.json` – 17+ new i18n keys for F26 and B4
 - `specs/FEATURES-CORE.md` – Reference to F26 in feature table
 - `specs/DATA-MODEL.md` – Competitor product tables documented
-- `specs/ARCHITECTURE.md` – `/api/extract-product-info` endpoint documented
+- `specs/ARCHITECTURE.md` – `/api/analyze-product-photos` endpoint documented
 
 ---
 
@@ -245,10 +245,10 @@ Current price = latest row per (product_id, retailer).
 
 ### Capture Methods
 
-1. **Manual form** (`CompetitorProductFormModal`): Name, brand, price, photo, EAN, retailer. Opened via pencil icon on elsewhere items or "+ Produkt erfassen" button.
+1. **Unified capture form** (`ProductCaptureModal`): Name, brand, retailer, category, subcategory, price, EAN, product number, weight/quantity, assortment type, dietary flags, photo upload with AI analysis. Opened via pencil icon on elsewhere items, "+ Produkt erfassen" button, "Produkt anlegen" in GenericProductPicker, or "Produkt bearbeiten" from product detail views. The retailer field determines the target table: ALDI -> `products`, other -> `competitor_products`.
 2. **Barcode scan** (extended `BarcodeScannerModal`): EAN -> ALDI lookup -> competitor lookup -> Open Food Facts auto-fill.
 3. **Checkoff prompt** (`ElsewhereCheckoffPrompt`): When checking off an elsewhere item, lightweight price + photo capture.
-4. **Photo auto-fill** (via `/api/extract-product-info`): "Foto Produktseite" button in the form sends photo to Claude Vision + ZBar WASM barcode scan, auto-fills name, brand, EAN, price into empty fields.
+4. **Photo auto-fill** (via `/api/analyze-product-photos`): "Produktfotos hochladen" button in the form sends photos to the Product Photo Studio pipeline (Claude Vision + ZBar WASM barcode scan), auto-fills all fields from extracted data.
 
 ### Photos
 
@@ -256,7 +256,7 @@ Stored in Supabase Storage bucket `competitor-product-photos`. Public URLs saved
 
 ### Photo Studio Pipeline (Product Photo Studio)
 
-The `CompetitorProductFormModal` offers a single "Produktfotos hochladen" button that accepts multiple photos (up to 8). All photos are analyzed together in a 4-stage pipeline:
+The `ProductCaptureModal` offers a single "Produktfotos hochladen" button that accepts multiple photos (up to 8). All photos are analyzed together in a 4-stage pipeline:
 
 | Stage | Model | Purpose |
 |-------|-------|---------|
@@ -267,7 +267,7 @@ The `CompetitorProductFormModal` offers a single "Produktfotos hochladen" button
 
 **Parallelism:** Stage 1 + ZBar barcode scan run in parallel. After moderation gate passes, Stage 2 + Stage 3 run in parallel. Stage 4 runs after Stage 3 completes.
 
-**API Endpoint:** `POST /api/analyze-competitor-photos`
+**API Endpoint:** `POST /api/analyze-product-photos`
 - Input: `{ images: [{ image_base64, media_type }] }` (1-8 photos)
 - Output: `{ ok, status, extracted_data, thumbnail_base64, thumbnail_small_base64, quality_score, processing_time_ms }`
 - Total processing time: ~9-15 seconds
@@ -281,7 +281,7 @@ The `CompetitorProductFormModal` offers a single "Produktfotos hochladen" button
 ### UX Details
 
 - Form subtitle: "Du verbesserst das App-Erlebnis fuer alle" (positive community messaging)
-- Pencil icon on generic elsewhere items opens `CompetitorProductFormModal` (not the ALDI `GenericProductPicker`)
+- Pencil icon on generic elsewhere items opens `ProductCaptureModal` (unified capture module)
 - Retailer badge uses `<span role="button">` (not `<button>`) to avoid invalid HTML nesting
 
 ---
@@ -292,9 +292,9 @@ The `CompetitorProductFormModal` offers a single "Produktfotos hochladen" button
 |-------|-----------|-----|
 | "Error" when selecting retailer via swipe | `setBuyElsewhere` missing from `stableListData` in `page.tsx` | Added to memoized object and dependency array |
 | `<button>` inside `<button>` hydration warning | Retailer badge was a `<button>` nested inside product name `<button>` | Changed to `<span role="button">` |
-| Pencil opens ALDI picker for elsewhere items | `handleOpenDetail` only checked `!product_id`, not `deferred_reason` | Added `deferred_reason === "elsewhere"` check, routes to `CompetitorProductFormModal` |
+| Pencil opens ALDI picker for elsewhere items | `handleOpenDetail` only checked `!product_id`, not `deferred_reason` | Added `deferred_reason === "elsewhere"` check, routes to `ProductCaptureModal` |
 | `updateListItem` silent failures | Supabase errors not thrown | Added `throw new Error()` on Supabase update failure |
 
 ---
 
-*Last updated: 2026-03-05*
+*Last updated: 2026-03-06*

@@ -162,6 +162,10 @@ export class AppDatabase extends Dexie {
     this.version(12).stores({
       competitor_products: "++id, product_id, name_normalized, ean_barcode, country, status, retailer",
     });
+    // Add demand_group_code index to competitor_products for unified product capture
+    this.version(13).stores({
+      competitor_products: "++id, product_id, name_normalized, ean_barcode, country, status, retailer, demand_group_code",
+    });
   }
 }
 

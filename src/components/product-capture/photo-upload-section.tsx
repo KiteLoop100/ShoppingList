@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import type { RefObject } from "react";
 
 export function PhotoUploadSection({
@@ -59,19 +58,19 @@ export function PhotoUploadSection({
         <div className="mt-2 flex flex-wrap gap-2">
           {processedThumbnail && (
             <div className="relative">
-              <Image src={processedThumbnail} alt="" role="presentation" width={64} height={64} className="h-16 w-16 rounded-lg border-2 border-green-400 object-cover" unoptimized />
-              <span className="absolute -right-1 -top-1 rounded-full bg-green-500 px-1 text-[9px] text-white">✓</span>
+              <img src={processedThumbnail} alt="" className="h-16 w-16 rounded-lg border-2 border-green-400 object-cover" />
+              <span className="absolute -right-1 -top-1 rounded-full bg-green-500 px-1 text-[9px] text-white">&#10003;</span>
             </div>
           )}
           {photoPreviews.map((url, i) => (
             <div key={i} className="relative">
-              <Image src={url} alt="" role="presentation" width={64} height={64} className="h-16 w-16 rounded-lg object-cover" unoptimized />
+              <img src={url} alt="" className="h-16 w-16 rounded-lg object-cover" />
               <button
                 type="button"
                 onClick={() => onRemovePhoto(i)}
                 className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] text-white"
               >
-                ✕
+                &#10005;
               </button>
             </div>
           ))}
@@ -90,7 +89,7 @@ export function PhotoUploadSection({
 
       {reviewStatus && (
         <div className="mt-2 flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
-          <span>⚠</span>
+          <span>&#9888;</span>
           {labels.reviewRequired}
         </div>
       )}

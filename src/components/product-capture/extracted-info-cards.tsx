@@ -1,11 +1,11 @@
 "use client";
 
-import type { ExtractedCompetitorProductInfo } from "@/lib/product-photo-studio/types";
+import type { ExtractedProductInfo } from "@/lib/product-photo-studio/types";
 
 export function ExtractedInfoCards({
   details,
 }: {
-  details: ExtractedCompetitorProductInfo;
+  details: ExtractedProductInfo;
 }) {
   const hasNutrition = details.nutrition_info && Object.values(details.nutrition_info).some((v) => v != null);
   if (!details.ingredients && !hasNutrition && !details.allergens && !details.nutri_score) {
@@ -39,12 +39,12 @@ export function ExtractedInfoCards({
 
       {hasNutrition && details.nutrition_info && (
         <div>
-          <span className="text-[10px] font-medium uppercase text-aldi-muted">Nährwerte pro 100g</span>
+          <span className="text-[10px] font-medium uppercase text-aldi-muted">Naehrwerte pro 100g</span>
           <div className="mt-1 grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs">
             {details.nutrition_info.energy_kcal != null && <NutritionRow label="Energie" value={`${details.nutrition_info.energy_kcal} kcal`} />}
             {details.nutrition_info.fat != null && <NutritionRow label="Fett" value={`${details.nutrition_info.fat} g`} />}
             {details.nutrition_info.carbs != null && <NutritionRow label="Kohlenhydrate" value={`${details.nutrition_info.carbs} g`} />}
-            {details.nutrition_info.protein != null && <NutritionRow label="Eiweiß" value={`${details.nutrition_info.protein} g`} />}
+            {details.nutrition_info.protein != null && <NutritionRow label="Eiweiss" value={`${details.nutrition_info.protein} g`} />}
             {details.nutrition_info.salt != null && <NutritionRow label="Salz" value={`${details.nutrition_info.salt} g`} />}
           </div>
         </div>

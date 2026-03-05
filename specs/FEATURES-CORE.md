@@ -420,10 +420,33 @@ Core differentiator. Three-level learning algorithm (details in LEARNING-ALGORIT
 - Password protected
 - Functions: Product CRUD, CSV import, demand group batch assignment, reclassification
 
+### Unified Product Capture Module
+
+A single `ProductCaptureModal` component is used across the entire app for creating and editing products. The retailer field determines the target table: ALDI products are saved to the `products` table, all others to `competitor_products`.
+
+**Call sites:**
+- GenericProductPicker: "Produkt anlegen" button below search (creates a new product when no existing one matches)
+- ProductDetailModal: "Produkt bearbeiten" button (edits an ALDI product, retailer field hidden)
+- Elsewhere section: "Produkt erfassen" button (creates a competitor product)
+- CompetitorProductDetailModal: "Produkt bearbeiten" button (edits a competitor product)
+
+**Form fields:** Photo upload (with AI analysis), name, brand, retailer (select), category (demand group), subcategory, EAN barcode, product number, price, weight/quantity, assortment type, dietary criteria (bio, vegan, gluten-free, lactose-free, animal welfare level).
+
+**Photo analysis:** Uses unified endpoint `POST /api/analyze-product-photos` (multi-image pipeline: classify, extract, thumbnail, verify). Auto-fills form fields from extracted data.
+
+**Implementation files:**
+- `src/components/product-capture/product-capture-modal.tsx` -- modal shell
+- `src/components/product-capture/product-capture-fields.tsx` -- all form fields
+- `src/components/product-capture/product-capture-criteria.tsx` -- dietary flag checkboxes
+- `src/components/product-capture/hooks/use-product-capture-form.ts` -- form state and photo handling
+- `src/components/product-capture/product-capture-save.ts` -- save routing (ALDI vs competitor)
+- `src/components/product-capture/photo-upload-section.tsx` -- photo upload UI
+- `src/components/product-capture/extracted-info-cards.tsx` -- display extracted nutrition/ingredients
+
 ### Automatic Category Assignment (3 Layers)
-1. Product database → category from DB
-2. Alias table → brand names/terms mapped to categories
-3. AI fallback → Claude API assigns, result saved to alias table
+1. Product database -> category from DB
+2. Alias table -> brand names/terms mapped to categories
+3. AI fallback -> Claude API assigns, result saved to alias table
 
 ---
 

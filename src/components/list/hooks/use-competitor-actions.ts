@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { findCompetitorProductById } from "@/lib/competitor-products/competitor-product-service";
 import type { ListItemWithMeta } from "@/lib/list/list-helpers";
 import type { Product, CompetitorProduct } from "@/types";
+import type { CaptureModalConfig } from "./use-list-modals";
 
 interface CompetitorFormDefaults {
   name?: string; retailer?: string; ean?: string; brand?: string;
@@ -36,6 +37,7 @@ export interface UseCompetitorActionsArgs {
   openGenericPicker: (item: ListItemWithMeta) => void;
   closeGenericPicker: () => void;
   openDetail: (product: Product) => void;
+  openCapture?: (config: CaptureModalConfig) => void;
 }
 
 export function useCompetitorActions(args: UseCompetitorActionsArgs) {
@@ -48,6 +50,7 @@ export function useCompetitorActions(args: UseCompetitorActionsArgs) {
     openCheckoffPrompt, closeCheckoffPrompt,
     openCompetitorForm, closeCompetitorForm,
     openCompetitorDetail, openGenericPicker, closeGenericPicker, openDetail,
+    openCapture,
   } = args;
 
   const allItemsRef = useRef<ListItemWithMeta[]>([]);
@@ -121,9 +124,17 @@ export function useCompetitorActions(args: UseCompetitorActionsArgs) {
           ?? await findCompetitorProductById(item.competitor_product_id);
         if (cp) { openCompetitorDetail(cp, item.buy_elsewhere_retailer || null); return; }
       }
-      openCompetitorForm(
-        { name: item.display_name || item.custom_name || "", retailer: item.buy_elsewhere_retailer || "" },
-        item.item_id);
+      if (openCapture) {
+        openCapture({
+          mode: "create",
+          initialValues: { name: item.display_name || item.custom_name || "", retailer: item.buy_elsewhere_retailer || "" },
+          itemId: item.item_id,
+        });
+      } else {
+        openCompetitorForm(
+          { name: item.display_name || item.custom_name || "", retailer: item.buy_elsewhere_retailer || "" },
+          item.item_id);
+      }
       return;
     }
     if (!item.product_id) { openGenericPicker(item); return; }
@@ -134,7 +145,7 @@ export function useCompetitorActions(args: UseCompetitorActionsArgs) {
     }
     if (p && item.thumbnail_url && !p.thumbnail_url) p = { ...p, thumbnail_url: item.thumbnail_url };
     if (p) openDetail(p);
-  }, [competitorProducts, openCompetitorDetail, openCompetitorForm, openGenericPicker, openDetail]);
+  }, [competitorProducts, openCompetitorDetail, openCompetitorForm, openCapture, openGenericPicker, openDetail]);
 
   const handleRenameItem = useCallback(async (itemId: string, newName: string) => {
     await updateListItem(itemId, { display_name: newName, custom_name: newName });

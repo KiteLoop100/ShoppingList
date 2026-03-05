@@ -53,7 +53,7 @@ Erstellt: 2026-03-04 · Basierend auf Ergebnissen von IMPROVEMENT-PLAN V1 (8 Ses
 | `product-search.tsx` | 526 | Hoch — war schon S6-Ziel |
 | `list-item-row.tsx` | 505 | Hoch — komplexe UI-Logik |
 | `process-receipt/route.ts` | 498 | Mittel — API-Route |
-| `competitor-product-form-modal.tsx` | 494 | Mittel — Modal mit Form-State |
+| ~~`competitor-product-form-modal.tsx`~~ | ~~494~~ | ✅ Gelöst durch BL-64: Ersetzt durch `ProductCaptureModal` (6 Dateien, alle < 200 Zeilen) |
 | `competitor-product-service.ts` | 417 | Mittel — Service-Modul |
 | `active-list.ts` | 414 | Mittel — Core Business Logic |
 
@@ -330,9 +330,11 @@ Akzeptanzkriterien:
 
 ---
 
-## S14: `competitor-product-form-modal.tsx` aufbrechen
+## S14: ~~`competitor-product-form-modal.tsx` aufbrechen~~ (SUPERSEDED by BL-64)
 
-**Ziel:** Form-State-Logik in einen Hook extrahieren.
+**Status:** Superseded. Die Datei wurde durch das einheitliche `ProductCaptureModal` ersetzt (BL-64). Alle 6 neuen Dateien sind < 200 Zeilen.
+
+**Ziel (ursprünglich):** Form-State-Logik in einen Hook extrahieren.
 
 **Modell:** Mittleres Modell
 

@@ -3,7 +3,6 @@
 import { useState, useCallback, useEffect, useRef, memo } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import { ProductDetailModal } from "./product-detail-modal";
-import { EditProductModal } from "./edit-product-modal";
 import { GenericProductPicker } from "./generic-product-picker";
 import { ListSection, DeferredSections, CheckedSection, ElsewhereSection } from "./list-section";
 import { useProducts } from "@/lib/products-context";
@@ -12,9 +11,10 @@ import { ListSkeleton } from "@/components/ui/skeleton";
 import { formatPrice } from "@/lib/utils/format-price";
 import { RetailerPickerSheet } from "./retailer-picker-sheet";
 import { ElsewhereCheckoffPrompt } from "./elsewhere-checkoff-prompt";
-import { CompetitorProductFormModal } from "./competitor-product-form-modal";
 import { CompetitorProductDetailModal } from "./competitor-product-detail-modal";
+import { ProductCaptureModal } from "@/components/product-capture/product-capture-modal";
 import { useCompetitorProducts } from "@/lib/competitor-products/competitor-products-context";
+import { updateListItem } from "@/lib/list";
 import { useListModals } from "./hooks/use-list-modals";
 import { useCompetitorActions } from "./hooks/use-competitor-actions";
 import { useListDerived } from "./hooks/use-list-derived";
@@ -71,6 +71,7 @@ export const ShoppingListContent = memo(function ShoppingListContent({
     openCompetitorDetail: modals.openCompetitorDetail,
     openGenericPicker: modals.openGenericPicker, closeGenericPicker: modals.closeGenericPicker,
     openDetail: modals.openDetail,
+    openCapture: modals.openCapture,
   });
 
   const handleFillWithTypical = useCallback(async () => {
@@ -97,7 +98,7 @@ export const ShoppingListContent = memo(function ShoppingListContent({
   const { uncheckedSorted, deferredByDate, elsewhereByRetailer, formatDeferredDate } =
     useListDerived(unchecked, deferred, competitorProducts, locale, t("deferredSectionNextTrip"));
 
-  if (loading && !ms.detailProduct && !ms.editProduct) {
+  if (loading && !ms.detailProduct && !ms.captureOpen) {
     return <div className="flex-1 px-1 pt-2"><ListSkeleton rows={8} /></div>;
   }
 
@@ -150,7 +151,7 @@ export const ShoppingListContent = memo(function ShoppingListContent({
             <CheckedSection items={checked} open={ms.checkedOpen} onToggle={modals.toggleCheckedSection}
               label={t("checked")} callbacks={checkedCbs} />
             <ElsewhereSection elsewhereByRetailer={elsewhereByRetailer} sectionLabel={t("buyElsewhereSection")}
-              addButtonLabel={t("competitorProductTitle")} onAddCompetitor={() => modals.openCompetitorForm({}, null)}
+              addButtonLabel={t("competitorProductTitle")} onAddCompetitor={() => modals.openCapture({ mode: "create" })}
               callbacks={elsewhereCbs} />
           </>
         )}
@@ -169,11 +170,13 @@ export const ShoppingListContent = memo(function ShoppingListContent({
         onEdit={(p) => modals.detailToEdit(p)} onReorderChanged={() => { refetch({ forceReorder: true }); }} />
       {ms.genericPickerItem && (
         <GenericProductPicker genericName={ms.genericPickerItem.display_name || ms.genericPickerItem.custom_name || ""}
-          onSelect={actions.handleGenericProductSelected} onClose={modals.closeGenericPicker} />
-      )}
-      {ms.editProduct && (
-        <EditProductModal product={ms.editProduct} onClose={modals.closeEdit}
-          onSaved={async () => { await refetchProducts(); await refetch(); }} />
+          onSelect={actions.handleGenericProductSelected} onClose={modals.closeGenericPicker}
+          onCreateProduct={() => {
+            const name = ms.genericPickerItem?.display_name || ms.genericPickerItem?.custom_name || "";
+            modals.closeGenericPicker();
+            modals.openCapture({ mode: "create", initialValues: { name } });
+          }}
+        />
       )}
       <RetailerPickerSheet open={ms.elsewherePickerItem !== null}
         itemName={ms.elsewherePickerItem?.display_name ?? ms.elsewherePickerItem?.custom_name ?? ""}
@@ -182,10 +185,29 @@ export const ShoppingListContent = memo(function ShoppingListContent({
         itemName={ms.checkoffPromptItem?.display_name ?? ms.checkoffPromptItem?.custom_name ?? ""}
         retailer={ms.checkoffPromptItem?.buy_elsewhere_retailer ?? ""}
         onDone={actions.handleCheckoffDone} onSkip={actions.handleCheckoffSkip} />
-      <CompetitorProductFormModal open={ms.competitorFormOpen} onClose={modals.closeCompetitorForm}
-        onSaved={actions.handleCompetitorFormSaved} initialName={ms.competitorFormDefaults.name}
-        initialRetailer={ms.competitorFormDefaults.retailer} initialEan={ms.competitorFormDefaults.ean}
-        initialBrand={ms.competitorFormDefaults.brand} editProduct={ms.competitorFormEditProduct} />
+      <ProductCaptureModal
+        open={ms.captureOpen}
+        mode={ms.captureConfig?.mode ?? "create"}
+        onClose={modals.closeCapture}
+        onSaved={async (productId, productType) => {
+          const itemId = ms.captureConfig?.itemId;
+          if (itemId) {
+            const linkField = productType === "aldi" ? "product_id" : "competitor_product_id";
+            try { await updateListItem(itemId, { [linkField]: productId }); }
+            catch (e) { console.warn("[shopping-list] link after capture failed:", e); }
+          }
+          if (productType === "aldi") {
+            await refetchProducts();
+          } else {
+            await refetchCompetitorProducts();
+          }
+          await refetch();
+        }}
+        initialValues={ms.captureConfig?.initialValues}
+        hiddenFields={ms.captureConfig?.hiddenFields}
+        editAldiProduct={ms.captureConfig?.editAldiProduct}
+        editCompetitorProduct={ms.captureConfig?.editCompetitorProduct}
+      />
       <CompetitorProductDetailModal product={ms.detailCompetitorProduct} retailer={ms.detailCompetitorRetailer}
         onClose={modals.closeCompetitorDetail} onEdit={(cp) => modals.editFromCompetitorDetail(cp)} />
     </>

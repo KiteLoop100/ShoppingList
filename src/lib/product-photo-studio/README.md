@@ -1,6 +1,6 @@
 # Product Photo Studio
 
-Multi-stage pipeline for processing crowdsourced competitor product photos. Transforms raw mobile photos into professional product thumbnails and extracts comprehensive product information.
+Multi-stage pipeline for processing product photos (ALDI and competitor). Transforms raw mobile photos into professional product thumbnails and extracts comprehensive product information. Used by the unified `ProductCaptureModal`.
 
 ## Pipeline Architecture
 
@@ -48,7 +48,7 @@ Client (1-8 photos)
 
 ## API Endpoint
 
-`POST /api/analyze-competitor-photos`
+`POST /api/analyze-product-photos` (unified endpoint, replaces the former `/api/analyze-competitor-photos` and `/api/extract-product-info`)
 
 ```json
 {

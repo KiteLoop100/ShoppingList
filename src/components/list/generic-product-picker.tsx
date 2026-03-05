@@ -11,14 +11,17 @@ export interface GenericProductPickerProps {
   genericName: string;
   onSelect: (product: Product) => void;
   onClose: () => void;
+  onCreateProduct?: () => void;
 }
 
 export function GenericProductPicker({
   genericName,
   onSelect,
   onClose,
+  onCreateProduct,
 }: GenericProductPickerProps) {
   const t = useTranslations("list");
+  const tCapture = useTranslations("productCapture");
   const { products } = useProducts();
   const [search, setSearch] = useState("");
 
@@ -75,7 +78,7 @@ export function GenericProductPicker({
         </div>
 
         {/* Search */}
-        <div className="shrink-0 border-b border-aldi-muted-light px-4 py-3">
+        <div className="shrink-0 border-b border-aldi-muted-light px-4 py-3 space-y-2">
           <input
             type="text"
             value={search}
@@ -84,6 +87,18 @@ export function GenericProductPicker({
             className="w-full rounded-xl border border-aldi-muted-light bg-aldi-bg px-3 py-2 text-sm text-aldi-text outline-none transition-colors focus:border-aldi-blue focus:bg-white focus:ring-1 focus:ring-aldi-blue/20"
             autoFocus
           />
+          {onCreateProduct && (
+            <button
+              type="button"
+              onClick={onCreateProduct}
+              className="flex w-full items-center justify-center gap-1.5 rounded-xl border-2 border-dashed border-aldi-blue/40 bg-aldi-blue/5 px-3 py-2 text-sm font-medium text-aldi-blue transition-colors hover:border-aldi-blue hover:bg-aldi-blue/10"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+              </svg>
+              {tCapture("createProduct")}
+            </button>
+          )}
         </div>
 
         {/* Results */}

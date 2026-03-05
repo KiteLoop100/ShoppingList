@@ -78,7 +78,10 @@ export interface NutritionInfo {
   salt: number | null;
 }
 
-export interface ExtractedCompetitorProductInfo {
+/** @deprecated Use ExtractedProductInfo instead */
+export type ExtractedCompetitorProductInfo = ExtractedProductInfo;
+
+export interface ExtractedProductInfo {
   name: string | null;
   brand: string | null;
   ean_barcode: string | null;

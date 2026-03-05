@@ -5,6 +5,40 @@
 
 ---
 
+## 2026-03-06 – Unified Product Capture Module (BL-64)
+
+- **New: `src/components/product-capture/product-capture-modal.tsx`** – Single modal for creating and editing all product types (ALDI + competitor). Retailer field determines target table.
+- **New: `src/components/product-capture/product-capture-fields.tsx`** – All form fields (name, brand, retailer, category, subcategory, EAN, product number, price, weight/quantity, assortment type).
+- **New: `src/components/product-capture/product-capture-criteria.tsx`** – Dietary flag checkboxes (Bio, Vegan, Glutenfrei, Laktosefrei, Tierhaltung).
+- **New: `src/components/product-capture/hooks/use-product-capture-form.ts`** – Form state management, photo analysis integration, field initialization from ALDI/competitor products.
+- **New: `src/components/product-capture/product-capture-save.ts`** – Save routing logic: ALDI via `/api/products/create-manual`, competitor via `competitor-product-service`.
+- **New: `src/components/product-capture/photo-upload-section.tsx`** – Reusable photo upload UI with preview strip and analysis status.
+- **New: `src/components/product-capture/extracted-info-cards.tsx`** – Read-only cards for extracted nutrition/ingredients/allergens.
+- **New: `src/app/api/analyze-product-photos/route.ts`** – Unified photo analysis endpoint replacing both `/api/analyze-competitor-photos` and `/api/extract-product-info`.
+- **New: `supabase/migrations/20260306000000_unify_product_fields.sql`** – Adds `demand_group_code`, `demand_sub_group`, `assortment_type` to `competitor_products`.
+- **Modified: `src/types/index.ts`** – Added `demand_group_code`, `demand_sub_group`, `assortment_type` to `CompetitorProduct`.
+- **Modified: `src/lib/db/indexed-db.ts`** – Schema v13: `demand_group_code` index on `competitor_products`.
+- **Modified: `src/lib/api/schemas.ts`** – Added dietary flags to `createManualSchema`.
+- **Modified: `src/app/api/products/create-manual/route.ts`** – Passes through dietary flags on create/update.
+- **Modified: `src/lib/competitor-products/competitor-product-service.ts`** – Added new fields to create/update/map functions.
+- **Modified: `src/components/list/generic-product-picker.tsx`** – Added "Produkt anlegen" button below search field.
+- **Modified: `src/components/list/shopping-list-content.tsx`** – Replaced `EditProductModal` + `CompetitorProductFormModal` with `ProductCaptureModal`.
+- **Modified: `src/components/list/hooks/use-list-modals.ts`** – Added `OPEN_CAPTURE`/`CLOSE_CAPTURE` actions; existing actions now route to capture modal.
+- **Modified: `src/components/list/hooks/use-competitor-actions.ts`** – Uses `openCapture` for elsewhere items.
+- **Deleted: `src/components/list/edit-product-modal.tsx`** – Replaced by `ProductCaptureModal`.
+- **Deleted: `src/components/list/competitor-product-form-modal.tsx`** – Replaced by `ProductCaptureModal`.
+- **Deleted: `src/components/list/competitor-form-fields.tsx`** – Replaced by `product-capture-fields.tsx`.
+- **Deleted: `src/components/list/competitor-form-save.ts`** – Replaced by `product-capture-save.ts`.
+- **Deleted: `src/components/list/hooks/use-competitor-form.ts`** – Replaced by `use-product-capture-form.ts`.
+- **Deleted: `src/components/list/competitor-form-photo-section.tsx`** – Replaced by `photo-upload-section.tsx`.
+- **Deleted: `src/components/list/competitor-form-extracted-info.tsx`** – Replaced by `extracted-info-cards.tsx`.
+- **Deleted: `src/app/api/extract-product-info/route.ts`** – Replaced by unified `/api/analyze-product-photos`.
+- **Specs updated:** `FEATURES-CORE.md` (unified product capture section), `FEATURES-ELSEWHERE.md` (updated capture methods, file references), `ARCHITECTURE.md` (API endpoint), `BACKLOG.md` (BL-64 completed), `product-photo-studio/README.md` (unified API note), `IMPROVEMENT-PLAN-V2.md` (competitor-product-form-modal resolved).
+- **i18n:** New `productCapture` namespace in `de.json` + `en.json` with 30 keys.
+- **Tests:** 5 new tests for save routing, 1 new test for modal actions, 3 updated tests. All 206 tests pass.
+
+---
+
 ## 2026-03-05 – Product Photo Studio: Integrated Competitor Product Capture
 
 - **New: `src/lib/product-photo-studio/`** – 4-stage pipeline for processing crowdsourced competitor product photos: classify (Claude Sonnet), extract comprehensive product info (Claude Sonnet), create professional thumbnail (Sharp + remove.bg/Claude crop), verify quality (Claude Haiku). Parallel execution with content moderation gate.

@@ -3,12 +3,22 @@
 import { useReducer, useCallback } from "react";
 import type { Product, CompetitorProduct } from "@/types";
 import type { ListItemWithMeta } from "@/lib/list/list-helpers";
+import type { ProductCaptureValues } from "@/components/product-capture/hooks/use-product-capture-form";
 
 interface CompetitorFormDefaults {
   name?: string;
   retailer?: string;
   ean?: string;
   brand?: string;
+}
+
+export interface CaptureModalConfig {
+  mode: "create" | "edit";
+  initialValues?: Partial<ProductCaptureValues>;
+  hiddenFields?: string[];
+  editAldiProduct?: Product | null;
+  editCompetitorProduct?: CompetitorProduct | null;
+  itemId?: string | null;
 }
 
 export interface ModalState {
@@ -24,6 +34,8 @@ export interface ModalState {
   detailCompetitorProduct: CompetitorProduct | null;
   detailCompetitorRetailer: string | null;
   checkedOpen: boolean;
+  captureOpen: boolean;
+  captureConfig: CaptureModalConfig | null;
 }
 
 type ModalAction =
@@ -44,7 +56,9 @@ type ModalAction =
   | { type: "CLOSE_COMPETITOR_DETAIL" }
   | { type: "EDIT_FROM_COMPETITOR_DETAIL"; product: CompetitorProduct }
   | { type: "DETAIL_TO_EDIT"; product: Product }
-  | { type: "TOGGLE_CHECKED_SECTION" };
+  | { type: "TOGGLE_CHECKED_SECTION" }
+  | { type: "OPEN_CAPTURE"; config: CaptureModalConfig }
+  | { type: "CLOSE_CAPTURE" };
 
 export const initialState: ModalState = {
   detailProduct: null,
@@ -59,6 +73,8 @@ export const initialState: ModalState = {
   detailCompetitorProduct: null,
   detailCompetitorRetailer: null,
   checkedOpen: false,
+  captureOpen: false,
+  captureConfig: null,
 };
 
 export function modalReducer(state: ModalState, action: ModalAction): ModalState {
@@ -86,9 +102,17 @@ export function modalReducer(state: ModalState, action: ModalAction): ModalState
     case "OPEN_COMPETITOR_FORM":
       return {
         ...state,
-        competitorFormOpen: true,
-        competitorFormDefaults: action.defaults,
-        competitorFormItemId: action.itemId,
+        captureOpen: true,
+        captureConfig: {
+          mode: "create",
+          initialValues: {
+            name: action.defaults.name ?? "",
+            retailer: action.defaults.retailer ?? "",
+            ean: action.defaults.ean ?? "",
+            brand: action.defaults.brand ?? "",
+          },
+          itemId: action.itemId,
+        },
       };
     case "CLOSE_COMPETITOR_FORM":
       return {
@@ -115,19 +139,29 @@ export function modalReducer(state: ModalState, action: ModalAction): ModalState
         ...state,
         detailCompetitorProduct: null,
         detailCompetitorRetailer: null,
-        competitorFormEditProduct: action.product,
-        competitorFormDefaults: {},
-        competitorFormItemId: null,
-        competitorFormOpen: true,
+        captureOpen: true,
+        captureConfig: {
+          mode: "edit",
+          editCompetitorProduct: action.product,
+        },
       };
     case "DETAIL_TO_EDIT":
       return {
         ...state,
         detailProduct: null,
-        editProduct: action.product,
+        captureOpen: true,
+        captureConfig: {
+          mode: "edit",
+          editAldiProduct: action.product,
+          hiddenFields: ["retailer"],
+        },
       };
     case "TOGGLE_CHECKED_SECTION":
       return { ...state, checkedOpen: !state.checkedOpen };
+    case "OPEN_CAPTURE":
+      return { ...state, captureOpen: true, captureConfig: action.config };
+    case "CLOSE_CAPTURE":
+      return { ...state, captureOpen: false, captureConfig: null };
     default:
       return state;
   }
@@ -165,6 +199,8 @@ export function useListModals() {
   );
   const detailToEdit = useCallback((product: Product) => dispatch({ type: "DETAIL_TO_EDIT", product }), []);
   const toggleCheckedSection = useCallback(() => dispatch({ type: "TOGGLE_CHECKED_SECTION" }), []);
+  const openCapture = useCallback((config: CaptureModalConfig) => dispatch({ type: "OPEN_CAPTURE", config }), []);
+  const closeCapture = useCallback(() => dispatch({ type: "CLOSE_CAPTURE" }), []);
 
   return {
     state,
@@ -186,5 +222,7 @@ export function useListModals() {
     editFromCompetitorDetail,
     detailToEdit,
     toggleCheckedSection,
+    openCapture,
+    closeCapture,
   };
 }

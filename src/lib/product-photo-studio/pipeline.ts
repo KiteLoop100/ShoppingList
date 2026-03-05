@@ -11,6 +11,8 @@ import { verifyThumbnailQuality } from "./verify-quality";
 import type { ProductPhotoStudioInput, ProductPhotoStudioResult } from "./types";
 import { log } from "@/lib/utils/logger";
 
+export const processProductPhotos = processCompetitorPhotos;
+
 export async function processCompetitorPhotos(
   input: ProductPhotoStudioInput,
 ): Promise<ProductPhotoStudioResult> {

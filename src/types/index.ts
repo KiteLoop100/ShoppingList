@@ -271,6 +271,9 @@ export interface CompetitorProduct {
   thumbnail_url: string | null;
   other_photo_url: string | null;
   category_id: string | null;
+  demand_group_code: string | null;
+  demand_sub_group: string | null;
+  assortment_type: string | null;
   status: "active" | "inactive";
   is_bio: boolean;
   is_vegan: boolean;

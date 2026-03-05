@@ -117,7 +117,7 @@
 │  │  • /api/process-photo (Claude Vision)                │ │
   │  │  • /api/confirm-photo                                │ │
   │  │  • /api/process-flyer-page                           │ │
-  │  │  • /api/extract-product-info (Claude Vision)         │ │
+  │  │  • /api/analyze-product-photos (Photo Studio)         │ │
 │  │  • /api/admin/assign-demand-groups                   │ │
 │  └──────────────────────────────────────────────────────┘ │
 └────────────────────────────────────────────────────────────┘
@@ -208,7 +208,7 @@ Photos:
   POST   /api/process-photo              Process photo/PDF
   POST   /api/confirm-photo              Confirm review
   POST   /api/process-flyer-page         Process single flyer page
-  POST   /api/extract-product-info       Extract name/brand/EAN/price from product photo (lightweight, no DB tracking)
+  POST   /api/analyze-product-photos     Unified product photo analysis (multi-image pipeline: classify, extract, thumbnail, verify)
 
 Receipts:
   POST   /api/upload-receipt-photo       Upload single receipt photo → Storage URL
