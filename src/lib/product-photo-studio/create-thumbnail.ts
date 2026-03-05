@@ -7,6 +7,8 @@
 
 import sharp from "sharp";
 import { removeBackground } from "./background-removal";
+import { getProductBoundingBox } from "@/lib/api/photo-processing/image-utils";
+import { log } from "@/lib/utils/logger";
 import type {
   PhotoInput,
   ClassificationResponse,
@@ -15,6 +17,7 @@ import type {
 
 const FULL_SIZE = 800;
 const THUMB_SIZE = 150;
+const PADDING_RATIO = 0.08;
 const WHITE = { r: 255, g: 255, b: 255 };
 
 /**
@@ -50,26 +53,55 @@ function selectBestPhoto(
 }
 
 /**
+ * 3b-pre: Crop to product region before background removal.
+ * Uses Claude-guided bounding box to remove table/shelf/hand areas,
+ * giving remove.bg a cleaner source image.
+ * Falls back to the oriented original if detection fails.
+ */
+async function preCropToProduct(imageBuffer: Buffer): Promise<Buffer> {
+  const oriented = await sharp(imageBuffer).rotate().toBuffer();
+  const { width = 0, height = 0 } = await sharp(oriented).metadata();
+  if (!width || !height) return oriented;
+  try {
+    const base64 = oriented.toString("base64");
+    const box = await getProductBoundingBox(base64, "image/jpeg", width, height);
+    if (!box) return oriented;
+    return sharp(oriented)
+      .extract({ left: box.crop_x, top: box.crop_y, width: box.crop_width, height: box.crop_height })
+      .toBuffer();
+  } catch (err) {
+    log.warn("[photo-studio] pre-crop failed, using original:", err instanceof Error ? err.message : err);
+    return oriented;
+  }
+}
+
+/**
  * 3c: Enhance the image and produce standardized output.
- * - EXIF rotation
- * - Histogram normalization for consistent exposure
- * - Mild sharpen for crisp detail
- * - Resize to target on white background
+ * Phase 1: Flatten alpha, denoise, gentle color correction, sharpen.
+ * Phase 2: Add padding so the product "breathes", then resize.
  */
 async function enhanceAndStandardize(
   imageBuffer: Buffer,
   size: number,
 ): Promise<Buffer> {
-  return sharp(imageBuffer)
+  const pad = Math.round(size * PADDING_RATIO);
+
+  const enhanced = await sharp(imageBuffer)
     .rotate()
-    .normalize()
-    .sharpen({ sigma: 1.0 })
-    .resize(size, size, {
-      fit: "contain",
-      background: WHITE,
-    })
     .flatten({ background: WHITE })
-    .jpeg({ quality: 90 })
+    .median(3)
+    .modulate({ brightness: 1.03, saturation: 1.06 })
+    .sharpen({ sigma: 0.8 })
+    .toBuffer();
+
+  const padded = await sharp(enhanced)
+    .extend({ top: pad, bottom: pad, left: pad, right: pad, background: WHITE })
+    .toBuffer();
+
+  return sharp(padded)
+    .resize(size, size, { fit: "contain", background: WHITE })
+    .flatten({ background: WHITE })
+    .jpeg({ quality: 92 })
     .toBuffer();
 }
 
@@ -79,7 +111,8 @@ export async function createThumbnail(
 ): Promise<ThumbnailResult> {
   const bestPhoto = selectBestPhoto(images, classification);
 
-  const bgRemoved = await removeBackground(bestPhoto.buffer);
+  const preCropped = await preCropToProduct(bestPhoto.buffer);
+  const bgRemoved = await removeBackground(preCropped);
 
   const [fullSize, thumbnail] = await Promise.all([
     enhanceAndStandardize(bgRemoved, FULL_SIZE),

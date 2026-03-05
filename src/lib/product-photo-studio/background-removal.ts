@@ -22,7 +22,7 @@ class RemoveBgProvider implements BackgroundRemovalProvider {
 
     const formData = new FormData();
     formData.append("image_file", new Blob([new Uint8Array(imageBuffer)]), "image.jpg");
-    formData.append("size", "regular");
+    formData.append("size", "hd");
     formData.append("type", "product");
     formData.append("format", "png");
 

@@ -6,10 +6,16 @@ vi.mock("../background-removal", () => ({
   removeBackground: vi.fn(),
 }));
 
+vi.mock("@/lib/api/photo-processing/image-utils", () => ({
+  getProductBoundingBox: vi.fn(),
+}));
+
 import { removeBackground } from "../background-removal";
+import { getProductBoundingBox } from "@/lib/api/photo-processing/image-utils";
 import { createThumbnail } from "../create-thumbnail";
 
 const mockedRemoveBg = vi.mocked(removeBackground);
+const mockedGetBBox = vi.mocked(getProductBoundingBox);
 
 async function makeTestImage(width = 100, height = 100): Promise<PhotoInput> {
   const buffer = await sharp({
@@ -43,6 +49,7 @@ function makeClassification(
 beforeEach(() => {
   vi.clearAllMocks();
   mockedRemoveBg.mockImplementation(async (buf) => buf);
+  mockedGetBBox.mockResolvedValue(null);
 });
 
 describe("createThumbnail", () => {
@@ -75,7 +82,10 @@ describe("createThumbnail", () => {
 
     await createThumbnail([backImg, frontImg], classification);
 
-    expect(mockedRemoveBg).toHaveBeenCalledWith(frontImg.buffer);
+    const passedBuf = mockedRemoveBg.mock.calls[0][0];
+    const meta = await sharp(passedBuf).metadata();
+    expect(meta.width).toBe(120);
+    expect(meta.height).toBe(120);
   });
 
   test("selects highest quality when multiple front photos", async () => {
@@ -88,12 +98,15 @@ describe("createThumbnail", () => {
 
     await createThumbnail([lowQ, highQ], classification);
 
-    expect(mockedRemoveBg).toHaveBeenCalledWith(highQ.buffer);
+    const passedBuf = mockedRemoveBg.mock.calls[0][0];
+    const meta = await sharp(passedBuf).metadata();
+    expect(meta.width).toBe(120);
+    expect(meta.height).toBe(120);
   });
 
   test("skips price_tag and barcode for thumbnail selection", async () => {
-    const priceTag = await makeTestImage();
-    const sidePhoto = await makeTestImage();
+    const priceTag = await makeTestImage(90, 90);
+    const sidePhoto = await makeTestImage(110, 110);
     const classification = makeClassification([
       { photo_type: "price_tag", quality_score: 0.99 },
       { photo_type: "product_side", quality_score: 0.7 },
@@ -101,17 +114,62 @@ describe("createThumbnail", () => {
 
     await createThumbnail([priceTag, sidePhoto], classification);
 
-    expect(mockedRemoveBg).toHaveBeenCalledWith(sidePhoto.buffer);
+    const passedBuf = mockedRemoveBg.mock.calls[0][0];
+    const meta = await sharp(passedBuf).metadata();
+    expect(meta.width).toBe(110);
+    expect(meta.height).toBe(110);
   });
 
   test("passes through single photo directly", async () => {
-    const img = await makeTestImage();
+    const img = await makeTestImage(100, 100);
     const classification = makeClassification([
       { photo_type: "product_front", quality_score: 0.9 },
     ]);
 
     await createThumbnail([img], classification);
 
-    expect(mockedRemoveBg).toHaveBeenCalledWith(img.buffer);
+    expect(mockedRemoveBg).toHaveBeenCalledTimes(1);
+    const passedBuf = mockedRemoveBg.mock.calls[0][0];
+    const meta = await sharp(passedBuf).metadata();
+    expect(meta.width).toBe(100);
+    expect(meta.height).toBe(100);
+  });
+
+  test("pre-crops to bounding box when available", async () => {
+    mockedGetBBox.mockResolvedValueOnce({
+      crop_x: 10,
+      crop_y: 10,
+      crop_width: 60,
+      crop_height: 80,
+    });
+
+    const img = await makeTestImage(100, 100);
+    const classification = makeClassification([
+      { photo_type: "product_front", quality_score: 0.9 },
+    ]);
+
+    await createThumbnail([img], classification);
+
+    expect(mockedGetBBox).toHaveBeenCalled();
+    const passedBuf = mockedRemoveBg.mock.calls[0][0];
+    const meta = await sharp(passedBuf).metadata();
+    expect(meta.width).toBe(60);
+    expect(meta.height).toBe(80);
+  });
+
+  test("falls back to full image when bounding box detection fails", async () => {
+    mockedGetBBox.mockRejectedValueOnce(new Error("Claude unavailable"));
+
+    const img = await makeTestImage(100, 100);
+    const classification = makeClassification([
+      { photo_type: "product_front", quality_score: 0.9 },
+    ]);
+
+    await createThumbnail([img], classification);
+
+    const passedBuf = mockedRemoveBg.mock.calls[0][0];
+    const meta = await sharp(passedBuf).metadata();
+    expect(meta.width).toBe(100);
+    expect(meta.height).toBe(100);
   });
 });
