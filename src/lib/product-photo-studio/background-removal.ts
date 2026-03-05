@@ -21,7 +21,7 @@ class RemoveBgProvider implements BackgroundRemovalProvider {
     if (!apiKey) throw new Error("REMOVE_BG_API_KEY not configured");
 
     const formData = new FormData();
-    formData.append("image_file", new Blob([imageBuffer]), "image.jpg");
+    formData.append("image_file", new Blob([new Uint8Array(imageBuffer)]), "image.jpg");
     formData.append("size", "regular");
     formData.append("type", "product");
     formData.append("format", "png");
