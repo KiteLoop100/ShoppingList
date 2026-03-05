@@ -3,7 +3,12 @@
 import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { createClientIfConfigured } from "@/lib/supabase/client";
-import { fetchDemandGroupsFromSupabase, toDemandGroups, type DemandGroupRow } from "@/lib/categories/category-service";
+import {
+  fetchDemandGroupsFromSupabase,
+  toDemandGroups,
+  fetchDemandSubGroupsFromSupabase,
+  type DemandSubGroupRow,
+} from "@/lib/categories/category-service";
 import { BaseModal } from "@/components/ui/base-modal";
 import type { Product, DemandGroup } from "@/types";
 
@@ -19,26 +24,39 @@ export function EditProductModal({ product, onClose, onSaved }: EditProductModal
   const [name, setName] = useState(product.name);
   const [brand, setBrand] = useState(product.brand ?? "");
   const [demandGroupCode, setDemandGroupCode] = useState(product.demand_group_code);
+  const [demandSubGroup, setDemandSubGroup] = useState(product.demand_sub_group ?? "");
   const [price, setPrice] = useState(product.price != null ? String(product.price) : "");
   const [articleNumber, setArticleNumber] = useState(product.article_number ?? "");
   const [ean, setEan] = useState(product.ean_barcode ?? "");
-  const [demandGroup, setDemandGroup] = useState(product.demand_group ?? "");
-  const [demandSubGroup, setDemandSubGroup] = useState(product.demand_sub_group ?? "");
   const [weightOrQuantity, setWeightOrQuantity] = useState(product.weight_or_quantity ?? "");
   const [assortmentType, setAssortmentType] = useState(product.assortment_type ?? "daily_range");
   const [demandGroups, setDemandGroups] = useState<DemandGroup[]>([]);
+  const [allSubGroups, setAllSubGroups] = useState<DemandSubGroupRow[]>([]);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    fetchDemandGroupsFromSupabase().then((rows) => {
-      if (cancelled || !rows) return;
-      setDemandGroups(toDemandGroups(rows));
+    Promise.all([
+      fetchDemandGroupsFromSupabase(),
+      fetchDemandSubGroupsFromSupabase(),
+    ]).then(([dgRows, dsgRows]) => {
+      if (cancelled) return;
+      if (dgRows) setDemandGroups(toDemandGroups(dgRows));
+      if (dsgRows) setAllSubGroups(dsgRows);
     });
     return () => { cancelled = true; };
   }, []);
+
+  const filteredSubGroups = allSubGroups.filter(
+    (sg) => sg.demand_group_code === demandGroupCode,
+  );
+
+  const handleCategoryChange = (code: string) => {
+    setDemandGroupCode(code);
+    setDemandSubGroup("");
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,8 +74,7 @@ export function EditProductModal({ product, onClose, onSaved }: EditProductModal
           price: price.trim() ? parseFloat(price) : null,
           article_number: articleNumber.trim() || null,
           ean_barcode: ean.trim() || null,
-          demand_group: demandGroup.trim() || null,
-          demand_sub_group: demandSubGroup.trim() || null,
+          demand_sub_group: demandSubGroup || null,
           weight_or_quantity: weightOrQuantity.trim() || null,
           assortment_type: assortmentType,
         }),
@@ -101,7 +118,7 @@ export function EditProductModal({ product, onClose, onSaved }: EditProductModal
                 <span className="text-xs font-medium uppercase text-aldi-muted">{t("category")}</span>
                 <select
                   value={demandGroupCode}
-                  onChange={(e) => setDemandGroupCode(e.target.value)}
+                  onChange={(e) => handleCategoryChange(e.target.value)}
                   className="mt-1 w-full rounded-xl border-2 border-aldi-muted-light px-4 py-2 focus:border-aldi-blue focus:outline-none"
                   required
                 >
@@ -112,6 +129,23 @@ export function EditProductModal({ product, onClose, onSaved }: EditProductModal
                   ))}
                 </select>
               </label>
+              {filteredSubGroups.length > 0 && (
+                <label className="block">
+                  <span className="text-xs font-medium uppercase text-aldi-muted">{t("demandSubGroup")}</span>
+                  <select
+                    value={demandSubGroup}
+                    onChange={(e) => setDemandSubGroup(e.target.value)}
+                    className="mt-1 w-full rounded-xl border-2 border-aldi-muted-light px-4 py-2 focus:border-aldi-blue focus:outline-none"
+                  >
+                    <option value="">{t("noSubcategory")}</option>
+                    {filteredSubGroups.map((sg) => (
+                      <option key={sg.code} value={sg.code}>
+                        {sg.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
               <label className="block">
                 <span className="text-xs font-medium uppercase text-aldi-muted">{t("price")}</span>
                 <input
@@ -137,24 +171,6 @@ export function EditProductModal({ product, onClose, onSaved }: EditProductModal
                   type="text"
                   value={ean}
                   onChange={(e) => setEan(e.target.value)}
-                  className="mt-1 w-full rounded-xl border-2 border-aldi-muted-light px-4 py-2 focus:border-aldi-blue focus:outline-none"
-                />
-              </label>
-              <label className="block">
-                <span className="text-xs font-medium uppercase text-aldi-muted">{t("demandGroup")}</span>
-                <input
-                  type="text"
-                  value={demandGroup}
-                  onChange={(e) => setDemandGroup(e.target.value)}
-                  className="mt-1 w-full rounded-xl border-2 border-aldi-muted-light px-4 py-2 focus:border-aldi-blue focus:outline-none"
-                />
-              </label>
-              <label className="block">
-                <span className="text-xs font-medium uppercase text-aldi-muted">{t("demandSubGroup")}</span>
-                <input
-                  type="text"
-                  value={demandSubGroup}
-                  onChange={(e) => setDemandSubGroup(e.target.value)}
                   className="mt-1 w-full rounded-xl border-2 border-aldi-muted-light px-4 py-2 focus:border-aldi-blue focus:outline-none"
                 />
               </label>

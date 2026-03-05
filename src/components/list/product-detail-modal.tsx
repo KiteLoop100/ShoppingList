@@ -1,11 +1,17 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useTranslations, useLocale } from "next-intl";
-import { formatDemandGroupLabel } from "@/lib/i18n/category-translations";
+import { translateDemandGroupName } from "@/lib/i18n/category-translations";
+import {
+  fetchDemandGroupsFromSupabase,
+  fetchDemandSubGroupsFromSupabase,
+  buildSubGroupNameMap,
+  toDemandGroups,
+} from "@/lib/categories/category-service";
 import { useAutoReorder } from "@/hooks/use-auto-reorder";
 import type { ReorderUnit } from "@/hooks/use-auto-reorder";
-import type { Product } from "@/types";
+import type { Product, DemandGroup } from "@/types";
 import { formatNutritionInfo } from "@/lib/products/nutrition-utils";
 import { BaseModal } from "@/components/ui/base-modal";
 import { ProductFeedbackForm } from "@/components/feedback/product-feedback-form";
@@ -37,6 +43,9 @@ export function ProductDetailModal({ product, onClose, onEdit, onReorderChanged 
     handleUnitChange,
   } = useAutoReorder(onReorderChanged);
 
+  const [dgMap, setDgMap] = useState<Map<string, DemandGroup>>(new Map());
+  const [sgNameMap, setSgNameMap] = useState<Map<string, string>>(new Map());
+
   const productId = product?.product_id ?? null;
 
   useEffect(() => {
@@ -44,12 +53,30 @@ export function ProductDetailModal({ product, onClose, onEdit, onReorderChanged 
     loadReorderSetting(productId);
   }, [productId, loadReorderSetting]);
 
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([
+      fetchDemandGroupsFromSupabase(),
+      fetchDemandSubGroupsFromSupabase(),
+    ]).then(([dgRows, dsgRows]) => {
+      if (cancelled) return;
+      if (dgRows) {
+        const m = new Map<string, DemandGroup>();
+        for (const dg of toDemandGroups(dgRows)) m.set(dg.code, dg);
+        setDgMap(m);
+      }
+      if (dsgRows) setSgNameMap(buildSubGroupNameMap(dsgRows));
+    });
+    return () => { cancelled = true; };
+  }, []);
+
   if (!product) return null;
 
   const hasPrice = product.price != null;
   const hasWeightOrQuantity = product.weight_or_quantity != null && product.weight_or_quantity !== "";
   const hasBrand = product.brand != null && product.brand !== "";
-  const hasDemandGroup = product.demand_group != null && product.demand_group !== "";
+  const hasDemandGroup = product.demand_group_code != null && product.demand_group_code !== "";
+  const hasDemandSubGroup = product.demand_sub_group != null && product.demand_sub_group !== "";
   const hasArticleNumber = product.article_number != null && product.article_number !== "";
   const hasEan = product.ean_barcode != null && product.ean_barcode !== "";
   const hasNutrition = product.nutrition_info != null && typeof product.nutrition_info === "object" && Object.keys(product.nutrition_info).length > 0;
@@ -155,7 +182,17 @@ export function ProductDetailModal({ product, onClose, onEdit, onReorderChanged 
               {hasDemandGroup && (
                 <div>
                   <dt className="text-xs font-medium uppercase tracking-wider text-aldi-muted">{t("demandGroup")}</dt>
-                  <dd className="mt-0.5 text-sm text-aldi-text">{formatDemandGroupLabel(product.demand_group!)}</dd>
+                  <dd className="mt-0.5 text-sm text-aldi-text">
+                    {translateDemandGroupName(product.demand_group_code, locale, dgMap)}
+                  </dd>
+                </div>
+              )}
+              {hasDemandSubGroup && (
+                <div>
+                  <dt className="text-xs font-medium uppercase tracking-wider text-aldi-muted">{t("demandSubGroup")}</dt>
+                  <dd className="mt-0.5 text-sm text-aldi-text">
+                    {sgNameMap.get(product.demand_sub_group!) ?? product.demand_sub_group}
+                  </dd>
                 </div>
               )}
               {hasArticleNumber && (
