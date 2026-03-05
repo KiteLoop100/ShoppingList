@@ -69,10 +69,24 @@ function sanitizeNutrition(raw: unknown): NutritionInfo | null {
   return hasAny ? result : null;
 }
 
+// #region agent log
+function logRawPriceDebug(raw: Record<string, unknown>) {
+  log.debug("[photo-studio] RAW price from Claude:", {
+    price_value: raw.price,
+    price_type: typeof raw.price,
+    retailer: raw.retailer_from_price_tag,
+    retailer_type: typeof raw.retailer_from_price_tag,
+  });
+}
+// #endregion
+
 function sanitizeExtracted(
   raw: Record<string, unknown>,
   scannedEan: string | null,
 ): ExtractedCompetitorProductInfo {
+  // #region agent log
+  logRawPriceDebug(raw);
+  // #endregion
   const ns = raw.nutri_score;
   const nutri =
     typeof ns === "string" && NUTRI_SCORE_VALUES.has(ns.toUpperCase())
