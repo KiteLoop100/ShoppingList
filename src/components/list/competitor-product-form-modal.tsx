@@ -23,17 +23,31 @@ export interface CompetitorProductFormModalProps {
   editProduct?: CompetitorProduct | null;
 }
 
-function fileToBase64(file: File): Promise<{ base64: string; mediaType: string }> {
+/** Resize + compress a photo to stay well within Vercel's 4.5 MB payload limit. */
+function compressImage(
+  file: File,
+  maxDimension = 1600,
+  quality = 0.82,
+): Promise<{ base64: string; mediaType: string }> {
   return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = reader.result as string;
+    const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      const scale = Math.min(1, maxDimension / Math.max(img.width, img.height));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      const ctx = canvas.getContext("2d");
+      if (!ctx) { reject(new Error("Canvas not available")); return; }
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      const dataUrl = canvas.toDataURL("image/jpeg", quality);
       const [header, base64] = dataUrl.split(",");
       const mediaType = header.match(/data:(.*?);/)?.[1] ?? "image/jpeg";
       resolve({ base64, mediaType });
     };
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
+    img.onerror = reject;
+    img.src = objectUrl;
   });
 }
 
@@ -99,7 +113,7 @@ export function CompetitorProductFormModal({
     try {
       const images = await Promise.all(
         files.map(async (file) => {
-          const { base64, mediaType } = await fileToBase64(file);
+          const { base64, mediaType } = await compressImage(file);
           return { image_base64: base64, media_type: mediaType };
         }),
       );
