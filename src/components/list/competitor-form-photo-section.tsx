@@ -12,7 +12,7 @@ export function PhotoUploadSection({
   onRemovePhoto,
   labels,
 }: {
-  fileInputRef: RefObject<HTMLInputElement | null>;
+  fileInputRef: RefObject<HTMLInputElement>;
   photoPreviews: string[];
   processedThumbnail: string | null;
   analyzing: boolean;
