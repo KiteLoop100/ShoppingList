@@ -115,26 +115,28 @@ export function ProductDetailModal({ product, onClose, onEdit, onReorderChanged 
               )}
             </dl>
 
-            <dl className="mt-4 space-y-2 border-t border-aldi-muted-light pt-3">
-              {hasNutrition && (
-                <div>
-                  <dt className="text-xs font-medium uppercase tracking-wider text-aldi-muted">{t("nutritionInfo")}</dt>
-                  <dd className="mt-0.5 text-sm text-aldi-text">{formatNutritionInfo(product.nutrition_info!)}</dd>
-                </div>
-              )}
-              {hasIngredients && (
-                <div>
-                  <dt className="text-xs font-medium uppercase tracking-wider text-aldi-muted">{t("ingredients")}</dt>
-                  <dd className="mt-0.5 text-sm text-aldi-text">{product.ingredients}</dd>
-                </div>
-              )}
-              {hasAllergens && (
-                <div>
-                  <dt className="text-xs font-medium uppercase tracking-wider text-aldi-muted">{t("allergens")}</dt>
-                  <dd className="mt-0.5 text-sm text-aldi-text">{product.allergens}</dd>
-                </div>
-              )}
-            </dl>
+            {(hasNutrition || hasIngredients || hasAllergens) && (
+              <dl className="mt-4 space-y-2 border-t border-aldi-muted-light pt-3">
+                {hasNutrition && (
+                  <div>
+                    <dt className="text-xs font-medium uppercase tracking-wider text-aldi-muted">{t("nutritionInfo")}</dt>
+                    <dd className="mt-0.5 text-sm text-aldi-text">{formatNutritionInfo(product.nutrition_info!)}</dd>
+                  </div>
+                )}
+                {hasIngredients && (
+                  <div>
+                    <dt className="text-xs font-medium uppercase tracking-wider text-aldi-muted">{t("ingredients")}</dt>
+                    <dd className="mt-0.5 text-sm text-aldi-text">{product.ingredients}</dd>
+                  </div>
+                )}
+                {hasAllergens && (
+                  <div>
+                    <dt className="text-xs font-medium uppercase tracking-wider text-aldi-muted">{t("allergens")}</dt>
+                    <dd className="mt-0.5 text-sm text-aldi-text">{product.allergens}</dd>
+                  </div>
+                )}
+              </dl>
+            )}
 
             <dl className="mt-4 space-y-2 border-t border-aldi-muted-light pt-3">
               <div>

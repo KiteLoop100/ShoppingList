@@ -71,7 +71,6 @@ export function ProductFeedbackForm({ product }: ProductFeedbackFormProps) {
         onClick={() => setExpanded(!expanded)}
         className="flex w-full items-center gap-2 text-left"
       >
-        <span className="text-base">📣</span>
         <span className="flex-1 text-sm font-medium text-aldi-text">
           {t("productFeedbackTitle")}
         </span>
