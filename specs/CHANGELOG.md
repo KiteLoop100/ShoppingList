@@ -5,6 +5,34 @@
 
 ---
 
+## 2026-03-05 – Product Photo Studio: Integrated Competitor Product Capture
+
+- **New: `src/lib/product-photo-studio/`** – 4-stage pipeline for processing crowdsourced competitor product photos: classify (Claude Sonnet), extract comprehensive product info (Claude Sonnet), create professional thumbnail (Sharp + remove.bg/Claude crop), verify quality (Claude Haiku). Parallel execution with content moderation gate.
+- **New: `src/lib/product-photo-studio/types.ts`** – Interfaces and Zod schemas for the pipeline (PhotoInput, ClassificationResponse, ExtractedCompetitorProductInfo, ThumbnailResult, ThumbnailVerification, etc.).
+- **New: `src/lib/product-photo-studio/prompts.ts`** – AI prompts for classification, extraction, and thumbnail verification.
+- **New: `src/lib/product-photo-studio/pipeline.ts`** – Orchestrator with two parallel groups gated by content moderation.
+- **New: `src/lib/product-photo-studio/validate-classify.ts`** – Stage 1: Content moderation via Claude Sonnet Vision.
+- **New: `src/lib/product-photo-studio/extract-product-info.ts`** – Stage 2: Multi-photo product info extraction + ZBar barcode scan.
+- **New: `src/lib/product-photo-studio/create-thumbnail.ts`** – Stage 3: Best photo selection, background removal, enhancement (800x800 + 150x150).
+- **New: `src/lib/product-photo-studio/background-removal.ts`** – Provider pattern: remove.bg API (primary) + Claude bounding box crop (fallback).
+- **New: `src/lib/product-photo-studio/verify-quality.ts`** – Stage 4: Thumbnail QA via Claude Haiku.
+- **New: `src/app/api/analyze-competitor-photos/route.ts`** – POST endpoint accepting 1-8 photos, returns extracted data + processed thumbnail.
+- **New: `supabase/migrations/20260305000000_competitor_product_details.sql`** – Adds ingredients, nutrition_info (JSONB), allergens, nutri_score, country_of_origin to competitor_products.
+- **New: `src/components/list/competitor-form-photo-section.tsx`** – Photo upload UI component with multi-file support and preview strip.
+- **New: `src/components/list/competitor-form-extracted-info.tsx`** – Read-only cards displaying extracted product details (Nutri-Score badge, nutrition table, ingredients, allergens).
+- **New: `src/components/list/competitor-form-fields.tsx`** – Form fields component extracted for file size compliance.
+- **New: `src/components/list/competitor-form-save.ts`** – Save logic for create/update with extracted data application.
+- **Modified: `src/components/list/competitor-product-form-modal.tsx`** – Replaced two separate photo buttons with single "Produktfotos hochladen" multi-upload button. Added hint text, auto-fill for all extracted fields including new ones. Decomposed into 4 sub-modules to stay under 300 lines.
+- **Modified: `src/components/list/competitor-product-detail-modal.tsx`** – Added display sections for Nutri-Score badge, nutrition table, ingredients, allergens, country of origin.
+- **Modified: `src/lib/competitor-products/competitor-product-service.ts`** – Extended rowToCompetitorProduct and updateCompetitorProduct to handle new fields (ingredients, nutrition_info, allergens, nutri_score, country_of_origin).
+- **Modified: `src/types/index.ts`** – Added new fields to CompetitorProduct interface.
+- **Modified: `src/types/supabase.ts`** – Updated Supabase generated types for competitor_products table.
+- **Modified: `src/messages/de.json` + `en.json`** – New translation keys for photo studio UI and detail modal nutrition/allergen display.
+- **Specs updated:** `FEATURES-ELSEWHERE.md` (Photo Auto-Fill section replaced with Photo Studio Pipeline documentation).
+- **Tests:** 31 tests across 6 test files covering all pipeline stages, background removal, and orchestration.
+
+---
+
 ## 2026-03-03 – Category Color Bar Bugfix
 
 - **Modified: `src/components/list/shopping-list-content.tsx`** – `getCategoryColor()` was receiving demand group *names* (e.g. "Milch/Sahne/Butter") instead of demand group *codes* (e.g. "83"), causing all category bars to render in fallback gray. Fixed by adding `demandGroupCode` field to the `CategoryGroup` interface and populating it from `item.demand_group_code` in `groupConsecutiveByCategory()`. The `style` attribute now passes `group.demandGroupCode` to `getCategoryColor()`.

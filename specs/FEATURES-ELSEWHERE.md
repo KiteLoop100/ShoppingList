@@ -254,22 +254,29 @@ Current price = latest row per (product_id, retailer).
 
 Stored in Supabase Storage bucket `competitor-product-photos`. Public URLs saved as `thumbnail_url` on `competitor_products`.
 
-### Photo Auto-Fill (Claude Vision)
+### Photo Studio Pipeline (Product Photo Studio)
 
-The `CompetitorProductFormModal` offers two photo buttons at the top of the form:
+The `CompetitorProductFormModal` offers a single "Produktfotos hochladen" button that accepts multiple photos (up to 8). All photos are analyzed together in a 4-stage pipeline:
 
-| Button | Label (DE) | Action |
-|--------|------------|--------|
-| **Foto Produktseite** | Primary (blue) | Captures photo, sends Base64 to `/api/extract-product-info`, auto-fills name, brand, EAN, price into empty fields. Shows spinner during analysis. |
-| **Sonstige Produktfotos** | Secondary (gray) | Captures photo for upload only, no recognition. |
+| Stage | Model | Purpose |
+|-------|-------|---------|
+| **1. Classify** | Claude Sonnet 4.5 | Content moderation + photo type classification (front/back/price tag/barcode) |
+| **2. Extract** | Claude Sonnet 4.5 | Comprehensive product info extraction from all photos combined (name, brand, EAN, price, ingredients, nutrition, allergens, Nutri-Score, dietary flags, country of origin) |
+| **3. Thumbnail** | Sharp + remove.bg/Claude | Select best front photo, remove background, enhance to 800x800 professional thumbnail |
+| **4. Verify** | Claude Haiku 4.5 | Quality check on processed thumbnail (approve/review/reject) |
 
-**API Endpoint:** `POST /api/extract-product-info`
-- Input: `{ image_base64, media_type }`
-- Output: `{ name, brand, ean_barcode, price, weight_or_quantity }`
-- Reuses: `DATA_EXTRACTION_PROMPT`, `decodeEanFromImageBuffer` (ZBar WASM), `callClaudeJSON` (Haiku)
-- No `photo_uploads` tracking; lightweight and stateless
+**Parallelism:** Stage 1 + ZBar barcode scan run in parallel. After moderation gate passes, Stage 2 + Stage 3 run in parallel. Stage 4 runs after Stage 3 completes.
+
+**API Endpoint:** `POST /api/analyze-competitor-photos`
+- Input: `{ images: [{ image_base64, media_type }] }` (1-8 photos)
+- Output: `{ ok, status, extracted_data, thumbnail_base64, thumbnail_small_base64, quality_score, processing_time_ms }`
+- Total processing time: ~9-15 seconds
 
 **Auto-fill rules:** Only empty fields are overwritten. If the user has already typed a name or brand, the auto-fill does not replace it.
+
+**New fields extracted:** ingredients, nutrition_info (JSONB), allergens, nutri_score, country_of_origin, is_vegan, is_gluten_free, is_lactose_free, animal_welfare_level.
+
+**Module:** `src/lib/product-photo-studio/` — pipeline.ts, validate-classify.ts, extract-product-info.ts, create-thumbnail.ts, background-removal.ts, verify-quality.ts, types.ts, prompts.ts.
 
 ### UX Details
 
@@ -290,4 +297,4 @@ The `CompetitorProductFormModal` offers two photo buttons at the top of the form
 
 ---
 
-*Last updated: 2026-03-01*
+*Last updated: 2026-03-05*

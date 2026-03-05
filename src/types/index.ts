@@ -275,6 +275,11 @@ export interface CompetitorProduct {
   is_gluten_free: boolean;
   is_lactose_free: boolean;
   animal_welfare_level: number | null;
+  ingredients: string | null;
+  nutrition_info: Record<string, unknown> | null;
+  allergens: string | null;
+  nutri_score: "A" | "B" | "C" | "D" | "E" | null;
+  country_of_origin: string | null;
   created_at: string;
   updated_at: string;
 }

@@ -28,6 +28,11 @@ function rowToCompetitorProduct(row: Record<string, unknown>): CompetitorProduct
     is_gluten_free: row.is_gluten_free === true,
     is_lactose_free: row.is_lactose_free === true,
     animal_welfare_level: row.animal_welfare_level != null ? Number(row.animal_welfare_level) : null,
+    ingredients: row.ingredients != null ? String(row.ingredients) : null,
+    nutrition_info: (row.nutrition_info as Record<string, unknown>) ?? null,
+    allergens: row.allergens != null ? String(row.allergens) : null,
+    nutri_score: (row.nutri_score as CompetitorProduct["nutri_score"]) ?? null,
+    country_of_origin: row.country_of_origin != null ? String(row.country_of_origin) : null,
     created_at: String(row.created_at),
     updated_at: String(row.updated_at),
   };
@@ -92,9 +97,15 @@ export async function createCompetitorProduct(
   return rowToCompetitorProduct(data as Record<string, unknown>);
 }
 
+type UpdatableFields =
+  | "name" | "brand" | "ean_barcode" | "article_number" | "weight_or_quantity"
+  | "thumbnail_url" | "other_photo_url" | "category_id"
+  | "is_bio" | "is_vegan" | "is_gluten_free" | "is_lactose_free" | "animal_welfare_level"
+  | "ingredients" | "nutrition_info" | "allergens" | "nutri_score" | "country_of_origin";
+
 export async function updateCompetitorProduct(
   productId: string,
-  updates: Partial<Pick<CompetitorProduct, "name" | "brand" | "ean_barcode" | "article_number" | "weight_or_quantity" | "thumbnail_url" | "other_photo_url" | "category_id" | "is_bio" | "is_vegan" | "is_gluten_free" | "is_lactose_free" | "animal_welfare_level">>
+  updates: Partial<Pick<CompetitorProduct, UpdatableFields>>
 ): Promise<void> {
   const supabase = createClientIfConfigured();
   if (!supabase) throw new Error("Supabase not configured");
@@ -116,6 +127,11 @@ export async function updateCompetitorProduct(
   if (updates.is_gluten_free !== undefined) payload.is_gluten_free = updates.is_gluten_free;
   if (updates.is_lactose_free !== undefined) payload.is_lactose_free = updates.is_lactose_free;
   if (updates.animal_welfare_level !== undefined) payload.animal_welfare_level = updates.animal_welfare_level;
+  if (updates.ingredients !== undefined) payload.ingredients = updates.ingredients;
+  if (updates.nutrition_info !== undefined) payload.nutrition_info = updates.nutrition_info;
+  if (updates.allergens !== undefined) payload.allergens = updates.allergens;
+  if (updates.nutri_score !== undefined) payload.nutri_score = updates.nutri_score;
+  if (updates.country_of_origin !== undefined) payload.country_of_origin = updates.country_of_origin;
 
   const { error } = await supabase
     .from("competitor_products")

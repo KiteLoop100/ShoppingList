@@ -1,0 +1,137 @@
+/**
+ * Product Photo Studio — types, Zod schemas, and shared interfaces.
+ * Used by the multi-photo competitor product capture pipeline.
+ */
+
+import { z } from "zod";
+
+// ── Zod Schemas ──
+
+export const VALID_MEDIA_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+] as const;
+
+export const photoInputSchema = z.object({
+  image_base64: z.string().min(100),
+  media_type: z.enum(VALID_MEDIA_TYPES),
+});
+
+export const analyzeRequestSchema = z.object({
+  images: z.array(photoInputSchema).min(1).max(8),
+});
+
+export type AnalyzeRequest = z.infer<typeof analyzeRequestSchema>;
+
+// ── Input ──
+
+export interface PhotoInput {
+  buffer: Buffer;
+  mediaType: (typeof VALID_MEDIA_TYPES)[number];
+}
+
+export interface ProductPhotoStudioInput {
+  images: PhotoInput[];
+}
+
+// ── Stage 1: Classification ──
+
+export type PhotoType =
+  | "product_front"
+  | "product_back"
+  | "product_side"
+  | "price_tag"
+  | "barcode"
+  | "shelf"
+  | "other";
+
+export interface PhotoClassification {
+  photo_index: number;
+  is_product_photo: boolean;
+  photo_type: PhotoType;
+  confidence: number;
+  rejection_reason: string | null;
+  quality_score: number;
+  has_reflections: boolean;
+  text_readable: boolean;
+}
+
+export interface ClassificationResponse {
+  photos: PhotoClassification[];
+  all_same_product: boolean;
+  suspicious_content: boolean;
+  overall_assessment: string;
+}
+
+// ── Stage 2: Extraction ──
+
+export interface NutritionInfo {
+  energy_kcal: number | null;
+  fat: number | null;
+  saturated_fat: number | null;
+  carbs: number | null;
+  sugar: number | null;
+  fiber: number | null;
+  protein: number | null;
+  salt: number | null;
+}
+
+export interface ExtractedCompetitorProductInfo {
+  name: string | null;
+  brand: string | null;
+  ean_barcode: string | null;
+  article_number: string | null;
+  price: number | null;
+  retailer_from_price_tag: string | null;
+  unit_price: string | null;
+  weight_or_quantity: string | null;
+  ingredients: string | null;
+  nutrition_info: NutritionInfo | null;
+  allergens: string | null;
+  nutri_score: "A" | "B" | "C" | "D" | "E" | null;
+  is_bio: boolean;
+  is_vegan: boolean;
+  is_gluten_free: boolean;
+  is_lactose_free: boolean;
+  animal_welfare_level: number | null;
+  country_of_origin: string | null;
+}
+
+// ── Stage 3: Thumbnail ──
+
+export interface ThumbnailResult {
+  fullSize: Buffer;
+  thumbnail: Buffer;
+}
+
+// ── Stage 4: Verification ──
+
+export interface ThumbnailVerification {
+  passes_quality_check: boolean;
+  quality_score: number;
+  issues: string[];
+  recommendation: "approve" | "review" | "reject";
+}
+
+// ── Background Removal ──
+
+export interface BackgroundRemovalProvider {
+  name: string;
+  isAvailable(): boolean;
+  removeBackground(imageBuffer: Buffer): Promise<Buffer>;
+}
+
+// ── Pipeline Output ──
+
+export interface ProductPhotoStudioResult {
+  status: "success" | "review_required";
+  reviewReason?: string;
+  classification: ClassificationResponse;
+  extractedData: ExtractedCompetitorProductInfo | null;
+  thumbnailFull?: Buffer;
+  thumbnailSmall?: Buffer;
+  qualityScore?: number;
+  processingTimeMs: number;
+}
