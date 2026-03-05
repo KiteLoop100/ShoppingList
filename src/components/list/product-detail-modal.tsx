@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import { useTranslations, useLocale } from "next-intl";
-import { translateDemandGroupName } from "@/lib/i18n/category-translations";
+import { translateDemandGroupName, formatDemandGroupLabel } from "@/lib/i18n/category-translations";
 import {
   fetchDemandGroupsFromSupabase,
   fetchDemandSubGroupsFromSupabase,
@@ -103,20 +104,26 @@ export function ProductDetailModal({ product, onClose, onEdit, onReorderChanged 
                 {product.thumbnail_url && (
                   <div className="flex flex-col gap-1">
                     <span className="text-xs font-medium uppercase tracking-wider text-aldi-muted">{t("frontSide")}</span>
-                    <img
+                    <Image
                       src={product.thumbnail_url}
                       alt={t("frontSide")}
+                      width={150}
+                      height={150}
                       className="h-[150px] w-[150px] shrink-0 rounded-xl object-cover object-center"
+                      unoptimized
                     />
                   </div>
                 )}
                 {product.thumbnail_back_url && (
                   <div className="flex flex-col gap-1">
                     <span className="text-xs font-medium uppercase tracking-wider text-aldi-muted">{t("backSide")}</span>
-                    <img
+                    <Image
                       src={product.thumbnail_back_url}
                       alt={t("backSide")}
+                      width={150}
+                      height={150}
                       className="h-[150px] w-[150px] shrink-0 rounded-xl object-cover object-center"
+                      unoptimized
                     />
                   </div>
                 )}
@@ -178,36 +185,42 @@ export function ProductDetailModal({ product, onClose, onEdit, onReorderChanged 
               )}
             </dl>
 
-            <dl className="mt-4 space-y-2 border-t border-aldi-muted-light pt-3">
-              {hasDemandGroup && (
-                <div>
-                  <dt className="text-xs font-medium uppercase tracking-wider text-aldi-muted">{t("demandGroup")}</dt>
-                  <dd className="mt-0.5 text-sm text-aldi-text">
-                    {translateDemandGroupName(product.demand_group_code, locale, dgMap)}
-                  </dd>
-                </div>
-              )}
-              {hasDemandSubGroup && (
-                <div>
-                  <dt className="text-xs font-medium uppercase tracking-wider text-aldi-muted">{t("demandSubGroup")}</dt>
-                  <dd className="mt-0.5 text-sm text-aldi-text">
-                    {sgNameMap.get(product.demand_sub_group!) ?? product.demand_sub_group}
-                  </dd>
-                </div>
-              )}
-              {hasArticleNumber && (
-                <div>
-                  <dt className="text-xs font-medium uppercase tracking-wider text-aldi-muted">{t("articleNumber")}</dt>
-                  <dd className="mt-0.5 text-sm font-mono text-aldi-text">{product.article_number}</dd>
-                </div>
-              )}
-              {hasEan && (
-                <div>
-                  <dt className="text-xs font-medium uppercase tracking-wider text-aldi-muted">{t("eanBarcode")}</dt>
-                  <dd className="mt-0.5 text-sm font-mono text-aldi-text">{product.ean_barcode}</dd>
-                </div>
-              )}
-            </dl>
+            {(hasDemandGroup || hasDemandSubGroup) && (
+              <dl className="mt-4 space-y-2 border-t border-aldi-muted-light pt-3">
+                {hasDemandGroup && (
+                  <div>
+                    <dt className="text-xs font-medium uppercase tracking-wider text-aldi-muted">{t("demandGroup")}</dt>
+                    <dd className="mt-0.5 text-sm text-aldi-text">
+                      {translateDemandGroupName(product.demand_group_code, locale, dgMap)}
+                    </dd>
+                  </div>
+                )}
+                {hasDemandSubGroup && (
+                  <div>
+                    <dt className="text-xs font-medium uppercase tracking-wider text-aldi-muted">{t("demandSubGroup")}</dt>
+                    <dd className="mt-0.5 text-sm text-aldi-text">
+                      {sgNameMap.get(product.demand_sub_group!) ?? formatDemandGroupLabel(product.demand_sub_group!)}
+                    </dd>
+                  </div>
+                )}
+              </dl>
+            )}
+            {(hasArticleNumber || hasEan) && (
+              <dl className="mt-4 space-y-2 border-t border-aldi-muted-light pt-3">
+                {hasArticleNumber && (
+                  <div>
+                    <dt className="text-xs font-medium uppercase tracking-wider text-aldi-muted">{t("articleNumber")}</dt>
+                    <dd className="mt-0.5 text-sm font-mono text-aldi-text">{product.article_number}</dd>
+                  </div>
+                )}
+                {hasEan && (
+                  <div>
+                    <dt className="text-xs font-medium uppercase tracking-wider text-aldi-muted">{t("eanBarcode")}</dt>
+                    <dd className="mt-0.5 text-sm font-mono text-aldi-text">{product.ean_barcode}</dd>
+                  </div>
+                )}
+              </dl>
+            )}
 
             {/* Auto-Reorder Section */}
             <div className="mt-4 border-t border-aldi-muted-light pt-4">

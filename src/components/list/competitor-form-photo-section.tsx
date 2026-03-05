@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import type { RefObject } from "react";
 
 export function PhotoUploadSection({
@@ -58,13 +59,13 @@ export function PhotoUploadSection({
         <div className="mt-2 flex flex-wrap gap-2">
           {processedThumbnail && (
             <div className="relative">
-              <img src={processedThumbnail} alt="" className="h-16 w-16 rounded-lg border-2 border-green-400 object-cover" />
+              <Image src={processedThumbnail} alt="" role="presentation" width={64} height={64} className="h-16 w-16 rounded-lg border-2 border-green-400 object-cover" unoptimized />
               <span className="absolute -right-1 -top-1 rounded-full bg-green-500 px-1 text-[9px] text-white">✓</span>
             </div>
           )}
           {photoPreviews.map((url, i) => (
             <div key={i} className="relative">
-              <img src={url} alt="" className="h-16 w-16 rounded-lg object-cover" />
+              <Image src={url} alt="" role="presentation" width={64} height={64} className="h-16 w-16 rounded-lg object-cover" unoptimized />
               <button
                 type="button"
                 onClick={() => onRemovePhoto(i)}

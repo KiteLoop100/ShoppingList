@@ -13,7 +13,6 @@ import {
 import { getDemandGroupOrderForList } from "@/lib/store/aisle-order";
 import { getHierarchicalOrder } from "@/lib/store/hierarchical-order";
 import { syncPairwiseFromSupabase } from "@/lib/store/sync-pairwise-from-supabase";
-import { log } from "@/lib/utils/logger";
 import { isDeferredSpecial } from "./use-auto-reorder";
 import type { SortData, SortedItems } from "./list-data-helpers";
 import type { LocalListItem } from "@/lib/db";

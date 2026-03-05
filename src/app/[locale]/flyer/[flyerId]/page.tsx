@@ -80,7 +80,7 @@ export default function FlyerDetailPage() {
         setLoading(false);
       }
     })();
-  }, [flyerId]);
+  }, [flyerId, tCommon]);
 
   const refreshProducts = useCallback(async () => {
     if (!flyerId) return;

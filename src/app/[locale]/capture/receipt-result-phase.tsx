@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import type { TranslationValues } from "use-intl";
 import type { CapturedPhoto, ReceiptResult } from "./use-receipt-processing";
 import { getRetailerByName } from "@/lib/retailers/retailers";
@@ -17,11 +18,14 @@ export function ReceiptProcessingPhase({ t, progress, photos }: ReceiptProcessin
       <p className="text-center text-sm text-white/80">{progress}</p>
       <div className="mt-4 flex gap-2 overflow-x-auto">
         {photos.map((photo, idx) => (
-          <img
+          <Image
             key={photo.id}
             src={photo.dataUrl}
             alt={`${t("photo")} ${idx + 1}`}
+            width={56}
+            height={80}
             className="h-20 w-14 rounded-lg object-cover opacity-60"
+            unoptimized
           />
         ))}
       </div>

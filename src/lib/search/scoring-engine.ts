@@ -6,7 +6,6 @@
  */
 
 import {
-  MatchType,
   MATCH_SCORES,
   WEIGHTS_SHORT_QUERY,
   WEIGHTS_LONG_QUERY,

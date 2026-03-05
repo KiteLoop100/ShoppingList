@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import Image from "next/image";
 import { useTranslations } from "next-intl";
 import { createClientIfConfigured } from "@/lib/supabase/client";
 import { useProducts } from "@/lib/products-context";
@@ -259,17 +260,16 @@ export function ReviewCard({ upload, userId, onConfirmed, onDiscarded }: ReviewC
     setSearchOpen(false);
   };
 
-  const clearLink = () => {
-    setLinkedProductId(null);
-  };
-
   return (
     <article className="rounded-xl border border-aldi-muted-light bg-white p-4 shadow-sm">
-      <div className="mb-4 flex justify-center">
-        <img
+      <div className="relative mb-4 flex h-40 w-full justify-center">
+        <Image
           src={upload.photo_url}
           alt=""
-          className="max-h-40 rounded-lg object-contain"
+          role="presentation"
+          fill
+          className="rounded-lg object-contain"
+          unoptimized
         />
       </div>
 

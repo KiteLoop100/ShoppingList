@@ -1,6 +1,7 @@
 "use client";
 
 import { memo, useMemo } from "react";
+import Image from "next/image";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
 import type { Product } from "@/types";
@@ -120,7 +121,7 @@ export const RecentPurchasesPanel = memo(function RecentPurchasesPanel({
               const qty = effectiveQuantities[index];
               const isSelected = effectiveSelected[index];
               return (
-                <li key={r.product_id} role="option">
+                <li key={r.product_id} role="option" aria-selected={isSelected}>
                   <div className="flex min-h-touch w-full items-center gap-2 px-4 py-2">
                     <button
                       type="button"
@@ -139,10 +140,14 @@ export const RecentPurchasesPanel = memo(function RecentPurchasesPanel({
                       </span>
                     </button>
                     {product?.thumbnail_url && (
-                      <img
+                      <Image
                         src={product.thumbnail_url}
                         alt=""
+                        role="presentation"
+                        width={40}
+                        height={40}
                         className="h-10 w-10 shrink-0 rounded object-cover"
+                        unoptimized
                       />
                     )}
                     <span className="min-w-0 flex-1 truncate text-[15px] text-aldi-text">

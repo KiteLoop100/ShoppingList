@@ -20,11 +20,11 @@ export interface TypicalProductItem {
 }
 
 export async function getCompletedTripCount(): Promise<number> {
-  const supabase = createClientIfConfigured();
-  if (!supabase) return 0;
-
   const userId = getCurrentUserId();
-  const { count } = await supabase
+  const sb = createClientIfConfigured();
+  if (!sb) return 0;
+
+  const { count } = await sb
     .from("shopping_trips")
     .select("trip_id", { count: "exact", head: true })
     .eq("user_id", userId);

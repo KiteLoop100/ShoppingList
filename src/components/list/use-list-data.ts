@@ -54,11 +54,14 @@ export function useListData(sortMode: SortMode = "my-order"): UseListDataResult 
     });
 
   useEffect(() => {
+    const activationTimer = activationTimerRef;
+    const debounceTimer = debounceRefetchRef;
+    const animatingTimers = checkAnimatingRef;
     return () => {
-      if (activationTimerRef.current) clearTimeout(activationTimerRef.current);
-      if (debounceRefetchRef.current) clearTimeout(debounceRefetchRef.current);
-      for (const timer of checkAnimatingRef.current.values()) clearTimeout(timer);
-      checkAnimatingRef.current.clear();
+      if (activationTimer.current) clearTimeout(activationTimer.current);
+      if (debounceTimer.current) clearTimeout(debounceTimer.current);
+      for (const timer of animatingTimers.current.values()) clearTimeout(timer);
+      animatingTimers.current.clear();
     };
   }, [activationTimerRef, debounceRefetchRef, checkAnimatingRef]);
 

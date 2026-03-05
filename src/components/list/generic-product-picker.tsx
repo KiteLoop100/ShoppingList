@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useCallback, useEffect } from "react";
+import Image from "next/image";
 import { useTranslations } from "next-intl";
 import { useProducts } from "@/lib/products-context";
 import type { Product } from "@/types";
@@ -101,10 +102,14 @@ export function GenericProductPicker({
                     className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-aldi-blue-light/30 active:bg-aldi-blue-light/50"
                   >
                     {product.thumbnail_url ? (
-                      <img
+                      <Image
                         src={product.thumbnail_url}
                         alt=""
+                        role="presentation"
+                        width={40}
+                        height={40}
                         className="h-10 w-10 shrink-0 rounded-lg object-cover"
+                        unoptimized
                       />
                     ) : (
                       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-aldi-muted-light text-aldi-muted">

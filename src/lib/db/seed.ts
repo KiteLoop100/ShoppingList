@@ -10,7 +10,6 @@ import {
 } from "./seed-data";
 import type { AggregatedAisleOrder } from "@/types";
 
-const SEEDED_KEY = "digital-shopping-list-seeded-v1";
 const SEEDED_STORES_KEY = "digital-shopping-list-seeded-stores-v1";
 const SEEDED_DG_KEY = "digital-shopping-list-seeded-dg-v1";
 

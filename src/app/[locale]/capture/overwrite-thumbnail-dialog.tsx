@@ -11,7 +11,6 @@ interface OverwriteThumbnailDialogProps {
 
 export function OverwriteThumbnailDialog({ uploadId, onClose }: OverwriteThumbnailDialogProps) {
   const t = useTranslations("capture");
-  const tCommon = useTranslations("common");
   const [loading, setLoading] = useState(false);
 
   const handleApply = async (apply: boolean) => {

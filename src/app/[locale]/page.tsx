@@ -103,7 +103,7 @@ export default function MainScreenPage() {
   const refetchRef = useRef(refetch);
   refetchRef.current = refetch;
 
-  const { isInStore, detectedStoreName, showSortToast, resetOnCompletion } = useStoreDetection({
+  const { detectedStoreName, showSortToast, resetOnCompletion } = useStoreDetection({
     listId,
     loading,
     storeId: store?.store_id,

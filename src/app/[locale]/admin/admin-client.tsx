@@ -28,7 +28,7 @@ export function AdminClient() {
   const [section, setSection] = useState<Section>("products");
   const [createProductOpen, setCreateProductOpen] = useState(false);
 
-  const [products, setProducts] = useState<LocalProduct[]>([]);
+  const [, setProducts] = useState<LocalProduct[]>([]);
   const [demandGroups, setDemandGroups] = useState<DemandGroup[]>([]);
   const [aliases, setAliases] = useState<LocalCategoryAlias[]>([]);
   const [errors, setErrors] = useState<LocalSortingError[]>([]);

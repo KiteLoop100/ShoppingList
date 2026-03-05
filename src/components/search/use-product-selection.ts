@@ -33,7 +33,7 @@ export function useProductSelection({
       setSelected(items.map(() => initiallySelected));
       setQuantities(items.map(() => 1));
     }
-  }, [items.length, initiallySelected]);
+  }, [items, initiallySelected]);
 
   const toggle = useCallback((index: number) => {
     setSelected((prev) => {
@@ -58,12 +58,12 @@ export function useProductSelection({
 
   const effectiveSelected = useMemo(
     () => (selected.length === items.length ? selected : items.map(() => initiallySelected)),
-    [selected, items.length, initiallySelected],
+    [selected, items, initiallySelected],
   );
 
   const effectiveQuantities = useMemo(
     () => (quantities.length === items.length ? quantities : items.map(() => 1)),
-    [quantities, items.length],
+    [quantities, items],
   );
 
   const selectedCount = useMemo(

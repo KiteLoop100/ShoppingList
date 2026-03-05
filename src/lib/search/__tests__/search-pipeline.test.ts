@@ -2,7 +2,6 @@ import { indexProducts } from "../search-indexer";
 import { findCandidates } from "../candidate-retrieval";
 import { scoreAndRank } from "../scoring-engine";
 import { postProcess } from "../post-processor";
-import { MatchType } from "../constants";
 import type { Product } from "@/types";
 
 // Minimal test products

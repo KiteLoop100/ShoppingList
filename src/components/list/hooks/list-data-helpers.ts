@@ -1,4 +1,3 @@
-import { log } from "@/lib/utils/logger";
 import { setDemandGroups } from "@/lib/search/local-search";
 import { db } from "@/lib/db";
 import { getActiveListWithItems } from "@/lib/list";

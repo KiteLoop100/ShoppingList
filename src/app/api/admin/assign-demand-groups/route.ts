@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
       .select("product_id", { count: "exact", head: true })
       .eq("status", "active");
     if (country) countQuery = countQuery.eq("country", country);
-    const { count } = await countQuery;
+    await countQuery;
     return NextResponse.json({
       done: true,
       assigned_this_batch: 0,

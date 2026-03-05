@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import type { TranslationValues } from "use-intl";
 import type { CapturedPhoto } from "./use-receipt-processing";
 
@@ -47,10 +48,13 @@ export function ReceiptCameraPhase({
           <div className="flex gap-2 overflow-x-auto">
             {photos.map((photo, idx) => (
               <div key={photo.id} className="relative shrink-0">
-                <img
+                <Image
                   src={photo.dataUrl}
                   alt={`${t("photo")} ${idx + 1}`}
+                  width={40}
+                  height={56}
                   className="h-14 w-10 rounded-md object-cover"
+                  unoptimized
                 />
                 <button
                   type="button"

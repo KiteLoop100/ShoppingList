@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { createClientIfConfigured } from "@/lib/supabase/client";
 import { DEMAND_GROUPS_LIST } from "@/lib/products/demand-groups-list";
 import { getCurrentUserId } from "@/lib/auth/auth-context";
@@ -100,9 +100,12 @@ export function useProductCreation(options: {
     if (open) resetForm();
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const subGroupOptions = demandGroup
-    ? DEMAND_GROUPS_LIST.find((g) => g.group === demandGroup)?.subGroups ?? []
-    : [];
+  const subGroupOptions = useMemo(
+    () => demandGroup
+      ? DEMAND_GROUPS_LIST.find((g) => g.group === demandGroup)?.subGroups ?? []
+      : [],
+    [demandGroup],
+  );
 
   useEffect(() => {
     if (!demandGroup || !subGroupOptions.includes(demandSubGroup)) {

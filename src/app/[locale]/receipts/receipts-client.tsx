@@ -42,14 +42,14 @@ export function ReceiptsClientPage() {
     const { data: rawData, error } = await supabase
       .from("receipts")
       .select(
-        "receipt_id, store_name, purchase_date, purchase_time, total_amount, items_count, created_at"
+        "receipt_id, store_name, retailer, purchase_date, purchase_time, total_amount, items_count, created_at"
       )
       .eq("user_id", userId)
       .order("purchase_date", { ascending: false, nullsFirst: false })
       .order("created_at", { ascending: false });
 
     if (!error && rawData) {
-      setReceipts(rawData.map((r) => ({ ...r, retailer: null })));
+      setReceipts(rawData as ReceiptSummary[]);
     }
     setLoading(false);
   }, []);

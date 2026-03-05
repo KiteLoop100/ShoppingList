@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import type { TranslationValues } from "use-intl";
 import type { CapturedPhoto } from "./use-receipt-processing";
 
@@ -80,10 +81,13 @@ export function ReceiptFallbackPhase({
             <div className="flex flex-wrap gap-3">
               {photos.map((photo, idx) => (
                 <div key={photo.id} className="relative">
-                  <img
+                  <Image
                     src={photo.dataUrl}
                     alt={`${t("photo")} ${idx + 1}`}
+                    width={68}
+                    height={96}
                     className="h-24 w-[68px] rounded-xl object-cover"
+                    unoptimized
                   />
                   <button
                     type="button"

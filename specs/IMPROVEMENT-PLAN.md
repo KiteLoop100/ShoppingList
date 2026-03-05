@@ -98,7 +98,7 @@ Akzeptanzkriterien:
 ### Prompt:
 
 ```
-Aufgabe: Dekomponiere src/components/list/use-list-data.ts (1017 Zeilen) in kleinere Hooks.
+Aufgabe S3: Dekomponiere src/components/list/use-list-data.ts (1017 Zeilen) in kleinere Hooks.
 
 Lies zuerst die gesamte Datei und identifiziere die logischen Blöcke.
 
@@ -139,7 +139,7 @@ Akzeptanzkriterien:
 ### Prompt:
 
 ```
-Aufgabe: Schreibe Vitest-Tests für die neuen List-Hooks.
+Aufgabe S4: Schreibe Vitest-Tests für die neuen List-Hooks.
 
 Lies die Dateien:
 - src/components/list/hooks/use-list-mutations.ts
@@ -185,7 +185,7 @@ Akzeptanzkriterien:
 ### Prompt:
 
 ```
-Aufgabe: Dekomponiere src/components/list/shopping-list-content.tsx (675 Zeilen, 
+Aufgabe S5: Dekomponiere src/components/list/shopping-list-content.tsx (675 Zeilen, 
 16 useState, 6 Modals) in kleinere Komponenten.
 
 Lies die gesamte Datei zuerst.
@@ -233,7 +233,7 @@ Akzeptanzkriterien:
 ### Prompt:
 
 ```
-Aufgabe: Extrahiere die Add-to-List-Logik aus src/components/search/product-search.tsx (683 Zeilen).
+Aufgabe S6: Extrahiere die Add-to-List-Logik aus src/components/search/product-search.tsx (683 Zeilen).
 
 Lies die Datei und identifiziere die 4 add-Funktionen:
 - addGeneric, addSpecific, addCompetitorProduct, addProductFromBarcode
@@ -279,7 +279,7 @@ Schreibe zusätzlich:
 ### Prompt:
 
 ```
-Aufgabe: Schreibe Vitest-Tests für die API-Route-Validierung.
+Aufgabe S7: Schreibe Vitest-Tests für die API-Route-Validierung.
 
 Lies die Route-Handler:
 - src/app/api/process-photo/route.ts
@@ -324,7 +324,7 @@ Akzeptanzkriterien:
 ### Prompt:
 
 ```
-Aufgabe: Code-Review nach dem Refactoring.
+Aufgabe S8: Code-Review nach dem Refactoring.
 
 Prüfe:
 1. Dateigrössen: Hat jede Datei < 300 Zeilen? Liste Verstösse auf.

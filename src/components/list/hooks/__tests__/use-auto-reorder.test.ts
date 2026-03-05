@@ -201,7 +201,6 @@ describe("processAutoReorder", () => {
 
   test("items without auto-reorder setting remain unchanged", async () => {
     const item = makeListItem({ item_id: "plain1", product_id: "prod-plain" });
-    const originalKeys = Object.keys(item);
 
     await processAutoReorder(
       [item],

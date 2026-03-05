@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
+import Image from "next/image";
 import { useTranslations } from "next-intl";
 import type { BBox, ProductRow } from "@/lib/flyers/flyer-service";
 
@@ -313,7 +314,7 @@ export function FlyerPageImage({
     })();
 
     return () => { cancelled = true; };
-  }, [isPdf, visible, imageUrl, blobUrl]);
+  }, [isPdf, visible, imageUrl, blobUrl, t]);
 
   const placeholder = (
     <div
@@ -361,12 +362,16 @@ export function FlyerPageImage({
       </a>
     </div>
   ) : showImg ? (
-    <img
-      src={imgSrc}
+    <Image
+      src={imgSrc!}
       alt={alt}
+      width={0}
+      height={0}
+      sizes="100vw"
       className={className}
-      loading="lazy"
+      style={{ width: "100%", height: "auto" }}
       onLoad={onImgLoad}
+      unoptimized
     />
   ) : (
     <div className="flex min-h-[200px] items-center justify-center bg-aldi-muted-light/20">

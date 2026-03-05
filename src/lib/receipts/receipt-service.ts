@@ -55,10 +55,17 @@ export async function loadReceiptWithItems(
       .order("position", { ascending: true }),
   ]);
 
-  if (!receiptRes.data) return null;
+  if (!receiptRes.data) {
+    console.warn("[receipts] Failed to load receipt:", receiptRes.error);
+    return null;
+  }
 
   const receipt = receiptRes.data as ReceiptData;
   const photoUrls = await getSignedPhotoUrls(receipt.photo_urls ?? [], supabase);
+
+  if (itemsRes.error) {
+    console.warn("[receipts] Failed to load receipt items:", itemsRes.error);
+  }
 
   let items: ReceiptItem[] = [];
   if (itemsRes.data) {

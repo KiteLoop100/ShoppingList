@@ -28,7 +28,7 @@ export interface ShoppingListContentProps {
 }
 
 export const ShoppingListContent = memo(function ShoppingListContent({
-  sortMode,
+  sortMode: _sortMode,
   listData,
 }: ShoppingListContentProps) {
   const t = useTranslations("list");

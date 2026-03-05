@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import Image from "next/image";
 import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Link } from "@/lib/i18n/navigation";
@@ -179,11 +180,14 @@ export default function ReceiptDetailPage() {
           {showPhotos && photoUrls.length > 0 && (
             <div className="mt-2 flex gap-2 overflow-x-auto">
               {photoUrls.map((url, idx) => (
-                <img
+                <Image
                   key={idx}
                   src={url}
                   alt={`${t("photo")} ${idx + 1}`}
+                  width={96}
+                  height={128}
                   className="h-32 w-auto rounded-lg object-contain"
+                  unoptimized
                 />
               ))}
             </div>

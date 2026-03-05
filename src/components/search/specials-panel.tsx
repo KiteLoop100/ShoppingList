@@ -1,6 +1,7 @@
 "use client";
 
 import { memo } from "react";
+import Image from "next/image";
 import { useTranslations } from "next-intl";
 import { formatShortDate } from "@/lib/utils/format-date";
 import type { Product } from "@/types";
@@ -86,7 +87,7 @@ export const SpecialsPanel = memo(function SpecialsPanel({
               const startDate = (product as { special_start_date?: string | null }).special_start_date;
               const dateLabel = formatShortDate(startDate, locale);
               return (
-                <li key={product.product_id} role="option">
+                <li key={product.product_id} role="option" aria-selected={isSelected}>
                   <div className="flex min-h-touch w-full items-center gap-2 px-4 py-2">
                     <button
                       type="button"
@@ -105,10 +106,14 @@ export const SpecialsPanel = memo(function SpecialsPanel({
                       </span>
                     </button>
                     {product.thumbnail_url && (
-                      <img
+                      <Image
                         src={product.thumbnail_url}
                         alt=""
+                        role="presentation"
+                        width={40}
+                        height={40}
                         className="h-10 w-10 shrink-0 rounded object-cover"
+                        unoptimized
                       />
                     )}
                     <div className="min-w-0 flex-1">

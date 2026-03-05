@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import type { TranslationValues } from "use-intl";
 import type { DataPhotoItem, ExtraBlobItem } from "./use-product-creation";
 
@@ -45,10 +46,14 @@ export function ProductPhotoSection({
         <input ref={fileInputThumb} type="file" className="hidden" accept="image/*" capture="environment" />
         {thumbnailPreview && (
           <div className="mt-3">
-            <img
+            <Image
               src={thumbnailPreview}
               alt=""
+              role="presentation"
+              width={96}
+              height={96}
               className="h-24 w-24 rounded-xl object-cover shadow-sm"
+              unoptimized
             />
           </div>
         )}
@@ -68,10 +73,14 @@ export function ProductPhotoSection({
         <div className="mt-3 flex flex-wrap gap-2">
           {extraBlobs.map((item) => (
             <div key={item.id} className="relative">
-              <img
+              <Image
                 src={item.url}
                 alt=""
+                role="presentation"
+                width={80}
+                height={80}
                 className="h-20 w-20 rounded-xl object-cover shadow-sm"
+                unoptimized
               />
               <button
                 type="button"
