@@ -19,6 +19,7 @@ function rowToCompetitorProduct(row: Record<string, unknown>): CompetitorProduct
     article_number: row.article_number != null ? String(row.article_number) : null,
     weight_or_quantity: row.weight_or_quantity != null ? String(row.weight_or_quantity) : null,
     country: row.country != null ? String(row.country) : "DE",
+    retailer: row.retailer != null ? String(row.retailer) : null,
     thumbnail_url: row.thumbnail_url != null ? String(row.thumbnail_url) : null,
     other_photo_url: row.other_photo_url != null ? String(row.other_photo_url) : null,
     category_id: row.category_id != null ? String(row.category_id) : null,
@@ -55,6 +56,8 @@ export interface CreateCompetitorProductParams {
   article_number?: string | null;
   weight_or_quantity?: string | null;
   country: string;
+  /** Primary retailer (e.g. "EDEKA"). Required so the product appears in retailer search without a price observation. */
+  retailer?: string | null;
   thumbnail_url?: string | null;
   other_photo_url?: string | null;
   category_id?: string | null;
@@ -81,6 +84,7 @@ export async function createCompetitorProduct(
       article_number: params.article_number ?? null,
       weight_or_quantity: params.weight_or_quantity ?? null,
       country: params.country,
+      retailer: params.retailer ?? null,
       thumbnail_url: params.thumbnail_url ?? null,
       other_photo_url: params.other_photo_url ?? null,
       category_id: params.category_id ?? null,
@@ -99,7 +103,7 @@ export async function createCompetitorProduct(
 
 type UpdatableFields =
   | "name" | "brand" | "ean_barcode" | "article_number" | "weight_or_quantity"
-  | "thumbnail_url" | "other_photo_url" | "category_id"
+  | "retailer" | "thumbnail_url" | "other_photo_url" | "category_id"
   | "is_bio" | "is_vegan" | "is_gluten_free" | "is_lactose_free" | "animal_welfare_level"
   | "ingredients" | "nutrition_info" | "allergens" | "nutri_score" | "country_of_origin";
 
@@ -116,6 +120,7 @@ export async function updateCompetitorProduct(
     payload.name_normalized = normalizeName(updates.name);
   }
   if (updates.brand !== undefined) payload.brand = updates.brand;
+  if (updates.retailer !== undefined) payload.retailer = updates.retailer;
   if (updates.ean_barcode !== undefined) payload.ean_barcode = updates.ean_barcode;
   if (updates.article_number !== undefined) payload.article_number = updates.article_number;
   if (updates.weight_or_quantity !== undefined) payload.weight_or_quantity = updates.weight_or_quantity;

@@ -266,6 +266,8 @@ export interface CompetitorProduct {
   article_number: string | null;
   weight_or_quantity: string | null;
   country: string;
+  /** Primary retailer (e.g. "EDEKA"). Makes the product discoverable in retailer search even without a price observation. */
+  retailer: string | null;
   thumbnail_url: string | null;
   other_photo_url: string | null;
   category_id: string | null;

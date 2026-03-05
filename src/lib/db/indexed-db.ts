@@ -158,6 +158,10 @@ export class AppDatabase extends Dexie {
     this.version(11).stores({
       categories: null,
     });
+    // Add retailer index to competitor_products for local filtering by retailer
+    this.version(12).stores({
+      competitor_products: "++id, product_id, name_normalized, ean_barcode, country, status, retailer",
+    });
   }
 }
 
