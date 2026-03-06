@@ -1,14 +1,7 @@
 import { describe, test, expect, vi, beforeEach } from "vitest";
 import sharp from "sharp";
 
-vi.mock("@/lib/api/photo-processing/image-utils", () => ({
-  getProductBoundingBox: vi.fn(),
-}));
-
-import { getProductBoundingBox } from "@/lib/api/photo-processing/image-utils";
 import { removeBackground } from "../background-removal";
-
-const mockedGetBBox = vi.mocked(getProductBoundingBox);
 
 async function makeTestBuffer(): Promise<Buffer> {
   return sharp({
@@ -25,42 +18,17 @@ beforeEach(() => {
 });
 
 describe("removeBackground", () => {
-  test("returns BackgroundRemovalResult with hasTransparency=false for crop fallback", async () => {
-    mockedGetBBox.mockResolvedValueOnce({
-      crop_x: 10,
-      crop_y: 10,
-      crop_width: 100,
-      crop_height: 100,
-    });
-
+  test("crop fallback returns oriented image without additional cropping", async () => {
     const input = await makeTestBuffer();
     const result = await removeBackground(input);
 
     expect(result.imageBuffer).toBeInstanceOf(Buffer);
     expect(result.imageBuffer.length).toBeGreaterThan(0);
     expect(result.hasTransparency).toBe(false);
-    expect(mockedGetBBox).toHaveBeenCalled();
-  });
 
-  test("returns original when crop fallback finds no bounding box", async () => {
-    mockedGetBBox.mockResolvedValueOnce(null);
-
-    const input = await makeTestBuffer();
-    const result = await removeBackground(input);
-
-    expect(result.imageBuffer).toBeInstanceOf(Buffer);
-    expect(result.imageBuffer.length).toBeGreaterThan(0);
-    expect(result.hasTransparency).toBe(false);
-  });
-
-  test("returns original when all providers fail", async () => {
-    mockedGetBBox.mockRejectedValueOnce(new Error("Claude failed"));
-
-    const input = await makeTestBuffer();
-    const result = await removeBackground(input);
-
-    expect(result.imageBuffer).toBeInstanceOf(Buffer);
-    expect(result.hasTransparency).toBe(false);
+    const meta = await sharp(result.imageBuffer).metadata();
+    expect(meta.width).toBe(200);
+    expect(meta.height).toBe(200);
   });
 
   test("self-hosted provider is checked first when URL is set", async () => {

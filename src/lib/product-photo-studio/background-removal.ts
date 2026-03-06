@@ -8,7 +8,6 @@
  */
 
 import sharp from "sharp";
-import { getProductBoundingBox } from "@/lib/api/photo-processing/image-utils";
 import type { BackgroundRemovalProvider, BackgroundRemovalResult } from "./types";
 import { log } from "@/lib/utils/logger";
 
@@ -104,27 +103,10 @@ class CropFallbackProvider implements BackgroundRemovalProvider {
   }
 
   async removeBackground(imageBuffer: Buffer): Promise<Buffer> {
-    const oriented = await sharp(imageBuffer).rotate().toBuffer();
-    const meta = await sharp(oriented).metadata();
-    const w = meta.width ?? 0;
-    const h = meta.height ?? 0;
-
-    if (w > 0 && h > 0) {
-      const base64 = oriented.toString("base64");
-      const box = await getProductBoundingBox(base64, "image/jpeg", w, h);
-      if (box) {
-        return sharp(oriented)
-          .extract({
-            left: box.crop_x,
-            top: box.crop_y,
-            width: box.crop_width,
-            height: box.crop_height,
-          })
-          .toBuffer();
-      }
-    }
-
-    return oriented;
+    // No additional cropping — preCropToProduct has already isolated the product
+    // region via Claude bounding-box detection. A second crop here would
+    // double-crop and clip tall/narrow products like bottles.
+    return sharp(imageBuffer).rotate().toBuffer();
   }
 }
 

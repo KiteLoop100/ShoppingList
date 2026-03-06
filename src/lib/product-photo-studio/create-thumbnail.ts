@@ -71,7 +71,7 @@ function selectHeroCandidates(
 }
 
 /** Margin added around the AI-detected bounding box so tall/narrow products (e.g. bottles) are not clipped. */
-const PRECROP_MARGIN = 0.08;
+const PRECROP_MARGIN = 0.15;
 
 /**
  * 3b-pre: Crop to product region before background removal.

@@ -141,7 +141,7 @@ describe("createThumbnail", () => {
     expect(meta.height).toBe(100);
   });
 
-  test("pre-crops with 8% margin so tall products like bottles are not clipped", async () => {
+  test("pre-crops with 15% margin so tall products like bottles are not clipped", async () => {
     // Bounding box covering the center of a 200x400 image
     mockedGetBBox.mockResolvedValueOnce({
       crop_x: 20,
@@ -161,10 +161,10 @@ describe("createThumbnail", () => {
     const passedBuf = mockedRemoveBg.mock.calls[0][0];
     const meta = await sharp(passedBuf).metadata();
 
-    // padX = round(160 * 0.08) = 13; left = max(0, 20 - 13) = 7; cropWidth = min(200 - 7, 160 + 26) = min(193, 186) = 186
-    // padY = round(340 * 0.08) = 27; top  = max(0, 30 - 27) = 3; cropHeight = min(400 - 3, 340 + 54) = min(397, 394) = 394
-    expect(meta.width).toBe(186);
-    expect(meta.height).toBe(394);
+    // padX = round(160 * 0.15) = 24; left = max(0, 20 - 24) = 0; cropWidth = min(200, 160 + 48) = 200
+    // padY = round(340 * 0.15) = 51; top  = max(0, 30 - 51) = 0; cropHeight = min(400, 340 + 102) = 400
+    expect(meta.width).toBe(200);
+    expect(meta.height).toBe(400);
   });
 
   test("pre-crop margin is clamped at image boundaries", async () => {
@@ -185,9 +185,9 @@ describe("createThumbnail", () => {
 
     const passedBuf = mockedRemoveBg.mock.calls[0][0];
     const meta = await sharp(passedBuf).metadata();
-    // padX = round(80 * 0.08) = 6; left = max(0, 0 - 6) = 0; cropWidth = min(100, 80 + 12) = 92
-    // padY = round(90 * 0.08) = 7; top  = max(0, 0 - 7) = 0; cropHeight = min(100, 90 + 14) = 100
-    expect(meta.width).toBe(92);
+    // padX = round(80 * 0.15) = 12; left = max(0, 0 - 12) = 0; cropWidth = min(100, 80 + 24) = 100
+    // padY = round(90 * 0.15) = 14; top  = max(0, 0 - 14) = 0; cropHeight = min(100, 90 + 28) = 100
+    expect(meta.width).toBe(100);
     expect(meta.height).toBe(100);
   });
 
