@@ -5,6 +5,12 @@ const withNextIntl = createNextIntlPlugin("./src/lib/i18n/request.ts");
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  images: {
+    remotePatterns: [
+      { protocol: "https", hostname: "dm.emea.cms.aldi.cx" },
+      { protocol: "https", hostname: "**.supabase.co" },
+    ],
+  },
   // Vercel expects .next; locally avoid Dropbox locking by using a cache dir
   distDir: process.env.VERCEL ? ".next" : "node_modules/.cache/next-build",
   async headers() {

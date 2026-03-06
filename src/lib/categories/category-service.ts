@@ -8,6 +8,7 @@ export interface DemandGroupRow {
   icon: string | null;
   color: string | null;
   sort_position: number;
+  parent_group: string | null;
 }
 
 let _dgCache: DemandGroupRow[] | null = null;
@@ -31,7 +32,7 @@ async function _fetchDemandGroups(): Promise<DemandGroupRow[] | null> {
 
   const { data } = await supabase
     .from("demand_groups")
-    .select("code, name, name_en, icon, color, sort_position")
+    .select("code, name, name_en, icon, color, sort_position, parent_group")
     .order("sort_position");
 
   if (data) _dgCache = data as DemandGroupRow[];
@@ -48,6 +49,30 @@ export function toDemandGroups(rows: DemandGroupRow[]): DemandGroup[] {
     color: r.color,
     sort_position: r.sort_position,
   }));
+}
+
+/**
+ * Get meta-categories (top-level groups with no parent).
+ * These are the 14 consolidated categories for the catalog view.
+ */
+export function getMetaCategories(rows: DemandGroupRow[]): DemandGroupRow[] {
+  return rows.filter((r) => r.parent_group === null && r.code.startsWith("M"));
+}
+
+/**
+ * Get child demand groups for a given meta-category code.
+ */
+export function getChildGroups(rows: DemandGroupRow[], metaCategoryCode: string): DemandGroupRow[] {
+  return rows.filter((r) => r.parent_group === metaCategoryCode);
+}
+
+/**
+ * Get all demand group codes belonging to a meta-category (for product filtering).
+ */
+export function getChildGroupCodes(rows: DemandGroupRow[], metaCategoryCode: string): string[] {
+  return rows
+    .filter((r) => r.parent_group === metaCategoryCode)
+    .map((r) => r.code);
 }
 
 // ── Demand Sub-Groups ───────────────────────────────────────────────

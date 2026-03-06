@@ -21,6 +21,7 @@
 | F10 | Offline Mode | ❌ | Deferred to later phase, MVP is online-only |
 | F11 | Multi-language | ✅ | DE + EN, i18n-ready |
 | F12 | Settings | ✅ | Language, default store, admin link |
+| F29 | Product Catalog | ✅ | Visual browsing by category, one-tap add-to-list |
 
 ---
 
@@ -523,6 +524,90 @@ Preferences are stored in Supabase `user_settings` (synced across devices) with 
 | F26 | Buy Elsewhere | MVP | **Spec ready** → see `FEATURES-ELSEWHERE.md` |
 | F27 | Export / Share List | Phase 3 | Planned |
 | F28 | Responsive Multi-Device (Desktop & Tablet) | Pre-Launch | **In progress** → see `UI.md` §6, `ARCHITECTURE.md` §7 |
+| F29 | Product Catalog | MVP | **Implemented** → see below |
+
+---
+
+## F29: Product Catalog (Katalog)
+
+### Goal
+
+Visual product browsing by category with one-tap add-to-list. Complements the search-first approach with a discovery-oriented view.
+
+### Navigation
+
+- Desktop: "Katalog" link in top navigation bar (between home and flyer)
+- Mobile: Grid icon in the header bar
+
+### Layout (3-Panel)
+
+```
++-----------------------------------------------------------+
+| [Obst & Gemüse] [Brot] [Milch] [Fleisch] [TK] [...]      |  <-- 14 meta-categories
++--------+--------------------------------------------------+
+|        |                                                  |
+| Gemüse |  [  Product  ] [  Product  ]                    |
+| Obst   |  [  Tile     ] [  Tile     ]                    |
+| Salate |  [           ] [           ]                    |
+|        |                                                  |
++--------+--------------------------------------------------+
+        demand groups          product grid (2 columns)
+```
+
+- **Top bar:** 14 meta-categories (consolidation of 61 demand groups via `parent_group` FK). Horizontally scrollable chips.
+- **Sidebar / second row:** Demand groups belonging to selected meta-category. "Alle" option shows all. Desktop: vertical sidebar. Mobile: horizontal chip row.
+- **Product grid:** 2-column grid of square tiles. Product image fills entire tile (`object-cover`). No product name on tile.
+
+### Meta-Categories
+
+14 meta-category rows in `demand_groups` table (code prefix "M", `parent_group = NULL`). The 61 existing demand groups have their `parent_group` set to point at the appropriate meta-category:
+
+| Meta-Category | Child Demand Groups |
+|---|---|
+| Obst & Gemüse | Gemüse, Obst, Salate |
+| Brot & Backwaren | Bake-Off, Brot/Kuchen, Backartikel |
+| Milchprodukte & Eier | H-Milch, Joghurts/Quark, Eier, Margarine, Milch/Sahne/Butter, Käse |
+| Fleisch, Fisch & Wurst | Dauerwurst, Frischfleisch, Fisch, Geflügel, Schwein, Wurstwaren, Gekühltes Fleisch, Gekühlter Fisch, Konserven Fleisch/Fisch |
+| Feinkost & Fertiggerichte | Konserven, Fertiggerichte/Suppen, Gekühlte Fertiggerichte, Gekühlte Feinkost |
+| Tiefkühl | TK Fleisch/Fisch, TK Obst/Gemüse, TK Desserts/Eis, TK Fertiggerichte |
+| Getränke | Spirituosen, Sekt, Wein, Bier, Wasser, Funktionsgetränke, Erfrischungsgetränke, Fruchtsäfte, Gekühlte Getränke |
+| Kaffee & Tee | Kaffee/Kakao, Tee |
+| Süßwaren & Snacks | Bonbons, Schokolade, Gebäck, Saisonartikel, Salzgebäck, Chips, Nüsse, Cerealien |
+| Grundnahrungsmittel | Dressings/Öle/Soßen, Konfitüren/Brotaufstriche, Nährmittel |
+| Haushalt | Reinigungsmittel, Papierwaren, Folien/Tücher, Haushaltsartikel |
+| Körperpflege & Baby | Kosmetik, Körperhygiene, Babyartikel, Apothekenprodukte |
+| Tiernahrung | Tiernahrung |
+| Aktionsartikel | Aktionsartikel |
+
+### Product Tiles
+
+- Square aspect ratio, full-bleed thumbnail image
+- Bottom-right: circular orange "+" button (44px, ALDI orange `#F37D1E`)
+- Tap "+": adds product with quantity 1, brief checkmark flash
+- If product already on list: quantity badge on top-right, tap "+" increments
+- Tap image: opens `ProductDetailModal` (reuse existing component)
+- No product name or brand visible on tile (image is sufficient)
+
+### Sorting
+
+Products within a category are sorted by relevance using `scoreForCatalog()` from `src/lib/search/scoring-engine.ts`. This function reuses the same scoring signals as the search pipeline:
+
+- **Popularity** (30%): global popularity score
+- **Personal relevance** (35%): purchase frequency + recency
+- **User preferences** (20%): dietary preferences (bio, vegan, etc.)
+- **Freshness** (15%): active/upcoming specials boost
+
+No `matchScore` signal (no search query involved).
+
+### Affected Files
+
+- `supabase/migrations/20260306100000_catalog_meta_categories.sql`
+- `src/app/[locale]/catalog/page.tsx`
+- `src/components/catalog/*.tsx` (6 components)
+- `src/lib/search/scoring-engine.ts` — `scoreForCatalog()`
+- `src/lib/categories/category-service.ts` — `getMetaCategories()`, `getChildGroups()`
+- `src/components/layout/app-shell.tsx`, `src/app/[locale]/page.tsx` — nav links
+- `src/messages/de.json` + `en.json` — `catalog` namespace
 
 ---
 

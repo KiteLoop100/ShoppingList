@@ -5,7 +5,7 @@
 | File | Content | ~Lines |
 |------|---------|--------|
 | **VISION.md** | Why does this product exist? Benefits for customers and ALDI. Strategic compass. | 120 |
-| **FEATURES-CORE.md** | F01-F12: Search, shopping list, sorting, store detection, settings | 180 |
+| **FEATURES-CORE.md** | F01-F12, F29: Search, shopping list, sorting, store detection, settings, catalog | 180 |
 | **FEATURES-CAPTURE.md** | F13: Photo upload, receipt scan, PDF import, review workflow, manual creation | 150 |
 | **FEATURES-FLYER.md** | F14: Flyer browser, add specials to list | 100 |
 | **DATA-MODEL.md** | All database tables and fields | 500 |

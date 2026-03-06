@@ -712,3 +712,37 @@ export const SEARCH_CONFIG = {
 
 5. ERGEBNIS: Rotweine und Weißweine oben, Weintrauben weit unten ✓
 ```
+
+---
+
+## §12: Catalog Scoring (`scoreForCatalog`)
+
+The catalog view (F29) reuses the scoring engine to sort products within a category by relevance — without a search query.
+
+### Entry Point
+
+```typescript
+scoreForCatalog(
+  products: SearchableProduct[],
+  preferences: ProductPreferences,
+  userHistory: Map<string, UserProductPreference>,
+  now?: Date
+): CatalogScoredProduct[]
+```
+
+### Signals Used
+
+The same internal scoring functions as search, but without the match quality signal:
+
+| Signal | Weight | Function |
+|---|---|---|
+| Popularity | 0.30 | `computePopularityScore()` |
+| Personal relevance | 0.35 | `computePersonalScore()` |
+| User preferences | 0.20 | `computePreferenceScore()` |
+| Freshness | 0.15 | `computeFreshnessScore()` |
+
+Match quality is excluded because there is no search query — all products in a category are equally "matched".
+
+### Design Decision
+
+A single `scoreForCatalog()` function was added to `scoring-engine.ts` instead of creating a separate sorting module. This keeps the scoring logic DRY and ensures catalog sorting automatically benefits from any future improvements to the scoring signals.

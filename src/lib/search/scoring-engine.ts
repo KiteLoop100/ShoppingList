@@ -6,6 +6,7 @@
  */
 
 import {
+  MatchType,
   MATCH_SCORES,
   WEIGHTS_SHORT_QUERY,
   WEIGHTS_LONG_QUERY,
@@ -19,6 +20,7 @@ import {
   CATEGORY_AFFINITY_BOOST,
 } from "./constants";
 import type { SearchCandidate } from "./candidate-retrieval";
+import type { SearchableProduct } from "./search-indexer";
 import type { ProductPreferences } from "@/lib/settings/product-preferences";
 import { findSynonym, matchesDemandGroupPrefixes } from "./synonym-map";
 import { preprocessQuery } from "./query-preprocessor";
@@ -222,4 +224,72 @@ function computeFreshnessScore(
 
   // Expired special – will be excluded in post-processor, score 0 here
   return 0;
+}
+
+// ──── Catalog scoring (no search query, reuses signals 2-5) ────
+
+const WEIGHTS_CATALOG = {
+  popularity: 0.30,
+  personal: 0.35,
+  preference: 0.20,
+  freshness: 0.15,
+} as const;
+
+export interface CatalogScoredProduct {
+  product: SearchableProduct;
+  totalScore: number;
+  popularityScore: number;
+  personalScore: number;
+  preferenceScore: number;
+  freshnessScore: number;
+}
+
+/**
+ * Score products for catalog display (no search query involved).
+ * Reuses the same scoring signals as search (popularity, personal,
+ * preference, freshness) with catalog-specific weights.
+ */
+export function scoreForCatalog(
+  products: SearchableProduct[],
+  preferences: ProductPreferences,
+  userHistory: Map<string, UserProductPreference>,
+  now?: Date
+): CatalogScoredProduct[] {
+  const today = now ?? new Date();
+
+  const dummyCandidate = (product: SearchableProduct): SearchCandidate => ({
+    product,
+    matchType: MatchType.CATEGORY_MATCH,
+    substringPosition: null,
+  });
+
+  const scored = products.map((product): CatalogScoredProduct => {
+    const candidate = dummyCandidate(product);
+    const popularityScore = computePopularityScore(candidate);
+    const personalScore = computePersonalScore(candidate, userHistory, today);
+    const preferenceScore = computePreferenceScore(candidate, preferences);
+    const freshnessScore = computeFreshnessScore(candidate, today);
+
+    const totalScore =
+      popularityScore * WEIGHTS_CATALOG.popularity +
+      personalScore * WEIGHTS_CATALOG.personal +
+      preferenceScore * WEIGHTS_CATALOG.preference +
+      freshnessScore * WEIGHTS_CATALOG.freshness;
+
+    return {
+      product,
+      totalScore,
+      popularityScore,
+      personalScore,
+      preferenceScore,
+      freshnessScore,
+    };
+  });
+
+  scored.sort((a, b) => {
+    if (b.totalScore !== a.totalScore) return b.totalScore - a.totalScore;
+    return a.product.search_name.localeCompare(b.product.search_name, "de");
+  });
+
+  return scored;
 }

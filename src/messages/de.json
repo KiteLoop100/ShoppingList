@@ -711,5 +711,18 @@
     "notLinkedTooltip": "Produkt nicht in der Datenbank gefunden",
     "allRetailers": "Alle",
     "noReceiptsForRetailer": "Noch keine {retailer}-Einkäufe erfasst."
+  },
+  "catalog": {
+    "navLabel": "Katalog",
+    "title": "Produktkatalog",
+    "all": "Alle",
+    "addedToList": "Hinzugefügt",
+    "quantityIncreased": "Menge erhöht",
+    "noProducts": "Keine Produkte in dieser Kategorie",
+    "noImage": "Kein Bild",
+    "loadingCategories": "Kategorien laden…",
+    "productCount": "{count} Produkte",
+    "smartFilter": "Intelligenter Filter",
+    "smartFilterActive": "Filter aktiv"
   }
 }

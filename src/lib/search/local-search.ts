@@ -46,6 +46,20 @@ export function setDemandGroups(groups: DemandGroup[]): void {
 }
 
 /**
+ * Get the current user history map (for catalog scoring).
+ */
+export function getUserHistory(): Map<string, UserProductPreference> {
+  return userHistory;
+}
+
+/**
+ * Get the current indexed products (for catalog scoring).
+ */
+export function getIndexedProductsCache(): SearchableProduct[] {
+  return indexedProducts ?? [];
+}
+
+/**
  * Clear cached data (e.g. on logout).
  */
 export function clearSearchCache(): void {

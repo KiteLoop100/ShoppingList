@@ -470,10 +470,68 @@ Detection via CSS `@media (pointer: fine)` — touch devices keep all gestures, 
 
 ---
 
-## 8. Vision: Future Shopping Mode (Not MVP)
+## 8. Catalog View (F29)
+
+### Layout
+
+3-panel layout: meta-category bar (top) + subcategory sidebar/chips + product grid.
+
+```
+Mobile:
+┌─────────────────────────────┐
+│ [Obst] [Brot] [Milch] [..] │  ← scrollable meta-categories
+│ [Alle] [Gemüse] [Obst] [.] │  ← scrollable demand groups
+├─────────────────────────────┤
+│ ┌──────┐ ┌──────┐          │
+│ │      │ │      │          │
+│ │ Tile │ │ Tile │          │
+│ │   [+]│ │   [+]│          │
+│ └──────┘ └──────┘          │
+│ ┌──────┐ ┌──────┐          │
+│ │      │ │      │          │
+│ │ Tile │ │ Tile │          │
+│ │   [+]│ │   [+]│          │
+│ └──────┘ └──────┘          │
+└─────────────────────────────┘
+
+Desktop (lg+):
+┌────────────────────────────────────────────────┐
+│ [Obst & Gemüse] [Brot] [Milch] [Fleisch] [..] │
+├──────────┬─────────────────────────────────────┤
+│ Alle     │ ┌──────┐ ┌──────┐                  │
+│ Gemüse   │ │      │ │      │                  │
+│ Obst     │ │ Tile │ │ Tile │                  │
+│ Salate   │ │   [+]│ │   [+]│                  │
+│          │ └──────┘ └──────┘                  │
+│          │ ┌──────┐ ┌──────┐                  │
+│          │ │      │ │      │                  │
+│          │ │ Tile │ │ Tile │                  │
+│          │ │   [+]│ │   [+]│                  │
+│          │ └──────┘ └──────┘                  │
+└──────────┴─────────────────────────────────────┘
+```
+
+### Product Tile Design
+
+- Square aspect ratio, image fills tile via `object-cover`
+- No text on tile (no product name, no price)
+- Orange "+" button (44px, bottom-right), ALDI orange `#F37D1E`
+- Tap "+" adds with quantity 1; checkmark flash on success
+- Quantity badge (top-right, blue) when product is on list
+- Tap image opens `ProductDetailModal`
+
+### Interaction
+
+- One-tap add (primary action)
+- Repeated taps increment quantity
+- Image tap for detail view (secondary action)
+
+---
+
+## 9. Vision: Future Shopping Mode (Not MVP)
 
 When store is detected, app switches to optimized shopping mode: larger tap targets, simplified display, no search field visible (expandable), larger font, progress display "5 of 12 products ✓", screen stays active (no auto-lock).
 
 ---
 
-*Last updated: 2026-03-01*
+*Last updated: 2026-03-06*

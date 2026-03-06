@@ -22,6 +22,7 @@ export default function MainScreenPage() {
   const tList = useTranslations("list");
   const tStore = useTranslations("store");
   const tCommon = useTranslations("common");
+  const tCatalog = useTranslations("catalog");
   const tFlyer = useTranslations("flyer");
   const tReceipts = useTranslations("receipts");
 
@@ -192,6 +193,16 @@ export default function MainScreenPage() {
               : tStore("noStoreDetected")}
           </p>
         </div>
+        <Link
+          href="/catalog"
+          className="touch-target flex items-center justify-center gap-1.5 rounded-xl text-aldi-blue transition-colors hover:bg-aldi-blue-light md:px-2"
+          aria-label={tCatalog("navLabel")}
+        >
+          <svg className="h-[22px] w-[22px]" fill="none" viewBox="0 0 24 24" strokeWidth={1.75} stroke="currentColor" aria-hidden>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25a2.25 2.25 0 0 1-2.25-2.25v-2.25Z" />
+          </svg>
+          <span className="hidden text-xs font-medium md:inline">{tCatalog("navLabel")}</span>
+        </Link>
         <Link
           href="/receipts"
           className="touch-target flex items-center justify-center gap-1.5 rounded-xl text-aldi-blue transition-colors hover:bg-aldi-blue-light md:px-2"

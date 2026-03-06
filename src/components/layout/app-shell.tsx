@@ -12,6 +12,7 @@ interface AppShellProps {
 export function AppShell({ children }: AppShellProps) {
   const bp = useBreakpoint();
   const tCommon = useTranslations("common");
+  const tCatalog = useTranslations("catalog");
   const tFlyer = useTranslations("flyer");
   const tReceipts = useTranslations("receipts");
   const pathname = usePathname();
@@ -20,6 +21,7 @@ export function AppShell({ children }: AppShellProps) {
 
   const navItems = [
     { href: "/" as const, label: tCommon("appName"), match: (p: string) => p === "/" || p === "" },
+    { href: "/catalog" as const, label: tCatalog("navLabel"), match: (p: string) => p.startsWith("/catalog") },
     { href: "/flyer" as const, label: tFlyer("navLabel"), match: (p: string) => p.startsWith("/flyer") },
     { href: "/receipts" as const, label: tReceipts("navLabel"), match: (p: string) => p.startsWith("/receipts") },
     { href: "/settings" as const, label: tCommon("settings"), match: (p: string) => p.startsWith("/settings") },

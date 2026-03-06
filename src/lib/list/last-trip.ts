@@ -19,6 +19,20 @@ export interface LastTripInfo {
   }>;
 }
 
+export async function getTripCount(): Promise<number> {
+  const supabase = createClientIfConfigured();
+  if (!supabase) return 0;
+
+  const userId = getCurrentUserId();
+  const { count, error } = await supabase
+    .from("shopping_trips")
+    .select("trip_id", { count: "exact", head: true })
+    .eq("user_id", userId);
+
+  if (error) return 0;
+  return count ?? 0;
+}
+
 export async function getLastTrip(): Promise<LastTripInfo | null> {
   const supabase = createClientIfConfigured();
   if (!supabase) return null;

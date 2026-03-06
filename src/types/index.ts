@@ -244,6 +244,7 @@ export interface DemandGroup {
   icon: string | null;
   color: string | null;
   sort_position: number;
+  parent_group?: string | null;
 }
 
 export type OfflineQueueAction = "add" | "update" | "delete";
@@ -287,6 +288,8 @@ export interface CompetitorProduct {
   country_of_origin: string | null;
   created_at: string;
   updated_at: string;
+  /** Latest known price per retailer (populated when fetched with prices joined). */
+  latest_prices?: { retailer: string; price: number }[];
 }
 
 /** B4: Price observation for a competitor product at a specific retailer. Append-only for price history. */
