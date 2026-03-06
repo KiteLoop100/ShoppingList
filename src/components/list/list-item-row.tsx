@@ -86,9 +86,10 @@ export const ListItemRow = memo(function ListItemRow({
   const { editing } = renameActions;
 
   /* --- action callbacks --------------------------------------------- */
+  const displayPrice = isElsewhere ? (item.competitor_price ?? null) : (item.price ?? null);
   const priceStr =
-    item.price != null
-      ? `€${(item.price * item.quantity).toFixed(2)}`
+    displayPrice != null
+      ? `€${(displayPrice * item.quantity).toFixed(2)}`
       : null;
 
   const handleDeferTap = () => {

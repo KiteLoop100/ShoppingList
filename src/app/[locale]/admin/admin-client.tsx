@@ -3,22 +3,18 @@
 import { useState, useEffect, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/lib/i18n/navigation";
-import { db, type LocalProduct, type LocalCategoryAlias, type LocalSortingError } from "@/lib/db";
-import { getStoresSorted } from "@/lib/store/store-service";
+import { db, type LocalCategoryAlias } from "@/lib/db";
 import { useProducts } from "@/lib/products-context";
 import type { DemandGroup } from "@/types";
 
 import { AdminAuthGuard } from "./admin-auth-guard";
 import { CategoryAliasPanel } from "./category-alias-panel";
-import { BatchJobsPanel } from "./batch-jobs-panel";
 import { GalleryUploadPanel } from "./gallery-upload-panel";
-import { SortingErrorsPanel } from "./sorting-errors-panel";
 import { FeedbackPanel } from "./feedback-panel";
-import { useBatchJobs } from "./use-batch-jobs";
 import { useGalleryUpload } from "./use-gallery-upload";
 import { CreateProductModal } from "@/app/[locale]/capture/create-product-modal";
 
-type Section = "products" | "aliases" | "errors" | "feedback";
+type Section = "products" | "aliases" | "feedback";
 
 export function AdminClient() {
   const t = useTranslations("admin");
@@ -28,28 +24,18 @@ export function AdminClient() {
   const [section, setSection] = useState<Section>("products");
   const [createProductOpen, setCreateProductOpen] = useState(false);
 
-  const [, setProducts] = useState<LocalProduct[]>([]);
   const [demandGroups, setDemandGroups] = useState<DemandGroup[]>([]);
   const [aliases, setAliases] = useState<LocalCategoryAlias[]>([]);
-  const [errors, setErrors] = useState<LocalSortingError[]>([]);
-  const [stores, setStores] = useState<{ store_id: string; name: string }[]>([]);
 
-  const batchJobs = useBatchJobs(true);
   const gallery = useGalleryUpload();
 
   const loadData = useCallback(async () => {
-    const [prods, dgs, al, errs, sts] = await Promise.all([
-      db.products.toArray(),
+    const [dgs, al] = await Promise.all([
       db.demand_groups.toArray(),
       db.category_aliases.toArray(),
-      db.sorting_errors.toArray(),
-      getStoresSorted().then((s) => s.map((x) => ({ store_id: x.store_id, name: x.name }))),
     ]);
-    setProducts(prods as LocalProduct[]);
     setDemandGroups(dgs.map(dg => ({ code: dg.code, name: dg.name, name_en: dg.name_en, icon: dg.icon, color: dg.color, sort_position: dg.sort_position })));
     setAliases(al as LocalCategoryAlias[]);
-    setErrors(errs as LocalSortingError[]);
-    setStores(sts);
   }, []);
 
   useEffect(() => {
@@ -65,7 +51,7 @@ export function AdminClient() {
         </header>
 
         <nav className="mb-6 flex gap-2 border-b border-aldi-muted-light pb-2">
-          {(["products", "aliases", "errors", "feedback"] as Section[]).map((s) => (
+          {(["products", "aliases", "feedback"] as Section[]).map((s) => (
             <button
               key={s}
               type="button"
@@ -94,17 +80,12 @@ export function AdminClient() {
               </span>
               <span className="text-[15px] font-medium text-aldi-text">{tCapture("createProduct.button")}</span>
             </button>
-            <BatchJobsPanel batchJobs={batchJobs} />
             <GalleryUploadPanel gallery={gallery} />
           </section>
         )}
 
         {section === "aliases" && (
           <CategoryAliasPanel aliases={aliases} demandGroups={demandGroups} onDataChanged={loadData} />
-        )}
-
-        {section === "errors" && (
-          <SortingErrorsPanel errors={errors} stores={stores} />
         )}
 
         {section === "feedback" && (

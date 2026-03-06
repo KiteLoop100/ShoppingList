@@ -11,10 +11,12 @@ import { callClaude, parseClaudeJsonResponse } from "@/lib/api/claude-client";
 import { CLAUDE_MODEL_SONNET } from "@/lib/api/config";
 import { decodeEanFromImageBuffer } from "@/lib/barcode-from-image";
 import { VISION_PROMPT, type ClaudeResponse } from "./prompts";
+import { removeBackground } from "@/lib/product-photo-studio/background-removal";
 import {
-  makeThumbnail,
-  generateFrontThumbnailBuffer,
-} from "./image-utils";
+  preCropToProduct,
+  enhanceProduct,
+  compositeOnCanvas,
+} from "@/lib/product-photo-studio/create-thumbnail";
 import { upsertExtractedProducts } from "./process-receipt";
 import { log } from "@/lib/utils/logger";
 
@@ -135,15 +137,16 @@ export async function processVisionPhoto(
 
   if (photoType === "product_front" && imageBuffer) {
     try {
-      const thumbBuffer = await generateFrontThumbnailBuffer(
-        imageBuffer,
-        mediaType,
-      );
-      const thumbPath = `${uploadId}.jpg`;
+      const preCropped = await preCropToProduct(imageBuffer);
+      const bgResult = await removeBackground(preCropped);
+      const enhanced = await enhanceProduct(bgResult.buffer);
+      const { buffer: thumbBuffer, format } = await compositeOnCanvas(enhanced, 150, false);
+      const ext = format === "image/webp" ? "webp" : "jpg";
+      const thumbPath = `${uploadId}.${ext}`;
       const { error: thumbUpErr } = await supabase.storage
         .from("product-thumbnails")
         .upload(thumbPath, thumbBuffer, {
-          contentType: "image/jpeg",
+          contentType: format,
           upsert: true,
         });
       if (!thumbUpErr) {
@@ -156,16 +159,18 @@ export async function processVisionPhoto(
         log.warn("[process-photo] Thumbnail upload failed:", thumbUpErr.message);
       }
     } catch (e) {
-      log.warn("[process-photo] Sharp thumbnail failed:", e instanceof Error ? e.message : e);
+      log.warn("[process-photo] Studio thumbnail failed:", e instanceof Error ? e.message : e);
     }
   } else if (photoType === "product_back" && imageBuffer) {
     try {
-      const thumbBuffer = await makeThumbnail(imageBuffer);
-      const thumbPath = `back-${uploadId}.jpg`;
+      const enhanced = await enhanceProduct(imageBuffer);
+      const { buffer: thumbBuffer, format } = await compositeOnCanvas(enhanced, 150, false);
+      const ext = format === "image/webp" ? "webp" : "jpg";
+      const thumbPath = `back-${uploadId}.${ext}`;
       const { error: thumbUpErr } = await supabase.storage
         .from("product-thumbnails")
         .upload(thumbPath, thumbBuffer, {
-          contentType: "image/jpeg",
+          contentType: format,
           upsert: true,
         });
       if (!thumbUpErr) {
@@ -178,7 +183,7 @@ export async function processVisionPhoto(
         log.warn("[process-photo] Back thumbnail upload failed:", thumbUpErr.message);
       }
     } catch (e) {
-      log.warn("[process-photo] Sharp back thumbnail failed:", e instanceof Error ? e.message : e);
+      log.warn("[process-photo] Studio back thumbnail failed:", e instanceof Error ? e.message : e);
     }
   }
 

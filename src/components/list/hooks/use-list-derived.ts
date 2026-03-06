@@ -32,9 +32,16 @@ export function useListDerived(
       if (!item.competitor_product_id) return item;
       const cp = competitorProducts.find(p => p.product_id === item.competitor_product_id);
       if (!cp) return item;
-      return { ...item, display_name: cp.name,
+      const retailer = item.buy_elsewhere_retailer ?? null;
+      const priceEntry = retailer
+        ? cp.latest_prices?.find(p => p.retailer === retailer)
+        : cp.latest_prices?.[0];
+      return {
+        ...item,
+        display_name: cp.name,
         ...(cp.thumbnail_url ? { competitor_thumbnail_url: cp.thumbnail_url } : {}),
         ...(cp.brand ? { competitor_brand: cp.brand } : {}),
+        ...(priceEntry != null ? { competitor_price: priceEntry.price } : {}),
       };
     }), [deferred, competitorProducts]);
 

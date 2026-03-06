@@ -28,6 +28,7 @@ import { readdirSync, readFileSync, writeFileSync } from "fs";
 import { createClient } from "@supabase/supabase-js";
 import { randomUUID } from "crypto";
 import sharp from "sharp";
+import { enhanceProduct, compositeOnCanvas } from "@/lib/product-photo-studio/image-enhance";
 
 config({ path: resolve(process.cwd(), ".env.local") });
 
@@ -232,14 +233,12 @@ async function callClaude(
   return JSON.parse(cleaned) as ClaudeResponse;
 }
 
-// ── Thumbnail generation ────────────────────────────────────────
+// ── Thumbnail generation (shared with product-photo-studio pipeline) ──
 
-async function makeThumbnail(imageBuffer: Buffer): Promise<Buffer> {
-  return sharp(imageBuffer)
-    .rotate()
-    .resize(150, 150, { fit: "cover", position: "center" })
-    .jpeg({ quality: 85 })
-    .toBuffer();
+async function makeThumbnail(imageBuffer: Buffer): Promise<{ buffer: Buffer; contentType: string }> {
+  const enhanced = await enhanceProduct(imageBuffer);
+  const { buffer, format } = await compositeOnCanvas(enhanced, 150, false);
+  return { buffer, contentType: format };
 }
 
 // ── Open Food Facts ─────────────────────────────────────────────
@@ -480,13 +479,14 @@ async function main() {
             (claudeResult.photo_type === "product_front" || products.length === 1)
           ) {
             try {
-              const thumbBuffer = await makeThumbnail(rawBuffer);
+              const thumb = await makeThumbnail(rawBuffer);
               const thumbId = randomUUID();
-              const thumbPath = `batch/${thumbId}.jpg`;
+              const ext = thumb.contentType === "image/webp" ? "webp" : "jpg";
+              const thumbPath = `batch/${thumbId}.${ext}`;
               const { error: upErr } = await supabase.storage
                 .from("product-thumbnails")
-                .upload(thumbPath, thumbBuffer, {
-                  contentType: "image/jpeg",
+                .upload(thumbPath, thumb.buffer, {
+                  contentType: thumb.contentType,
                   upsert: true,
                 });
               if (!upErr) {

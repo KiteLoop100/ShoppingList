@@ -214,7 +214,10 @@ export function useProductCaptureForm(config: ProductCaptureConfig) {
       }
       const data = await res.json();
       if (data.status === "review_required") setReviewStatus(data.review_reason ?? "review_required");
-      if (data.thumbnail_base64) setProcessedThumbnail(`data:image/jpeg;base64,${data.thumbnail_base64}`);
+      if (data.thumbnail_base64) {
+        const fmt = data.thumbnail_format ?? "image/webp";
+        setProcessedThumbnail(`data:${fmt};base64,${data.thumbnail_base64}`);
+      }
       const extracted = data.extracted_data as ExtractedProductInfo | null;
       if (extracted) {
         setExtractedDetails(extracted);

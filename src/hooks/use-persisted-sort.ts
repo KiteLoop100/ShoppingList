@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useLayoutEffect, useEffect } from "react";
-import type { SortMode } from "@/components/search/product-search";
+import type { SortMode } from "@/types";
 
 const useIsomorphicLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
@@ -12,7 +12,9 @@ function readPersistedSort(): { mode: SortMode; manual: boolean; fromSession: bo
     const mode = sessionStorage.getItem(SORT_MODE_KEY) as SortMode | null;
     if (mode === null) return { mode: "my-order", manual: false, fromSession: false };
     const manual = sessionStorage.getItem(MANUAL_SORT_KEY) === "1";
-    return { mode: mode === "shopping-order" ? "shopping-order" : "my-order", manual, fromSession: true };
+    const VALID_MODES: SortMode[] = ["my-order", "shopping-order", "shopping-order-tiles"];
+    const validMode = VALID_MODES.includes(mode as SortMode) ? (mode as SortMode) : "my-order";
+    return { mode: validMode, manual, fromSession: true };
   } catch {
     return { mode: "my-order", manual: false, fromSession: false };
   }

@@ -181,7 +181,7 @@ All Claude prompts include the complete demand group/sub-group list (from demand
 - POST /api/process-receipt – Process receipt via Claude (accepts photo_urls, returns structured receipt data)
 - POST /api/confirm-photo – Confirm review
 - POST /api/process-flyer-page – Process single flyer page
-- POST /api/admin/assign-demand-groups – Batch assignment
+- POST /api/admin/batch-jobs – Batch assignment and reclassification
 
 ## Storage Buckets
 

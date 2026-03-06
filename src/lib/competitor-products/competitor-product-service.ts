@@ -10,6 +10,17 @@ import { log } from "@/lib/utils/logger";
 import type { CompetitorProduct, CompetitorProductPrice } from "@/types";
 
 function rowToCompetitorProduct(row: Record<string, unknown>): CompetitorProduct {
+  const priceRows = (row.competitor_product_prices as Array<{ price: unknown; retailer: unknown; observed_at: unknown }> | null) ?? [];
+  const priceMap = new Map<string, number>();
+  const sorted = [...priceRows].sort((a, b) =>
+    String(b.observed_at).localeCompare(String(a.observed_at))
+  );
+  for (const p of sorted) {
+    const retailer = String(p.retailer);
+    if (!priceMap.has(retailer)) priceMap.set(retailer, Number(p.price));
+  }
+  const latest_prices = [...priceMap.entries()].map(([retailer, price]) => ({ retailer, price }));
+
   return {
     product_id: String(row.product_id),
     name: String(row.name),
@@ -39,6 +50,7 @@ function rowToCompetitorProduct(row: Record<string, unknown>): CompetitorProduct
     country_of_origin: row.country_of_origin != null ? String(row.country_of_origin) : null,
     created_at: String(row.created_at),
     updated_at: String(row.updated_at),
+    latest_prices: latest_prices.length > 0 ? latest_prices : undefined,
   };
 }
 
@@ -432,7 +444,7 @@ export async function fetchCompetitorProducts(
   while (hasMore) {
     const { data, error } = await supabase
       .from("competitor_products")
-      .select("*")
+      .select("*, competitor_product_prices(price, retailer, observed_at)")
       .eq("status", "active")
       .eq("country", country)
       .range(from, from + PAGE_SIZE - 1);

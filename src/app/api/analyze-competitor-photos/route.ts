@@ -71,6 +71,7 @@ export async function POST(request: Request) {
       thumbnail_base64: result.thumbnailFull
         ? result.thumbnailFull.toString("base64")
         : null,
+      thumbnail_format: result.thumbnailFullFormat ?? "image/webp",
       thumbnail_small_base64: result.thumbnailSmall
         ? result.thumbnailSmall.toString("base64")
         : null,

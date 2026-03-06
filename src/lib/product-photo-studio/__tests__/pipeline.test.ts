@@ -75,7 +75,9 @@ const validExtraction = {
 
 const validThumbnail = {
   fullSize: Buffer.from("full"),
+  fullSizeFormat: "image/webp" as const,
   thumbnail: Buffer.from("thumb"),
+  thumbnailFormat: "image/jpeg" as const,
 };
 
 const approvedVerification = {
@@ -103,9 +105,19 @@ describe("processCompetitorPhotos", () => {
     expect(result.status).toBe("success");
     expect(result.extractedData?.name).toBe("Test Product");
     expect(result.thumbnailFull).toBeDefined();
+    expect(result.thumbnailFullFormat).toBe("image/webp");
     expect(result.thumbnailSmall).toBeDefined();
     expect(result.qualityScore).toBe(0.85);
     expect(result.processingTimeMs).toBeGreaterThanOrEqual(0);
+  });
+
+  test("passes fullSizeFormat to verifyThumbnailQuality", async () => {
+    await processCompetitorPhotos({ images: [makeImage()] });
+
+    expect(mockedVerify).toHaveBeenCalledWith(
+      validThumbnail.fullSize,
+      "image/webp",
+    );
   });
 
   test("returns review_required when photo is rejected by classifier", async () => {

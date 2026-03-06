@@ -118,7 +118,7 @@
   │  │  • /api/confirm-photo                                │ │
   │  │  • /api/process-flyer-page                           │ │
   │  │  • /api/analyze-product-photos (Photo Studio)         │ │
-│  │  • /api/admin/assign-demand-groups                   │ │
+│  │  • /api/admin/batch-jobs                              │ │
 │  └──────────────────────────────────────────────────────┘ │
 └────────────────────────────────────────────────────────────┘
 ```

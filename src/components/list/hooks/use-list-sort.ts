@@ -38,7 +38,8 @@ export async function sortListItems(
   let c: ListItemWithMeta[];
   let d: ListItemWithMeta[];
 
-  if (sortMode === "shopping-order" && items.length > 0) {
+  const isShoppingOrder = sortMode === "shopping-order" || sortMode === "shopping-order-tiles";
+  if (isShoppingOrder && items.length > 0) {
     try {
       const groups = new Set<string>();
       const subgroupsByGroup = new Map<string, Set<string>>();

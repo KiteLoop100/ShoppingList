@@ -10,7 +10,6 @@ const ITEM_HEIGHT = 40;
 const PADDING_Y = 90;
 
 const HIGHLIGHT_STYLE = { top: "50%", transform: "translateY(-50%)" } as const;
-const DIALOG_STYLE = { touchAction: "manipulation" } as const;
 const SNAP_ALIGN_STYLE = { scrollSnapAlign: "center" } as const;
 
 export interface QuantityWheelModalProps {
@@ -161,7 +160,6 @@ export function QuantityWheelModal({
         role="dialog"
         aria-modal="true"
         aria-label={t("selectQuantity")}
-        style={DIALOG_STYLE}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-aldi-muted-light px-4 py-3">
@@ -182,25 +180,31 @@ export function QuantityWheelModal({
           />
           <div
             ref={scrollRef}
-            className="h-full w-full overflow-y-auto overflow-x-hidden overscroll-contain [&::-webkit-scrollbar]:hidden"
+            role="listbox"
+            aria-label={t("selectQuantity")}
+            className="h-full w-full select-none overflow-y-auto overflow-x-hidden overscroll-contain [&::-webkit-scrollbar]:hidden"
             style={{
               scrollSnapType: "y mandatory",
               paddingTop: PADDING_Y,
               paddingBottom: PADDING_Y,
               touchAction: "pan-y",
+              WebkitOverflowScrolling: "touch",
             }}
             onScroll={handleScroll}
           >
             {items.map((q) => (
-              <button
+              <div
                 key={q}
-                type="button"
-                className="flex h-10 w-full flex-shrink-0 items-center justify-center text-lg font-medium text-aldi-text transition-colors hover:bg-aldi-muted-light/30"
+                role="option"
+                aria-selected={q === selected}
+                tabIndex={0}
+                className="flex h-10 w-full flex-shrink-0 cursor-pointer items-center justify-center text-lg font-medium text-aldi-text transition-colors hover:bg-aldi-muted-light/30"
                 style={SNAP_ALIGN_STYLE}
                 onClick={() => handleSelect(q)}
+                onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && handleSelect(q)}
               >
                 {q}
-              </button>
+              </div>
             ))}
           </div>
         </div>

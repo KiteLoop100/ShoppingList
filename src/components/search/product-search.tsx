@@ -89,10 +89,16 @@ export function ProductSearch({
 
   const handleSortToggle = useCallback(() => {
     if (!sortMode || !onSortModeChange) return;
-    const newMode: SortMode = sortMode === "my-order" ? "shopping-order" : "my-order";
+    const SORT_CYCLE: SortMode[] = ["my-order", "shopping-order", "shopping-order-tiles"];
+    const currentIdx = SORT_CYCLE.indexOf(sortMode);
+    const newMode = SORT_CYCLE[(currentIdx + 1) % SORT_CYCLE.length];
     onSortModeChange(newMode);
-    const label = newMode === "my-order" ? t("chipSortMyOrder") : t("chipSortShoppingOrder");
-    setSortToastText(label);
+    const LABEL_KEYS: Record<SortMode, string> = {
+      "my-order": "chipSortMyOrder",
+      "shopping-order": "chipSortShoppingOrder",
+      "shopping-order-tiles": "chipSortShoppingOrderTiles",
+    };
+    setSortToastText(t(LABEL_KEYS[newMode]));
     if (sortToastTimerRef.current) clearTimeout(sortToastTimerRef.current);
     sortToastTimerRef.current = setTimeout(() => setSortToastText(null), 2000);
   }, [sortMode, onSortModeChange, t]);
@@ -183,14 +189,24 @@ export function ProductSearch({
         {sortMode && onSortModeChange && (
           <button type="button" onClick={handleSortToggle}
             className={`flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-xl border-2 transition-colors ${
-              sortMode === "shopping-order"
+              sortMode !== "my-order"
                 ? "border-aldi-blue bg-aldi-blue/10 text-aldi-blue"
                 : "border-aldi-muted-light bg-white text-aldi-muted hover:border-aldi-blue/50 hover:text-aldi-blue"
             }`}
-            aria-label={sortMode === "my-order" ? t("chipSortMyOrder") : t("chipSortShoppingOrder")}>
-            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7h18M3 12h12M3 17h6" />
-            </svg>
+            aria-label={
+              sortMode === "my-order" ? t("chipSortMyOrder")
+              : sortMode === "shopping-order" ? t("chipSortShoppingOrder")
+              : t("chipSortShoppingOrderTiles")
+            }>
+            {sortMode === "shopping-order-tiles" ? (
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25a2.25 2.25 0 01-2.25-2.25v-2.25z" />
+              </svg>
+            ) : (
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7h18M3 12h12M3 17h6" />
+              </svg>
+            )}
           </button>
         )}
       </div>

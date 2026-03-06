@@ -128,8 +128,12 @@ export const ElsewhereSection = memo(function ElsewhereSection({
     <section className="mt-6">
       <div className="mb-3 border-t border-dashed border-gray-300 pt-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-category font-semibold uppercase tracking-wider text-aldi-muted">
-            <span className="mr-1">🏪</span>{sectionLabel}
+          <h2 className="text-category font-semibold uppercase tracking-wider text-aldi-muted flex items-center gap-1">
+            <svg className="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" aria-hidden>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
+            </svg>
+            {sectionLabel}
           </h2>
           <button type="button" onClick={onAddCompetitor}
             className="rounded-lg px-2 py-1 text-xs text-aldi-muted transition-colors hover:text-aldi-blue">

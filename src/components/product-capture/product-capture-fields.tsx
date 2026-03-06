@@ -54,7 +54,6 @@ export function ProductCaptureFields({
         <input
           type="text" value={values.name} onChange={(e) => setField("name", e.target.value)}
           className="w-full rounded-xl border-2 border-aldi-muted-light px-3 py-2.5 text-sm focus:border-aldi-blue focus:outline-none"
-          autoFocus
         />
       </div>
 

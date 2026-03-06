@@ -1,7 +1,7 @@
 /**
  * Shared instruction text for Demand Groups / Demand Sub-Groups.
  * Uses official ALDI commodity group codes (##-Name format).
- * Used in process-photo prompts, assign-demand-groups API, and batch-jobs.
+ * Used in process-photo prompts and batch-jobs.
  */
 
 import { DEMAND_GROUPS_LIST } from "./demand-groups-list";

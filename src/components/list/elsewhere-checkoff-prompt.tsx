@@ -94,7 +94,6 @@ export function ElsewhereCheckoffPrompt({
               value={price}
               onChange={(e) => setPrice(e.target.value)}
               placeholder={t("checkoffPromptPricePlaceholder")}
-              autoFocus
               className="w-full bg-transparent px-2 py-2.5 text-sm focus:outline-none"
             />
           </div>

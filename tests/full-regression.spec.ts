@@ -168,21 +168,9 @@ test.describe("Admin page", () => {
 });
 
 // ============================================================
-// 4. Batch-Jobs API Direct Tests
+// 4. Admin Auth API Tests
 // ============================================================
-test.describe("Batch-Jobs API", () => {
-  test("GET without auth returns 401", async ({ request }) => {
-    const res = await request.get(`${BASE}/api/admin/batch-jobs?job_id=test`);
-    expect(res.status()).toBe(401);
-  });
-
-  test("POST without auth returns 401", async ({ request }) => {
-    const res = await request.post(`${BASE}/api/admin/batch-jobs`, {
-      data: { job_type: "reclassify" },
-    });
-    expect(res.status()).toBe(401);
-  });
-
+test.describe("Admin Auth API", () => {
   test("Admin login API rejects empty password when ADMIN_PASSWORD unset", async ({ request }) => {
     const res = await request.post(`${BASE}/api/admin/login`, {
       data: { password: "" },
@@ -194,18 +182,6 @@ test.describe("Batch-Jobs API", () => {
   test("Admin check returns 401 without session", async ({ request }) => {
     const res = await request.get(`${BASE}/api/admin/check`);
     expect(res.status()).toBe(401);
-  });
-
-  test("Existing per-batch API still returns 401 without auth", async ({ request }) => {
-    const res1 = await request.post(`${BASE}/api/admin/assign-demand-groups`, {
-      data: {},
-    });
-    expect(res1.status()).toBe(401);
-
-    const res2 = await request.post(`${BASE}/api/admin/reclassify-products`, {
-      data: {},
-    });
-    expect(res2.status()).toBe(401);
   });
 });
 

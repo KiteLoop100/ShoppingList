@@ -6,6 +6,5 @@ export type {
   LocalListItem,
   LocalShoppingList,
   LocalCategoryAlias,
-  LocalSortingError,
   LocalCompetitorProduct,
 } from "./indexed-db";

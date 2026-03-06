@@ -2,8 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { useTranslations } from "next-intl";
-import { StarRating, CategoryChips, FeedbackTextarea } from "./feedback-shared";
-import { PRODUCT_CATEGORIES } from "@/lib/feedback/feedback-types";
+import { StarRating, FeedbackTextarea } from "./feedback-shared";
 import type { Product } from "@/types";
 import { useAuth } from "@/lib/auth/auth-context";
 
@@ -17,13 +16,12 @@ export function ProductFeedbackForm({ product }: ProductFeedbackFormProps) {
 
   const [expanded, setExpanded] = useState(false);
   const [rating, setRating] = useState<number | null>(null);
-  const [category, setCategory] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const canSubmit = category && message.length >= 10 && !submitting;
+  const canSubmit = message.length >= 10 && !submitting;
 
   const handleSubmit = useCallback(async () => {
     if (!canSubmit || !user) return;
@@ -36,7 +34,6 @@ export function ProductFeedbackForm({ product }: ProductFeedbackFormProps) {
         body: JSON.stringify({
           feedback_type: "product",
           product_id: product.product_id,
-          category,
           rating,
           message,
         }),
@@ -51,7 +48,7 @@ export function ProductFeedbackForm({ product }: ProductFeedbackFormProps) {
     } finally {
       setSubmitting(false);
     }
-  }, [canSubmit, user, product.product_id, category, rating, message, t]);
+  }, [canSubmit, user, product.product_id, rating, message, t]);
 
   if (submitted) {
     return (
@@ -94,18 +91,6 @@ export function ProductFeedbackForm({ product }: ProductFeedbackFormProps) {
               {t("ratingLabel")} ({t("optional")})
             </p>
             <StarRating value={rating} onChange={setRating} disabled={submitting} />
-          </div>
-
-          <div>
-            <p className="mb-1.5 text-xs font-medium uppercase tracking-wider text-aldi-muted">
-              {t("categoryLabel")}
-            </p>
-            <CategoryChips
-              categories={PRODUCT_CATEGORIES}
-              selected={category}
-              onChange={setCategory}
-              disabled={submitting}
-            />
           </div>
 
           <FeedbackTextarea
