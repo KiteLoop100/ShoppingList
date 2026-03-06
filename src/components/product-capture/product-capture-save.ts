@@ -49,6 +49,7 @@ async function saveAldiProduct(
   values: ProductCaptureValues,
   editProduct: Product | null,
   extractedDetails: ExtractedProductInfo | null,
+  processedThumbnail: string | null,
 ): Promise<string> {
   const body: Record<string, unknown> = {
     name: values.name.trim(),
@@ -68,6 +69,7 @@ async function saveAldiProduct(
     ingredients: extractedDetails?.ingredients ?? null,
     allergens: extractedDetails?.allergens ?? null,
     nutrition_info: extractedDetails?.nutrition_info ?? null,
+    thumbnail_url: processedThumbnail,
   };
 
   if (editProduct) {
@@ -180,6 +182,7 @@ export async function saveProduct(opts: {
       opts.values,
       opts.editAldiProduct,
       opts.extractedDetails,
+      opts.processedThumbnail,
     );
     return { productId, productType: "aldi" };
   }

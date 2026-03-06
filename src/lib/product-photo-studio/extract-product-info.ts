@@ -17,10 +17,11 @@ export async function scanBarcodesFromAll(
   images: PhotoInput[],
 ): Promise<Array<string | null>> {
   return Promise.all(
-    images.map(async (img) => {
+    images.map(async (img, idx) => {
       try {
         return await decodeEanFromImageBuffer(img.buffer);
-      } catch {
+      } catch (err) {
+        log.warn(`[photo-studio] barcode scan failed for image ${idx}:`, err instanceof Error ? err.message : err);
         return null;
       }
     }),

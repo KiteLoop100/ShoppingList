@@ -119,6 +119,7 @@ describe("processCompetitorPhotos", () => {
     expect(mockedVerify).toHaveBeenCalledWith(
       validThumbnail.fullSize,
       "image/webp",
+      false,
     );
   });
 
@@ -167,6 +168,75 @@ describe("processCompetitorPhotos", () => {
     expect(result.status).toBe("review_required");
     expect(result.reviewReason).toBe("Blurry");
     expect(result.extractedData).not.toBeNull();
+  });
+
+  test("returns review_required when background removal failed", async () => {
+    mockedCreateThumb.mockResolvedValueOnce({
+      ...validThumbnail,
+      backgroundRemovalFailed: true,
+    });
+    mockedVerify.mockResolvedValueOnce({
+      passes_quality_check: false,
+      quality_score: 0.5,
+      issues: ["Hintergrund nicht entfernt — Produkt ist nicht freigestellt"],
+      recommendation: "review",
+    });
+
+    const result = await processCompetitorPhotos({
+      images: [makeImage()],
+    });
+
+    expect(result.status).toBe("review_required");
+    expect(result.backgroundRemovalFailed).toBe(true);
+  });
+
+  test("passes backgroundRemovalFailed=true to verifyThumbnailQuality when bg removal failed", async () => {
+    mockedCreateThumb.mockResolvedValueOnce({
+      ...validThumbnail,
+      backgroundRemovalFailed: true,
+    });
+
+    await processCompetitorPhotos({ images: [makeImage()] });
+
+    expect(mockedVerify).toHaveBeenCalledWith(
+      validThumbnail.fullSize,
+      "image/webp",
+      true,
+    );
+  });
+
+  test("includes backgroundRemovalFailed in result", async () => {
+    mockedCreateThumb.mockResolvedValueOnce({
+      ...validThumbnail,
+      backgroundRemovalFailed: true,
+    });
+    mockedVerify.mockResolvedValueOnce({
+      passes_quality_check: false,
+      quality_score: 0.5,
+      issues: ["Some issue"],
+      recommendation: "review",
+    });
+
+    const result = await processCompetitorPhotos({
+      images: [makeImage()],
+    });
+
+    expect(result.backgroundRemovalFailed).toBe(true);
+  });
+
+  test("also triggers review_required for recommendation=review", async () => {
+    mockedVerify.mockResolvedValueOnce({
+      passes_quality_check: false,
+      quality_score: 0.6,
+      issues: ["Minor issue"],
+      recommendation: "review",
+    });
+
+    const result = await processCompetitorPhotos({
+      images: [makeImage()],
+    });
+
+    expect(result.status).toBe("review_required");
   });
 
   test("uses scanned EAN over AI-extracted EAN", async () => {

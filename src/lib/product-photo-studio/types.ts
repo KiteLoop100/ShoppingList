@@ -113,6 +113,7 @@ export interface ThumbnailResult {
   thumbnailFormat: ImageFormat;
   backgroundRemoved: boolean;
   backgroundProvider: string;
+  backgroundRemovalFailed?: boolean;
 }
 
 // ── Stage 4: Verification ──
@@ -151,6 +152,7 @@ export interface ProductPhotoStudioResult {
   thumbnailSmall?: Buffer;
   qualityScore?: number;
   backgroundRemoved: boolean;
+  backgroundRemovalFailed?: boolean;
   backgroundProvider?: string;
   processingTimeMs: number;
 }

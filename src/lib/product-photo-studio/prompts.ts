@@ -125,12 +125,16 @@ Fehlende/nicht sichtbare Werte als null. Boolesche Flags als false wenn nicht er
 export const VERIFY_THUMBNAIL_PROMPT = `Du siehst ein bearbeitetes Produktfoto, das als Thumbnail in einer oeffentlichen Produktdatenbank verwendet werden soll.
 
 Bewerte das Foto anhand dieser Kriterien:
-1. PROFESSIONELL: Sieht es aus wie ein professionelles Produktfoto? (Belichtung, Schaerfe, Freistellung)
-2. ZENTRIERUNG: Ist das Produkt gut zentriert und vollstaendig sichtbar?
-3. HINTERGRUND: Ist der Hintergrund sauber (weiss/einheitlich, keine Artefakte)?
-4. LESBARKEIT: Ist Text auf dem Produkt lesbar, keine Spiegeleffekte?
-5. ISOLIERUNG: Zeigt das Foto NUR das Produkt (keine Haende, Regale, andere Objekte)?
-6. ANGEMESSENHEIT: Ist der Inhalt fuer eine oeffentliche Produktdatenbank geeignet?
+1. VOLLSTAENDIGKEIT: Ist das GESAMTE Produkt sichtbar? Fehlen Teile (z.B. Deckel abgeschnitten, Boden fehlt, Seite abgeschnitten)? Wenn ja → "reject".
+2. FREISTELLUNG: Ist das Produkt freigestellt (Hintergrund entfernt)? Wenn Regal, Tisch, Hand oder anderer Hintergrund sichtbar → "reject".
+3. PROFESSIONELL: Sieht es aus wie ein professionelles Produktfoto? (Belichtung, Schaerfe)
+4. ZENTRIERUNG: Ist das Produkt gut zentriert?
+5. HINTERGRUND: Ist der Hintergrund sauber (weiss/einheitlich, keine Artefakte)?
+6. LESBARKEIT: Ist Text auf dem Produkt lesbar, keine stoerenden Spiegeleffekte?
+7. ISOLIERUNG: Zeigt das Foto NUR das Produkt (keine Haende, Regale, andere Objekte)?
+8. ANGEMESSENHEIT: Ist der Inhalt fuer eine oeffentliche Produktdatenbank geeignet?
+
+WICHTIG: Kriterien 1 (Vollstaendigkeit) und 2 (Freistellung) sind K.O.-Kriterien. Wenn eines davon verletzt ist, MUSS die recommendation "reject" sein.
 
 Antworte ausschliesslich mit validem JSON. Kein Markdown, keine Backticks.
 
@@ -142,6 +146,6 @@ Antworte ausschliesslich mit validem JSON. Kein Markdown, keine Backticks.
 }
 
 recommendation:
-- "approve": Professionell genug fuer die Datenbank
+- "approve": Professionell genug fuer die Datenbank (freigestellt, vollstaendig, gute Qualitaet)
 - "review": Grenzwertig, sollte manuell geprueft werden
-- "reject": Qualitaet unzureichend oder unangemessener Inhalt`;
+- "reject": Produkt abgeschnitten, nicht freigestellt, oder Qualitaet unzureichend`;

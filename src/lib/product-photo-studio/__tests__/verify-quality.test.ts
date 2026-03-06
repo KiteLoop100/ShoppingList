@@ -141,4 +141,23 @@ describe("verifyThumbnailQuality", () => {
       .messages[0].content[0];
     expect(imageContent.source?.media_type).toBe("image/webp");
   });
+
+  test("forces review when backgroundRemovalFailed is true", async () => {
+    mockedCallClaude.mockResolvedValueOnce({
+      passes_quality_check: true,
+      quality_score: 0.9,
+      issues: [],
+      recommendation: "approve",
+    });
+
+    const img = await sharp({
+      create: { width: 100, height: 100, channels: 3, background: { r: 128, g: 128, b: 128 } },
+    }).webp().toBuffer();
+
+    const result = await verifyThumbnailQuality(img, "image/webp", true);
+
+    expect(result.recommendation).toBe("review");
+    expect(result.passes_quality_check).toBe(false);
+    expect(result.issues).toContain("Hintergrund nicht entfernt — Produkt ist nicht freigestellt");
+  });
 });

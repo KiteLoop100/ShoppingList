@@ -11,6 +11,8 @@ import sharp from "sharp";
 import type { BackgroundRemovalProvider, BackgroundRemovalResult } from "./types";
 import { log } from "@/lib/utils/logger";
 
+const EXTERNAL_FETCH_TIMEOUT_MS = 15_000;
+
 async function callRemoveBgApi(imageBuffer: Buffer, apiKey: string, type: "product" | "auto"): Promise<Buffer> {
   const formData = new FormData();
   formData.append("image_file", new Blob([new Uint8Array(imageBuffer)]), "image.jpg");
@@ -23,6 +25,7 @@ async function callRemoveBgApi(imageBuffer: Buffer, apiKey: string, type: "produ
     method: "POST",
     headers: { "X-Api-Key": apiKey },
     body: formData,
+    signal: AbortSignal.timeout(EXTERNAL_FETCH_TIMEOUT_MS),
   });
 
   if (!response.ok) {
@@ -56,6 +59,7 @@ class SelfHostedProvider implements BackgroundRemovalProvider {
     const response = await fetch(url, {
       method: "POST",
       body: formData,
+      signal: AbortSignal.timeout(EXTERNAL_FETCH_TIMEOUT_MS),
     });
 
     if (!response.ok) {

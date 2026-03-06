@@ -16,6 +16,81 @@ const SHADOW_BLUR_SIGMA = 6;
 const SHADOW_OPACITY = 0.18;
 const SHADOW_OFFSET_Y = 3;
 
+const REFLECTION_THRESHOLD = 240;
+const REFLECTION_BLUR_SIGMA = 8;
+const REFLECTION_MIN_RATIO = 0.005;
+const REFLECTION_MAX_RATIO = 0.15;
+
+/**
+ * Reduce specular highlights / light reflections on product packaging.
+ * Detects near-white pixel clusters and blends them with surrounding
+ * color using a masked blur approach.
+ */
+export async function removeReflections(imageBuffer: Buffer): Promise<Buffer> {
+  try {
+    const meta = await sharp(imageBuffer).metadata();
+    const hasAlpha = (meta.channels ?? 3) >= 4;
+    const width = meta.width ?? 0;
+    const height = meta.height ?? 0;
+    if (!width || !height) return imageBuffer;
+
+    const rgbBuffer = hasAlpha
+      ? await sharp(imageBuffer).removeAlpha().raw().toBuffer()
+      : await sharp(imageBuffer).raw().toBuffer();
+
+    const totalPixels = width * height;
+    let highlightPixels = 0;
+    const mask = Buffer.alloc(totalPixels, 0);
+
+    for (let i = 0; i < totalPixels; i++) {
+      const r = rgbBuffer[i * 3];
+      const g = rgbBuffer[i * 3 + 1];
+      const b = rgbBuffer[i * 3 + 2];
+      if (r >= REFLECTION_THRESHOLD && g >= REFLECTION_THRESHOLD && b >= REFLECTION_THRESHOLD) {
+        mask[i] = 255;
+        highlightPixels++;
+      }
+    }
+
+    const ratio = highlightPixels / totalPixels;
+    if (ratio < REFLECTION_MIN_RATIO || ratio > REFLECTION_MAX_RATIO) {
+      return imageBuffer;
+    }
+
+    log.debug("[photo-studio] removing reflections:", (ratio * 100).toFixed(1) + "% highlight pixels");
+
+    const dilatedMask = await sharp(mask, { raw: { width, height, channels: 1 } })
+      .blur(3)
+      .threshold(64)
+      .blur(REFLECTION_BLUR_SIGMA)
+      .toBuffer();
+
+    const blurred = hasAlpha
+      ? await sharp(imageBuffer).removeAlpha().blur(REFLECTION_BLUR_SIGMA).raw().toBuffer()
+      : await sharp(imageBuffer).blur(REFLECTION_BLUR_SIGMA).raw().toBuffer();
+
+    const result = Buffer.from(rgbBuffer);
+    for (let i = 0; i < totalPixels; i++) {
+      const blend = dilatedMask[i] / 255;
+      if (blend > 0) {
+        result[i * 3] = Math.round(rgbBuffer[i * 3] * (1 - blend) + blurred[i * 3] * blend);
+        result[i * 3 + 1] = Math.round(rgbBuffer[i * 3 + 1] * (1 - blend) + blurred[i * 3 + 1] * blend);
+        result[i * 3 + 2] = Math.round(rgbBuffer[i * 3 + 2] * (1 - blend) + blurred[i * 3 + 2] * blend);
+      }
+    }
+
+    let output = sharp(result, { raw: { width, height, channels: 3 } });
+    if (hasAlpha) {
+      const alpha = await sharp(imageBuffer).extractChannel(3).toBuffer();
+      output = sharp(await output.toBuffer()).joinChannel(alpha);
+    }
+    return output.png().toBuffer();
+  } catch (err) {
+    log.warn("[photo-studio] reflection removal failed, using original:", err instanceof Error ? err.message : err);
+    return imageBuffer;
+  }
+}
+
 /**
  * Apply color correction and sharpening to a product image.
  * Processes RGB channels only to preserve alpha transparency.

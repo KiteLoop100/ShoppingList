@@ -11,9 +11,8 @@ import { callClaude, parseClaudeJsonResponse } from "@/lib/api/claude-client";
 import { CLAUDE_MODEL_SONNET } from "@/lib/api/config";
 import { decodeEanFromImageBuffer } from "@/lib/barcode-from-image";
 import { VISION_PROMPT, type ClaudeResponse } from "./prompts";
-import { removeBackground } from "@/lib/product-photo-studio/background-removal";
 import {
-  preCropToProduct,
+  processImageToThumbnail,
   enhanceProduct,
   compositeOnCanvas,
 } from "@/lib/product-photo-studio/create-thumbnail";
@@ -137,16 +136,13 @@ export async function processVisionPhoto(
 
   if (photoType === "product_front" && imageBuffer) {
     try {
-      const preCropped = await preCropToProduct(imageBuffer);
-      const bgResult = await removeBackground(preCropped);
-      const enhanced = await enhanceProduct(bgResult.imageBuffer);
-      const { buffer: thumbBuffer, format } = await compositeOnCanvas(enhanced, 150, false);
-      const ext = format === "image/webp" ? "webp" : "jpg";
+      const result = await processImageToThumbnail(imageBuffer);
+      const ext = result.thumbnailFormat === "image/webp" ? "webp" : "jpg";
       const thumbPath = `${uploadId}.${ext}`;
       const { error: thumbUpErr } = await supabase.storage
         .from("product-thumbnails")
-        .upload(thumbPath, thumbBuffer, {
-          contentType: format,
+        .upload(thumbPath, result.thumbnail, {
+          contentType: result.thumbnailFormat,
           upsert: true,
         });
       if (!thumbUpErr) {

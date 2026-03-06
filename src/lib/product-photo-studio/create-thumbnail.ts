@@ -8,7 +8,7 @@
 
 import sharp from "sharp";
 import { removeBackground } from "./background-removal";
-import { enhanceProduct, compositeOnCanvas, FULL_SIZE, THUMB_SIZE } from "./image-enhance";
+import { enhanceProduct, removeReflections, compositeOnCanvas, FULL_SIZE, THUMB_SIZE } from "./image-enhance";
 import { getProductBoundingBox } from "@/lib/api/photo-processing/image-utils";
 import { log } from "@/lib/utils/logger";
 import type {
@@ -18,7 +18,7 @@ import type {
   ThumbnailResult,
 } from "./types";
 
-export { enhanceProduct, compositeOnCanvas, FULL_SIZE, THUMB_SIZE } from "./image-enhance";
+export { enhanceProduct, removeReflections, compositeOnCanvas, FULL_SIZE, THUMB_SIZE } from "./image-enhance";
 
 const HERO_QUALITY_THRESHOLD = 0.75;
 
@@ -70,15 +70,15 @@ function selectHeroCandidates(
   return [bestImage];
 }
 
-/** Margin added around the AI-detected bounding box so tall/narrow products (e.g. bottles) are not clipped. */
-const PRECROP_MARGIN = 0.15;
+const PRECROP_MARGIN = 0.20;
+const MIN_PAD_PX = 50;
 
 /**
  * 3b-pre: Crop to product region before background removal.
  * Uses Claude-guided bounding box to remove table/shelf/hand areas,
  * giving remove.bg a cleaner source image.
- * An 8% margin is added on all sides so tall products like bottles
- * are never cut off by overly tight AI bounding boxes.
+ * Padding is the larger of 20% of crop dimension or 50px per side,
+ * preventing tall/narrow products from being clipped.
  */
 export async function preCropToProduct(imageBuffer: Buffer): Promise<Buffer> {
   const oriented = await sharp(imageBuffer).rotate().toBuffer();
@@ -89,12 +89,19 @@ export async function preCropToProduct(imageBuffer: Buffer): Promise<Buffer> {
     const box = await getProductBoundingBox(base64, "image/jpeg", width, height);
     if (!box) return oriented;
 
-    const padX = Math.round(box.crop_width * PRECROP_MARGIN);
-    const padY = Math.round(box.crop_height * PRECROP_MARGIN);
+    const padX = Math.max(MIN_PAD_PX, Math.round(box.crop_width * PRECROP_MARGIN));
+    const padY = Math.max(MIN_PAD_PX, Math.round(box.crop_height * PRECROP_MARGIN));
     const left = Math.max(0, box.crop_x - padX);
     const top = Math.max(0, box.crop_y - padY);
     const cropWidth = Math.min(width - left, box.crop_width + 2 * padX);
     const cropHeight = Math.min(height - top, box.crop_height + 2 * padY);
+
+    log.debug(
+      "[photo-studio] pre-crop: bbox",
+      `${box.crop_width}x${box.crop_height}`,
+      "pad", `${padX}x${padY}`,
+      "final", `${cropWidth}x${cropHeight}`,
+    );
 
     return sharp(oriented)
       .extract({ left, top, width: cropWidth, height: cropHeight })
@@ -105,16 +112,82 @@ export async function preCropToProduct(imageBuffer: Buffer): Promise<Buffer> {
   }
 }
 
-async function processCandidate(photo: PhotoInput): Promise<ThumbnailResult> {
-  const preCropped = await preCropToProduct(photo.buffer);
-  const bgResult = await removeBackground(preCropped);
-  const enhanced = await enhanceProduct(bgResult.imageBuffer);
+/**
+ * Check if non-transparent content touches any edge of the image,
+ * which indicates the product was likely clipped by the bounding box.
+ */
+async function isProductClipped(imageBuffer: Buffer, hasAlpha: boolean): Promise<boolean> {
+  if (!hasAlpha) return false;
+  try {
+    const { data, info } = await sharp(imageBuffer)
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+    const { width, height, channels } = info;
+    if (channels < 4) return false;
+
+    const ALPHA_THRESHOLD = 128;
+    const EDGE_SAMPLE_RATIO = 0.15;
+    let opaqueEdgePixels = 0;
+    let totalEdgePixels = 0;
+
+    for (let x = 0; x < width; x++) {
+      const topAlpha = data[(x * channels) + 3];
+      const bottomAlpha = data[((height - 1) * width + x) * channels + 3];
+      if (topAlpha >= ALPHA_THRESHOLD) opaqueEdgePixels++;
+      if (bottomAlpha >= ALPHA_THRESHOLD) opaqueEdgePixels++;
+      totalEdgePixels += 2;
+    }
+    for (let y = 0; y < height; y++) {
+      const leftAlpha = data[(y * width) * channels + 3];
+      const rightAlpha = data[(y * width + width - 1) * channels + 3];
+      if (leftAlpha >= ALPHA_THRESHOLD) opaqueEdgePixels++;
+      if (rightAlpha >= ALPHA_THRESHOLD) opaqueEdgePixels++;
+      totalEdgePixels += 2;
+    }
+
+    const edgeRatio = opaqueEdgePixels / totalEdgePixels;
+    if (edgeRatio > EDGE_SAMPLE_RATIO) {
+      log.warn("[photo-studio] product clipped: ", (edgeRatio * 100).toFixed(1) + "% opaque edge pixels");
+      return true;
+    }
+    return false;
+  } catch (err) {
+    log.warn("[photo-studio] clipping check failed:", err instanceof Error ? err.message : err);
+    return false;
+  }
+}
+
+/**
+ * Shared thumbnail processing: bg removal -> enhance -> composite.
+ * Used by both the photo studio pipeline and the single-photo capture flow.
+ */
+export async function processImageToThumbnail(
+  imageBuffer: Buffer,
+  skipPreCrop = false,
+): Promise<ThumbnailResult> {
+  const input = skipPreCrop ? imageBuffer : await preCropToProduct(imageBuffer);
+  const bgResult = await removeBackground(input);
+  const deReflected = await removeReflections(bgResult.imageBuffer);
+  const enhanced = await enhanceProduct(deReflected);
   const addShadow = bgResult.hasTransparency;
+
+  if (bgResult.hasTransparency && !skipPreCrop) {
+    const clipped = await isProductClipped(bgResult.imageBuffer, true);
+    if (clipped) {
+      log.warn("[photo-studio] retrying without pre-crop due to clipping");
+      return processImageToThumbnail(imageBuffer, true);
+    }
+  }
 
   const [fullSizeResult, thumbnailResult] = await Promise.all([
     compositeOnCanvas(enhanced, FULL_SIZE, addShadow),
     compositeOnCanvas(enhanced, THUMB_SIZE, false),
   ]);
+
+  const bgFailed = bgResult.providerUsed === "crop-fallback" || bgResult.providerUsed === "none";
+  if (bgFailed) {
+    log.warn("[photo-studio] background removal failed, provider:", bgResult.providerUsed);
+  }
 
   return {
     fullSize: fullSizeResult.buffer,
@@ -123,7 +196,12 @@ async function processCandidate(photo: PhotoInput): Promise<ThumbnailResult> {
     thumbnailFormat: thumbnailResult.format,
     backgroundRemoved: bgResult.hasTransparency,
     backgroundProvider: bgResult.providerUsed,
+    backgroundRemovalFailed: bgFailed,
   };
+}
+
+async function processCandidate(photo: PhotoInput): Promise<ThumbnailResult> {
+  return processImageToThumbnail(photo.buffer);
 }
 
 /**

@@ -142,7 +142,7 @@ describe("createThumbnail", () => {
     expect(meta.height).toBe(100);
   });
 
-  test("pre-crops with 15% margin so tall products like bottles are not clipped", async () => {
+  test("pre-crops with 20% margin and minimum 50px padding", async () => {
     // Bounding box covering the center of a 200x400 image
     mockedGetBBox.mockResolvedValueOnce({
       crop_x: 20,
@@ -162,8 +162,8 @@ describe("createThumbnail", () => {
     const passedBuf = mockedRemoveBg.mock.calls[0][0];
     const meta = await sharp(passedBuf).metadata();
 
-    // padX = round(160 * 0.15) = 24; left = max(0, 20 - 24) = 0; cropWidth = min(200, 160 + 48) = 200
-    // padY = round(340 * 0.15) = 51; top  = max(0, 30 - 51) = 0; cropHeight = min(400, 340 + 102) = 400
+    // padX = max(50, round(160 * 0.20)) = 50; left = max(0, 20 - 50) = 0; cropWidth = min(200, 160 + 100) = 200
+    // padY = max(50, round(340 * 0.20)) = 68; top = max(0, 30 - 68) = 0; cropHeight = min(400, 340 + 136) = 400
     expect(meta.width).toBe(200);
     expect(meta.height).toBe(400);
   });
@@ -186,10 +186,28 @@ describe("createThumbnail", () => {
 
     const passedBuf = mockedRemoveBg.mock.calls[0][0];
     const meta = await sharp(passedBuf).metadata();
-    // padX = round(80 * 0.15) = 12; left = max(0, 0 - 12) = 0; cropWidth = min(100, 80 + 24) = 100
-    // padY = round(90 * 0.15) = 14; top  = max(0, 0 - 14) = 0; cropHeight = min(100, 90 + 28) = 100
+    // padX = max(50, round(80 * 0.20)) = 50; left = max(0, 0 - 50) = 0; cropWidth = min(100, 80 + 100) = 100
+    // padY = max(50, round(90 * 0.20)) = 50; top = max(0, 0 - 50) = 0; cropHeight = min(100, 90 + 100) = 100
     expect(meta.width).toBe(100);
     expect(meta.height).toBe(100);
+  });
+
+  test("sets backgroundRemovalFailed when crop-fallback is used", async () => {
+    mockedRemoveBg.mockImplementation(async (buf) => ({
+      imageBuffer: buf,
+      hasTransparency: false,
+      providerUsed: "crop-fallback",
+    }));
+
+    const img = await makeTestImage();
+    const classification = makeClassification([
+      { photo_type: "product_front", quality_score: 0.9 },
+    ]);
+
+    const result = await createThumbnail([img], classification);
+
+    expect(result.backgroundRemovalFailed).toBe(true);
+    expect(result.backgroundRemoved).toBe(false);
   });
 
   test("falls back to full image when bounding box detection fails", async () => {

@@ -10,7 +10,7 @@ import { classifyPhotos } from "./validate-classify";
 import { extractProductInfo, scanBarcodesFromAll } from "./extract-product-info";
 import { createThumbnail } from "./create-thumbnail";
 import { verifyThumbnailQuality } from "./verify-quality";
-import type { ProductPhotoStudioInput, ProductPhotoStudioResult } from "./types";
+import type { ProductPhotoStudioInput, ProductPhotoStudioResult, ThumbnailVerification } from "./types";
 import type { PipelineRunner } from "./pipeline-runner";
 import { log } from "@/lib/utils/logger";
 
@@ -18,6 +18,12 @@ export const processProductPhotos = processCompetitorPhotos;
 
 export interface ProcessOptions {
   runner?: PipelineRunner;
+}
+
+const PIPELINE_TIMEOUT_MS = 28_000;
+
+function elapsedMs(startMs: number): number {
+  return Date.now() - startMs;
 }
 
 export async function processCompetitorPhotos(
@@ -34,6 +40,7 @@ export async function processCompetitorPhotos(
   log.debug("[photo-studio] processing", input.images.length, "photos");
 
   // ── STEP 1: Barcode scan + Classification ──
+  const classifyStartMs = Date.now();
   const classifyFn = async () => {
     const [barcodeResults, classification] = await Promise.all([
       scanBarcodesFromAll(input.images),
@@ -45,6 +52,7 @@ export async function processCompetitorPhotos(
   const { barcodeResults, classification } = runner
     ? await runner.runStep("classify", classifyFn)
     : await classifyFn();
+  log.debug("[photo-studio] classify took", Date.now() - classifyStartMs, "ms");
 
   // ── GATE: Content moderation ──
   const rejected = classification.photos.filter((p) => !p.is_product_photo);
@@ -60,13 +68,14 @@ export async function processCompetitorPhotos(
       classification,
       extractedData: null,
       backgroundRemoved: false,
-      processingTimeMs: Date.now() - startMs,
+      processingTimeMs: elapsedMs(startMs),
     };
   }
 
   const scannedEan = barcodeResults.find((e: string | null) => e !== null) ?? null;
 
   // ── STEP 2: Extraction + Thumbnail ──
+  const extractStartMs = Date.now();
   const extractFn = async () => {
     const [extractedData, thumbnailResult] = await Promise.all([
       extractProductInfo(input.images, scannedEan),
@@ -78,20 +87,43 @@ export async function processCompetitorPhotos(
   const { extractedData, thumbnailResult } = runner
     ? await runner.runStep("extract", extractFn)
     : await extractFn();
+  log.debug("[photo-studio] extract+thumbnail took", Date.now() - extractStartMs, "ms");
 
-  // ── STEP 3: Verify thumbnail quality ──
-  const verifyFn = async () =>
-    verifyThumbnailQuality(thumbnailResult.fullSize, thumbnailResult.fullSizeFormat);
+  // ── STEP 3: Verify thumbnail quality (skip if budget exhausted) ──
+  const bgFailed = thumbnailResult.backgroundRemovalFailed === true;
+  const budgetExhausted = elapsedMs(startMs) > PIPELINE_TIMEOUT_MS;
 
-  const verification = runner
-    ? await runner.runStep("verify", verifyFn)
-    : await verifyFn();
+  let verification: ThumbnailVerification;
+  if (budgetExhausted) {
+    log.warn("[photo-studio] timeout budget exhausted after", elapsedMs(startMs), "ms — skipping verification");
+    verification = {
+      passes_quality_check: !bgFailed,
+      quality_score: bgFailed ? 0.3 : 0.6,
+      issues: bgFailed ? ["Hintergrund nicht entfernt — Produkt ist nicht freigestellt"] : [],
+      recommendation: bgFailed ? "review" : "approve",
+    };
+  } else {
+    const verifyStartMs = Date.now();
+    const verifyFn = async () =>
+      verifyThumbnailQuality(
+        thumbnailResult.fullSize,
+        thumbnailResult.fullSizeFormat,
+        bgFailed,
+      );
+
+    verification = runner
+      ? await runner.runStep("verify", verifyFn)
+      : await verifyFn();
+    log.debug("[photo-studio] verify took", Date.now() - verifyStartMs, "ms");
+  }
 
   const finalEan = scannedEan ?? extractedData.ean_barcode;
-  const isRejected = verification.recommendation === "reject";
+  const needsReview =
+    verification.recommendation === "reject" ||
+    verification.recommendation === "review";
 
   if (runner) {
-    if (isRejected) {
+    if (needsReview) {
       await runner.markError(verification.issues.join("; "));
     } else {
       await runner.markCompleted();
@@ -100,14 +132,14 @@ export async function processCompetitorPhotos(
 
   log.debug(
     "[photo-studio] completed in",
-    Date.now() - startMs,
+    elapsedMs(startMs),
     "ms, status:",
-    isRejected ? "review_required" : "success",
+    needsReview ? "review_required" : "success",
   );
 
   return {
-    status: isRejected ? "review_required" : "success",
-    reviewReason: isRejected ? verification.issues.join("; ") : undefined,
+    status: needsReview ? "review_required" : "success",
+    reviewReason: needsReview ? verification.issues.join("; ") : undefined,
     classification,
     extractedData: { ...extractedData, ean_barcode: finalEan },
     thumbnailFull: thumbnailResult.fullSize,
@@ -115,7 +147,8 @@ export async function processCompetitorPhotos(
     thumbnailSmall: thumbnailResult.thumbnail,
     qualityScore: verification.quality_score,
     backgroundRemoved: thumbnailResult.backgroundRemoved,
+    backgroundRemovalFailed: bgFailed,
     backgroundProvider: thumbnailResult.backgroundProvider,
-    processingTimeMs: Date.now() - startMs,
+    processingTimeMs: elapsedMs(startMs),
   };
 }

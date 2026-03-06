@@ -61,12 +61,25 @@ describe("getProductBoundingBox", () => {
     expect(result!.crop_height).toBe(1590);
   });
 
-  test("clamps both dimensions when both exceed bounds", async () => {
+  test("returns null when clamped bbox is too small after both dimensions exceed bounds", async () => {
     mockedClaude.mockResolvedValueOnce({
       crop_x: 490,
       crop_y: 790,
       crop_width: 200,
       crop_height: 200,
+    });
+
+    const result = await getProductBoundingBox("base64data", "image/jpeg", 500, 800);
+
+    expect(result).toBeNull();
+  });
+
+  test("clamps both dimensions when result stays above minimum area", async () => {
+    mockedClaude.mockResolvedValueOnce({
+      crop_x: 200,
+      crop_y: 300,
+      crop_width: 400,
+      crop_height: 600,
     });
 
     const result = await getProductBoundingBox("base64data", "image/jpeg", 500, 800);
@@ -84,8 +97,7 @@ describe("getProductBoundingBox", () => {
     expect(result).toBeNull();
   });
 
-  test("clamps crop_x to imageWidth-1 when it exceeds bounds", async () => {
-    // crop_x beyond image width → should be clamped, not rejected
+  test("returns null when crop_x exceeds bounds and clamped bbox is too small", async () => {
     mockedClaude.mockResolvedValueOnce({
       crop_x: 600,
       crop_y: 0,
@@ -95,9 +107,7 @@ describe("getProductBoundingBox", () => {
 
     const result = await getProductBoundingBox("base64data", "image/jpeg", 500, 800);
 
-    expect(result).not.toBeNull();
-    expect(result!.crop_x).toBeLessThan(500);
-    expect(result!.crop_x + result!.crop_width).toBeLessThanOrEqual(500);
+    expect(result).toBeNull();
   });
 
   test("floors float values from Claude", async () => {
@@ -111,6 +121,34 @@ describe("getProductBoundingBox", () => {
     const result = await getProductBoundingBox("base64data", "image/jpeg", 500, 600);
 
     expect(result).toEqual({ crop_x: 10, crop_y: 20, crop_width: 300, crop_height: 400 });
+  });
+
+  test("returns null when bbox is too small (< 5% of image area)", async () => {
+    mockedClaude.mockResolvedValueOnce({
+      crop_x: 0,
+      crop_y: 0,
+      crop_width: 10,
+      crop_height: 10,
+    });
+
+    const result = await getProductBoundingBox("base64data", "image/jpeg", 800, 600);
+
+    // 10*10 / (800*600) = 0.02% - well below 5% threshold
+    expect(result).toBeNull();
+  });
+
+  test("returns null when bbox covers > 98% of image area", async () => {
+    mockedClaude.mockResolvedValueOnce({
+      crop_x: 0,
+      crop_y: 0,
+      crop_width: 800,
+      crop_height: 600,
+    });
+
+    const result = await getProductBoundingBox("base64data", "image/jpeg", 800, 600);
+
+    // 800*600 / (800*600) = 100% - above 98% threshold
+    expect(result).toBeNull();
   });
 });
 

@@ -4,7 +4,7 @@
 
 import sharp from "sharp";
 import { callClaudeJSON } from "@/lib/api/claude-client";
-import { CLAUDE_MODEL_SONNET } from "@/lib/api/config";
+import { CLAUDE_MODEL_HAIKU } from "@/lib/api/config";
 import { CROP_PROMPT } from "./prompts";
 import { log } from "@/lib/utils/logger";
 
@@ -73,6 +73,9 @@ interface BoundingBox {
   crop_height: number;
 }
 
+const MIN_BBOX_AREA_RATIO = 0.05;
+const MAX_BBOX_AREA_RATIO = 0.98;
+
 /** Ask Claude for product bounding box. Returns null on failure or invalid response. */
 export async function getProductBoundingBox(
   imageBase64: string,
@@ -88,7 +91,7 @@ export async function getProductBoundingBox(
       crop_width?: number;
       crop_height?: number;
     }>({
-      model: CLAUDE_MODEL_SONNET,
+      model: CLAUDE_MODEL_HAIKU,
       max_tokens: 256,
       messages: [
         {
@@ -111,14 +114,27 @@ export async function getProductBoundingBox(
     const raw_y = Math.max(0, Math.floor(Number(parsed.crop_y) ?? 0));
     const raw_w = Math.max(1, Math.floor(Number(parsed.crop_width) ?? 0));
     const raw_h = Math.max(1, Math.floor(Number(parsed.crop_height) ?? 0));
-    // Clamp to image bounds instead of rejecting — model coords may slightly overshoot
     const crop_x = Math.min(raw_x, imageWidth - 1);
     const crop_y = Math.min(raw_y, imageHeight - 1);
     const crop_width = Math.min(raw_w, imageWidth - crop_x);
     const crop_height = Math.min(raw_h, imageHeight - crop_y);
     if (crop_width < 1 || crop_height < 1) return null;
+
+    const imageArea = imageWidth * imageHeight;
+    const bboxArea = crop_width * crop_height;
+    const ratio = bboxArea / imageArea;
+    if (ratio < MIN_BBOX_AREA_RATIO) {
+      log.warn("[image-utils] bbox too small:", (ratio * 100).toFixed(1) + "% of image, ignoring");
+      return null;
+    }
+    if (ratio > MAX_BBOX_AREA_RATIO) {
+      log.debug("[image-utils] bbox covers", (ratio * 100).toFixed(1) + "% of image, skipping crop");
+      return null;
+    }
+
     return { crop_x, crop_y, crop_width, crop_height };
-  } catch {
+  } catch (err) {
+    log.warn("[image-utils] bbox detection failed:", err instanceof Error ? err.message : err);
     return null;
   }
 }

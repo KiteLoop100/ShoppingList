@@ -1,6 +1,6 @@
 import { describe, test, expect } from "vitest";
 import sharp from "sharp";
-import { enhanceProduct, compositeOnCanvas } from "../image-enhance";
+import { enhanceProduct, removeReflections, compositeOnCanvas } from "../image-enhance";
 
 async function makeTestImage(
   width = 100,
@@ -93,5 +93,54 @@ describe("compositeOnCanvas", () => {
     const { buffer } = await compositeOnCanvas(input, 1200, false);
     const meta = await sharp(buffer).metadata();
     expect(meta.width).toBe(1200);
+  });
+});
+
+describe("removeReflections", () => {
+  test("returns original when no significant highlights are present", async () => {
+    const input = await makeTestImage(100, 100, 3);
+    const result = await removeReflections(input);
+
+    expect(result).toBeInstanceOf(Buffer);
+    const meta = await sharp(result).metadata();
+    expect(meta.width).toBe(100);
+    expect(meta.height).toBe(100);
+  });
+
+  test("reduces highlight intensity for images with reflections", async () => {
+    // Create image with a large white (reflection) area
+    const base = await sharp({
+      create: { width: 100, height: 100, channels: 3, background: { r: 100, g: 100, b: 100 } },
+    }).png().toBuffer();
+
+    // Add a white rectangle simulating a reflection (top-left quarter)
+    const whiteRect = await sharp({
+      create: { width: 50, height: 50, channels: 3, background: { r: 252, g: 252, b: 252 } },
+    }).png().toBuffer();
+
+    const input = await sharp(base)
+      .composite([{ input: whiteRect, left: 0, top: 0 }])
+      .png()
+      .toBuffer();
+
+    const result = await removeReflections(input);
+
+    expect(result).toBeInstanceOf(Buffer);
+    // The result should have reduced highlight intensity
+    const resultStats = await sharp(result).stats();
+    const inputStats = await sharp(input).stats();
+
+    // At least one channel's max should be reduced
+    const inputMaxMean = Math.max(...inputStats.channels.map((c) => c.max));
+    const resultMaxMean = Math.max(...resultStats.channels.map((c) => c.max));
+    expect(resultMaxMean).toBeLessThanOrEqual(inputMaxMean);
+  });
+
+  test("preserves alpha channel", async () => {
+    const input = await makeTestImage(100, 100, 4);
+    const result = await removeReflections(input);
+
+    const meta = await sharp(result).metadata();
+    expect(meta.channels).toBe(4);
   });
 });

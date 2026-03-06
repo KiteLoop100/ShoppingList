@@ -55,6 +55,7 @@ async function detectHighlights(imageBuffer: Buffer): Promise<{
 export async function verifyThumbnailQuality(
   thumbnailBuffer: Buffer,
   mediaType: ImageFormat = "image/webp",
+  backgroundRemovalFailed = false,
 ): Promise<ThumbnailVerification> {
   try {
     const [highlightResult, claudeResult] = await Promise.all([
@@ -86,8 +87,12 @@ export async function verifyThumbnailQuality(
       }),
     ]);
 
-    const recommendation = claudeResult.recommendation as ThumbnailVerification["recommendation"];
     const validRecommendations = new Set(["approve", "review", "reject"]);
+    let recommendation = validRecommendations.has(
+      claudeResult.recommendation as string,
+    )
+      ? (claudeResult.recommendation as ThumbnailVerification["recommendation"])
+      : "review";
     const issues = Array.isArray(claudeResult.issues) ? claudeResult.issues.map(String) : [];
 
     if (highlightResult.hasProblematicHighlights) {
@@ -95,11 +100,16 @@ export async function verifyThumbnailQuality(
       issues.push(`Highlight clipping detected: ${pct}% overexposed pixels (reflections/glare)`);
     }
 
+    if (backgroundRemovalFailed) {
+      issues.push("Hintergrund nicht entfernt — Produkt ist nicht freigestellt");
+      recommendation = "review";
+    }
+
     return {
-      passes_quality_check: claudeResult.passes_quality_check !== false,
+      passes_quality_check: claudeResult.passes_quality_check !== false && !backgroundRemovalFailed,
       quality_score: typeof claudeResult.quality_score === "number" ? claudeResult.quality_score : 0.5,
       issues,
-      recommendation: validRecommendations.has(recommendation) ? recommendation : "review",
+      recommendation,
     };
   } catch (err) {
     log.error("[photo-studio] thumbnail verification failed:", err);
