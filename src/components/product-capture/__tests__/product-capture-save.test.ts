@@ -26,6 +26,7 @@ import {
   addCompetitorPrice,
   updateCompetitorProduct,
 } from "@/lib/competitor-products/competitor-product-service";
+import { uploadCompetitorPhoto } from "@/lib/competitor-products/upload-competitor-photo";
 import type { ProductCaptureValues } from "../hooks/use-product-capture-form";
 
 function makeValues(overrides: Partial<ProductCaptureValues> = {}): ProductCaptureValues {
@@ -254,5 +255,118 @@ describe("saveProduct", () => {
     });
 
     expect(addCompetitorPrice).not.toHaveBeenCalled();
+  });
+
+  test("uploads WebP thumbnail with correct MIME type and extension", async () => {
+    vi.mocked(findOrCreateCompetitorProduct).mockResolvedValueOnce({
+      product_id: "comp-webp",
+      name: "Maggi",
+      name_normalized: "maggi",
+      brand: null,
+      ean_barcode: null,
+      article_number: null,
+      weight_or_quantity: null,
+      country: "DE",
+      retailer: "REWE",
+      thumbnail_url: null,
+      other_photo_url: null,
+      category_id: null,
+      demand_group_code: null,
+      demand_sub_group: null,
+      assortment_type: null,
+      status: "active",
+      is_bio: false,
+      is_vegan: false,
+      is_gluten_free: false,
+      is_lactose_free: false,
+      animal_welfare_level: null,
+      ingredients: null,
+      nutrition_info: null,
+      allergens: null,
+      nutri_score: null,
+      country_of_origin: null,
+      created_at: "",
+      updated_at: "",
+    });
+
+    const fakeBlob = new Blob(["fake-image"], { type: "image/webp" });
+    mockFetch.mockResolvedValueOnce({ blob: () => Promise.resolve(fakeBlob) });
+    vi.mocked(uploadCompetitorPhoto).mockResolvedValueOnce("https://storage/comp-webp_front.webp");
+
+    const dummyFile = new File(["photo"], "photo.jpg", { type: "image/jpeg" });
+
+    await saveProduct({
+      values: makeValues({ retailer: "REWE", price: "" }),
+      editAldiProduct: null,
+      editCompetitorProduct: null,
+      extractedDetails: null,
+      processedThumbnail: "data:image/webp;base64,AAAA",
+      photoFiles: [dummyFile],
+      country: "DE",
+    });
+
+    expect(uploadCompetitorPhoto).toHaveBeenCalledWith(
+      "comp-webp",
+      expect.objectContaining({ name: "thumbnail.webp", type: "image/webp" }),
+      "front",
+    );
+    expect(updateCompetitorProduct).toHaveBeenCalledWith("comp-webp", {
+      thumbnail_url: "https://storage/comp-webp_front.webp",
+    });
+  });
+
+  test("uploads JPEG thumbnail with correct MIME type when not WebP", async () => {
+    vi.mocked(findOrCreateCompetitorProduct).mockResolvedValueOnce({
+      product_id: "comp-jpg",
+      name: "Test",
+      name_normalized: "test",
+      brand: null,
+      ean_barcode: null,
+      article_number: null,
+      weight_or_quantity: null,
+      country: "DE",
+      retailer: "LIDL",
+      thumbnail_url: null,
+      other_photo_url: null,
+      category_id: null,
+      demand_group_code: null,
+      demand_sub_group: null,
+      assortment_type: null,
+      status: "active",
+      is_bio: false,
+      is_vegan: false,
+      is_gluten_free: false,
+      is_lactose_free: false,
+      animal_welfare_level: null,
+      ingredients: null,
+      nutrition_info: null,
+      allergens: null,
+      nutri_score: null,
+      country_of_origin: null,
+      created_at: "",
+      updated_at: "",
+    });
+
+    const fakeBlob = new Blob(["fake-image"], { type: "image/jpeg" });
+    mockFetch.mockResolvedValueOnce({ blob: () => Promise.resolve(fakeBlob) });
+    vi.mocked(uploadCompetitorPhoto).mockResolvedValueOnce("https://storage/comp-jpg_front.jpg");
+
+    const dummyFile = new File(["photo"], "photo.jpg", { type: "image/jpeg" });
+
+    await saveProduct({
+      values: makeValues({ retailer: "LIDL", price: "" }),
+      editAldiProduct: null,
+      editCompetitorProduct: null,
+      extractedDetails: null,
+      processedThumbnail: "data:image/jpeg;base64,AAAA",
+      photoFiles: [dummyFile],
+      country: "DE",
+    });
+
+    expect(uploadCompetitorPhoto).toHaveBeenCalledWith(
+      "comp-jpg",
+      expect.objectContaining({ name: "thumbnail.jpg", type: "image/jpeg" }),
+      "front",
+    );
   });
 });

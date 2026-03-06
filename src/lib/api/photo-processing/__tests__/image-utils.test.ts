@@ -1,11 +1,12 @@
 import { describe, test, expect, vi, beforeEach } from "vitest";
+import sharp from "sharp";
 
 vi.mock("@/lib/api/claude-client", () => ({
   callClaudeJSON: vi.fn(),
 }));
 
 import { callClaudeJSON } from "@/lib/api/claude-client";
-import { getProductBoundingBox } from "../image-utils";
+import { getProductBoundingBox, makeThumbnail } from "../image-utils";
 
 const mockedClaude = vi.mocked(callClaudeJSON);
 
@@ -110,5 +111,42 @@ describe("getProductBoundingBox", () => {
     const result = await getProductBoundingBox("base64data", "image/jpeg", 500, 600);
 
     expect(result).toEqual({ crop_x: 10, crop_y: 20, crop_width: 300, crop_height: 400 });
+  });
+});
+
+describe("makeThumbnail", () => {
+  test("preserves full product in 150×150 without cropping (tall image like Maggi bottle)", async () => {
+    const tallImage = await sharp({
+      create: { width: 200, height: 800, channels: 3, background: { r: 255, g: 0, b: 0 } },
+    }).jpeg().toBuffer();
+
+    const result = await makeThumbnail(tallImage);
+    const meta = await sharp(result).metadata();
+
+    expect(meta.width).toBe(150);
+    expect(meta.height).toBe(150);
+  });
+
+  test("produces JPEG output", async () => {
+    const img = await sharp({
+      create: { width: 300, height: 300, channels: 3, background: { r: 0, g: 128, b: 0 } },
+    }).jpeg().toBuffer();
+
+    const result = await makeThumbnail(img);
+    const meta = await sharp(result).metadata();
+
+    expect(meta.format).toBe("jpeg");
+  });
+
+  test("contain-fits wide image without cropping", async () => {
+    const wideImage = await sharp({
+      create: { width: 800, height: 200, channels: 3, background: { r: 0, g: 0, b: 255 } },
+    }).jpeg().toBuffer();
+
+    const result = await makeThumbnail(wideImage);
+    const meta = await sharp(result).metadata();
+
+    expect(meta.width).toBe(150);
+    expect(meta.height).toBe(150);
   });
 });

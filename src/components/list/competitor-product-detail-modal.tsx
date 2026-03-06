@@ -120,13 +120,13 @@ function ProductHeader({
         {product.thumbnail_url && (
           <div className="flex flex-col gap-1">
             <span className="text-xs font-medium uppercase tracking-wider text-aldi-muted">{t("frontPhoto")}</span>
-            <Image src={product.thumbnail_url} alt={t("frontPhoto")} width={150} height={150} className="h-[150px] w-[150px] shrink-0 rounded-xl object-cover object-center" unoptimized />
+            <Image src={product.thumbnail_url} alt={t("frontPhoto")} width={150} height={150} className="h-[150px] w-[150px] shrink-0 rounded-xl bg-white object-contain object-center" unoptimized />
           </div>
         )}
         {product.other_photo_url && (
           <div className="flex flex-col gap-1">
             <span className="text-xs font-medium uppercase tracking-wider text-aldi-muted">{t("otherPhoto")}</span>
-            <Image src={product.other_photo_url} alt={t("otherPhoto")} width={150} height={150} className="h-[150px] w-[150px] shrink-0 rounded-xl object-cover object-center" unoptimized />
+            <Image src={product.other_photo_url} alt={t("otherPhoto")} width={150} height={150} className="h-[150px] w-[150px] shrink-0 rounded-xl bg-white object-contain object-center" unoptimized />
           </div>
         )}
       </div>

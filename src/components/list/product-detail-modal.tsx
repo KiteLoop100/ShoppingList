@@ -112,7 +112,7 @@ export function ProductDetailModal({ product, onClose, onEdit, onReorderChanged,
                       alt={t("frontSide")}
                       width={150}
                       height={150}
-                      className="h-[150px] w-[150px] shrink-0 rounded-xl object-cover object-center"
+                      className="h-[150px] w-[150px] shrink-0 rounded-xl bg-white object-contain object-center"
                       unoptimized
                     />
                   </div>
@@ -125,7 +125,7 @@ export function ProductDetailModal({ product, onClose, onEdit, onReorderChanged,
                       alt={t("backSide")}
                       width={150}
                       height={150}
-                      className="h-[150px] w-[150px] shrink-0 rounded-xl object-cover object-center"
+                      className="h-[150px] w-[150px] shrink-0 rounded-xl bg-white object-contain object-center"
                       unoptimized
                     />
                   </div>

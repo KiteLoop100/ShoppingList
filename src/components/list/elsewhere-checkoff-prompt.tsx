@@ -11,6 +11,39 @@ import {
 import { uploadCompetitorPhoto } from "@/lib/competitor-products/upload-competitor-photo";
 import { log } from "@/lib/utils/logger";
 
+const THUMB_PX = 300;
+
+function createSquareThumbnail(file: File): Promise<File> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const scale = Math.min(1, THUMB_PX / Math.max(img.width, img.height));
+      const w = Math.round(img.width * scale);
+      const h = Math.round(img.height * scale);
+      const canvas = document.createElement("canvas");
+      canvas.width = THUMB_PX;
+      canvas.height = THUMB_PX;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) { reject(new Error("Canvas unavailable")); return; }
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, THUMB_PX, THUMB_PX);
+      ctx.drawImage(img, (THUMB_PX - w) / 2, (THUMB_PX - h) / 2, w, h);
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) { reject(new Error("Blob conversion failed")); return; }
+          resolve(new File([blob], "thumbnail.jpg", { type: "image/jpeg" }));
+        },
+        "image/jpeg",
+        0.85,
+      );
+    };
+    img.onerror = reject;
+    img.src = url;
+  });
+}
+
 interface ElsewhereCheckoffPromptProps {
   open: boolean;
   itemName: string;
@@ -47,7 +80,8 @@ export function ElsewhereCheckoffPrompt({
       }
 
       if (photoFile) {
-        const publicUrl = await uploadCompetitorPhoto(product.product_id, photoFile);
+        const squareThumb = await createSquareThumbnail(photoFile);
+        const publicUrl = await uploadCompetitorPhoto(product.product_id, squareThumb);
         if (publicUrl) {
           await updateCompetitorProduct(product.product_id, {
             thumbnail_url: publicUrl,

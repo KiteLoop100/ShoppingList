@@ -172,7 +172,7 @@ export async function POST(request: Request) {
         const buf = await imgRes.arrayBuffer();
         const resized = await sharp(Buffer.from(buf))
           .rotate()
-          .resize(150, 150, { fit: "cover", position: "center" })
+          .resize(150, 150, { fit: "contain", background: { r: 255, g: 255, b: 255 } })
           .jpeg({ quality: 85 })
           .toBuffer();
         const tempId = crypto.randomUUID();

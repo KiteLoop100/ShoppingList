@@ -193,7 +193,7 @@ export const ListItemRow = memo(function ListItemRow({
         {/* Thumbnail */}
         {(item.thumbnail_url || item.competitor_thumbnail_url) && (
           <div
-            className="h-[52px] w-[52px] shrink-0 overflow-hidden rounded-lg bg-aldi-muted-light/30"
+            className="h-[52px] w-[52px] shrink-0 overflow-hidden rounded-lg bg-white"
             style={{ maxWidth: 60, maxHeight: 60 }}
           >
             <Image
@@ -202,7 +202,7 @@ export const ListItemRow = memo(function ListItemRow({
               role="presentation"
               width={THUMB_SIZE}
               height={THUMB_SIZE}
-              className="h-full w-full object-cover object-center"
+              className="h-full w-full object-contain object-center"
               unoptimized
             />
           </div>

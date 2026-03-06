@@ -57,11 +57,11 @@ export async function fetchAndPreprocessImage(
   };
 }
 
-/** EXIF rotate + center cover crop to 150×150. */
+/** EXIF rotate + contain-fit to 150×150 on white background (no cropping). */
 export async function makeThumbnail(buf: Buffer): Promise<Buffer> {
   return sharp(buf)
     .rotate()
-    .resize(150, 150, { fit: "cover", position: "center" })
+    .resize(150, 150, { fit: "contain", background: { r: 255, g: 255, b: 255 } })
     .jpeg({ quality: 85 })
     .toBuffer();
 }

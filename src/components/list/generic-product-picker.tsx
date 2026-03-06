@@ -123,7 +123,7 @@ export function GenericProductPicker({
                         role="presentation"
                         width={40}
                         height={40}
-                        className="h-10 w-10 shrink-0 rounded-lg object-cover"
+                        className="h-10 w-10 shrink-0 rounded-lg bg-white object-contain"
                         unoptimized
                       />
                     ) : (

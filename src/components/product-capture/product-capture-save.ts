@@ -152,7 +152,10 @@ async function saveCompetitorProduct(
 
   if (processedThumbnail && photoFiles.length > 0) {
     const thumbBlob = await fetch(processedThumbnail).then((r) => r.blob());
-    const thumbFile = new File([thumbBlob], "thumbnail.jpg", { type: "image/jpeg" });
+    const isWebp = processedThumbnail.startsWith("data:image/webp");
+    const ext = isWebp ? "webp" : "jpg";
+    const mime = isWebp ? "image/webp" : "image/jpeg";
+    const thumbFile = new File([thumbBlob], `thumbnail.${ext}`, { type: mime });
     const url = await uploadCompetitorPhoto(productId, thumbFile, "front");
     if (url) await updateCompetitorProduct(productId, { thumbnail_url: url });
   }

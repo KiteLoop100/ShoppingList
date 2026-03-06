@@ -91,7 +91,7 @@ export function ProductTile({ product, shoppingListMode }: ProductTileProps) {
               alt={product.name}
               fill
               sizes="(max-width: 640px) 50vw, 200px"
-              className="object-cover"
+              className="object-contain"
             />
           ) : (
             <div className="flex h-full w-full flex-col items-center justify-center gap-1 px-3 py-4 text-center">
