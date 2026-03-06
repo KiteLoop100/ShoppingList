@@ -139,7 +139,7 @@ export async function processVisionPhoto(
     try {
       const preCropped = await preCropToProduct(imageBuffer);
       const bgResult = await removeBackground(preCropped);
-      const enhanced = await enhanceProduct(bgResult.buffer);
+      const enhanced = await enhanceProduct(bgResult.imageBuffer);
       const { buffer: thumbBuffer, format } = await compositeOnCanvas(enhanced, 150, false);
       const ext = format === "image/webp" ? "webp" : "jpg";
       const thumbPath = `${uploadId}.${ext}`;
