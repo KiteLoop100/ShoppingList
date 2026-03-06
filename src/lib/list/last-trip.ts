@@ -19,14 +19,18 @@ export interface LastTripInfo {
   }>;
 }
 
-export async function getTripCount(): Promise<number> {
+/**
+ * Returns the number of scanned receipts for the current user.
+ * This drives the progressive popularity cutoff in the smart filter.
+ */
+export async function getReceiptCount(): Promise<number> {
   const supabase = createClientIfConfigured();
   if (!supabase) return 0;
 
   const userId = getCurrentUserId();
   const { count, error } = await supabase
-    .from("shopping_trips")
-    .select("trip_id", { count: "exact", head: true })
+    .from("receipts")
+    .select("receipt_id", { count: "exact", head: true })
     .eq("user_id", userId);
 
   if (error) return 0;

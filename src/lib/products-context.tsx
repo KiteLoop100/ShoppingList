@@ -17,6 +17,7 @@ import { useCurrentCountry } from "@/lib/current-country-context";
 import { log } from "@/lib/utils/logger";
 import { setSearchProducts } from "@/lib/search/local-search";
 import { indexProducts } from "@/lib/search/search-indexer";
+import { loadPurchaseHistory } from "@/lib/search/purchase-history";
 
 type ProductRow = Database["public"]["Tables"]["products"]["Row"];
 
@@ -202,8 +203,11 @@ export function ProductsProvider({ children }: { children: ReactNode }) {
       console.info(`[ProductsSync] Cache: ${cached.length} products loaded from IndexedDB`);
     }
 
-    // Step 2: Delta-sync in background
-    const synced = await deltaSync(country);
+    // Step 2: Delta-sync + purchase history in parallel
+    const [synced] = await Promise.all([
+      deltaSync(country),
+      loadPurchaseHistory(),
+    ]);
     if (seq !== fetchSeqRef.current) return;
 
     if (synced) {

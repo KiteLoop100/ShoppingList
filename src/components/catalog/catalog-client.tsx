@@ -16,7 +16,7 @@ import { scoreForCatalog } from "@/lib/search/scoring-engine";
 import { getUserHistory } from "@/lib/search/local-search";
 import { getProductPreferences } from "@/lib/settings/product-preferences";
 import { applySmartFilter } from "@/lib/catalog/smart-filter";
-import { getTripCount } from "@/lib/list/last-trip";
+import { getReceiptCount } from "@/lib/list/last-trip";
 import { CategoryBar } from "./category-bar";
 import { SubcategoryNav } from "./subcategory-nav";
 import { ProductGrid } from "./product-grid";
@@ -60,10 +60,10 @@ export function CatalogClient() {
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
   const [groupsLoading, setGroupsLoading] = useState(true);
   const [smartFilterEnabled, setSmartFilterEnabled] = useState(false);
-  const [tripCount, setTripCount] = useState(0);
+  const [receiptCount, setReceiptCount] = useState(0);
 
   useEffect(() => {
-    getTripCount().then(setTripCount);
+    getReceiptCount().then(setReceiptCount);
   }, []);
 
   useEffect(() => {
@@ -121,9 +121,9 @@ export function CatalogClient() {
   const displayProducts = useMemo(
     () =>
       smartFilterEnabled
-        ? applySmartFilter(scoredProducts, preferences, userHistory, tripCount)
+        ? applySmartFilter(scoredProducts, userHistory, receiptCount)
         : scoredProducts,
-    [scoredProducts, smartFilterEnabled, preferences, userHistory, tripCount],
+    [scoredProducts, smartFilterEnabled, userHistory, receiptCount],
   );
 
   const handleMetaSelect = useCallback(
@@ -173,15 +173,15 @@ export function CatalogClient() {
         />
       </header>
 
-      <div className="flex shrink-0 items-center gap-2">
-        <div className="flex-1 overflow-hidden">
+      <div className="flex shrink-0 items-stretch border-b border-aldi-muted-light bg-white">
+        <div className="min-w-0 flex-1">
           <CategoryBar
             categories={metaCategories}
             selected={selectedMeta}
             onSelect={handleMetaSelect}
           />
         </div>
-        <div className="hidden pr-2 lg:block">
+        <div className="hidden items-center border-l border-aldi-muted-light px-3 lg:flex">
           <SmartFilterButton
             enabled={smartFilterEnabled}
             label={t(smartFilterEnabled ? "smartFilterActive" : "smartFilter")}

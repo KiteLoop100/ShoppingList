@@ -87,44 +87,18 @@ describe("computeCutoffPercentile", () => {
 
 describe("applySmartFilter", () => {
   test("returns empty array for empty input", () => {
-    expect(applySmartFilter([], NO_PREFS, NO_HISTORY, 0, NOW)).toEqual([]);
+    expect(applySmartFilter([], NO_HISTORY, 0, NOW)).toEqual([]);
   });
 
-  test("returns all products when no preferences set and 0 trips (40% cutoff)", () => {
+  test("returns all products when 0 trips (40% cutoff) and few products", () => {
     const products = [
       makeProduct({ product_id: "p1", name: "A", popularity_score: 0.9 }),
       makeProduct({ product_id: "p2", name: "B", popularity_score: 0.7 }),
       makeProduct({ product_id: "p3", name: "C", popularity_score: 0.5 }),
     ];
     const scored = buildScored(products);
-    const result = applySmartFilter(scored, NO_PREFS, NO_HISTORY, 0, NOW);
+    const result = applySmartFilter(scored, NO_HISTORY, 0, NOW);
     expect(result).toHaveLength(3);
-  });
-
-  test("filters out non-gluten-free when exclude_gluten set", () => {
-    const products = [
-      makeProduct({ product_id: "p1", name: "GF Bread", is_gluten_free: true, popularity_score: 0.8 }),
-      makeProduct({ product_id: "p2", name: "Wheat Bread", is_gluten_free: false, popularity_score: 0.7 }),
-    ];
-    const scored = buildScored(products);
-    const prefs = { ...NO_PREFS, exclude_gluten: true };
-    const result = applySmartFilter(scored, prefs, NO_HISTORY, 0, NOW);
-
-    expect(result).toHaveLength(1);
-    expect(result[0].product.product_id).toBe("p1");
-  });
-
-  test("filters out non-vegan when prefer_vegan set", () => {
-    const products = [
-      makeProduct({ product_id: "p1", name: "Tofu", is_vegan: true, popularity_score: 0.8 }),
-      makeProduct({ product_id: "p2", name: "Salami", is_vegan: false, popularity_score: 0.7 }),
-    ];
-    const scored = buildScored(products);
-    const prefs = { ...NO_PREFS, prefer_vegan: true };
-    const result = applySmartFilter(scored, prefs, NO_HISTORY, 0, NOW);
-
-    expect(result).toHaveLength(1);
-    expect(result[0].product.product_id).toBe("p1");
   });
 
   test("never filters out products purchased within last 12 months", () => {
@@ -138,7 +112,7 @@ describe("applySmartFilter", () => {
       { product_id: "p2", months_ago: 3 },
     ]);
 
-    const result = applySmartFilter(scored, NO_PREFS, history, 16, NOW);
+    const result = applySmartFilter(scored, history, 16, NOW);
 
     const ids = result.map((r) => r.product.product_id);
     expect(ids).toContain("p2");
@@ -157,28 +131,9 @@ describe("applySmartFilter", () => {
       { product_id: "p0", months_ago: 14 },
     ]);
 
-    const result = applySmartFilter(scored, NO_PREFS, history, 16, NOW);
+    const result = applySmartFilter(scored, history, 16, NOW);
     const ids = result.map((r) => r.product.product_id);
     expect(ids).not.toContain("p0");
-  });
-
-  test("purchased products bypass preference filter", () => {
-    const products = [
-      makeProduct({ product_id: "p1", name: "Non-vegan but bought", is_vegan: false, popularity_score: 0.8 }),
-      makeProduct({ product_id: "p2", name: "Vegan", is_vegan: true, popularity_score: 0.7 }),
-      makeProduct({ product_id: "p3", name: "Non-vegan", is_vegan: false, popularity_score: 0.6 }),
-    ];
-    const scored = buildScored(products);
-    const prefs = { ...NO_PREFS, prefer_vegan: true };
-    const history = historyWith([
-      { product_id: "p1", months_ago: 2 },
-    ]);
-
-    const result = applySmartFilter(scored, prefs, history, 0, NOW);
-    const ids = result.map((r) => r.product.product_id);
-    expect(ids).toContain("p1");
-    expect(ids).toContain("p2");
-    expect(ids).not.toContain("p3");
   });
 
   test("increases cutoff with more trips", () => {
@@ -191,8 +146,8 @@ describe("applySmartFilter", () => {
     );
     const scored = buildScored(products);
 
-    const resultNoTrips = applySmartFilter(scored, NO_PREFS, NO_HISTORY, 0, NOW);
-    const resultManyTrips = applySmartFilter(scored, NO_PREFS, NO_HISTORY, 16, NOW);
+    const resultNoTrips = applySmartFilter(scored, NO_HISTORY, 0, NOW);
+    const resultManyTrips = applySmartFilter(scored, NO_HISTORY, 16, NOW);
 
     expect(resultManyTrips.length).toBeLessThan(resultNoTrips.length);
   });
@@ -204,7 +159,7 @@ describe("applySmartFilter", () => {
       makeProduct({ product_id: "p3", name: "C", popularity_score: 0.5 }),
     ];
     const scored = buildScored(products);
-    const result = applySmartFilter(scored, NO_PREFS, NO_HISTORY, 0, NOW);
+    const result = applySmartFilter(scored, NO_HISTORY, 0, NOW);
 
     for (let i = 1; i < result.length; i++) {
       expect(result[i - 1].totalScore).toBeGreaterThanOrEqual(result[i].totalScore);
@@ -218,36 +173,41 @@ describe("applySmartFilter", () => {
       makeProduct({ product_id: "p3", name: "C", popularity_score: 0.03 }),
     ];
     const scored = buildScored(products);
-    const result = applySmartFilter(scored, NO_PREFS, NO_HISTORY, 16, NOW);
+    const result = applySmartFilter(scored, NO_HISTORY, 16, NOW);
 
     expect(result).toHaveLength(3);
   });
 
-  test("combines multiple preference filters", () => {
+  test("does not filter by user preferences (only popularity + purchase protection)", () => {
     const products = [
-      makeProduct({ product_id: "p1", name: "Bio Vegan GF", is_bio: true, is_vegan: true, is_gluten_free: true, popularity_score: 0.8 }),
-      makeProduct({ product_id: "p2", name: "Vegan GF", is_bio: false, is_vegan: true, is_gluten_free: true, popularity_score: 0.7 }),
-      makeProduct({ product_id: "p3", name: "Normal", is_bio: false, is_vegan: false, is_gluten_free: false, popularity_score: 0.6 }),
+      makeProduct({ product_id: "p1", name: "Non-bio", is_bio: false, popularity_score: 0.8 }),
+      makeProduct({ product_id: "p2", name: "Non-vegan", is_vegan: false, popularity_score: 0.7 }),
+      makeProduct({ product_id: "p3", name: "Gluten", is_gluten_free: false, popularity_score: 0.6 }),
     ];
     const scored = buildScored(products);
-    const prefs = { ...NO_PREFS, prefer_bio: true, prefer_vegan: true, exclude_gluten: true };
-    const result = applySmartFilter(scored, prefs, NO_HISTORY, 0, NOW);
+    const result = applySmartFilter(scored, NO_HISTORY, 0, NOW);
 
-    expect(result).toHaveLength(1);
-    expect(result[0].product.product_id).toBe("p1");
+    expect(result).toHaveLength(3);
   });
 
-  test("animal welfare filter works correctly", () => {
-    const products = [
-      makeProduct({ product_id: "p1", name: "Free-range Eggs", animal_welfare_level: 2, popularity_score: 0.8 }),
-      makeProduct({ product_id: "p2", name: "Cheap Eggs", animal_welfare_level: 1, popularity_score: 0.7 }),
-      makeProduct({ product_id: "p3", name: "No-label Eggs", animal_welfare_level: null, popularity_score: 0.6 }),
-    ];
+  test("at max cutoff (80%) keeps only top 20% plus purchased products", () => {
+    const products = Array.from({ length: 10 }, (_, i) =>
+      makeProduct({
+        product_id: `p${i}`,
+        name: `Prod ${i}`,
+        popularity_score: (i + 1) / 10,
+      }),
+    );
     const scored = buildScored(products);
-    const prefs = { ...NO_PREFS, prefer_animal_welfare: true };
-    const result = applySmartFilter(scored, prefs, NO_HISTORY, 0, NOW);
+    const history = historyWith([
+      { product_id: "p0", months_ago: 2 },
+    ]);
 
-    expect(result).toHaveLength(1);
-    expect(result[0].product.product_id).toBe("p1");
+    const result = applySmartFilter(scored, history, 100, NOW);
+    const ids = result.map((r) => r.product.product_id);
+
+    expect(ids).toContain("p0");
+    expect(ids).toContain("p9");
+    expect(result.length).toBeLessThanOrEqual(5);
   });
 });

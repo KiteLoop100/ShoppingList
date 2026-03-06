@@ -27,7 +27,7 @@ export function CategoryBar({ categories, selected, onSelect }: CategoryBarProps
   return (
     <div
       ref={scrollRef}
-      className="flex shrink-0 gap-2 overflow-x-auto border-b border-aldi-muted-light bg-white px-4 py-2.5 scrollbar-hide"
+      className="flex shrink-0 gap-2 overflow-x-auto bg-white px-4 py-2.5 scrollbar-hide"
     >
       {categories.map((cat) => {
         const isActive = cat.code === selected;
