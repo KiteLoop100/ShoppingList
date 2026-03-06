@@ -48,12 +48,15 @@ function makeClassification(
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockedRemoveBg.mockImplementation(async (buf) => buf);
+  mockedRemoveBg.mockImplementation(async (buf) => ({
+    buffer: buf,
+    hasTransparency: false,
+  }));
   mockedGetBBox.mockResolvedValue(null);
 });
 
 describe("createThumbnail", () => {
-  test("produces 800x800 full-size and 150x150 thumbnail JPEGs", async () => {
+  test("produces 1200x1200 full-size WebP and 150x150 thumbnail JPEG", async () => {
     const img = await makeTestImage();
     const classification = makeClassification([
       { photo_type: "product_front", quality_score: 0.9 },
@@ -62,14 +65,16 @@ describe("createThumbnail", () => {
     const result = await createThumbnail([img], classification);
 
     const fullMeta = await sharp(result.fullSize).metadata();
-    expect(fullMeta.width).toBe(800);
-    expect(fullMeta.height).toBe(800);
-    expect(fullMeta.format).toBe("jpeg");
+    expect(fullMeta.width).toBe(1200);
+    expect(fullMeta.height).toBe(1200);
+    expect(fullMeta.format).toBe("webp");
+    expect(result.fullSizeFormat).toBe("image/webp");
 
     const thumbMeta = await sharp(result.thumbnail).metadata();
     expect(thumbMeta.width).toBe(150);
     expect(thumbMeta.height).toBe(150);
     expect(thumbMeta.format).toBe("jpeg");
+    expect(result.thumbnailFormat).toBe("image/jpeg");
   });
 
   test("selects front photo over other types", async () => {
@@ -114,6 +119,7 @@ describe("createThumbnail", () => {
 
     await createThumbnail([priceTag, sidePhoto], classification);
 
+    expect(mockedRemoveBg).toHaveBeenCalled();
     const passedBuf = mockedRemoveBg.mock.calls[0][0];
     const meta = await sharp(passedBuf).metadata();
     expect(meta.width).toBe(110);
@@ -135,15 +141,16 @@ describe("createThumbnail", () => {
     expect(meta.height).toBe(100);
   });
 
-  test("pre-crops to bounding box when available", async () => {
+  test("pre-crops with 8% margin so tall products like bottles are not clipped", async () => {
+    // Bounding box covering the center of a 200x400 image
     mockedGetBBox.mockResolvedValueOnce({
-      crop_x: 10,
-      crop_y: 10,
-      crop_width: 60,
-      crop_height: 80,
+      crop_x: 20,
+      crop_y: 30,
+      crop_width: 160,
+      crop_height: 340,
     });
 
-    const img = await makeTestImage(100, 100);
+    const img = await makeTestImage(200, 400);
     const classification = makeClassification([
       { photo_type: "product_front", quality_score: 0.9 },
     ]);
@@ -153,8 +160,35 @@ describe("createThumbnail", () => {
     expect(mockedGetBBox).toHaveBeenCalled();
     const passedBuf = mockedRemoveBg.mock.calls[0][0];
     const meta = await sharp(passedBuf).metadata();
-    expect(meta.width).toBe(60);
-    expect(meta.height).toBe(80);
+
+    // padX = round(160 * 0.08) = 13; left = max(0, 20 - 13) = 7; cropWidth = min(200 - 7, 160 + 26) = min(193, 186) = 186
+    // padY = round(340 * 0.08) = 27; top  = max(0, 30 - 27) = 3; cropHeight = min(400 - 3, 340 + 54) = min(397, 394) = 394
+    expect(meta.width).toBe(186);
+    expect(meta.height).toBe(394);
+  });
+
+  test("pre-crop margin is clamped at image boundaries", async () => {
+    // Box touching the left/top edge — padding should not go negative
+    mockedGetBBox.mockResolvedValueOnce({
+      crop_x: 0,
+      crop_y: 0,
+      crop_width: 80,
+      crop_height: 90,
+    });
+
+    const img = await makeTestImage(100, 100);
+    const classification = makeClassification([
+      { photo_type: "product_front", quality_score: 0.9 },
+    ]);
+
+    await createThumbnail([img], classification);
+
+    const passedBuf = mockedRemoveBg.mock.calls[0][0];
+    const meta = await sharp(passedBuf).metadata();
+    // padX = round(80 * 0.08) = 6; left = max(0, 0 - 6) = 0; cropWidth = min(100, 80 + 12) = 92
+    // padY = round(90 * 0.08) = 7; top  = max(0, 0 - 7) = 0; cropHeight = min(100, 90 + 14) = 100
+    expect(meta.width).toBe(92);
+    expect(meta.height).toBe(100);
   });
 
   test("falls back to full image when bounding box detection fails", async () => {
@@ -171,5 +205,31 @@ describe("createThumbnail", () => {
     const meta = await sharp(passedBuf).metadata();
     expect(meta.width).toBe(100);
     expect(meta.height).toBe(100);
+  });
+
+  test("processes two candidates in parallel when best score is below threshold", async () => {
+    const img1 = await makeTestImage(100, 100);
+    const img2 = await makeTestImage(120, 120);
+    const classification = makeClassification([
+      { photo_type: "product_front", quality_score: 0.5 },
+      { photo_type: "product_side", quality_score: 0.4 },
+    ]);
+
+    await createThumbnail([img1, img2], classification);
+
+    expect(mockedRemoveBg).toHaveBeenCalledTimes(2);
+  });
+
+  test("processes single candidate when best score is above threshold", async () => {
+    const img1 = await makeTestImage(100, 100);
+    const img2 = await makeTestImage(120, 120);
+    const classification = makeClassification([
+      { photo_type: "product_front", quality_score: 0.9 },
+      { photo_type: "product_side", quality_score: 0.4 },
+    ]);
+
+    await createThumbnail([img1, img2], classification);
+
+    expect(mockedRemoveBg).toHaveBeenCalledTimes(1);
   });
 });

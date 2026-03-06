@@ -107,19 +107,16 @@ export async function getProductBoundingBox(
         },
       ],
     });
-    const crop_x = Math.max(0, Math.floor(Number(parsed.crop_x) ?? 0));
-    const crop_y = Math.max(0, Math.floor(Number(parsed.crop_y) ?? 0));
-    const crop_width = Math.max(1, Math.floor(Number(parsed.crop_width) ?? 0));
-    const crop_height = Math.max(
-      1,
-      Math.floor(Number(parsed.crop_height) ?? 0),
-    );
-    if (
-      crop_x + crop_width > imageWidth ||
-      crop_y + crop_height > imageHeight
-    ) {
-      return null;
-    }
+    const raw_x = Math.max(0, Math.floor(Number(parsed.crop_x) ?? 0));
+    const raw_y = Math.max(0, Math.floor(Number(parsed.crop_y) ?? 0));
+    const raw_w = Math.max(1, Math.floor(Number(parsed.crop_width) ?? 0));
+    const raw_h = Math.max(1, Math.floor(Number(parsed.crop_height) ?? 0));
+    // Clamp to image bounds instead of rejecting — model coords may slightly overshoot
+    const crop_x = Math.min(raw_x, imageWidth - 1);
+    const crop_y = Math.min(raw_y, imageHeight - 1);
+    const crop_width = Math.min(raw_w, imageWidth - crop_x);
+    const crop_height = Math.min(raw_h, imageHeight - crop_y);
+    if (crop_width < 1 || crop_height < 1) return null;
     return { crop_x, crop_y, crop_width, crop_height };
   } catch {
     return null;

@@ -128,7 +128,9 @@ is_bio: true wenn EU-Bio-Logo (grünes Blatt), deutsches Bio-Siegel (Sechseck), 
   "is_bio": true or false
 }`;
 
-export const CROP_PROMPT = `Identify the main product in this image. Return the bounding box of the product as JSON: { "crop_x", "crop_y", "crop_width", "crop_height" } in pixels. The bounding box should tightly contain only the product, excluding background, shelves, hands, and other objects. Also return the image dimensions as { "image_width", "image_height" }.
+export const CROP_PROMPT = `Identify the main product in this image. Return the bounding box that contains the COMPLETE product — include the entire object from top to bottom and side to side (e.g. for a bottle: cap, neck, body, and base; for a box: all four corners). Exclude background, shelves, hands, and unrelated objects, but do NOT cut off any part of the product itself.
+
+Return JSON with: { "crop_x", "crop_y", "crop_width", "crop_height" } in pixels, plus the image dimensions as { "image_width", "image_height" }.
 
 Reply with ONLY a single JSON object, no markdown, no backticks. Example: {"crop_x":100,"crop_y":50,"crop_width":300,"crop_height":400,"image_width":800,"image_height":600}`;
 
