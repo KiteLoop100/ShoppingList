@@ -62,7 +62,7 @@ export function ProductTile({ product }: ProductTileProps) {
     <>
       <div className="group relative aspect-square overflow-hidden rounded-xl bg-gray-100 shadow-sm transition-shadow hover:shadow-md">
         <button
-          className="h-full w-full cursor-pointer"
+          className="relative h-full w-full cursor-pointer"
           onClick={() => setShowDetail(true)}
           aria-label={product.name}
         >
@@ -85,6 +85,13 @@ export function ProductTile({ product }: ProductTileProps) {
             </div>
           )}
         </button>
+
+        {/* Price badge */}
+        {product.price != null && (
+          <span className="absolute bottom-2 left-2 z-10 rounded-lg bg-white/90 px-2 py-0.5 text-xs font-bold text-aldi-text shadow-sm backdrop-blur-sm">
+            {Number(product.price).toFixed(2).replace(".", ",")} €
+          </span>
+        )}
 
         {/* Add button */}
         <button
