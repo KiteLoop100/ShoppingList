@@ -187,6 +187,44 @@ describe("archiveListAsTrip", () => {
     expect(result).toBeNull();
   });
 
+  test("copies comment to trip items", async () => {
+    const itemsWithComments = [
+      { ...fakeItems[0], comment: "the blue one" },
+      { ...fakeItems[1], comment: null },
+    ];
+
+    let fromCallCount = 0;
+    let capturedTripItems: Record<string, unknown>[] = [];
+
+    mockSupabase.from.mockImplementation((table: string) => {
+      fromCallCount++;
+      const c = chainable();
+
+      if (table === "shopping_lists" && fromCallCount === 1) {
+        c.maybeSingle.mockResolvedValue({ data: fakeList });
+      } else if (table === "list_items") {
+        c.eq.mockResolvedValue({ data: itemsWithComments });
+      } else if (table === "shopping_trips") {
+        c.insert.mockResolvedValue({ error: null });
+      } else if (table === "trip_items") {
+        c.insert.mockImplementation((rows: Record<string, unknown>[]) => {
+          capturedTripItems = rows;
+          return { error: null };
+        });
+      } else if (table === "shopping_lists") {
+        c.eq.mockResolvedValue({ error: null });
+      }
+
+      return c;
+    });
+
+    await archiveListAsTrip("list-1");
+
+    expect(capturedTripItems).toHaveLength(2);
+    expect(capturedTripItems[0].comment).toBe("the blue one");
+    expect(capturedTripItems[1].comment).toBeNull();
+  });
+
   test("handles Supabase trip insert error gracefully", async () => {
     let fromCallCount = 0;
     mockSupabase.from.mockImplementation((table: string) => {

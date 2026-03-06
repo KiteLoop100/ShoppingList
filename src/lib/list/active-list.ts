@@ -99,6 +99,7 @@ export async function getListItems(listId: string): Promise<LocalListItem[]> {
     deferred_until: row.deferred_until ?? null,
     buy_elsewhere_retailer: row.buy_elsewhere_retailer ?? null,
     competitor_product_id: row.competitor_product_id ?? null,
+    comment: row.comment ?? null,
   }));
 }
 

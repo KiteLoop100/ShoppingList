@@ -129,6 +129,7 @@ export async function updateListItem(
     deferred_until?: string | null;
     buy_elsewhere_retailer?: string | null;
     competitor_product_id?: string | null;
+    comment?: string | null;
   }
 ): Promise<void> {
   const supabase = createClientIfConfigured();
@@ -145,6 +146,7 @@ export async function updateListItem(
   if (updates.deferred_until !== undefined) updatePayload.deferred_until = updates.deferred_until;
   if (updates.buy_elsewhere_retailer !== undefined) updatePayload.buy_elsewhere_retailer = updates.buy_elsewhere_retailer;
   if (updates.competitor_product_id !== undefined) updatePayload.competitor_product_id = updates.competitor_product_id;
+  if (updates.comment !== undefined) updatePayload.comment = updates.comment;
 
   if (Object.keys(updatePayload).length > 0) {
     const { error } = await supabase.from("list_items").update(updatePayload).eq("item_id", itemId);

@@ -18,6 +18,7 @@ import { updateListItem } from "@/lib/list";
 import { useListModals } from "./hooks/use-list-modals";
 import { useCompetitorActions } from "./hooks/use-competitor-actions";
 import { useListDerived } from "./hooks/use-list-derived";
+import { ShoppingTileGrid } from "./shopping-tile-grid";
 
 import type { UseListDataResult } from "./use-list-data";
 import type { SortMode } from "@/types";
@@ -135,10 +136,18 @@ export const ShoppingListContent = memo(function ShoppingListContent({
           </div>
         ) : (
           <>
-            <ListSection items={dataSortMode === "shopping-order" ? unchecked : uncheckedSorted}
-              grouped={dataSortMode === "shopping-order"} onCheck={setItemChecked} onQuantityChange={setItemQuantity}
-              onDelete={handleDelete} deleteLabel={t("delete")} onOpenDetail={actions.handleOpenDetail}
-              onDefer={handleDefer} onBuyElsewhere={actions.handleBuyElsewhere} onRenameItem={actions.handleRenameItem} />
+            {dataSortMode === "shopping-order-tiles" ? (
+              <ShoppingTileGrid
+                items={unchecked}
+                products={products}
+                onCheck={setItemChecked}
+              />
+            ) : (
+              <ListSection items={dataSortMode === "shopping-order" ? unchecked : uncheckedSorted}
+                grouped={dataSortMode === "shopping-order"} onCheck={setItemChecked} onQuantityChange={setItemQuantity}
+                onDelete={handleDelete} deleteLabel={t("delete")} onOpenDetail={actions.handleOpenDetail}
+                onDefer={handleDefer} onBuyElsewhere={actions.handleBuyElsewhere} onRenameItem={actions.handleRenameItem} />
+            )}
             {allRegularChecked && (
               <div className="flex items-center gap-2 rounded-lg bg-green-50 px-3 py-2.5 text-sm text-green-700">
                 <span className="flex h-6 w-6 items-center justify-center rounded-full bg-green-100 text-xs font-bold">✓</span>
@@ -167,7 +176,8 @@ export const ShoppingListContent = memo(function ShoppingListContent({
       )}
 
       <ProductDetailModal product={ms.detailProduct} onClose={modals.closeDetail}
-        onEdit={(p) => modals.detailToEdit(p)} onReorderChanged={() => { refetch({ forceReorder: true }); }} />
+        onEdit={(p) => modals.detailToEdit(p)} onReorderChanged={() => { refetch({ forceReorder: true }); }}
+        itemId={ms.detailListItemId} comment={ms.detailListItemComment} />
       {ms.genericPickerItem && (
         <GenericProductPicker genericName={ms.genericPickerItem.display_name || ms.genericPickerItem.custom_name || ""}
           onSelect={actions.handleGenericProductSelected} onClose={modals.closeGenericPicker}

@@ -23,6 +23,8 @@ export interface CaptureModalConfig {
 
 export interface ModalState {
   detailProduct: Product | null;
+  detailListItemId: string | null;
+  detailListItemComment: string | null;
   editProduct: Product | null;
   genericPickerItem: ListItemWithMeta | null;
   elsewherePickerItem: ListItemWithMeta | null;
@@ -39,7 +41,7 @@ export interface ModalState {
 }
 
 type ModalAction =
-  | { type: "OPEN_DETAIL"; product: Product }
+  | { type: "OPEN_DETAIL"; product: Product; itemId: string | null; itemComment: string | null }
   | { type: "CLOSE_DETAIL" }
   | { type: "OPEN_EDIT"; product: Product }
   | { type: "CLOSE_EDIT" }
@@ -62,6 +64,8 @@ type ModalAction =
 
 export const initialState: ModalState = {
   detailProduct: null,
+  detailListItemId: null,
+  detailListItemComment: null,
   editProduct: null,
   genericPickerItem: null,
   elsewherePickerItem: null,
@@ -80,9 +84,14 @@ export const initialState: ModalState = {
 export function modalReducer(state: ModalState, action: ModalAction): ModalState {
   switch (action.type) {
     case "OPEN_DETAIL":
-      return { ...state, detailProduct: action.product };
+      return {
+        ...state,
+        detailProduct: action.product,
+        detailListItemId: action.itemId,
+        detailListItemComment: action.itemComment,
+      };
     case "CLOSE_DETAIL":
-      return { ...state, detailProduct: null };
+      return { ...state, detailProduct: null, detailListItemId: null, detailListItemComment: null };
     case "OPEN_EDIT":
       return { ...state, editProduct: action.product };
     case "CLOSE_EDIT":
@@ -149,6 +158,8 @@ export function modalReducer(state: ModalState, action: ModalAction): ModalState
       return {
         ...state,
         detailProduct: null,
+        detailListItemId: null,
+        detailListItemComment: null,
         captureOpen: true,
         captureConfig: {
           mode: "edit",
@@ -170,7 +181,11 @@ export function modalReducer(state: ModalState, action: ModalAction): ModalState
 export function useListModals() {
   const [state, dispatch] = useReducer(modalReducer, initialState);
 
-  const openDetail = useCallback((product: Product) => dispatch({ type: "OPEN_DETAIL", product }), []);
+  const openDetail = useCallback(
+    (product: Product, itemId?: string | null, itemComment?: string | null) =>
+      dispatch({ type: "OPEN_DETAIL", product, itemId: itemId ?? null, itemComment: itemComment ?? null }),
+    []
+  );
   const closeDetail = useCallback(() => dispatch({ type: "CLOSE_DETAIL" }), []);
   const openEdit = useCallback((product: Product) => dispatch({ type: "OPEN_EDIT", product }), []);
   const closeEdit = useCallback(() => dispatch({ type: "CLOSE_EDIT" }), []);

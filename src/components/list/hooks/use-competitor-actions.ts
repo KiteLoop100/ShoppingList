@@ -36,7 +36,7 @@ export interface UseCompetitorActionsArgs {
   openCompetitorDetail: (product: CompetitorProduct, retailer: string | null) => void;
   openGenericPicker: (item: ListItemWithMeta) => void;
   closeGenericPicker: () => void;
-  openDetail: (product: Product) => void;
+  openDetail: (product: Product, itemId?: string | null, itemComment?: string | null) => void;
   openCapture?: (config: CaptureModalConfig) => void;
 }
 
@@ -144,7 +144,7 @@ export function useCompetitorActions(args: UseCompetitorActionsArgs) {
       if (fromDb) p = fromDb as Product;
     }
     if (p && item.thumbnail_url && !p.thumbnail_url) p = { ...p, thumbnail_url: item.thumbnail_url };
-    if (p) openDetail(p);
+    if (p) openDetail(p, item.item_id, item.comment ?? null);
   }, [competitorProducts, openCompetitorDetail, openCompetitorForm, openCapture, openGenericPicker, openDetail]);
 
   const handleRenameItem = useCallback(async (itemId: string, newName: string) => {

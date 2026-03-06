@@ -4,7 +4,7 @@
  */
 
 export type Locale = "de" | "en";
-export type SortMode = "my-order" | "shopping-order";
+export type SortMode = "my-order" | "shopping-order" | "shopping-order-tiles";
 
 export type AssortmentType = "daily_range" | "special" | "special_food" | "special_nonfood";
 export type ProductSource = "admin" | "crowdsourcing";
@@ -125,6 +125,7 @@ export interface ListItem {
   deferred_until?: string | null;
   buy_elsewhere_retailer?: string | null;
   competitor_product_id?: string | null;
+  comment?: string | null;
 }
 
 export interface ShoppingTrip {

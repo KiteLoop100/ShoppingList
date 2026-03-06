@@ -44,6 +44,8 @@ function makeListItem(overrides: Partial<ListItemWithMeta> = {}): ListItemWithMe
 describe("modalReducer", () => {
   test("initial state has all modals closed", () => {
     expect(initialState.detailProduct).toBeNull();
+    expect(initialState.detailListItemId).toBeNull();
+    expect(initialState.detailListItemComment).toBeNull();
     expect(initialState.editProduct).toBeNull();
     expect(initialState.genericPickerItem).toBeNull();
     expect(initialState.competitorFormOpen).toBe(false);
@@ -52,18 +54,32 @@ describe("modalReducer", () => {
 
   test("OPEN_DETAIL / CLOSE_DETAIL", () => {
     const product = makeProduct();
-    let s = modalReducer(initialState, { type: "OPEN_DETAIL", product });
+    let s = modalReducer(initialState, { type: "OPEN_DETAIL", product, itemId: "i1", itemComment: "test note" });
     expect(s.detailProduct).toEqual(product);
+    expect(s.detailListItemId).toBe("i1");
+    expect(s.detailListItemComment).toBe("test note");
 
     s = modalReducer(s, { type: "CLOSE_DETAIL" });
     expect(s.detailProduct).toBeNull();
+    expect(s.detailListItemId).toBeNull();
+    expect(s.detailListItemComment).toBeNull();
+  });
+
+  test("OPEN_DETAIL with null comment", () => {
+    const product = makeProduct();
+    const s = modalReducer(initialState, { type: "OPEN_DETAIL", product, itemId: "i2", itemComment: null });
+    expect(s.detailProduct).toEqual(product);
+    expect(s.detailListItemId).toBe("i2");
+    expect(s.detailListItemComment).toBeNull();
   });
 
   test("DETAIL_TO_EDIT transitions from detail to capture modal", () => {
     const product = makeProduct();
-    let s = modalReducer(initialState, { type: "OPEN_DETAIL", product });
+    let s = modalReducer(initialState, { type: "OPEN_DETAIL", product, itemId: "i1", itemComment: "note" });
     s = modalReducer(s, { type: "DETAIL_TO_EDIT", product });
     expect(s.detailProduct).toBeNull();
+    expect(s.detailListItemId).toBeNull();
+    expect(s.detailListItemComment).toBeNull();
     expect(s.captureOpen).toBe(true);
     expect(s.captureConfig?.mode).toBe("edit");
     expect(s.captureConfig?.editAldiProduct).toEqual(product);

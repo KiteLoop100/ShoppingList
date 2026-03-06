@@ -16,18 +16,21 @@ import type { Product, DemandGroup } from "@/types";
 import { formatNutritionInfo } from "@/lib/products/nutrition-utils";
 import { BaseModal } from "@/components/ui/base-modal";
 import { ProductFeedbackForm } from "@/components/feedback/product-feedback-form";
+import { ItemCommentSection } from "./item-comment-section";
 
 export interface ProductDetailModalProps {
   product: Product | null;
   onClose: () => void;
   onEdit?: (product: Product) => void;
   onReorderChanged?: () => void;
+  itemId?: string | null;
+  comment?: string | null;
 }
 
 const UNIT_OPTIONS: ReorderUnit[] = ["days", "weeks", "months"];
 const VALUE_OPTIONS = Array.from({ length: 99 }, (_, i) => i + 1);
 
-export function ProductDetailModal({ product, onClose, onEdit, onReorderChanged }: ProductDetailModalProps) {
+export function ProductDetailModal({ product, onClose, onEdit, onReorderChanged, itemId, comment: initialComment }: ProductDetailModalProps) {
   const t = useTranslations("productDetail");
   const tReorder = useTranslations("autoReorder");
   const locale = useLocale();
@@ -285,6 +288,8 @@ export function ProductDetailModal({ product, onClose, onEdit, onReorderChanged 
                 </div>
               )}
             </div>
+
+            <ItemCommentSection itemId={itemId ?? null} initialComment={initialComment ?? null} />
 
             <ProductFeedbackForm product={product} />
 

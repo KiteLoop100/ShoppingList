@@ -80,6 +80,7 @@ export async function archiveListAsTrip(
     check_position: idx + 1,
     checked_at: item.checked_at ?? completedAt,
     was_removed: false,
+    comment: item.comment ?? null,
   }));
 
   if (tripItemRows.length > 0) {

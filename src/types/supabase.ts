@@ -1,4 +1,4 @@
-﻿export type Json =
+export type Json =
   | string
   | number
   | boolean
@@ -573,6 +573,7 @@ export type Database = {
           added_at: string
           buy_elsewhere_retailer: string | null
           checked_at: string | null
+          comment: string | null
           competitor_product_id: string | null
           custom_name: string | null
           deferred_until: string | null
@@ -590,6 +591,7 @@ export type Database = {
           added_at?: string
           buy_elsewhere_retailer?: string | null
           checked_at?: string | null
+          comment?: string | null
           competitor_product_id?: string | null
           custom_name?: string | null
           deferred_until?: string | null
@@ -607,6 +609,7 @@ export type Database = {
           added_at?: string
           buy_elsewhere_retailer?: string | null
           checked_at?: string | null
+          comment?: string | null
           competitor_product_id?: string | null
           custom_name?: string | null
           deferred_until?: string | null
@@ -1391,6 +1394,7 @@ export type Database = {
         Row: {
           check_position: number
           checked_at: string
+          comment: string | null
           custom_name: string | null
           demand_group_code: string | null
           display_name: string
@@ -1404,6 +1408,7 @@ export type Database = {
         Insert: {
           check_position: number
           checked_at: string
+          comment?: string | null
           custom_name?: string | null
           demand_group_code?: string | null
           display_name: string
@@ -1417,6 +1422,7 @@ export type Database = {
         Update: {
           check_position?: number
           checked_at?: string
+          comment?: string | null
           custom_name?: string | null
           demand_group_code?: string | null
           display_name?: string
