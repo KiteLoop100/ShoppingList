@@ -11,11 +11,18 @@ import { ProductCaptureModal } from "@/components/product-capture/product-captur
 
 const FLASH_MS = 600;
 
-interface ProductTileProps {
-  product: Product;
+export interface ShoppingListTileMode {
+  checked: boolean;
+  onCheck: () => void;
+  quantity?: number;
 }
 
-export function ProductTile({ product }: ProductTileProps) {
+interface ProductTileProps {
+  product: Product;
+  shoppingListMode?: ShoppingListTileMode;
+}
+
+export function ProductTile({ product, shoppingListMode }: ProductTileProps) {
   const t = useTranslations("catalog");
   const [showDetail, setShowDetail] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
@@ -56,11 +63,23 @@ export function ProductTile({ product }: ProductTileProps) {
     [adding, product],
   );
 
+  const handleCheckClick = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      shoppingListMode?.onCheck();
+    },
+    [shoppingListMode],
+  );
+
   const hasImage = !!product.thumbnail_url;
+  const isShoppingList = !!shoppingListMode;
+  const isChecked = shoppingListMode?.checked ?? false;
 
   return (
     <>
-      <div className="group relative aspect-square overflow-hidden rounded-xl bg-gray-100 shadow-sm transition-shadow hover:shadow-md">
+      <div className={`group relative aspect-square overflow-hidden rounded-xl bg-gray-100 shadow-sm transition-all hover:shadow-md ${
+        isChecked ? "opacity-30 pointer-events-none" : ""
+      }`}>
         <button
           className="relative h-full w-full cursor-pointer"
           onClick={() => setShowDetail(true)}
@@ -93,32 +112,50 @@ export function ProductTile({ product }: ProductTileProps) {
           </span>
         )}
 
-        {/* Add button */}
-        <button
-          onClick={handleAdd}
-          disabled={adding}
-          className={`absolute bottom-2 right-2 z-10 flex h-11 w-11 items-center justify-center rounded-full shadow-lg transition-all ${
-            flash
-              ? "scale-110 bg-green-500 text-white"
-              : "bg-[#F37D1E] text-white hover:bg-[#e06d10] active:scale-95"
-          }`}
-          aria-label={`${product.name} hinzufügen`}
-        >
-          {flash ? (
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
-            </svg>
-          ) : (
+        {isShoppingList ? (
+          /* Check-off button for shopping list tile mode */
+          <button
+            onClick={handleCheckClick}
+            className="absolute bottom-2 right-2 z-10 flex h-11 w-11 items-center justify-center rounded-full border-2 border-white bg-aldi-blue text-white shadow-lg transition-all active:scale-95"
+            aria-label={`${product.name} abhaken`}
+          >
             <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+              <circle cx="12" cy="12" r="9" />
             </svg>
-          )}
-        </button>
+          </button>
+        ) : (
+          /* Add button for catalog mode */
+          <button
+            onClick={handleAdd}
+            disabled={adding}
+            className={`absolute bottom-2 right-2 z-10 flex h-11 w-11 items-center justify-center rounded-full shadow-lg transition-all ${
+              flash
+                ? "scale-110 bg-green-500 text-white"
+                : "bg-[#F37D1E] text-white hover:bg-[#e06d10] active:scale-95"
+            }`}
+            aria-label={`${product.name} hinzufügen`}
+          >
+            {flash ? (
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+              </svg>
+            ) : (
+              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+              </svg>
+            )}
+          </button>
+        )}
 
         {/* Quantity badge */}
-        {quantityOnList > 0 && !flash && (
+        {!isShoppingList && quantityOnList > 0 && !flash && (
           <span className="absolute top-2 right-2 z-10 flex h-6 min-w-6 items-center justify-center rounded-full bg-aldi-blue px-1.5 text-xs font-bold text-white shadow">
             {quantityOnList}
+          </span>
+        )}
+        {isShoppingList && (shoppingListMode.quantity ?? 0) > 1 && (
+          <span className="absolute top-2 right-2 z-10 flex h-6 min-w-6 items-center justify-center rounded-full bg-aldi-blue px-1.5 text-xs font-bold text-white shadow">
+            {shoppingListMode.quantity}
           </span>
         )}
       </div>
