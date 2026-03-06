@@ -25,6 +25,7 @@ describe("removeBackground", () => {
     expect(result.imageBuffer).toBeInstanceOf(Buffer);
     expect(result.imageBuffer.length).toBeGreaterThan(0);
     expect(result.hasTransparency).toBe(false);
+    expect(result.providerUsed).toBe("crop-fallback");
 
     const meta = await sharp(result.imageBuffer).metadata();
     expect(meta.width).toBe(200);
@@ -48,6 +49,7 @@ describe("removeBackground", () => {
     const result = await removeBackground(input);
 
     expect(result.hasTransparency).toBe(true);
+    expect(result.providerUsed).toBe("self-hosted");
     expect(mockFetch).toHaveBeenCalledWith(
       "http://localhost:5000/remove",
       expect.objectContaining({ method: "POST" }),

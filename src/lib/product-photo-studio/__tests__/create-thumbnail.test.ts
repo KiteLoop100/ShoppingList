@@ -51,6 +51,7 @@ beforeEach(() => {
   mockedRemoveBg.mockImplementation(async (buf) => ({
     imageBuffer: buf,
     hasTransparency: false,
+    providerUsed: "crop-fallback",
   }));
   mockedGetBBox.mockResolvedValue(null);
 });

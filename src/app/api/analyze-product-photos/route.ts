@@ -67,6 +67,8 @@ export async function POST(request: Request) {
         ? result.thumbnailSmall.toString("base64")
         : null,
       quality_score: result.qualityScore ?? null,
+      background_removed: result.backgroundRemoved,
+      background_provider: result.backgroundProvider ?? null,
       processing_time_ms: result.processingTimeMs,
     });
   } catch (e) {

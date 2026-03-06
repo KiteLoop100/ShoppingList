@@ -78,6 +78,8 @@ const validThumbnail = {
   fullSizeFormat: "image/webp" as const,
   thumbnail: Buffer.from("thumb"),
   thumbnailFormat: "image/jpeg" as const,
+  backgroundRemoved: true,
+  backgroundProvider: "remove.bg",
 };
 
 const approvedVerification = {

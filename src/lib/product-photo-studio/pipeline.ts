@@ -59,6 +59,7 @@ export async function processCompetitorPhotos(
       reviewReason: rejected[0]?.rejection_reason ?? "suspicious_content",
       classification,
       extractedData: null,
+      backgroundRemoved: false,
       processingTimeMs: Date.now() - startMs,
     };
   }
@@ -113,6 +114,8 @@ export async function processCompetitorPhotos(
     thumbnailFullFormat: thumbnailResult.fullSizeFormat,
     thumbnailSmall: thumbnailResult.thumbnail,
     qualityScore: verification.quality_score,
+    backgroundRemoved: thumbnailResult.backgroundRemoved,
+    backgroundProvider: thumbnailResult.backgroundProvider,
     processingTimeMs: Date.now() - startMs,
   };
 }

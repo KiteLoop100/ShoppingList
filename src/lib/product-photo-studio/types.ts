@@ -111,6 +111,8 @@ export interface ThumbnailResult {
   fullSizeFormat: ImageFormat;
   thumbnail: Buffer;
   thumbnailFormat: ImageFormat;
+  backgroundRemoved: boolean;
+  backgroundProvider: string;
 }
 
 // ── Stage 4: Verification ──
@@ -128,6 +130,7 @@ export interface BackgroundRemovalResult {
   /** Processed image data. Named `imageBuffer` (not `buffer`) to avoid collision with Uint8Array.buffer. */
   imageBuffer: Buffer;
   hasTransparency: boolean;
+  providerUsed: string;
 }
 
 export interface BackgroundRemovalProvider {
@@ -147,5 +150,7 @@ export interface ProductPhotoStudioResult {
   thumbnailFullFormat?: ImageFormat;
   thumbnailSmall?: Buffer;
   qualityScore?: number;
+  backgroundRemoved: boolean;
+  backgroundProvider?: string;
   processingTimeMs: number;
 }

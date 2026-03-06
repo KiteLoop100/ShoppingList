@@ -121,6 +121,8 @@ async function processCandidate(photo: PhotoInput): Promise<ThumbnailResult> {
     fullSizeFormat: fullSizeResult.format,
     thumbnail: thumbnailResult.buffer,
     thumbnailFormat: thumbnailResult.format,
+    backgroundRemoved: bgResult.hasTransparency,
+    backgroundProvider: bgResult.providerUsed,
   };
 }
 

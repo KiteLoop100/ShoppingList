@@ -124,7 +124,7 @@ export async function removeBackground(imageBuffer: Buffer): Promise<BackgroundR
       log.debug(`[photo-studio] removing background with ${provider.name}`);
       const resultBuffer = await provider.removeBackground(imageBuffer);
       const hasTransparency = provider.name !== "crop-fallback";
-      return { imageBuffer: resultBuffer, hasTransparency };
+      return { imageBuffer: resultBuffer, hasTransparency, providerUsed: provider.name };
     } catch (err) {
       log.warn(
         `[photo-studio] ${provider.name} failed, trying next:`,
@@ -133,5 +133,5 @@ export async function removeBackground(imageBuffer: Buffer): Promise<BackgroundR
     }
   }
   log.warn("[photo-studio] all background removal providers failed, using original");
-  return { imageBuffer, hasTransparency: false };
+  return { imageBuffer, hasTransparency: false, providerUsed: "none" };
 }
