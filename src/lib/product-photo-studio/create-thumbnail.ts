@@ -108,7 +108,7 @@ export async function preCropToProduct(imageBuffer: Buffer): Promise<Buffer> {
 async function processCandidate(photo: PhotoInput): Promise<ThumbnailResult> {
   const preCropped = await preCropToProduct(photo.buffer);
   const bgResult = await removeBackground(preCropped);
-  const enhanced = await enhanceProduct(bgResult.buffer);
+  const enhanced = await enhanceProduct(bgResult.imageBuffer);
   const addShadow = bgResult.hasTransparency;
 
   const [fullSizeResult, thumbnailResult] = await Promise.all([

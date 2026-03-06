@@ -21,10 +21,11 @@ async function makeTestBuffer(): Promise<Buffer> {
 beforeEach(() => {
   vi.clearAllMocks();
   delete process.env.REMOVE_BG_API_KEY;
+  delete process.env.SELF_HOSTED_BG_REMOVAL_URL;
 });
 
 describe("removeBackground", () => {
-  test("uses crop fallback when no REMOVE_BG_API_KEY", async () => {
+  test("returns BackgroundRemovalResult with hasTransparency=false for crop fallback", async () => {
     mockedGetBBox.mockResolvedValueOnce({
       crop_x: 10,
       crop_y: 10,
@@ -35,8 +36,9 @@ describe("removeBackground", () => {
     const input = await makeTestBuffer();
     const result = await removeBackground(input);
 
-    expect(result).toBeInstanceOf(Buffer);
-    expect(result.length).toBeGreaterThan(0);
+    expect(result.imageBuffer).toBeInstanceOf(Buffer);
+    expect(result.imageBuffer.length).toBeGreaterThan(0);
+    expect(result.hasTransparency).toBe(false);
     expect(mockedGetBBox).toHaveBeenCalled();
   });
 
@@ -46,8 +48,9 @@ describe("removeBackground", () => {
     const input = await makeTestBuffer();
     const result = await removeBackground(input);
 
-    expect(result).toBeInstanceOf(Buffer);
-    expect(result.length).toBeGreaterThan(0);
+    expect(result.imageBuffer).toBeInstanceOf(Buffer);
+    expect(result.imageBuffer.length).toBeGreaterThan(0);
+    expect(result.hasTransparency).toBe(false);
   });
 
   test("returns original when all providers fail", async () => {
@@ -56,6 +59,32 @@ describe("removeBackground", () => {
     const input = await makeTestBuffer();
     const result = await removeBackground(input);
 
-    expect(result).toBeInstanceOf(Buffer);
+    expect(result.imageBuffer).toBeInstanceOf(Buffer);
+    expect(result.hasTransparency).toBe(false);
+  });
+
+  test("self-hosted provider is checked first when URL is set", async () => {
+    process.env.SELF_HOSTED_BG_REMOVAL_URL = "http://localhost:5000/remove";
+
+    const pngWithAlpha = await sharp({
+      create: { width: 50, height: 50, channels: 4, background: { r: 200, g: 100, b: 50, alpha: 255 } },
+    }).png().toBuffer();
+
+    const mockFetch = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      arrayBuffer: () => Promise.resolve(pngWithAlpha.buffer.slice(pngWithAlpha.byteOffset, pngWithAlpha.byteOffset + pngWithAlpha.byteLength)),
+    });
+    vi.stubGlobal("fetch", mockFetch);
+
+    const input = await makeTestBuffer();
+    const result = await removeBackground(input);
+
+    expect(result.hasTransparency).toBe(true);
+    expect(mockFetch).toHaveBeenCalledWith(
+      "http://localhost:5000/remove",
+      expect.objectContaining({ method: "POST" }),
+    );
+
+    vi.unstubAllGlobals();
   });
 });

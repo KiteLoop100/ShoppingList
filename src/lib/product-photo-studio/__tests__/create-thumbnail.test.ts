@@ -49,7 +49,7 @@ function makeClassification(
 beforeEach(() => {
   vi.clearAllMocks();
   mockedRemoveBg.mockImplementation(async (buf) => ({
-    buffer: buf,
+    imageBuffer: buf,
     hasTransparency: false,
   }));
   mockedGetBBox.mockResolvedValue(null);

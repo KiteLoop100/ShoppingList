@@ -104,9 +104,13 @@ export interface ExtractedProductInfo {
 
 // ── Stage 3: Thumbnail ──
 
+export type ImageFormat = "image/webp" | "image/jpeg" | "image/png";
+
 export interface ThumbnailResult {
   fullSize: Buffer;
+  fullSizeFormat: ImageFormat;
   thumbnail: Buffer;
+  thumbnailFormat: ImageFormat;
 }
 
 // ── Stage 4: Verification ──
@@ -119,6 +123,12 @@ export interface ThumbnailVerification {
 }
 
 // ── Background Removal ──
+
+export interface BackgroundRemovalResult {
+  /** Processed image data. Named `imageBuffer` (not `buffer`) to avoid collision with Uint8Array.buffer. */
+  imageBuffer: Buffer;
+  hasTransparency: boolean;
+}
 
 export interface BackgroundRemovalProvider {
   name: string;
@@ -134,6 +144,7 @@ export interface ProductPhotoStudioResult {
   classification: ClassificationResponse;
   extractedData: ExtractedCompetitorProductInfo | null;
   thumbnailFull?: Buffer;
+  thumbnailFullFormat?: ImageFormat;
   thumbnailSmall?: Buffer;
   qualityScore?: number;
   processingTimeMs: number;
