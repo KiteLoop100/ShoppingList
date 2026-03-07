@@ -20,16 +20,8 @@ import { upsertProduct } from "@/lib/products/upsert-product";
 import { getDefaultDemandGroupCode } from "@/lib/products/default-category";
 
 export async function POST(request: Request) {
-  // #region agent log
-  log.info("[create-manual][DEBUG-670b2f] ROUTE HIT");
-  // #endregion
   const validated = await validateBody(request, createManualSchema);
-  if (validated instanceof NextResponse) {
-    // #region agent log
-    log.info("[create-manual][DEBUG-670b2f] validation failed");
-    // #endregion
-    return validated;
-  }
+  if (validated instanceof NextResponse) return validated;
 
   const identifier = getIdentifier(request);
   const rateLimited = await checkRateLimit(generalRateLimit, identifier);
@@ -74,18 +66,12 @@ export async function POST(request: Request) {
   const thumbnailBase64 = validated.thumbnail_base64 ?? null;
   const thumbnailFormat = validated.thumbnail_format ?? "image/jpeg";
   const extraPhotoUrls = validated.extra_photo_urls;
-  // #region agent log
-  log.info("[create-manual][DEBUG-670b2f] thumbnail fields:", { thumbnailUrl: thumbnailUrl?.substring(0, 40), hasBase64: !!thumbnailBase64, base64Length: thumbnailBase64?.length ?? 0, thumbnailFormat, updateExisting: !!validated.update_existing_product_id });
-  // #endregion
   const dataUploadIds = validated.data_upload_ids;
   const userId = auth.user.id;
-  const updateExistingProductId = validated.update_existing_product_id ?? null;
+  let updateExistingProductId = validated.update_existing_product_id ?? null;
 
   const defaultDemandGroupCode = getDefaultDemandGroupCode();
   if (!defaultDemandGroupCode) {
-    // #region agent log
-    log.info("[create-manual][DEBUG-670b2f] 500: no demand group");
-    // #endregion
     return NextResponse.json({ error: "Keine Warengruppe konfiguriert" }, { status: 500 });
   }
 
@@ -100,20 +86,17 @@ export async function POST(request: Request) {
     if (found) productId = found.product_id;
 
     if (productId && !updateExistingProductId) {
-      // #region agent log
-      log.info("[create-manual][DEBUG-670b2f] duplicate found:", productId);
-      // #endregion
-      return NextResponse.json({
-        duplicate: true,
-        existing_product_id: productId,
-        message: "Ein Produkt mit gleicher EAN, Artikelnummer oder Name existiert bereits.",
-      });
+      if (!thumbnailBase64 && !thumbnailUrl) {
+        return NextResponse.json({
+          duplicate: true,
+          existing_product_id: productId,
+          message: "Ein Produkt mit gleicher EAN, Artikelnummer oder Name existiert bereits.",
+        });
+      }
+      updateExistingProductId = productId;
     }
   }
 
-  // #region agent log
-  log.info("[create-manual][DEBUG-670b2f] path:", { productId, updateExistingProductId, isUpdate: !!(productId && updateExistingProductId), isCreate: !productId });
-  // #endregion
   if (productId && updateExistingProductId) {
     const updates: Record<string, unknown> = {
       updated_at: now,
@@ -181,9 +164,6 @@ export async function POST(request: Request) {
       .update(updates)
       .eq("product_id", productId);
     if (updErr) {
-      // #region agent log
-      log.info("[create-manual][DEBUG-670b2f] 500: update error", updErr.message);
-      // #endregion
       return NextResponse.json({ error: updErr.message }, { status: 500 });
     }
   } else if (!productId) {
@@ -255,9 +235,6 @@ export async function POST(request: Request) {
     });
 
     if (!result) {
-      // #region agent log
-      log.info("[create-manual][DEBUG-670b2f] 500: insert failed");
-      // #endregion
       return NextResponse.json({ error: "Insert failed" }, { status: 500 });
     }
     productId = result.product_id;
