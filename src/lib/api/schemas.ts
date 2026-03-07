@@ -61,6 +61,8 @@ export const createManualSchema = z.object({
   is_lactose_free: z.boolean().nullish(),
   animal_welfare_level: z.number().int().min(0).max(4).nullish(),
   thumbnail_url: z.string().url().nullish(),
+  thumbnail_base64: z.string().max(5_000_000).nullish(),
+  thumbnail_format: z.string().max(50).nullish(),
   extra_photo_urls: z.array(z.string().url()).max(10).default([]),
   data_upload_ids: z.array(z.string()).max(20).default([]),
   update_existing_product_id: z.string().nullish(),

@@ -70,7 +70,13 @@ async function saveAldiProduct(
     ingredients: extractedDetails?.ingredients ?? null,
     allergens: extractedDetails?.allergens ?? null,
     nutrition_info: extractedDetails?.nutrition_info ?? null,
-    thumbnail_url: processedThumbnail,
+    thumbnail_url: processedThumbnail?.startsWith("https://") ? processedThumbnail : null,
+    thumbnail_base64: processedThumbnail?.startsWith("data:")
+      ? processedThumbnail.split(",")[1] ?? null
+      : null,
+    thumbnail_format: processedThumbnail?.startsWith("data:")
+      ? (processedThumbnail.match(/data:(image\/[^;]+);/)?.[1] ?? "image/jpeg")
+      : null,
   };
 
   if (editProduct) {

@@ -63,6 +63,8 @@ export async function POST(request: Request) {
   const isLactoseFree = validated.is_lactose_free ?? null;
   const animalWelfareLevel = validated.animal_welfare_level ?? null;
   const thumbnailUrl = validated.thumbnail_url ?? null;
+  const thumbnailBase64 = validated.thumbnail_base64 ?? null;
+  const thumbnailFormat = validated.thumbnail_format ?? "image/jpeg";
   const extraPhotoUrls = validated.extra_photo_urls;
   const dataUploadIds = validated.data_upload_ids;
   const userId = auth.user.id;
@@ -117,32 +119,38 @@ export async function POST(request: Request) {
       is_lactose_free: isLactoseFree,
       animal_welfare_level: animalWelfareLevel,
     };
-    if (thumbnailUrl) {
-      try {
-        validateExternalUrl(thumbnailUrl);
-      } catch (e) {
-        return NextResponse.json(
-          { error: `Invalid thumbnail URL: ${e instanceof Error ? e.message : String(e)}` },
-          { status: 400 },
-        );
+    if (thumbnailUrl || thumbnailBase64) {
+      if (thumbnailUrl) {
+        try {
+          validateExternalUrl(thumbnailUrl);
+        } catch (e) {
+          return NextResponse.json(
+            { error: `Invalid thumbnail URL: ${e instanceof Error ? e.message : String(e)}` },
+            { status: 400 },
+          );
+        }
       }
       try {
-        const imgRes = await fetch(thumbnailUrl);
-        if (imgRes.ok) {
-          const buf = await imgRes.arrayBuffer();
-          const resized = await sharp(Buffer.from(buf))
-            .rotate()
-            .resize(150, 150, { fit: "cover", position: "center" })
-            .jpeg({ quality: 85 })
-            .toBuffer();
-          const path = `manual/${productId}.jpg`;
-          const { error: upErr } = await supabase.storage
-            .from("product-thumbnails")
-            .upload(path, resized, { contentType: "image/jpeg", upsert: true });
-          if (!upErr) {
-            const { data: urlData } = supabase.storage.from("product-thumbnails").getPublicUrl(path);
-            updates.thumbnail_url = urlData.publicUrl;
-          }
+        let rawBuf: Buffer;
+        if (thumbnailBase64) {
+          rawBuf = Buffer.from(thumbnailBase64, "base64");
+        } else {
+          const imgRes = await fetch(thumbnailUrl!);
+          if (!imgRes.ok) throw new Error(`Fetch: ${imgRes.status}`);
+          rawBuf = Buffer.from(await imgRes.arrayBuffer());
+        }
+        const resized = await sharp(rawBuf)
+          .rotate()
+          .resize(150, 150, { fit: "cover", position: "center" })
+          .jpeg({ quality: 85 })
+          .toBuffer();
+        const path = `manual/${productId}.jpg`;
+        const { error: upErr } = await supabase.storage
+          .from("product-thumbnails")
+          .upload(path, resized, { contentType: "image/jpeg", upsert: true });
+        if (!upErr) {
+          const { data: urlData } = supabase.storage.from("product-thumbnails").getPublicUrl(path);
+          updates.thumbnail_url = urlData.publicUrl;
         }
       } catch (e) {
         log.warn("[create-manual] Thumbnail resize/upload failed:", e);
@@ -157,20 +165,27 @@ export async function POST(request: Request) {
     }
   } else if (!productId) {
     let finalThumbnailUrl: string | null = null;
-    if (thumbnailUrl) {
-      try {
-        validateExternalUrl(thumbnailUrl);
-      } catch (e) {
-        return NextResponse.json(
-          { error: `Invalid thumbnail URL: ${e instanceof Error ? e.message : String(e)}` },
-          { status: 400 },
-        );
+    if (thumbnailUrl || thumbnailBase64) {
+      if (thumbnailUrl) {
+        try {
+          validateExternalUrl(thumbnailUrl);
+        } catch (e) {
+          return NextResponse.json(
+            { error: `Invalid thumbnail URL: ${e instanceof Error ? e.message : String(e)}` },
+            { status: 400 },
+          );
+        }
       }
       try {
-        const imgRes = await fetch(thumbnailUrl);
-        if (!imgRes.ok) throw new Error(`Fetch: ${imgRes.status}`);
-        const buf = await imgRes.arrayBuffer();
-        const resized = await sharp(Buffer.from(buf))
+        let rawBuf: Buffer;
+        if (thumbnailBase64) {
+          rawBuf = Buffer.from(thumbnailBase64, "base64");
+        } else {
+          const imgRes = await fetch(thumbnailUrl!);
+          if (!imgRes.ok) throw new Error(`Fetch: ${imgRes.status}`);
+          rawBuf = Buffer.from(await imgRes.arrayBuffer());
+        }
+        const resized = await sharp(rawBuf)
           .rotate()
           .resize(150, 150, { fit: "contain", background: { r: 255, g: 255, b: 255 } })
           .jpeg({ quality: 85 })
