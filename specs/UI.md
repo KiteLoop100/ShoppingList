@@ -123,14 +123,14 @@ Search results **completely overlay** the shopping list. List not visible until 
 │                                  │
 │ ┌─────────────────────────────┐ │  ← Search results overlay
 │ │                              │ │
-│ │ ★ Milsani Low-Fat Milk     │ │  ← Personal favorite
-│ │   1.5% 1L           €0.99  │ │
+│ │ [🖼] ★ Milsani Low-Fat Milk│ │  ← 40×40 thumbnail + name
+│ │                      €0.99  │ │
 │ │                              │ │
-│ │ Milsani Whole Milk          │ │  ← Popular
-│ │   3.5% 1L           €1.09  │ │
-│ │                              │ │
-│ │ Milka Alpine Milk Chocolate │ │  ← Further matches
-│ │   100g               €1.19  │ │
+│ │ [🖼] Milsani Whole Milk    │ │  ← Thumbnail slot always
+│ │                      €1.09  │ │    reserved (40px) for
+│ │                              │ │    consistent text alignment
+│ │ [  ] Milka Alpine Milk Choc│ │  ← No thumbnail: empty slot,
+│ │                      €1.19  │ │    name starts at same position
 │ │                              │ │
 │ └─────────────────────────────┘ │
 │         ┌──────────────┐        │

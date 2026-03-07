@@ -5,6 +5,58 @@
 
 ---
 
+## 2026-03-07 – Photo Studio Pipeline: Robustness & Quality Improvements
+
+- **Modified: `src/lib/product-photo-studio/create-thumbnail.ts`** – `PRECROP_MARGIN` erhöht von 15% auf 20%, `MIN_PAD_PX = 50` als Mindest-Padding. Neue `isProductClipped`-Funktion erkennt Alpha-Clipping an Bildkanten; bei Clipping wird ein Retry ohne Pre-Crop durchgeführt. Neue shared `processImageToThumbnail`-Funktion ersetzt duplizierte Logik. `backgroundRemovalFailed`-Flag gesetzt wenn Crop-Fallback greift.
+- **Modified: `src/lib/product-photo-studio/background-removal.ts`** – Provider-Kette erweitert: self-hosted (BiRefNet/RMBG-2.0) → remove.bg `type=product` → remove.bg `type=auto` → Crop-Fallback. `AbortSignal.timeout(15_000)` für alle externen Fetches.
+- **Modified: `src/lib/product-photo-studio/image-enhance.ts`** – Neue `removeReflections`-Funktion: erkennt Highlight-Clipping (nahe 255/255/255), erstellt dilatierte Maske, blended mit Gauss-geglätteter Umgebung.
+- **Modified: `src/lib/product-photo-studio/pipeline.ts`** – `PIPELINE_TIMEOUT_MS = 28_000`: Verification wird bei Zeitbudget-Überschreitung übersprungen. Per-Stage-Timing-Logs. `backgroundRemovalFailed` im Ergebnis.
+- **Modified: `src/lib/product-photo-studio/verify-quality.ts`** – Neuer Parameter `backgroundRemovalFailed`: setzt Empfehlung unabhängig vom AI-Ergebnis auf `"review"` und ergänzt Issue `"Hintergrund nicht entfernt"`.
+- **Modified: `src/lib/product-photo-studio/prompts.ts`** – `VERIFY_THUMBNAIL_PROMPT` mit expliziten K.O.-Kriterien für Vollständigkeit und Freistellung.
+- **Modified: `src/lib/product-photo-studio/types.ts`** – `backgroundRemovalFailed?: boolean` zu `ThumbnailResult` und `ProductPhotoStudioResult`.
+- **Modified: `src/lib/api/photo-processing/image-utils.ts`** – Bounding-Box-Erkennung auf Claude Haiku umgestellt (schneller/günstiger). Sanity-Checks: Box muss 5%–98% der Bildfläche abdecken.
+- **Modified: `src/lib/api/photo-processing/process-product-photo.ts`** – Refactored auf `processImageToThumbnail` (kein duplizierter Code mehr).
+- **Modified: `src/lib/product-photo-studio/extract-product-info.ts`** – `log.warn` in leerem `catch`-Block ergänzt.
+- **Modified: `src/components/product-capture/product-capture-save.ts`** – ALDI-Produkte speichern jetzt `thumbnail_url` über den API-Aufruf.
+- **Modified: `src/app/api/analyze-product-photos/route.ts`** – `background_removal_failed` in API-Antwort.
+- **Modified: `src/lib/product-photo-studio/README.md`** + **`docs/product-image-pipeline.md`** – Dokumentation auf implementierten Stand aktualisiert.
+- **Tests:** 64 Tests in 7 Testdateien (vorher: 31 in 6). Neue Tests für Clipping-Erkennung, `removeReflections`, `backgroundRemovalFailed`-Propagation, Bbox-Sanity-Checks, Pipeline-Timeout.
+
+---
+
+## 2026-03-07 – Search Suggestion Thumbnails
+
+- **Modified: `src/types/index.ts`** – Added `thumbnail_url?: string | null` to `SearchResult` interface.
+- **Modified: `src/lib/search/local-search.ts`** – Populates `thumbnail_url` from product data in search result mapping.
+- **Modified: `src/app/api/products/search/route.ts`** – Added `thumbnail_url` to Supabase select query and API response.
+- **Modified: `src/components/search/hooks/use-search-execution.ts`** – Passes `thumbnail_url` from API fallback through to `SearchResult`.
+- **Modified: `src/components/search/search-results-panel.tsx`** – Displays 40×40 product thumbnail to the left of each product name. Fixed 40px thumbnail slot is always reserved so product names align consistently. Vertical padding reduced (`py-1.5`) to maximize thumbnail visibility without increasing row height. Uses `next/image` optimization (150×150 source → 40px display).
+- **New: `src/lib/search/__tests__/local-search-thumbnail.test.ts`** – 3 tests for thumbnail propagation in local search results.
+- **Modified: `src/app/api/products/search/__tests__/route.test.ts`** – 2 tests for thumbnail in API search response.
+- **Specs updated:** `FEATURES-CORE.md` (new "Search Result Row" section under F02), `UI.md` (search mode wireframe updated with thumbnail slots).
+
+---
+
+## 2026-03-07 – Sticky Subcategory Nav (Mobile)
+
+- **Modified: `src/components/catalog/subcategory-nav.tsx`** – Chips-Variante erhält `sticky top-0 z-10`, sodass das Unterkategorie-Menü auf Mobilgeräten beim Scrollen oben fixiert bleibt. Desktop-Sidebar unverändert.
+
+---
+
+## 2026-03-07 – Catalog Bug Fixes: Stale Sync State & Wrong Country
+
+### Bug Fix: Empty catalog after IndexedDB wipe (stale `lastSync` timestamp)
+- **Modified: `src/lib/products-context.tsx`** – Added guard in `syncProducts()`: if IndexedDB cache is empty but `products-last-sync-{country}` exists in localStorage (stale state after schema upgrade or browser cache clear), the timestamp is deleted before calling `deltaSync()`. This forces a full product load instead of a no-op incremental query (`updated_at > <recent_timestamp>`).
+
+### Bug Fix: Catalog empty for stores outside supported countries
+- **Modified: `src/components/catalog/catalog-client.tsx`** – Added "catalog not available" empty state: if `indexedProducts.length === 0` after loading completes, a user-friendly screen is shown with the current country code, an explanation, and a "Change store" button linking to `/settings`.
+- **Modified: `src/messages/de.json` + `en.json`** – Four new i18n keys: `notAvailableTitle`, `notAvailableMessage`, `notAvailableHint`, `goToSettings` in the `catalog` namespace.
+
+### Catalog meta-categories migration (data only, applied manually)
+- **New: `supabase/migrations/20260306100000_catalog_meta_categories.sql`** – Inserts 14 M-prefixed parent demand groups (M01–M14) and sets `parent_group` on all 61 existing demand groups to link them to their meta-category. This enables the two-level catalog navigation (meta-category tabs + subcategory filter).
+
+---
+
 ## 2026-03-06 – Unified Product Capture Module (BL-64)
 
 - **New: `src/components/product-capture/product-capture-modal.tsx`** – Single modal for creating and editing all product types (ALDI + competitor). Retailer field determines target table.

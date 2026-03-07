@@ -4,9 +4,11 @@
 
 Der Prozess nimmt einen Batch von Nutzerfotos (Produkt aus verschiedenen Winkeln + Preisschild) entgegen und erzeugt daraus zwei Outputs: (1) strukturierte Produktdaten und (2) ein freigestelltes, farbkorrigiertes Produktbild in Katalogqualität.
 
+Das gesamte Pipeline-Budget beträgt **28 Sekunden**. Schritt 7 (Qualitätskontrolle) wird übersprungen und als "zur Prüfung markiert" behandelt, wenn das Budget erschöpft ist.
+
 ## Schritt 1: Upload & Klassifikation
 
-Nutzer lädt N Bilder hoch. Ein Vision-Modell (z.B. Claude) klassifiziert jedes Bild:
+Nutzer lädt 1–8 Bilder hoch. Claude Sonnet klassifiziert jedes Bild parallel zu einem ZBar-Barcode-Scan:
 
 - **Typ A**: Produktansicht (Front, Seite, Rückseite, Detail)
 - **Typ B**: Preisschild / Regalschild
@@ -14,9 +16,9 @@ Nutzer lädt N Bilder hoch. Ein Vision-Modell (z.B. Claude) klassifiziert jedes 
 
 Für jedes Bild wird zusätzlich ein Qualitäts-Score ermittelt (Schärfe, Belichtung, Verdeckung, Perspektive). Das beste Frontalbild wird als **Hero-Kandidat** markiert.
 
-## Schritt 2: Informationsextraktion (funktioniert bereits)
+## Schritt 2: Informationsextraktion
 
-Alle Bilder werden an das Vision-Modell übergeben. Extrahierte Daten werden in die Produktdatenbank geschrieben. Dieser Teil bleibt wie gehabt.
+Alle Bilder werden an Claude Sonnet übergeben. Extrahierte Daten (Name, Marke, Füllmenge, Nährwerte, Preis, EAN-Code) werden in die Produktdatenbank geschrieben.
 
 ## Schritt 3: Hero-Bild-Auswahl
 
@@ -27,68 +29,89 @@ Aus allen Typ-A-Bildern wird das beste Kandidatenbild für die Weiterverarbeitun
 3. Beste Schärfe und Belichtung
 4. Höchste Auflösung
 
-Falls kein einzelnes Bild ausreichend gut ist, werden die zwei besten Kandidaten behalten und parallel weiterverarbeitet. Am Ende wird das bessere Ergebnis gewählt.
+Falls ein einzelnes Frontalbild als hochwertig eingestuft wird (`quality_score ≥ 0.8`), wird die restliche Verarbeitung als Fast-Path durchgeführt (kein zweites Kandidatenbild).
 
-## Schritt 4: Hintergrundentfernung (remove.bg API)
+## Schritt 4: Produktbereich-Erkennung & Pre-Crop
 
-Das Hero-Bild geht an remove.bg. Wichtig für die API-Konfiguration:
+Claude Haiku bestimmt per Vision-Analyse die **Bounding Box** des Produkts im Bild:
 
-- `type`: `product` (nicht `auto` — Product-Modus ist für Packungen optimiert)
-- `size`: `full` (volle Auflösung behalten)
+- Sanity-Checks: Box muss ≥ 5% und ≤ 98% der Bildfläche abdecken; sonst kein Crop
+- Pre-Crop mit **20% Rand** (mindestens 50px), damit das Produkt nach der Freistellung nicht abgeschnitten wird
+- **Clipping-Erkennung**: Nach dem Crop wird geprüft, ob nicht-transparente Pixel die Bildkanten berühren; falls ja, wird ein zweiter Versuch ohne Pre-Crop gemacht
+
+## Schritt 5: Hintergrundentfernung
+
+Provider-Kette — erster Erfolg gewinnt:
+
+| Priorität | Provider | Bedingung |
+|-----------|---------|-----------|
+| 1 | Self-hosted (BiRefNet/RMBG-2.0) | `SELF_HOSTED_BG_REMOVAL_URL` gesetzt |
+| 2 | remove.bg `type=product` | `REMOVE_BG_API_KEY` gesetzt |
+| 3 | remove.bg `type=auto` | `REMOVE_BG_API_KEY` gesetzt (Fallback bei ähnlicher Verpackungsfarbe) |
+| 4 | Crop-Fallback (Sharp) | Immer verfügbar |
+
+Alle externen Anfragen haben ein **15-Sekunden-Timeout** (`AbortSignal.timeout`).
+
+Wenn der Crop-Fallback (Priorität 4) verwendet wird, setzt die Pipeline das Flag `backgroundRemovalFailed: true`. Dieses Flag wird in der API-Antwort als `background_removal_failed` zurückgegeben.
+
+**Konfiguration remove.bg:**
+- `type`: `product` (erster Versuch) / `auto` (zweiter Versuch)
+- `size`: `full` (volle Auflösung)
 - `crop`: `true` (automatisches Zuschneiden auf das Objekt)
-- `scale`: ggf. anpassen, um Rand zu erhalten
+- `format`: `png`
 
-**Fallback**: Wenn remove.bg ein schlechtes Ergebnis liefert (z.B. Teile des Produkts entfernt, weil Verpackungsfarbe dem Hintergrund ähnelt), kann man alternativ einen zweiten Durchlauf mit `type: auto` versuchen oder auf ein Segment-Anything-Modell (SAM) als lokalen Fallback zurückgreifen.
+## Schritt 6: Post-Processing Pipeline
 
-## Schritt 5: Post-Processing Pipeline
+Deterministische Bildverarbeitung mit Sharp (kein AI):
 
-Nach der Freistellung folgt eine deterministische Bildverarbeitungs-Pipeline (kein AI nötig — klassische Bildverarbeitung, z.B. mit Sharp/Jimp in Node oder Pillow in Python):
+### 6a. Spiegelungen & Glanzstellen entfernen (`removeReflections`)
 
-### 5a. Perspektivkorrektur
+- Erkennung von Pixeln nahe 255/255/255 (Highlight-Clipping)
+- Erstellen einer dilatierten Maske um die erkannten Bereiche
+- Blending der Highlight-Region mit einer Gauss-geglätteten Version der Umgebung
+- Funktioniert sowohl mit als auch ohne Alpha-Kanal
 
-- Kanten des Produkts erkennen (Konturfindung auf dem freigestellten Bild)
-- Leichte perspektivische Entzerrung anwenden, sodass vertikale Kanten parallel sind (Keystone-Korrektur)
-- Ziel: Das Produkt soll "gerade" stehen
+### 6b. Farbkorrektur & Sättigung
 
-### 5b. Farbkorrektur & Sättigung
+- Leichte Sättigungserhöhung (Supermarktbeleuchtung wäscht Farben aus)
+- Kontrastanpassung für Katalogoptik
 
-- Auto-Weißabgleich auf Basis der hellsten nicht-weißen Fläche
-- Leichte Sättigungserhöhung (+10–15%) — Supermarktbeleuchtung wäscht Farben aus
-- Kontrastanpassung (leichtes S-Kurven-Tonemapping)
-- Schatten leicht aufhellen (Supermarktfotos haben oft harte Schatten von oben)
+### 6c. Schärfung
 
-### 5c. Spiegelungen & Glanzstellen entfernen
+- Unsharp Mask mit moderaten Werten
+- Nur auf den Produktbereich angewendet
 
-- Highlight-Clipping erkennen (Pixel nahe 255/255/255 auf dem Produkt)
-- Inpainting dieser Stellen mit umgebender Farbe/Textur (hier kann ein kleines AI-Inpainting-Modell helfen, oder einfaches Frequency-Separation-Blending)
-- Alternativ: Wenn mehrere Produktbilder vorhanden sind, können Glanzstellen aus Bild A mit der entsprechenden Region aus Bild B ersetzt werden (Multi-Image-Compositing)
+### 6d. Compositing
 
-### 5d. Schärfung
+- Produkt auf weißem Hintergrund platzieren
+- Leichter, weicher Schlagschatten (Offset nach unten, niedriger Blur, 15–20% Opacity)
+- Bild auf 1200×1200px skalieren (Produkt füllt ~80% der Fläche)
+- Export als WebP
 
-- Unsharp Mask mit moderaten Werten (Radius 1–2px, Amount 30–50%)
-- Nur auf den Produktbereich anwenden (Maske aus Schritt 4)
+## Schritt 7: Qualitätskontrolle (Claude Haiku)
 
-## Schritt 6: Finales Compositing
+Automatische Prüfung des Ergebnisses mit zwei Schichten:
 
-- Produkt auf weißem oder transparentem Hintergrund platzieren
-- Leichten, weichen Schlagschatten hinzufügen (Offset 2–4px nach unten, Blur 8–12px, Opacity 15–20%) — das gibt dem Produkt die typische "schwebt-leicht-über-der-Fläche"-Katalogoptik
-- Bild auf Zielgröße skalieren (z.B. 1200×1200px quadratisch, Produkt füllt ca. 80% der Fläche)
-- In WebP und PNG exportieren
+**Sharp-basierte Metriken (ohne AI):**
+- Highlight-Anteil (Pixelwerte nahe 255)
+- Gibt Hinweis auf verbliebene Glanzstellen
 
-## Schritt 7: Qualitätskontrolle
+**Claude Haiku Visual Assessment:**
+- **K.O.-Kriterien** (führen zu `recommendation: "reject"`):
+  - Produkt abgeschnitten (Vollständigkeit)
+  - Hintergrund nicht entfernt (Freistellung)
+- **Weitere Prüfpunkte**: Artefakte, Farbstich, Unschärfe
 
-Automatische Prüfung des Ergebnisses:
+**`backgroundRemovalFailed`-Flag:**
+- Wenn gesetzt, wird die Verification-Empfehlung unabhängig vom Claude-Ergebnis auf `"review"` gezwungen
+- Issue: `"Hintergrund nicht entfernt — Produkt ist nicht freigestellt"` wird hinzugefügt
 
-- Ist das Produkt vollständig im Bild (kein Abschnitt)?
-- Ist der Hintergrund sauber (keine Artefakte vom Freistellen)?
-- Stimmt das Seitenverhältnis des Produkts mit typischen Werten für die Kategorie überein (z.B. eine Milchtüte sollte höher als breit sein)?
-- Optional: Das Ergebnis nochmal an ein Vision-Modell geben mit der Frage "Sieht dieses Produktbild aus wie ein professionelles Katalogbild? Was fehlt?" — als automatischer Quality Gate.
-
-Falls der Quality Gate fehlschlägt: Bild als "manuell prüfen" flaggen, trotzdem als Platzhalter verwenden, Nutzer ggf. um bessere Fotos bitten.
+Falls der Quality Gate fehlschlägt: Bild wird als `review_required` gelistet, trotzdem als Platzhalter gespeichert.
 
 ## Architektur-Hinweise
 
-- Die Pipeline sollte als Queue verarbeitet werden (nicht synchron im Upload-Request)
-- Jeder Schritt speichert sein Zwischenergebnis, sodass man bei Fehlern ab einem bestimmten Schritt neu starten kann
-- remove.bg-Kosten kontrollieren: Nur das Hero-Bild senden, nicht alle Bilder
-- Langfristig kann remove.bg durch ein self-hosted Modell (z.B. BiRefNet, RMBG-2.0) ersetzt werden, um Kosten zu senken
+- Die Pipeline läuft synchron im API-Request mit einem **28-Sekunden-Gesamtbudget**
+- `PipelineRunner` in `pipeline-runner.ts` ermöglicht Resumierbarkeit: Jeder Schritt persistiert seinen Zustand, sodass bei Fehlern ab einem bestimmten Schritt neu gestartet werden kann
+- remove.bg-Kosten kontrollieren: Nur das Hero-Bild wird gesendet, nicht alle Bilder
+- Self-hosted Ersatz für remove.bg: BiRefNet oder RMBG-2.0 via Docker/Replicate (konfigurierbar über `SELF_HOSTED_BG_REMOVAL_URL`)
+- Bounding-Box-Erkennung verwendet Claude **Haiku** (nicht Sonnet) für bessere Kosten/Geschwindigkeit

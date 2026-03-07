@@ -48,6 +48,31 @@ Quelle: [webpack#12156](https://github.com/webpack/webpack/issues/12156) – Pfa
 
 ---
 
+## Produktkatalog leer / "Keine Produkte in dieser Kategorie"
+
+**Symptom:** Der Katalog lädt, zeigt Kategorie-Tabs und Unterkategorien, aber das Produktraster ist leer.
+
+**Mögliche Ursache 1 – Veralteter Sync-Timestamp (häufigste Ursache lokal):**  
+`localStorage` enthält einen gespeicherten `products-last-sync-DE`-Timestamp, aber IndexedDB wurde geleert (z. B. nach einem Datenbank-Schema-Upgrade oder Löschen der Browser-Daten). Der Delta-Sync fragt dann `updated_at > <aktueller Timestamp>` ab und findet 0 Produkte.
+
+**Lösung:**
+
+1. Browser-Entwicklertools öffnen (F12) → **Application** → **Local Storage** → den Eintrag `products-last-sync-DE` (bzw. `products-last-sync-AT`) löschen.
+2. Seite neu laden. Beim nächsten Start wird ein vollständiger Ladevorgang durchgeführt.
+
+*Hinweis: Ab Version 2026-03-07 erkennt die App diesen Zustand automatisch und korrigiert ihn beim Start.*
+
+---
+
+**Mögliche Ursache 2 – Standardladen in nicht unterstütztem Land:**  
+Der Standard-Laden in den Einstellungen ist auf einen Laden in einem Land gesetzt, für das keine Katalogdaten vorhanden sind (z. B. Neuseeland). Da Produkte nach Ländercode gefiltert werden, ist das Ergebnis leer.
+
+**Lösung:** Einstellungen öffnen → Standard-Laden auf einen ALDI-Laden in Deutschland oder Österreich setzen.
+
+*Hinweis: Ab Version 2026-03-07 zeigt die App in diesem Fall eine klare Fehlermeldung mit einem direkten Link zu den Einstellungen.*
+
+---
+
 ## localhost:3000 ist nicht erreichbar (Firewall)
 
 **Symptom:** Der Browser zeigt „Diese Seite ist nicht erreichbar“ oder „Verbindung abgelehnt“, obwohl `npm run dev` läuft.

@@ -56,6 +56,9 @@ A detection function runs on every keystroke (debounced) and routes input to the
 - Debounce: 150ms
 - Max results: 20
 
+### Search Result Row
+Each result row displays: **[Thumbnail 40×40] Product Name [Price]**. A fixed 40px thumbnail slot is always reserved on the left so product names align consistently regardless of whether a thumbnail exists. Thumbnails use the existing 150×150 product images served via `next/image` at 40px display size (automatic optimization to ~1-2 KB). The PWA caches optimized images with CacheFirst strategy for instant repeat loads. Products without a thumbnail show an empty slot.
+
 ### Product Search & Ranking
 
 **→ Full specification: [SEARCH-ARCHITECTURE.md](SEARCH-ARCHITECTURE.md)**

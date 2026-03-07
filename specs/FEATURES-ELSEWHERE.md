@@ -262,21 +262,23 @@ The `ProductCaptureModal` offers a single "Produktfotos hochladen" button that a
 |-------|-------|---------|
 | **1. Classify** | Claude Sonnet 4.5 | Content moderation + photo type classification (front/back/price tag/barcode) |
 | **2. Extract** | Claude Sonnet 4.5 | Comprehensive product info extraction from all photos combined (name, brand, EAN, price, ingredients, nutrition, allergens, Nutri-Score, dietary flags, country of origin) |
-| **3. Thumbnail** | Sharp + remove.bg/Claude | Select best front photo, remove background, enhance to 800x800 professional thumbnail |
-| **4. Verify** | Claude Haiku 4.5 | Quality check on processed thumbnail (approve/review/reject) |
+| **3. Thumbnail** | Sharp + remove.bg | Select best front photo, pre-crop with 20% margin, remove background (self-hosted → remove.bg → crop fallback), suppress reflections, enhance to 1200×1200 professional thumbnail |
+| **4. Verify** | Claude Haiku 4.5 | Quality check: completeness + background removal are K.O. criteria (approve/review/reject) |
 
 **Parallelism:** Stage 1 + ZBar barcode scan run in parallel. After moderation gate passes, Stage 2 + Stage 3 run in parallel. Stage 4 runs after Stage 3 completes.
 
+**Pipeline budget:** 28 seconds total. Stage 4 is skipped (result flagged as `review_required`) if budget is exhausted.
+
 **API Endpoint:** `POST /api/analyze-product-photos`
 - Input: `{ images: [{ image_base64, media_type }] }` (1-8 photos)
-- Output: `{ ok, status, extracted_data, thumbnail_base64, thumbnail_small_base64, quality_score, processing_time_ms }`
-- Total processing time: ~9-15 seconds
+- Output: `{ ok, status, extracted_data, thumbnail_base64, thumbnail_small_base64, quality_score, processing_time_ms, background_removal_failed }`
+- Total processing time: ~9–18 seconds
 
 **Auto-fill rules:** Only empty fields are overwritten. If the user has already typed a name or brand, the auto-fill does not replace it.
 
 **New fields extracted:** ingredients, nutrition_info (JSONB), allergens, nutri_score, country_of_origin, is_vegan, is_gluten_free, is_lactose_free, animal_welfare_level.
 
-**Module:** `src/lib/product-photo-studio/` — pipeline.ts, validate-classify.ts, extract-product-info.ts, create-thumbnail.ts, background-removal.ts, verify-quality.ts, types.ts, prompts.ts.
+**Module:** `src/lib/product-photo-studio/` — pipeline.ts, pipeline-runner.ts, validate-classify.ts, extract-product-info.ts, create-thumbnail.ts, background-removal.ts, image-enhance.ts, verify-quality.ts, types.ts, prompts.ts.
 
 ### UX Details
 
