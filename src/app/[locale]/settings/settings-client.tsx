@@ -310,6 +310,9 @@ export function SettingsClient() {
                       ✓
                     </div>
                     <div className="min-w-0 flex-1">
+                      {selected.country !== "DE" && selected.country !== "AT" && (
+                        <p className="truncate text-xs font-semibold text-aldi-blue">{selected.name}</p>
+                      )}
                       <p className="truncate text-sm font-semibold text-aldi-blue">{selected.address}</p>
                       <p className="truncate text-xs text-aldi-muted">{selected.postal_code} {selected.city}</p>
                     </div>
@@ -353,6 +356,9 @@ export function SettingsClient() {
                           className="flex w-full items-start gap-3 border-b border-aldi-muted-light px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-gray-50"
                         >
                           <div className="min-w-0 flex-1">
+                            {s.country !== "DE" && s.country !== "AT" && (
+                              <p className="text-xs font-semibold text-aldi-blue">{s.name}</p>
+                            )}
                             <p className="text-sm font-medium text-aldi-text">{s.address}</p>
                             <p className="text-xs text-aldi-muted">{s.postal_code} {s.city}</p>
                           </div>

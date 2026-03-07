@@ -18,7 +18,7 @@ async function callRemoveBgApi(imageBuffer: Buffer, apiKey: string, type: "produ
   formData.append("image_file", new Blob([new Uint8Array(imageBuffer)]), "image.jpg");
   formData.append("size", "full");
   formData.append("type", type);
-  formData.append("crop", "true");
+  formData.append("crop", "false");
   formData.append("format", "png");
 
   const response = await fetch("https://api.remove.bg/v1.0/removebg", {
@@ -121,12 +121,60 @@ const providers: BackgroundRemovalProvider[] = [
   new CropFallbackProvider(),
 ];
 
+const MIN_TRANSPARENCY_RATIO = 0.03;
+const MAX_TRANSPARENCY_RATIO = 0.97;
+
+/**
+ * Validate that bg removal actually produced meaningful transparency.
+ * Rejects results where <3% or >97% of pixels are transparent,
+ * which indicates the provider silently failed or removed everything.
+ */
+export async function hasSignificantTransparency(pngBuffer: Buffer): Promise<boolean> {
+  try {
+    const { data, info } = await sharp(pngBuffer)
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+    const { width, height, channels } = info;
+    if (channels < 4) return false;
+
+    const totalPixels = width * height;
+    let transparentPixels = 0;
+    for (let i = 0; i < totalPixels; i++) {
+      if (data[i * channels + 3] < 128) transparentPixels++;
+    }
+
+    const ratio = transparentPixels / totalPixels;
+    if (ratio < MIN_TRANSPARENCY_RATIO) {
+      log.warn("[photo-studio] bg removal produced only", (ratio * 100).toFixed(1) + "% transparency — likely failed");
+      return false;
+    }
+    if (ratio > MAX_TRANSPARENCY_RATIO) {
+      log.warn("[photo-studio] bg removal produced", (ratio * 100).toFixed(1) + "% transparency — removed too much");
+      return false;
+    }
+    log.debug("[photo-studio] bg removal transparency:", (ratio * 100).toFixed(1) + "%");
+    return true;
+  } catch (err) {
+    log.warn("[photo-studio] transparency check error:", err instanceof Error ? err.message : err);
+    return true;
+  }
+}
+
 export async function removeBackground(imageBuffer: Buffer): Promise<BackgroundRemovalResult> {
   for (const provider of providers) {
     if (!provider.isAvailable()) continue;
     try {
       log.debug(`[photo-studio] removing background with ${provider.name}`);
       const resultBuffer = await provider.removeBackground(imageBuffer);
+
+      if (provider.name !== "crop-fallback") {
+        const valid = await hasSignificantTransparency(resultBuffer);
+        if (!valid) {
+          log.warn(`[photo-studio] ${provider.name} transparency validation failed, trying next provider`);
+          continue;
+        }
+      }
+
       const hasTransparency = provider.name !== "crop-fallback";
       return { imageBuffer: resultBuffer, hasTransparency, providerUsed: provider.name };
     } catch (err) {

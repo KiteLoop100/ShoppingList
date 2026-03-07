@@ -8,7 +8,7 @@ import { getCurrentPosition } from "@/lib/store/store-service";
 const NOMINATIM_URL = "https://nominatim.openstreetmap.org/reverse";
 const USER_AGENT = "DigitalShoppingList/1.0 (contact optional)";
 
-/** Returns country code (e.g. 'AT', 'DE'). Fallback: 'DE'. */
+/** Returns country code (e.g. 'AT', 'DE', 'NZ'). Fallback: 'DE'. */
 export async function getCountryFromDevice(): Promise<string> {
   if (typeof window === "undefined") return "DE";
 
@@ -38,6 +38,7 @@ function fallbackCountryFromTimezone(): string {
   try {
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
     if (tz.includes("Vienna") || tz.includes("Austria")) return "AT";
+    if (tz.includes("Auckland") || tz.includes("Chatham")) return "NZ";
   } catch {
     // ignore
   }

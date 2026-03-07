@@ -16,6 +16,7 @@ import type { DemandGroup, Product } from "@/types";
 const COUNTRY_TZ: Record<string, string> = {
   DE: "Europe/Berlin",
   AT: "Europe/Vienna",
+  NZ: "Pacific/Auckland",
 };
 
 // ─── Shared types ─────────────────────────────────────────────────────

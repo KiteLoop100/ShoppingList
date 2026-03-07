@@ -24,6 +24,12 @@ export const RETAILERS: RetailerConfig[] = [
   { id: "billa",    name: "BILLA",    countries: ["AT"],       color: "bg-yellow-100 text-yellow-800", bgColor: "bg-yellow-50/30" },
   { id: "hofer",    name: "Hofer",    countries: ["AT"],       color: "bg-blue-100 text-blue-800",     bgColor: "bg-blue-50/30" },
   { id: "mueller",  name: "Müller",   countries: ["DE", "AT"], color: "bg-orange-100 text-orange-800", bgColor: "bg-orange-50/30" },
+  // New Zealand
+  { id: "woolworths",   name: "Woolworths",    countries: ["NZ"], color: "bg-green-100 text-green-800",  bgColor: "bg-green-50/30" },
+  { id: "newworld",     name: "New World",     countries: ["NZ"], color: "bg-red-100 text-red-800",      bgColor: "bg-red-50/30" },
+  { id: "paknsave",     name: "PAK'nSAVE",     countries: ["NZ"], color: "bg-yellow-100 text-yellow-800", bgColor: "bg-yellow-50/30" },
+  { id: "foursquare",   name: "Four Square",   countries: ["NZ"], color: "bg-red-100 text-red-700",      bgColor: "bg-red-50/20" },
+  { id: "thewarehouse", name: "The Warehouse", countries: ["NZ"], color: "bg-red-100 text-red-900",      bgColor: "bg-red-50/25" },
 ];
 
 const HOME_ALIASES = new Set(["aldi", "aldi süd", "aldi sud", "aldi nord", "hofer"]);

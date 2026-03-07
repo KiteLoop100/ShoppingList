@@ -189,6 +189,7 @@
     "countryUnknownPrompt": "Could not automatically detect flyer country. Please assign:",
     "countryDE": "ALDI SÜD (Germany)",
     "countryAT": "Hofer (Austria)",
+    "countryNZ": "New Zealand",
     "retry": "Retry",
     "dismiss": "Dismiss",
     "rateLimitExceeded": "You have reached the limit for photo processing (max. 5 per hour). Please try again later.",

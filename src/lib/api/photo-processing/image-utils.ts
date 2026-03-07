@@ -3,9 +3,9 @@
  */
 
 import sharp from "sharp";
-import { callClaudeJSON } from "@/lib/api/claude-client";
-import { CLAUDE_MODEL_HAIKU } from "@/lib/api/config";
-import { CROP_PROMPT } from "./prompts";
+import { callClaude, callClaudeJSON, parseClaudeJsonResponse } from "@/lib/api/claude-client";
+import { CLAUDE_MODEL_HAIKU, CLAUDE_MODEL_SONNET } from "@/lib/api/config";
+import { CROP_PROMPT, ROTATION_PROMPT, TILT_PROMPT } from "./prompts";
 import { log } from "@/lib/utils/logger";
 
 export interface PreprocessedImage {
@@ -44,6 +44,7 @@ export async function fetchAndPreprocessImage(
 
   const imageBuffer = Buffer.from(buf);
   const resized = await sharp(imageBuffer)
+    .rotate()
     .resize(2000, 2000, { fit: "inside", withoutEnlargement: true })
     .jpeg({ quality: 80 })
     .toBuffer();
@@ -66,23 +67,25 @@ export async function makeThumbnail(buf: Buffer): Promise<Buffer> {
     .toBuffer();
 }
 
-interface BoundingBox {
+export interface CropRegion {
   crop_x: number;
   crop_y: number;
   crop_width: number;
   crop_height: number;
 }
 
+export type RotationDegrees = number;
+
 const MIN_BBOX_AREA_RATIO = 0.05;
 const MAX_BBOX_AREA_RATIO = 0.98;
 
-/** Ask Claude for product bounding box. Returns null on failure or invalid response. */
+/** Ask Claude for product bounding box. Returns null when detection fails or crop is unnecessary. */
 export async function getProductBoundingBox(
   imageBase64: string,
   mediaType: string,
   imageWidth: number,
   imageHeight: number,
-): Promise<BoundingBox | null> {
+): Promise<CropRegion | null> {
   try {
     const prompt = `${CROP_PROMPT}\n\nThe image is ${imageWidth} x ${imageHeight} pixels.`;
     const parsed = await callClaudeJSON<{
@@ -118,11 +121,13 @@ export async function getProductBoundingBox(
     const crop_y = Math.min(raw_y, imageHeight - 1);
     const crop_width = Math.min(raw_w, imageWidth - crop_x);
     const crop_height = Math.min(raw_h, imageHeight - crop_y);
+
     if (crop_width < 1 || crop_height < 1) return null;
 
     const imageArea = imageWidth * imageHeight;
     const bboxArea = crop_width * crop_height;
     const ratio = bboxArea / imageArea;
+
     if (ratio < MIN_BBOX_AREA_RATIO) {
       log.warn("[image-utils] bbox too small:", (ratio * 100).toFixed(1) + "% of image, ignoring");
       return null;
@@ -136,6 +141,112 @@ export async function getProductBoundingBox(
   } catch (err) {
     log.warn("[image-utils] bbox detection failed:", err instanceof Error ? err.message : err);
     return null;
+  }
+}
+
+/**
+ * Dedicated text rotation detection via Claude.
+ * Uses a focused prompt that only asks about text direction,
+ * which is significantly more reliable than combining it with bbox detection.
+ */
+const POSITION_TO_CARDINAL: Record<string, number> = {
+  left: 0,
+  bottom: 90,
+  right: 180,
+  top: 270,
+};
+
+/** Detect cardinal rotation (0/90/180/270) from first-letter position. */
+export async function detectTextRotation(
+  imageBase64: string,
+  mediaType: string,
+): Promise<RotationDegrees> {
+  try {
+    const rawText = await callClaude({
+      model: CLAUDE_MODEL_SONNET,
+      max_tokens: 256,
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "image",
+              source: {
+                type: "base64",
+                media_type: mediaType,
+                data: imageBase64,
+              },
+            },
+            { type: "text", text: ROTATION_PROMPT },
+          ],
+        },
+      ],
+    });
+
+    log.debug("[image-utils] rotation raw response:", rawText);
+    const parsed = parseClaudeJsonResponse<{
+      brand_name?: string;
+      first_letter_position?: string;
+    }>(rawText);
+
+    const position = parsed.first_letter_position?.toLowerCase() ?? "";
+    const degrees = POSITION_TO_CARDINAL[position] ?? 0;
+    if (degrees !== 0) {
+      log.debug("[image-utils] detected text rotation:", degrees, "degrees",
+        `(first letter at ${position}, brand: ${parsed.brand_name ?? "unknown"})`);
+    }
+    return degrees;
+  } catch (err) {
+    log.warn("[image-utils] rotation detection failed:", err instanceof Error ? err.message : err);
+    return 0;
+  }
+}
+
+const MAX_TILT = 15;
+
+/**
+ * Detect fine tilt correction on an already cardinal-rotated image.
+ * Runs as a separate, focused Claude call after the cardinal rotation
+ * has been applied, so the model only needs to judge small deviations.
+ */
+export async function detectTiltCorrection(
+  imageBase64: string,
+  mediaType: string,
+): Promise<number> {
+  try {
+    const rawText = await callClaude({
+      model: CLAUDE_MODEL_SONNET,
+      max_tokens: 128,
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "image",
+              source: {
+                type: "base64",
+                media_type: mediaType,
+                data: imageBase64,
+              },
+            },
+            { type: "text", text: TILT_PROMPT },
+          ],
+        },
+      ],
+    });
+
+    log.debug("[image-utils] tilt raw response:", rawText);
+    const parsed = parseClaudeJsonResponse<{ tilt_degrees?: number }>(rawText);
+    const raw = Number(parsed.tilt_degrees) || 0;
+    const clamped = Math.max(-MAX_TILT, Math.min(MAX_TILT, raw));
+    const rounded = Math.round(clamped * 10) / 10;
+    if (rounded !== 0) {
+      log.debug("[image-utils] detected tilt correction:", rounded, "degrees");
+    }
+    return rounded;
+  } catch (err) {
+    log.warn("[image-utils] tilt detection failed:", err instanceof Error ? err.message : err);
+    return 0;
   }
 }
 
@@ -154,15 +265,40 @@ export async function generateFrontThumbnailBuffer(
 
   if (w > 0 && h > 0) {
     const orientedBase64 = orientedBuffer.toString("base64");
-    const box = await getProductBoundingBox(orientedBase64, mediaType, w, h);
-    if (box) {
-      return sharp(orientedBuffer)
-        .extract({
-          left: box.crop_x,
-          top: box.crop_y,
-          width: box.crop_width,
-          height: box.crop_height,
-        })
+    const [cropRegion, rotation] = await Promise.all([
+      getProductBoundingBox(orientedBase64, mediaType, w, h),
+      detectTextRotation(orientedBase64, mediaType),
+    ]);
+
+    if (cropRegion || rotation !== 0) {
+      let processed = orientedBuffer;
+
+      if (cropRegion) {
+        processed = await sharp(orientedBuffer)
+          .extract({
+            left: cropRegion.crop_x,
+            top: cropRegion.crop_y,
+            width: cropRegion.crop_width,
+            height: cropRegion.crop_height,
+          })
+          .toBuffer();
+      }
+
+      if (rotation !== 0) {
+        processed = await sharp(processed)
+          .rotate(rotation, { background: { r: 255, g: 255, b: 255 } })
+          .toBuffer();
+
+        const tiltBase64 = processed.toString("base64");
+        const tilt = await detectTiltCorrection(tiltBase64, "image/jpeg");
+        if (tilt !== 0) {
+          processed = await sharp(processed)
+            .rotate(tilt, { background: { r: 255, g: 255, b: 255 } })
+            .toBuffer();
+        }
+      }
+
+      return sharp(processed)
         .resize(150, 150, {
           fit: "contain",
           background: { r: 255, g: 255, b: 255 },

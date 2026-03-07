@@ -1,7 +1,7 @@
 import { describe, test, expect, vi, beforeEach } from "vitest";
 import sharp from "sharp";
 
-import { removeBackground } from "../background-removal";
+import { removeBackground, hasSignificantTransparency } from "../background-removal";
 
 async function makeTestBuffer(): Promise<Buffer> {
   return sharp({
@@ -11,10 +11,66 @@ async function makeTestBuffer(): Promise<Buffer> {
     .toBuffer();
 }
 
+/**
+ * Create a PNG with a product-like alpha: opaque center, transparent edges.
+ * Approximately 50% transparent pixels.
+ */
+async function makeGoodBgRemovalResult(size = 100): Promise<Buffer> {
+  const half = Math.floor(size / 2);
+  const opaqueCenter = await sharp({
+    create: { width: half, height: half, channels: 4, background: { r: 200, g: 100, b: 50, alpha: 255 } },
+  }).png().toBuffer();
+
+  return sharp({
+    create: { width: size, height: size, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } },
+  })
+    .composite([{ input: opaqueCenter, left: Math.floor(half / 2), top: Math.floor(half / 2) }])
+    .png()
+    .toBuffer();
+}
+
+/** Fully opaque PNG — simulates failed bg removal (no background removed). */
+async function makeFullyOpaquePng(size = 100): Promise<Buffer> {
+  return sharp({
+    create: { width: size, height: size, channels: 4, background: { r: 200, g: 100, b: 50, alpha: 255 } },
+  }).png().toBuffer();
+}
+
+/** Nearly fully transparent PNG — simulates over-removal. */
+async function makeFullyTransparentPng(size = 100): Promise<Buffer> {
+  return sharp({
+    create: { width: size, height: size, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } },
+  }).png().toBuffer();
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   delete process.env.REMOVE_BG_API_KEY;
   delete process.env.SELF_HOSTED_BG_REMOVAL_URL;
+});
+
+describe("hasSignificantTransparency", () => {
+  test("returns true for image with reasonable transparency (product on transparent bg)", async () => {
+    const good = await makeGoodBgRemovalResult();
+    expect(await hasSignificantTransparency(good)).toBe(true);
+  });
+
+  test("returns false for fully opaque image (bg removal failed)", async () => {
+    const opaque = await makeFullyOpaquePng();
+    expect(await hasSignificantTransparency(opaque)).toBe(false);
+  });
+
+  test("returns false for nearly fully transparent image (over-removal)", async () => {
+    const transparent = await makeFullyTransparentPng();
+    expect(await hasSignificantTransparency(transparent)).toBe(false);
+  });
+
+  test("returns false for image without alpha channel", async () => {
+    const noAlpha = await sharp({
+      create: { width: 50, height: 50, channels: 3, background: { r: 100, g: 100, b: 100 } },
+    }).png().toBuffer();
+    expect(await hasSignificantTransparency(noAlpha)).toBe(false);
+  });
 });
 
 describe("removeBackground", () => {
@@ -35,13 +91,11 @@ describe("removeBackground", () => {
   test("self-hosted provider is checked first when URL is set", async () => {
     process.env.SELF_HOSTED_BG_REMOVAL_URL = "http://localhost:5000/remove";
 
-    const pngWithAlpha = await sharp({
-      create: { width: 50, height: 50, channels: 4, background: { r: 200, g: 100, b: 50, alpha: 255 } },
-    }).png().toBuffer();
+    const goodResult = await makeGoodBgRemovalResult(50);
 
     const mockFetch = vi.fn().mockResolvedValueOnce({
       ok: true,
-      arrayBuffer: () => Promise.resolve(pngWithAlpha.buffer.slice(pngWithAlpha.byteOffset, pngWithAlpha.byteOffset + pngWithAlpha.byteLength)),
+      arrayBuffer: () => Promise.resolve(goodResult.buffer.slice(goodResult.byteOffset, goodResult.byteOffset + goodResult.byteLength)),
     });
     vi.stubGlobal("fetch", mockFetch);
 
@@ -54,6 +108,26 @@ describe("removeBackground", () => {
       "http://localhost:5000/remove",
       expect.objectContaining({ method: "POST" }),
     );
+
+    vi.unstubAllGlobals();
+  });
+
+  test("falls through to next provider when transparency validation fails", async () => {
+    process.env.SELF_HOSTED_BG_REMOVAL_URL = "http://localhost:5000/remove";
+
+    const opaqueResult = await makeFullyOpaquePng(50);
+
+    const mockFetch = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      arrayBuffer: () => Promise.resolve(opaqueResult.buffer.slice(opaqueResult.byteOffset, opaqueResult.byteOffset + opaqueResult.byteLength)),
+    });
+    vi.stubGlobal("fetch", mockFetch);
+
+    const input = await makeTestBuffer();
+    const result = await removeBackground(input);
+
+    expect(result.providerUsed).toBe("crop-fallback");
+    expect(result.hasTransparency).toBe(false);
 
     vi.unstubAllGlobals();
   });

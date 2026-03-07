@@ -8,14 +8,18 @@ vi.mock("../background-removal", () => ({
 
 vi.mock("@/lib/api/photo-processing/image-utils", () => ({
   getProductBoundingBox: vi.fn(),
+  detectTextRotation: vi.fn(),
+  detectTiltCorrection: vi.fn(),
 }));
 
 import { removeBackground } from "../background-removal";
-import { getProductBoundingBox } from "@/lib/api/photo-processing/image-utils";
+import { getProductBoundingBox, detectTextRotation, detectTiltCorrection } from "@/lib/api/photo-processing/image-utils";
 import { createThumbnail } from "../create-thumbnail";
 
 const mockedRemoveBg = vi.mocked(removeBackground);
 const mockedGetBBox = vi.mocked(getProductBoundingBox);
+const mockedDetectRotation = vi.mocked(detectTextRotation);
+const mockedDetectTilt = vi.mocked(detectTiltCorrection);
 
 async function makeTestImage(width = 100, height = 100): Promise<PhotoInput> {
   const buffer = await sharp({
@@ -54,6 +58,8 @@ beforeEach(() => {
     providerUsed: "crop-fallback",
   }));
   mockedGetBBox.mockResolvedValue(null);
+  mockedDetectRotation.mockResolvedValue(0);
+  mockedDetectTilt.mockResolvedValue(0);
 });
 
 describe("createThumbnail", () => {
@@ -142,13 +148,92 @@ describe("createThumbnail", () => {
     expect(meta.height).toBe(100);
   });
 
-  test("pre-crops with 20% margin and minimum 50px padding", async () => {
-    // Bounding box covering the center of a 200x400 image
+  test("applies rotation from dedicated detection (independent of bbox)", async () => {
+    mockedGetBBox.mockResolvedValueOnce(null);
+    mockedDetectRotation.mockResolvedValueOnce(90);
+
+    const img = await makeTestImage(100, 200);
+    const classification = makeClassification([
+      { photo_type: "product_front", quality_score: 0.9 },
+    ]);
+
+    await createThumbnail([img], classification);
+
+    const passedBuf = mockedRemoveBg.mock.calls[0][0];
+    const meta = await sharp(passedBuf).metadata();
+    // 100x200 rotated 90° CW becomes 200x100
+    expect(meta.width).toBe(200);
+    expect(meta.height).toBe(100);
+  });
+
+  test("applies both crop and rotation when both are detected", async () => {
     mockedGetBBox.mockResolvedValueOnce({
-      crop_x: 20,
-      crop_y: 30,
-      crop_width: 160,
-      crop_height: 340,
+      crop_x: 10, crop_y: 10, crop_width: 80, crop_height: 180,
+    });
+    mockedDetectRotation.mockResolvedValueOnce(90);
+
+    const img = await makeTestImage(100, 200);
+    const classification = makeClassification([
+      { photo_type: "product_front", quality_score: 0.9 },
+    ]);
+
+    await createThumbnail([img], classification);
+
+    const passedBuf = mockedRemoveBg.mock.calls[0][0];
+    const meta = await sharp(passedBuf).metadata();
+    // Crop to ~100x200 (with padding), then rotate 90° → ~200x100
+    expect(meta.width).toBe(200);
+    expect(meta.height).toBe(100);
+  });
+
+  test("does not rotate when rotation is 0", async () => {
+    mockedGetBBox.mockResolvedValueOnce({
+      crop_x: 10, crop_y: 10, crop_width: 80, crop_height: 80,
+    });
+    mockedDetectRotation.mockResolvedValueOnce(0);
+
+    const img = await makeTestImage(100, 100);
+    const classification = makeClassification([
+      { photo_type: "product_front", quality_score: 0.9 },
+    ]);
+
+    await createThumbnail([img], classification);
+
+    const passedBuf = mockedRemoveBg.mock.calls[0][0];
+    const meta = await sharp(passedBuf).metadata();
+    expect(meta.width).toBe(100);
+    expect(meta.height).toBe(100);
+  });
+
+  test("runs bbox and rotation detection in parallel", async () => {
+    let bboxCallTime = 0;
+    let rotationCallTime = 0;
+
+    mockedGetBBox.mockImplementation(async () => {
+      bboxCallTime = Date.now();
+      return null;
+    });
+    mockedDetectRotation.mockImplementation(async () => {
+      rotationCallTime = Date.now();
+      return 0;
+    });
+
+    const img = await makeTestImage(100, 100);
+    const classification = makeClassification([
+      { photo_type: "product_front", quality_score: 0.9 },
+    ]);
+
+    await createThumbnail([img], classification);
+
+    // Both should be called (timestamps within 50ms of each other = parallel)
+    expect(mockedGetBBox).toHaveBeenCalledTimes(1);
+    expect(mockedDetectRotation).toHaveBeenCalledTimes(1);
+    expect(Math.abs(bboxCallTime - rotationCallTime)).toBeLessThan(50);
+  });
+
+  test("pre-crops with 20% margin and minimum 50px padding", async () => {
+    mockedGetBBox.mockResolvedValueOnce({
+      crop_x: 20, crop_y: 30, crop_width: 160, crop_height: 340,
     });
 
     const img = await makeTestImage(200, 400);
@@ -161,20 +246,13 @@ describe("createThumbnail", () => {
     expect(mockedGetBBox).toHaveBeenCalled();
     const passedBuf = mockedRemoveBg.mock.calls[0][0];
     const meta = await sharp(passedBuf).metadata();
-
-    // padX = max(50, round(160 * 0.20)) = 50; left = max(0, 20 - 50) = 0; cropWidth = min(200, 160 + 100) = 200
-    // padY = max(50, round(340 * 0.20)) = 68; top = max(0, 30 - 68) = 0; cropHeight = min(400, 340 + 136) = 400
     expect(meta.width).toBe(200);
     expect(meta.height).toBe(400);
   });
 
   test("pre-crop margin is clamped at image boundaries", async () => {
-    // Box touching the left/top edge — padding should not go negative
     mockedGetBBox.mockResolvedValueOnce({
-      crop_x: 0,
-      crop_y: 0,
-      crop_width: 80,
-      crop_height: 90,
+      crop_x: 0, crop_y: 0, crop_width: 80, crop_height: 90,
     });
 
     const img = await makeTestImage(100, 100);
@@ -186,19 +264,11 @@ describe("createThumbnail", () => {
 
     const passedBuf = mockedRemoveBg.mock.calls[0][0];
     const meta = await sharp(passedBuf).metadata();
-    // padX = max(50, round(80 * 0.20)) = 50; left = max(0, 0 - 50) = 0; cropWidth = min(100, 80 + 100) = 100
-    // padY = max(50, round(90 * 0.20)) = 50; top = max(0, 0 - 50) = 0; cropHeight = min(100, 90 + 100) = 100
     expect(meta.width).toBe(100);
     expect(meta.height).toBe(100);
   });
 
   test("sets backgroundRemovalFailed when crop-fallback is used", async () => {
-    mockedRemoveBg.mockImplementation(async (buf) => ({
-      imageBuffer: buf,
-      hasTransparency: false,
-      providerUsed: "crop-fallback",
-    }));
-
     const img = await makeTestImage();
     const classification = makeClassification([
       { photo_type: "product_front", quality_score: 0.9 },

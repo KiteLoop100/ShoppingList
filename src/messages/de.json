@@ -189,6 +189,7 @@
     "countryUnknownPrompt": "Land des Handzettels konnte nicht automatisch erkannt werden. Bitte zuordnen:",
     "countryDE": "ALDI SÜD (Deutschland)",
     "countryAT": "Hofer (Österreich)",
+    "countryNZ": "Neuseeland",
     "retry": "Erneut versuchen",
     "dismiss": "Schließen",
     "rateLimitExceeded": "Du hast das Limit für Foto-Verarbeitungen erreicht (max. 5 pro Stunde). Bitte versuche es später erneut.",

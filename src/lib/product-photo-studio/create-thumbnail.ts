@@ -9,7 +9,7 @@
 import sharp from "sharp";
 import { removeBackground } from "./background-removal";
 import { enhanceProduct, removeReflections, compositeOnCanvas, FULL_SIZE, THUMB_SIZE } from "./image-enhance";
-import { getProductBoundingBox } from "@/lib/api/photo-processing/image-utils";
+import { getProductBoundingBox, detectTextRotation, detectTiltCorrection } from "@/lib/api/photo-processing/image-utils";
 import { log } from "@/lib/utils/logger";
 import type {
   PhotoInput,
@@ -86,26 +86,51 @@ export async function preCropToProduct(imageBuffer: Buffer): Promise<Buffer> {
   if (!width || !height) return oriented;
   try {
     const base64 = oriented.toString("base64");
-    const box = await getProductBoundingBox(base64, "image/jpeg", width, height);
-    if (!box) return oriented;
 
-    const padX = Math.max(MIN_PAD_PX, Math.round(box.crop_width * PRECROP_MARGIN));
-    const padY = Math.max(MIN_PAD_PX, Math.round(box.crop_height * PRECROP_MARGIN));
-    const left = Math.max(0, box.crop_x - padX);
-    const top = Math.max(0, box.crop_y - padY);
-    const cropWidth = Math.min(width - left, box.crop_width + 2 * padX);
-    const cropHeight = Math.min(height - top, box.crop_height + 2 * padY);
+    const [cropRegion, rotation] = await Promise.all([
+      getProductBoundingBox(base64, "image/jpeg", width, height),
+      detectTextRotation(base64, "image/jpeg"),
+    ]);
 
-    log.debug(
-      "[photo-studio] pre-crop: bbox",
-      `${box.crop_width}x${box.crop_height}`,
-      "pad", `${padX}x${padY}`,
-      "final", `${cropWidth}x${cropHeight}`,
-    );
+    let output = oriented;
 
-    return sharp(oriented)
-      .extract({ left, top, width: cropWidth, height: cropHeight })
-      .toBuffer();
+    if (cropRegion) {
+      const padX = Math.max(MIN_PAD_PX, Math.round(cropRegion.crop_width * PRECROP_MARGIN));
+      const padY = Math.max(MIN_PAD_PX, Math.round(cropRegion.crop_height * PRECROP_MARGIN));
+      const left = Math.max(0, cropRegion.crop_x - padX);
+      const top = Math.max(0, cropRegion.crop_y - padY);
+      const cropWidth = Math.min(width - left, cropRegion.crop_width + 2 * padX);
+      const cropHeight = Math.min(height - top, cropRegion.crop_height + 2 * padY);
+
+      log.debug(
+        "[photo-studio] pre-crop: bbox",
+        `${cropRegion.crop_width}x${cropRegion.crop_height}`,
+        "pad", `${padX}x${padY}`,
+        "final", `${cropWidth}x${cropHeight}`,
+      );
+
+      output = await sharp(oriented)
+        .extract({ left, top, width: cropWidth, height: cropHeight })
+        .toBuffer();
+    }
+
+    if (rotation !== 0) {
+      log.debug("[photo-studio] applying content-aware rotation:", rotation, "degrees");
+      output = await sharp(output)
+        .rotate(rotation, { background: { r: 255, g: 255, b: 255 } })
+        .toBuffer();
+
+      const tiltBase64 = output.toString("base64");
+      const tilt = await detectTiltCorrection(tiltBase64, "image/jpeg");
+      if (tilt !== 0) {
+        log.debug("[photo-studio] applying tilt correction:", tilt, "degrees");
+        output = await sharp(output)
+          .rotate(tilt, { background: { r: 255, g: 255, b: 255 } })
+          .toBuffer();
+      }
+    }
+
+    return output;
   } catch (err) {
     log.warn("[photo-studio] pre-crop failed, using original:", err instanceof Error ? err.message : err);
     return oriented;

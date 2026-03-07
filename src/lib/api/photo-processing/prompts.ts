@@ -134,6 +134,28 @@ Return JSON with: { "crop_x", "crop_y", "crop_width", "crop_height" } in pixels,
 
 Reply with ONLY a single JSON object, no markdown, no backticks. Example: {"crop_x":100,"crop_y":50,"crop_width":300,"crop_height":400,"image_width":800,"image_height":600}`;
 
+export const ROTATION_PROMPT = `Look at the product packaging in this image. Find the BRAND NAME — the largest, most prominent text on the front of the packaging.
+
+Your task: tell me WHERE in the image the FIRST CHARACTER of the brand name is located.
+
+- "left": The first character is on the LEFT side of the image (text reads horizontally, left to right — normal orientation)
+- "bottom": The first character is near the BOTTOM of the image (text runs upward along the packaging)
+- "right": The first character is on the RIGHT side of the image (text is upside-down, reading right to left)
+- "top": The first character is near the TOP of the image (text runs downward along the packaging)
+
+Reply with JSON only, no markdown:
+{"brand_name": "the brand you found", "first_letter_position": "left or bottom or right or top"}`;
+
+export const TILT_PROMPT = `The product text in this image should be perfectly horizontal, reading left to right. But it may be slightly tilted.
+
+How many degrees is the text tilted from perfectly horizontal?
+- Positive = clockwise tilt (right side of text droops down)
+- Negative = counter-clockwise tilt (left side of text droops down)
+- 0 = already perfectly horizontal
+
+Reply with JSON only, no markdown:
+{"tilt_degrees": 0}`;
+
 export interface ExtractedProduct {
   article_number?: string | null;
   name?: string;
