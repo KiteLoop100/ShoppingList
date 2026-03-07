@@ -104,7 +104,8 @@ function resizeImageToBase64(source: HTMLVideoElement | HTMLImageElement | strin
   });
 }
 
-type TranslateFn = (key: string, values?: Record<string, unknown>) => string;
+type TranslationValue = string | number | boolean | Date | null | undefined;
+type TranslateFn = (key: string, values?: Record<string, TranslationValue>) => string;
 
 function fireAndForgetAnalysis(
   photoUrls: string[],
