@@ -12,6 +12,7 @@ import {
 import { log } from "@/lib/utils/logger";
 import type { Product, CompetitorProduct, DemandGroup } from "@/types";
 import type { ExtractedProductInfo } from "@/lib/product-photo-studio/types";
+import { extractDemandGroupCode } from "@/lib/competitor-products/categorize-competitor-product";
 import { saveProduct, type SaveResult } from "../product-capture-save";
 
 export interface ProductCaptureValues {
@@ -221,6 +222,7 @@ export function useProductCaptureForm(config: ProductCaptureConfig) {
       const extracted = data.extracted_data as ExtractedProductInfo | null;
       if (extracted) {
         setExtractedDetails(extracted);
+        const aiDemandGroupCode = extractDemandGroupCode(extracted.demand_group);
         setValues((prev) => ({
           ...prev,
           name: extracted.name ? titleCase(extracted.name) : prev.name,
@@ -229,6 +231,7 @@ export function useProductCaptureForm(config: ProductCaptureConfig) {
           articleNumber: (extracted.article_number && !prev.articleNumber) ? extracted.article_number : prev.articleNumber,
           price: (extracted.price != null && !prev.price) ? String(extracted.price).replace(".", ",") : prev.price,
           weightOrQuantity: (extracted.weight_or_quantity && !prev.weightOrQuantity) ? extracted.weight_or_quantity : prev.weightOrQuantity,
+          demandGroupCode: (aiDemandGroupCode && !prev.demandGroupCode) ? aiDemandGroupCode : prev.demandGroupCode,
           isBio: extracted.is_bio || prev.isBio,
           isVegan: extracted.is_vegan || prev.isVegan,
           isGlutenFree: extracted.is_gluten_free || prev.isGlutenFree,

@@ -296,6 +296,23 @@
     "feedbackButton": "Send general feedback",
     "privacyPolicy": "Privacy Policy"
   },
+  "createStore": {
+    "title": "Add new store",
+    "prompt": "You are not near a known store. Would you like to add a new one?",
+    "retailerLabel": "Which store?",
+    "retailerPlaceholder": "Select store…",
+    "otherRetailer": "Other…",
+    "customRetailerPlaceholder": "Enter store name",
+    "storeNameLabel": "Name (optional)",
+    "storeNamePlaceholder": "e.g. REWE Leopoldstraße",
+    "addressLabel": "Address",
+    "addressPlaceholder": "Detected automatically…",
+    "create": "Add store",
+    "creating": "Creating…",
+    "skip": "Skip",
+    "success": "Store added!",
+    "error": "Failed to create store."
+  },
   "flyer": {
     "title": "Flyers",
     "navLabel": "Flyers",

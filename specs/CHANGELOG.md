@@ -5,6 +5,76 @@
 
 ---
 
+## 2026-03-07 – Competitor Product Categorization
+
+Adds automatic `demand_group_code` assignment to competitor products via a 3-stage fallback chain (AI hint → keyword fallback → Claude Haiku). Enables future catalog view for competitor products.
+
+### New Files
+- **`src/lib/competitor-products/categorize-competitor-product.ts`** — Central categorization service with `categorizeCompetitorProduct()` (client-side) and `categorizeCompetitorProductServer()` (server-side) functions. Includes `extractDemandGroupCode()` utility for parsing "##-Name" format.
+- **`supabase/migrations/20260307100000_fix_search_retailer_products_rpc.sql`** — Replaces orphaned `category_id` with `demand_group_code` in `search_retailer_products` RPC.
+- **`src/lib/competitor-products/__tests__/categorize-competitor-product.test.ts`** — Tests for `extractDemandGroupCode()`.
+- **`src/lib/products/__tests__/demand-group-fallback.test.ts`** — Tests for keyword-based demand group fallback.
+
+### Modified Files
+- **`src/lib/receipts/receipt-prompt.ts`** — `RECEIPT_PROMPT` now includes `DEMAND_GROUPS_INSTRUCTION` and requests `demand_group` per product line.
+- **`src/lib/receipts/parse-receipt.ts`** — `ReceiptProduct` interface extended with `demand_group`. `findOrCreateCompetitorProductServer()` now accepts and sets `retailer`. `processValidReceipt()` calls `categorizeCompetitorProductServer()` for new competitor products.
+- **`src/lib/product-photo-studio/prompts.ts`** — `extractCompetitorProductPrompt()` now includes `DEMAND_GROUPS_INSTRUCTION` and requests `demand_group`.
+- **`src/lib/product-photo-studio/types.ts`** — `ExtractedProductInfo` extended with `demand_group`.
+- **`src/components/product-capture/hooks/use-product-capture-form.ts`** — AI-extracted `demand_group` pre-fills the demand group dropdown.
+- **`src/components/product-capture/product-capture-save.ts`** — Fires `categorizeCompetitorProduct()` in background for new products without a demand group.
+- **`src/lib/competitor-products/competitor-product-service.ts`** — `RetailerProductResult.category_id` replaced with `demand_group_code`.
+- **`src/components/search/hooks/use-add-to-list.ts`** — Uses `demand_group_code` instead of orphaned `category_id`.
+
+### Specs Updated
+- `DATA-MODEL.md` — Competitor product schema updated with all current fields and categorization pipeline docs.
+- `FEATURES-ELSEWHERE.md` — Data model, capture methods updated with categorization details.
+- `FEATURES-CAPTURE.md` — Competitor product categorization section added.
+- `ARCHITECTURE.md` — Category assignment module updated from `category_id` to `demand_group_code`.
+
+---
+
+## 2026-03-07 – Multi-Retailer Store Learning
+
+Extends the app from ALDI-only to any grocery retailer. Users can create stores for REWE, EDEKA, Lidl, Penny, dm, etc. The existing pairwise learning algorithm now scopes Layer 2 aggregation to same-chain stores.
+
+### Database & Data Model
+- **New: `supabase/migrations/20260307000000_stores_retailer.sql`** – Adds `retailer TEXT DEFAULT 'ALDI SÜD'` to `stores` table. Back-fills NZ stores based on name.
+- **Modified: `src/types/index.ts`** – Added `retailer: string` to `Store` interface.
+- **Modified: `src/lib/db/indexed-db.ts`** – Schema v14: `retailer` index on `stores` table.
+- **Modified: `src/lib/db/seed-data.ts`** – `retailer` field added to all seed stores (ALDI SÜD, PAK'nSAVE, New World, Woolworths).
+
+### Store Creation
+- **New: `src/lib/store/known-retailers.ts`** – Shared constant `KNOWN_RETAILERS`: 22 major grocery retailers (DACH + NZ).
+- **New: `src/components/store/create-store-dialog.tsx`** – Dialog with retailer dropdown, optional store name, auto-detected address via reverse geocoding (OpenStreetMap Nominatim API).
+- **Modified: `src/lib/store/store-service.ts`** – New `createStore()`, `reverseGeocode()`, `getStoreRetailer()`, `detectStoreOrPosition()` functions. `rowToStore()` maps `retailer` field (default: "ALDI SÜD").
+
+### Store Detection & UI
+- **Modified: `src/hooks/use-store-detection.ts`** – New `unknownLocation` state (GeoPosition) when GPS finds position but no known store. `handleStoreCreated` and `handleSkipCreateStore` callbacks.
+- **Modified: `src/app/[locale]/page.tsx`** – Renders `CreateStoreDialog` when `unknownLocation` is active.
+- **Modified: `src/app/[locale]/settings/settings-client.tsx`** – Store selector shows retailer badge, search result limit increased to 8.
+
+### Cross-Chain Aggregation
+- **Modified: `src/lib/store/hierarchical-order.ts`** – `getRetailerStoreIds()` resolves same-chain stores. `getAggregatedPairwise()` scopes Layer 2 to same-retailer stores with fallback to all stores.
+- **Modified: `src/lib/store/store-filter.ts`** – Retailer name matching added (relevance score 4 = highest priority).
+
+### i18n
+- **Modified: `src/messages/de.json` + `en.json`** – New `createStore` section with 12 translations each.
+
+### Tests
+- **New: `src/lib/store/__tests__/store-filter.test.ts`** – 7 tests for retailer-aware store filtering.
+- **New: `src/lib/store/__tests__/hierarchical-order.test.ts`** – 3 tests for cross-chain aggregation.
+- **New: `src/lib/store/__tests__/known-retailers.test.ts`** – 4 tests for retailer list integrity.
+- All 365 tests pass across 41 test files.
+
+### Specs updated
+- `DATA-MODEL.md` (Section 7: `retailer` field, store creation sources)
+- `LEARNING-ALGORITHMS.md` (Layer 2 scoped to same-chain, new cold-start section 8.1a)
+- `FEATURES-CORE.md` (F04 store detection with create-store dialog, F05 multi-retailer note)
+- `ARCHITECTURE.md` (folder structure: `components/store/`)
+- `BACKLOG.md` (BL-66: reverse geocoding rate-limiting)
+
+---
+
 ## 2026-03-07 – Photo Studio Pipeline: Robustness & Quality Improvements
 
 - **Modified: `src/lib/product-photo-studio/create-thumbnail.ts`** – `PRECROP_MARGIN` erhöht von 15% auf 20%, `MIN_PAD_PX = 50` als Mindest-Padding. Neue `isProductClipped`-Funktion erkennt Alpha-Clipping an Bildkanten; bei Clipping wird ein Retry ohne Pre-Crop durchgeführt. Neue shared `processImageToThumbnail`-Funktion ersetzt duplizierte Logik. `backgroundRemovalFailed`-Flag gesetzt wenn Crop-Fallback greift.

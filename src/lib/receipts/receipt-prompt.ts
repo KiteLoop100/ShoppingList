@@ -3,6 +3,7 @@
  */
 
 import { SUPPORTED_RETAILER_NAMES } from "@/lib/retailers/retailers";
+import { DEMAND_GROUPS_INSTRUCTION } from "@/lib/products/demand-groups-prompt";
 
 const SUPPORTED_LIST = SUPPORTED_RETAILER_NAMES.join(", ");
 
@@ -47,6 +48,10 @@ SCHRITT 2 – NUR bei status "valid", extrahiere ALLE folgenden Informationen:
 - is_weight_item: true falls nach Gewicht (kg) abgerechnet (erkennbar an kg-Angabe)
 - weight_kg: Gewicht in kg (falls Gewichtsartikel)
 - tax_category: Steuerklasse-Buchstabe (A, B etc. falls am Zeilenende sichtbar)
+- demand_group: Warengruppe im Format "##-Name" (z.B. "83-Milch/Sahne/Butter"). Auch bei abgekürzten Kassenzettelnamen anhand des Kontexts (Händler, Steuerklasse, andere Produkte) zuordnen. null nur wenn wirklich unklar.
+
+WARENGRUPPEN-ZUORDNUNG:
+${DEMAND_GROUPS_INSTRUCTION}
 
 3. FUSS:
 - subtotal: Zwischensumme
@@ -87,7 +92,8 @@ Antworte ausschließlich mit validem JSON. Kein Markdown, keine Backticks.
       "total_price": number or null,
       "is_weight_item": false,
       "weight_kg": null,
-      "tax_category": "string or null"
+      "tax_category": "string or null",
+      "demand_group": "string or null"
     }
   ],
   "tax_details": [{"category": "A", "rate": "19%", "net": 0.00, "tax": 0.00, "gross": 0.00}],

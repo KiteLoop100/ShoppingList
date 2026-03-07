@@ -90,6 +90,8 @@ export interface ExtractedProductInfo {
   retailer_from_price_tag: string | null;
   unit_price: string | null;
   weight_or_quantity: string | null;
+  /** AI-inferred demand group in "##-Name" format (e.g. "83-Milch/Sahne/Butter"). */
+  demand_group: string | null;
   ingredients: string | null;
   nutrition_info: NutritionInfo | null;
   allergens: string | null;

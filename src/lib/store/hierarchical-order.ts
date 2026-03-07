@@ -132,16 +132,36 @@ async function getStorePairwise(
   return rows;
 }
 
-/** Get all pairwise rows (for aggregation across stores). */
-async function getAllStoresPairwise(
+/**
+ * Get pairwise rows for aggregation across stores.
+ * If retailerStoreIds is provided, only those stores are included (same-chain aggregation).
+ * Falls back to all stores when no retailer-specific data exists.
+ */
+async function getAggregatedPairwise(
   level: PairwiseLevel,
-  scope?: string | null
+  scope: string | null | undefined,
+  retailerStoreIds: string[] | null
 ): Promise<PairwiseRow[]> {
-  const rows = await db.pairwise_comparisons.where("level").equals(level).toArray();
-  if (scope !== undefined && scope !== null) {
-    return rows.filter((r) => (r.scope ?? "") === scope);
-  }
-  return rows;
+  const allRows = await db.pairwise_comparisons.where("level").equals(level).toArray();
+  const filtered = scope !== undefined && scope !== null
+    ? allRows.filter((r) => (r.scope ?? "") === scope)
+    : allRows;
+
+  if (!retailerStoreIds || retailerStoreIds.length === 0) return filtered;
+
+  const idSet = new Set(retailerStoreIds);
+  const retailerRows = filtered.filter((r) => idSet.has(r.store_id));
+  return retailerRows.length > 0 ? retailerRows : filtered;
+}
+
+/** Resolve store IDs that share the same retailer (for cross-chain aggregation). */
+async function getRetailerStoreIds(storeId: string | null): Promise<string[] | null> {
+  if (!storeId) return null;
+  const store = await db.stores.where("store_id").equals(storeId).first();
+  if (!store?.retailer) return null;
+  const sameChain = await db.stores.where("retailer").equals(store.retailer).toArray();
+  if (sameChain.length <= 1) return null;
+  return sameChain.map((s) => s.store_id);
 }
 
 interface HierarchicalOrderInput {
@@ -183,6 +203,7 @@ export async function getHierarchicalOrder(
   } = input;
 
   const validCount = storeId ? await getValidSequenceCount(storeId) : 0;
+  const retailerStoreIds = await getRetailerStoreIds(storeId);
 
   const groupOrder = await resolveOrderForLevel(
     "group",
@@ -190,7 +211,8 @@ export async function getHierarchicalOrder(
     groups,
     storeId,
     validCount,
-    () => defaultGroupOrder
+    () => defaultGroupOrder,
+    retailerStoreIds
   );
   const subgroupOrder = new Map<string, string[]>();
   await Promise.all(groupOrder.map(async (g) => {
@@ -201,7 +223,8 @@ export async function getHierarchicalOrder(
       subs,
       storeId,
       validCount,
-      () => defaultSubgroupOrder(g)
+      () => defaultSubgroupOrder(g),
+      retailerStoreIds
     );
     subgroupOrder.set(g, order);
   }));
@@ -213,7 +236,8 @@ export async function getHierarchicalOrder(
       pids,
       storeId,
       validCount,
-      () => defaultProductOrder(scope)
+      () => defaultProductOrder(scope),
+      retailerStoreIds
     );
     productOrder.set(scope, order);
   }));
@@ -226,7 +250,8 @@ export async function getHierarchicalOrder(
     items: string[],
     storeId: string | null,
     validCount: number,
-    getDefaultOrder: () => string[]
+    getDefaultOrder: () => string[],
+    retailerStoreIds: string[] | null
   ): Promise<string[]> {
     if (items.length <= 1) return [...items];
 
@@ -253,7 +278,7 @@ export async function getHierarchicalOrder(
 
     const getAllStoresCounts = async (): Promise<Map<string, { a: number; b: number }> | null> => {
       if (weights.w2 <= 0) return null;
-      const rows = await getAllStoresPairwise(level, scope);
+      const rows = await getAggregatedPairwise(level, scope, retailerStoreIds);
       return aggregatePairwise(rows);
     };
 

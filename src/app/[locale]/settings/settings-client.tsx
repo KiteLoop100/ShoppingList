@@ -310,6 +310,9 @@ export function SettingsClient() {
                       ✓
                     </div>
                     <div className="min-w-0 flex-1">
+                      {selected.retailer && (
+                        <p className="truncate text-[11px] font-bold uppercase tracking-wider text-aldi-blue/70">{selected.retailer}</p>
+                      )}
                       {selected.country !== "DE" && selected.country !== "AT" && (
                         <p className="truncate text-xs font-semibold text-aldi-blue">{selected.name}</p>
                       )}
@@ -345,7 +348,7 @@ export function SettingsClient() {
                         {t("noStoresMatchSearch")}
                       </p>
                     ) : (
-                      filteredStores.slice(0, 5).map((s) => (
+                      filteredStores.slice(0, 8).map((s) => (
                         <button
                           key={s.store_id}
                           type="button"
@@ -356,6 +359,9 @@ export function SettingsClient() {
                           className="flex w-full items-start gap-3 border-b border-aldi-muted-light px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-gray-50"
                         >
                           <div className="min-w-0 flex-1">
+                            {s.retailer && (
+                              <p className="text-[11px] font-bold uppercase tracking-wider text-aldi-blue/60">{s.retailer}</p>
+                            )}
                             {s.country !== "DE" && s.country !== "AT" && (
                               <p className="text-xs font-semibold text-aldi-blue">{s.name}</p>
                             )}

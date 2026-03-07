@@ -5,6 +5,7 @@
 
 import { normalizeName, normalizeArticleNumber } from "@/lib/products/normalize";
 import { findProductByArticleNumber } from "@/lib/products/find-existing";
+import { categorizeCompetitorProductServer } from "@/lib/competitor-products/categorize-competitor-product";
 import { CLAUDE_MODEL_SONNET } from "@/lib/api/config";
 import { callClaude, parseClaudeJsonResponse } from "@/lib/api/claude-client";
 import { log } from "@/lib/utils/logger";
@@ -22,6 +23,7 @@ export interface ReceiptProduct {
   is_weight_item?: boolean;
   weight_kg?: number | null;
   tax_category?: string | null;
+  demand_group?: string | null;
 }
 
 export interface ReceiptOcrResult {
@@ -103,18 +105,28 @@ export async function callReceiptOcr(photoUrls: string[]): Promise<ReceiptOcrRes
 }
 
 async function findOrCreateCompetitorProductServer(
-  supabase: SupabaseClient, receiptName: string, country: string, userId: string,
-): Promise<string | null> {
+  supabase: SupabaseClient, receiptName: string, country: string,
+  userId: string, retailer: string | null,
+): Promise<{ productId: string; isNew: boolean } | null> {
   const nameNorm = normalizeName(receiptName);
   const { data: existing } = await supabase
     .from("competitor_products")
-    .select("product_id")
+    .select("product_id, retailer")
     .eq("name_normalized", nameNorm)
     .eq("status", "active")
     .limit(1)
     .maybeSingle();
 
-  if (existing) return existing.product_id;
+  if (existing) {
+    if (retailer && !existing.retailer) {
+      await supabase
+        .from("competitor_products")
+        .update({ retailer, updated_at: new Date().toISOString() })
+        .eq("product_id", existing.product_id);
+    }
+    return { productId: existing.product_id, isNew: false };
+  }
+
   const { data: created, error } = await supabase
     .from("competitor_products")
     .insert({
@@ -122,6 +134,7 @@ async function findOrCreateCompetitorProductServer(
       name_normalized: nameNorm,
       country,
       created_by: userId,
+      retailer: retailer ?? null,
     })
     .select("product_id")
     .single();
@@ -130,7 +143,7 @@ async function findOrCreateCompetitorProductServer(
     log.error("[process-receipt] Failed to create competitor product:", error.message);
     return null;
   }
-  return created.product_id;
+  return { productId: created.product_id, isNew: true };
 }
 
 /** Process a validated receipt: insert record, match products, insert items, update prices. */
@@ -216,9 +229,10 @@ export async function processValidReceipt(
           }
         }
       } else if (retailerNormalized) {
-        competitorProductId = await findOrCreateCompetitorProductServer(
-          supabase, receiptName, "DE", userId,
+        const result = await findOrCreateCompetitorProductServer(
+          supabase, receiptName, "DE", userId, retailerNormalized,
         );
+        competitorProductId = result?.productId ?? null;
 
         if (competitorProductId && effectivePrice != null) {
           await supabase
@@ -232,6 +246,15 @@ export async function processValidReceipt(
             });
           pricesUpdated++;
           competitorProductIds.push(competitorProductId);
+        }
+
+        if (competitorProductId && result?.isNew) {
+          categorizeCompetitorProductServer(
+            supabase, competitorProductId, receiptName,
+            { demandGroupFromAI: p.demand_group },
+          ).catch((err) => {
+            log.warn("[process-receipt] Categorization failed (non-blocking):", err);
+          });
         }
       }
     }

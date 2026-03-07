@@ -6,6 +6,8 @@
 import { db } from "@/lib/db";
 import type { LocalStore } from "@/lib/db";
 import { createClientIfConfigured } from "@/lib/supabase/client";
+import { generateId } from "@/lib/utils/generate-id";
+import { log } from "@/lib/utils/logger";
 
 const GPS_RADIUS_METERS = 100;
 
@@ -20,6 +22,7 @@ function rowToStore(row: {
   longitude: number;
   has_sorting_data: boolean;
   sorting_data_quality: number;
+  retailer?: string | null;
   created_at: string;
   updated_at: string;
 }): LocalStore {
@@ -34,6 +37,7 @@ function rowToStore(row: {
     longitude: Number(row.longitude),
     has_sorting_data: Boolean(row.has_sorting_data),
     sorting_data_quality: Number(row.sorting_data_quality),
+    retailer: row.retailer ?? "ALDI SÜD",
     created_at: row.created_at,
     updated_at: row.updated_at,
   };
@@ -162,18 +166,22 @@ export async function setListStore(
 export interface StoreDetectionResult {
   store: LocalStore;
   detectedByGps: boolean;
+  /** GPS position at time of detection (always set when detectedByGps=true). */
+  gpsPosition?: GeoPosition;
 }
 
 /** Try to detect store by GPS; if none, use default store from settings (F12). */
 export async function detectAndSetStoreForList(
   listId: string
 ): Promise<StoreDetectionResult | null> {
+  let gpsPosition: GeoPosition | undefined;
   try {
     const pos = await getCurrentPosition();
+    gpsPosition = pos;
     const store = await findNearestStore(pos.latitude, pos.longitude);
     if (store) {
       await setListStore(listId, store.store_id);
-      return { store, detectedByGps: true };
+      return { store, detectedByGps: true, gpsPosition };
     }
   } catch {
     // Permission denied or error – ignore
@@ -185,10 +193,38 @@ export async function detectAndSetStoreForList(
     const store = all.find((s) => s.store_id === defaultId);
     if (store) {
       await setListStore(listId, store.store_id);
-      return { store, detectedByGps: false };
+      return { store, detectedByGps: false, gpsPosition };
     }
   }
   return null;
+}
+
+/** Variant: returns the GPS position even if no store was found (for create-store flow). */
+export async function detectStoreOrPosition(
+  listId: string
+): Promise<{ result: StoreDetectionResult | null; gpsPosition: GeoPosition | null }> {
+  let gpsPosition: GeoPosition | null = null;
+  try {
+    gpsPosition = await getCurrentPosition();
+    const store = await findNearestStore(gpsPosition.latitude, gpsPosition.longitude);
+    if (store) {
+      await setListStore(listId, store.store_id);
+      return { result: { store, detectedByGps: true, gpsPosition }, gpsPosition };
+    }
+  } catch {
+    // Permission denied or error – ignore
+  }
+  const { getDefaultStoreId } = await import("@/lib/settings/default-store");
+  const defaultId = getDefaultStoreId();
+  if (defaultId) {
+    const all = await getStoresSorted();
+    const store = all.find((s) => s.store_id === defaultId);
+    if (store) {
+      await setListStore(listId, store.store_id);
+      return { result: { store, detectedByGps: false, gpsPosition }, gpsPosition };
+    }
+  }
+  return { result: null, gpsPosition };
 }
 
 /** Update the gps_confirmed_in_store flag on a list. */
@@ -200,4 +236,107 @@ export async function setListGpsConfirmed(
   if (!list) return;
   (list as { gps_confirmed_in_store?: boolean }).gps_confirmed_in_store = confirmed;
   await db.lists.put(list as never);
+}
+
+/** Reverse-geocode coordinates to a rough address via OpenStreetMap Nominatim. */
+export async function reverseGeocode(
+  lat: number,
+  lon: number
+): Promise<{ address: string; city: string; postalCode: string; country: string } | null> {
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&addressdetails=1&accept-language=de`,
+      { headers: { "User-Agent": "ALDI-Einkaufsliste/1.0" } }
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    const a = data.address ?? {};
+    const road = a.road ?? a.pedestrian ?? a.footway ?? "";
+    const houseNumber = a.house_number ?? "";
+    const city = a.city ?? a.town ?? a.village ?? a.municipality ?? "";
+    const postalCode = a.postcode ?? "";
+    const country = a.country_code?.toUpperCase() ?? "DE";
+    const address = [road, houseNumber].filter(Boolean).join(" ");
+    return { address, city, postalCode, country };
+  } catch (e) {
+    log.warn("[reverseGeocode] failed:", e);
+    return null;
+  }
+}
+
+export interface CreateStoreInput {
+  retailer: string;
+  name?: string;
+  latitude: number;
+  longitude: number;
+  address?: string;
+  city?: string;
+  postalCode?: string;
+  country?: string;
+}
+
+/** Create a new user-defined store in Supabase + IndexedDB. */
+export async function createStore(input: CreateStoreInput): Promise<LocalStore> {
+  const now = new Date().toISOString();
+  const storeId = generateId("store");
+
+  let { address, city, postalCode, country } = input;
+  if (!address || !city) {
+    const geo = await reverseGeocode(input.latitude, input.longitude);
+    if (geo) {
+      address = address || geo.address;
+      city = city || geo.city;
+      postalCode = postalCode || geo.postalCode;
+      country = country || geo.country;
+    }
+  }
+
+  const storeName = input.name || `${input.retailer} ${city || ""}`.trim();
+
+  const store: LocalStore = {
+    store_id: storeId,
+    name: storeName,
+    address: address || "",
+    city: city || "",
+    postal_code: postalCode || "",
+    country: country || "DE",
+    latitude: input.latitude,
+    longitude: input.longitude,
+    has_sorting_data: false,
+    sorting_data_quality: 0,
+    retailer: input.retailer,
+    created_at: now,
+    updated_at: now,
+  };
+
+  const supabase = createClientIfConfigured();
+  if (supabase) {
+    const { error } = await supabase.from("stores").insert({
+      store_id: store.store_id,
+      name: store.name,
+      address: store.address,
+      city: store.city,
+      postal_code: store.postal_code,
+      country: store.country,
+      latitude: store.latitude,
+      longitude: store.longitude,
+      has_sorting_data: false,
+      sorting_data_quality: 0,
+      retailer: store.retailer,
+      created_at: now,
+      updated_at: now,
+    });
+    if (error) {
+      log.error("[createStore] Supabase insert failed:", error);
+    }
+  }
+
+  await db.stores.add(store as never);
+  return store;
+}
+
+/** Get the retailer for a store by id (for cross-chain aggregation). */
+export async function getStoreRetailer(storeId: string): Promise<string | null> {
+  const store = await getStoreById(storeId);
+  return store?.retailer ?? null;
 }

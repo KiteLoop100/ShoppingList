@@ -107,7 +107,7 @@ export function useAddToList(opts: UseAddToListOptions) {
       try {
         const list = await getOrCreateActiveList();
         const demandGroupCode =
-          product.category_id ??
+          product.demand_group_code ??
           (await assignDemandGroup(product.name)).demand_group_code;
         await addListItem({
           list_id: list.list_id,

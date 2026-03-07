@@ -94,6 +94,8 @@ export interface Store {
   longitude: number;
   has_sorting_data: boolean;
   sorting_data_quality: number;
+  /** Retailer/chain name (e.g. "ALDI SÜD", "REWE", "EDEKA", "Lidl"). */
+  retailer: string;
   created_at: string;
   updated_at: string;
 }

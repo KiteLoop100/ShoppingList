@@ -20,7 +20,7 @@
 
 ### 2.1 Goal
 
-Calculate a product category order for each ALDI SÜD store that matches the actual store layout. A user working through the list top to bottom should only need to walk through the store once.
+Calculate a product category order for each store (ALDI SÜD, REWE, EDEKA, Lidl, or any other grocery store) that matches the actual store layout. A user working through the list top to bottom should only need to walk through the store once.
 
 ### 2.2 Information Sources (Layers)
 
@@ -33,11 +33,12 @@ Layers ordered by priority:
 - Minimum: ~5 validated trips for first useful results
 - Optimum: ~20 validated trips for reliable sorting
 
-**Layer 2: Average Across All Stores (fallback)**
-- Source: AggregatedAisleOrder – average aisle order of all stores
-- Logic: ALDI SÜD stores are similarly structured. If 80% have fruit at the entrance, that's a good assumption for unknown stores
+**Layer 2: Average Across Same-Chain Stores (fallback)**
+- Source: Pairwise comparison data aggregated across stores of the **same retailer** (e.g. all REWEs, all ALDIs)
+- Logic: Stores of the same chain tend to have similar layouts. If 80% of REWEs have fruit at the entrance, that's a good assumption for a new REWE
+- Scoping: `getRetailerStoreIds()` resolves all stores with matching `retailer` field. If no same-chain data exists, falls back to all stores
 - Used when a store has insufficient own data
-- Weighting: Less own data → stronger influence from average
+- Weighting: Less own data → stronger influence from chain average
 
 **Layer 3: Category Clustering (base fallback)**
 - Source: General knowledge about product groupings
@@ -95,7 +96,7 @@ For each level (Group / Sub-Group / Product):
 Layer 1: Store-specific data
   → Pairwise comparisons from checkoff sequences in this store
 
-Layer 2: Average across all stores
+Layer 2: Average across same-chain stores (with all-stores fallback)
   → Fallback when insufficient store-specific data
 
 Layer 3: Default sorting
@@ -355,9 +356,14 @@ Factors to consider: day of week, seasonality, purchase interval, time since las
 ## 8. Cold Start Problem
 
 ### 8.1 New Store (No Data)
-- **Day 1:** Category clustering (Layer 3). Fruits first (typical ALDI entrance), then bread, dairy, meat, frozen, dry goods, drinks, household, specials
-- **Week 1 (~5-10 trips):** First own data, mix 30% own + 70% average. Noticeable improvement
+- **Day 1:** Category clustering (Layer 3). Default demand group `sort_position` order (Fruits first, then bread, dairy, meat, frozen, dry goods, drinks, household, specials)
+- **Week 1 (~5-10 trips):** First own data, mix 30% own + 70% same-chain average (Layer 2). Noticeable improvement
 - **Month 1 (~50+ trips):** Reliable aisle order, high confidence
+
+### 8.1a New Retailer (No Chain Data)
+- **Initial:** No same-chain Layer 2 data available → falls back to all-stores average, then Layer 3 (default sort_position)
+- **Gradual:** As users create stores for this retailer and shop there, same-chain aggregation kicks in
+- **Note:** Demand groups are retailer-agnostic (product categories like "Milch/Sahne/Butter" apply across all grocery stores), so the learning algorithm works identically for any retailer
 
 ### 8.2 New User (No Personal History)
 - Search shows global ranking. "Typical products" disabled (needs 3+ trips). Aisle order based on store data (user-independent). After 2-3 trips: first personalization visible
@@ -398,5 +404,5 @@ User reports "sorting is wrong". Saved with context: store, current sorting, tim
 
 ---
 
-*Last updated: 2026-02-28*
+*Last updated: 2026-03-07*
 *See also: SEARCH-ARCHITECTURE.md (ranking), DATA-MODEL.md (schema)*

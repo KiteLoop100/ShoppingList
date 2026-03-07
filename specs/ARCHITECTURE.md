@@ -156,10 +156,15 @@ Later: Server-side calculation for more complex algorithms
 ```
 Interface: CategoryAssigner
   Input:  product_name (string)
-  Output: { category_id, confidence }
+  Output: { demand_group_code: string | null }
 
-MVP: Rule-based keyword mapping + Claude API fallback
-Later: ML-based classification
+Implementation: 3-stage fallback chain
+  1. AI hint (from caller context, e.g. receipt OCR or photo extraction)
+  2. Keyword-based fallback (getDemandGroupFallback — ~40 patterns)
+  3. Claude Haiku API (/api/assign-category — ~90% accuracy)
+
+Used for both ALDI products and competitor products.
+Service: src/lib/competitor-products/categorize-competitor-product.ts
 ```
 
 ### 4.4 Validation Module (Check-Off Sequences)
@@ -265,6 +270,7 @@ Receipts:
   /components
     /search                ← Search module
     /list                  ← List view, list items
+    /store                 ← Store creation dialog
     /store-picker          ← Store selection
     /common                ← Buttons, icons, layout
 
@@ -375,5 +381,5 @@ Developer (Cursor) → Git Push → GitHub → Vercel (auto-deploy)
 
 ---
 
-*Last updated: 2026-02-28*
+*Last updated: 2026-03-07*
 *See also: SEARCH-ARCHITECTURE.md, FEATURES-ACCOUNT.md, LAUNCH-READINESS.md, SECURITY-BACKLOG.md*

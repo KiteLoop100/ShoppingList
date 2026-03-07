@@ -14,6 +14,7 @@ import { useStoreDetection } from "@/hooks/use-store-detection";
 import { OnboardingFlow, ONBOARDING_COMPLETE_KEY } from "@/components/onboarding/onboarding-flow";
 import { useAuth } from "@/lib/auth/auth-context";
 import { PostShoppingPrompt } from "@/components/feedback/post-shopping-prompt";
+import { CreateStoreDialog } from "@/components/store/create-store-dialog";
 
 const COMPLETION_DELAY_MS = 1800;
 
@@ -104,7 +105,14 @@ export default function MainScreenPage() {
   const refetchRef = useRef(refetch);
   refetchRef.current = refetch;
 
-  const { detectedStoreName, showSortToast, resetOnCompletion } = useStoreDetection({
+  const {
+    detectedStoreName,
+    showSortToast,
+    unknownLocation,
+    handleStoreCreated,
+    handleSkipCreateStore,
+    resetOnCompletion,
+  } = useStoreDetection({
     listId,
     loading,
     storeId: store?.store_id,
@@ -301,6 +309,14 @@ export default function MainScreenPage() {
         <OnboardingFlow
           onComplete={handleOnboardingComplete}
           showSkip={searchParams.get("onboarding") !== "true"}
+        />
+      )}
+
+      {unknownLocation && !showOnboarding && (
+        <CreateStoreDialog
+          position={unknownLocation}
+          onCreated={handleStoreCreated}
+          onSkip={handleSkipCreateStore}
         />
       )}
     </main>

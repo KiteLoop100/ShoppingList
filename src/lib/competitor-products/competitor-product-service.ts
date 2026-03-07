@@ -370,7 +370,7 @@ export interface RetailerProductResult {
   weight_or_quantity: string | null;
   country: string;
   thumbnail_url: string | null;
-  category_id: string | null;
+  demand_group_code: string | null;
   status: string;
   created_at: string;
   updated_at: string;
@@ -420,7 +420,7 @@ export async function searchRetailerProducts(
     weight_or_quantity: row.weight_or_quantity != null ? String(row.weight_or_quantity) : null,
     country: String(row.country),
     thumbnail_url: row.thumbnail_url != null ? String(row.thumbnail_url) : null,
-    category_id: row.category_id != null ? String(row.category_id) : null,
+    demand_group_code: row.demand_group_code != null ? String(row.demand_group_code) : null,
     status: String(row.status),
     created_at: String(row.created_at),
     updated_at: String(row.updated_at),

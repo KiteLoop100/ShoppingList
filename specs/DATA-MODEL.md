@@ -262,22 +262,29 @@ Sub-groups within a demand group. Used for fine-grained sorting within a demand 
 
 ## 7. Store
 
-An ALDI SÜD store location.
+A grocery store location. Originally ALDI-only; since 2026-03-07 supports any retailer (REWE, EDEKA, Lidl, etc.). User-created stores are added via GPS detection when no known store is nearby.
 
 | Field | Description |
 |-------|-------------|
-| store_id | Unique ID |
-| name | Display name (e.g. "ALDI SÜD Musterstraße 12") |
+| store_id | Unique ID (prefix `store-`) |
+| name | Display name (e.g. "ALDI SÜD Musterstraße 12", "REWE Leopoldstraße") |
 | address | Full address |
 | city | City |
 | postal_code | Postal code |
-| country | Country (DE / AT in MVP) |
+| country | Country (DE / AT / NZ) |
 | latitude | GPS latitude |
 | longitude | GPS longitude |
 | has_sorting_data | Whether aisle order data exists for this store |
 | sorting_data_quality | Quality indicator: number of trips that contributed to aisle order |
+| retailer | Retailer/chain name (e.g. "ALDI SÜD", "REWE", "EDEKA", "Lidl"). Used for cross-chain Layer 2 aggregation. Default: "ALDI SÜD". Added in migration `20260307000000_stores_retailer.sql`. |
 | created_at | Creation date |
 | updated_at | Last update |
+
+### Store Creation
+
+Stores can originate from two sources:
+- **Pre-loaded:** ALDI SÜD stores imported via admin scripts (with `external_id` for ALDI store codes)
+- **User-created:** When GPS detects the user at an unknown location, a dialog prompts them to create a new store by selecting a retailer from a dropdown and optionally entering a name. GPS coordinates are captured automatically; address is reverse-geocoded via OpenStreetMap Nominatim API. User-created stores are saved to both Supabase and IndexedDB.
 
 ---
 
@@ -349,11 +356,32 @@ A product from a competing retailer (LIDL, REWE, EDEKA, etc.). Completely separa
 | article_number | Retailer-specific article number (optional) |
 | weight_or_quantity | Weight or quantity (optional) |
 | country | Country code (DE, AT) for download filtering |
+| retailer | Primary retailer (e.g. "EDEKA"). Set by ProductCaptureModal or receipt scan. |
 | thumbnail_url | Public URL to product photo |
-| category_id | Optional FK to categories |
+| demand_group_code | FK to demand_groups(code). Auto-assigned via categorization pipeline (AI hint → keyword fallback → Haiku). |
+| demand_sub_group | FK to demand_sub_groups(code). Currently not auto-assigned (manual only). |
+| assortment_type | "daily_range" (default), "special_food", or "special_nonfood" |
+| category_id | **DEPRECATED** — orphaned after categories table was dropped. Always NULL. Scheduled for removal in Phase 4. |
 | status | "active" or "inactive" |
+| is_bio, is_vegan, is_gluten_free, is_lactose_free | Dietary boolean flags |
+| animal_welfare_level | 1–4 (Haltungsform), null if unknown |
+| ingredients | Full ingredient list (text) |
+| nutrition_info | Nutritional values per 100g (JSONB) |
+| allergens | Comma-separated allergen list |
+| nutri_score | A–E letter grade |
+| country_of_origin | Country of origin |
 | created_at | Creation timestamp |
 | created_by | User who created it |
+
+### Categorization Pipeline
+
+When a competitor product is created without a `demand_group_code`, a 3-stage fallback chain assigns one:
+
+1. **AI hint** — If the caller already has a demand group (e.g. receipt OCR inferred it from context), use it directly.
+2. **Keyword fallback** — `getDemandGroupFallback()` matches product name against ~40 keyword patterns. Free, instant, ~50% hit rate.
+3. **AI classification** — `/api/assign-category` sends the product name to Claude Haiku with the full demand group list. ~90% accuracy, costs one API call.
+
+If all stages fail, `demand_group_code` stays NULL. The product still works in search and lists; it just won't appear in a future catalog view.
 
 ## 10b. Competitor Product Price (F26/B4)
 
@@ -385,7 +413,7 @@ Purchase frequency tracking for competitor products. Used to rank retailer produ
 PK: (competitor_product_id, retailer, user_id). Upserted when an elsewhere item with `competitor_product_id` is checked off (fire-and-forget).
 
 **RPC: `search_retailer_products(p_retailer, p_country, p_user_id, p_query, p_limit)`**
-Returns competitor products for a retailer, ranked by user purchase count DESC, global count DESC, name ASC. Joins `competitor_products` with `competitor_product_stats` and `competitor_product_prices`. Optional text filter on `name_normalized` and `brand`.
+Returns competitor products for a retailer, ranked by user purchase count DESC, global count DESC, name ASC. Joins `competitor_products` with `competitor_product_stats` and `competitor_product_prices`. Optional text filter on `name_normalized` and `brand`. Returns `demand_group_code` (not the deprecated `category_id`).
 
 ---
 
@@ -621,5 +649,5 @@ ShoppingTrip archived → UserProductPreference updated
 
 ---
 
-*Last updated: 2026-03-03*
-*Status: Draft v10 – BL-62 Phase 3: Frontend fully migrated to demand_group_code. All UI components, API routes, services use demand_group_code exclusively. Deprecated category code removed. IndexedDB categories table dropped (Dexie v11). category_id DB columns remain for Phase 4 cleanup.*
+*Last updated: 2026-03-07*
+*Status: Draft v11 – Multi-Retailer Store Learning: `retailer` field on stores, user-created stores via GPS, cross-chain Layer 2 aggregation, IndexedDB v14.*

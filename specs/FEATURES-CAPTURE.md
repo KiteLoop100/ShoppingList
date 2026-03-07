@@ -159,7 +159,19 @@ Duplicate check: EAN → article_number → name_normalized. Duplicate found →
 
 ## Demand Group Assignment
 
-All Claude prompts include the complete demand group/sub-group list (from demand-groups-prompt.ts). Fallback: keyword-based assignment (demand-group-fallback.ts). Admin function: "Assign Demand Groups" button processes all unassigned products in batches of 50.
+All Claude prompts include the complete demand group/sub-group list (from `demand-groups-prompt.ts`). Fallback: keyword-based assignment (`demand-group-fallback.ts`). Admin function: "Assign Demand Groups" button processes all unassigned products in batches of 50.
+
+### Competitor Product Categorization
+
+Competitor products are categorized via a central service (`categorize-competitor-product.ts`) with a 3-stage fallback chain:
+
+1. **AI hint** — The caller may already have a demand group (e.g. receipt OCR inferred it, or Product Photo Studio extracted it). Used directly if valid.
+2. **Keyword fallback** — `getDemandGroupFallback()` in `demand-group-fallback.ts` matches ~40 keyword patterns against the product name. Free, instant.
+3. **AI classification** — Claude Haiku via `/api/assign-category`. Cheap, ~90% accuracy on full product names.
+
+Two entry points:
+- **Receipt scan** (`parse-receipt.ts`): `RECEIPT_PROMPT` now includes `DEMAND_GROUPS_INSTRUCTION` and requests `demand_group` per product. The categorization service is called for newly created competitor products with the AI hint from the receipt OCR.
+- **ProductCaptureModal**: `extractCompetitorProductPrompt()` now includes `demand_group` in its AI extraction. The form pre-fills the demand group dropdown from the AI result. If the user doesn't set a demand group manually, the categorization service runs in the background after save.
 
 ---
 
@@ -202,4 +214,4 @@ See [SECURITY-BACKLOG.md](SECURITY-BACKLOG.md) for open security items:
 
 ---
 
-*Last updated: 2026-03-02*
+*Last updated: 2026-03-07*

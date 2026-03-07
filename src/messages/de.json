@@ -296,6 +296,23 @@
     "feedbackButton": "Allgemeines Feedback senden",
     "privacyPolicy": "Datenschutzerklärung"
   },
+  "createStore": {
+    "title": "Neuen Laden anlegen",
+    "prompt": "Du bist nicht in der Nähe eines bekannten Ladens. Möchtest du einen neuen Laden anlegen?",
+    "retailerLabel": "Welcher Laden?",
+    "retailerPlaceholder": "Laden auswählen…",
+    "otherRetailer": "Anderer…",
+    "customRetailerPlaceholder": "Name des Ladens eingeben",
+    "storeNameLabel": "Name (optional)",
+    "storeNamePlaceholder": "z. B. REWE Leopoldstraße",
+    "addressLabel": "Adresse",
+    "addressPlaceholder": "Wird automatisch erkannt…",
+    "create": "Laden anlegen",
+    "creating": "Wird angelegt…",
+    "skip": "Überspringen",
+    "success": "Laden angelegt!",
+    "error": "Fehler beim Anlegen des Ladens."
+  },
   "flyer": {
     "title": "Handzettel",
     "navLabel": "Handzettel",

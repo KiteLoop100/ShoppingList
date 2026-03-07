@@ -10,6 +10,7 @@ import {
   addCompetitorPrice,
   updateCompetitorProduct,
 } from "@/lib/competitor-products/competitor-product-service";
+import { categorizeCompetitorProduct } from "@/lib/competitor-products/categorize-competitor-product";
 import { uploadCompetitorPhoto } from "@/lib/competitor-products/upload-competitor-photo";
 import { isHomeRetailer } from "@/lib/retailers/retailers";
 import type { Product, CompetitorProduct } from "@/types";
@@ -149,6 +150,13 @@ async function saveCompetitorProduct(
     const priceNum = parseFloat(values.price.replace(",", "."));
     if (!isNaN(priceNum) && priceNum > 0 && values.retailer) {
       await addCompetitorPrice(productId, values.retailer, priceNum);
+    }
+
+    if (!values.demandGroupCode) {
+      categorizeCompetitorProduct(
+        productId, values.name.trim(),
+        { demandGroupFromAI: extractedDetails?.demand_group },
+      ).catch(() => { /* fire-and-forget */ });
     }
   }
 

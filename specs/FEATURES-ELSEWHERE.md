@@ -226,7 +226,9 @@ Separate database for products from other retailers. Completely independent from
 ### Data Model
 
 **`competitor_products`** -- One row per unique product (identified by name + EAN).
-Fields: product_id, name, name_normalized, brand, ean_barcode, article_number, weight_or_quantity, country, thumbnail_url, category_id, status, created_at, created_by.
+Fields: product_id, name, name_normalized, brand, ean_barcode, article_number, weight_or_quantity, country, retailer, thumbnail_url, demand_group_code, demand_sub_group, assortment_type, status, dietary flags, ingredients, nutrition_info, allergens, nutri_score, country_of_origin, created_at, created_by.
+
+`demand_group_code` is auto-assigned via a 3-stage categorization pipeline (AI hint → keyword fallback → Claude Haiku). See DATA-MODEL.md §10a for details.
 
 **`competitor_product_prices`** -- Append-only price history. One row per price observation.
 Fields: price_id, product_id, retailer, price, observed_at, observed_by.
@@ -245,10 +247,11 @@ Current price = latest row per (product_id, retailer).
 
 ### Capture Methods
 
-1. **Unified capture form** (`ProductCaptureModal`): Name, brand, retailer, category, subcategory, price, EAN, product number, weight/quantity, assortment type, dietary flags, photo upload with AI analysis. Opened via pencil icon on elsewhere items, "+ Produkt erfassen" button, "Produkt anlegen" in GenericProductPicker, or "Produkt bearbeiten" from product detail views. The retailer field determines the target table: ALDI -> `products`, other -> `competitor_products`.
+1. **Unified capture form** (`ProductCaptureModal`): Name, brand, retailer, category (auto-filled by AI), subcategory, price, EAN, product number, weight/quantity, assortment type, dietary flags, photo upload with AI analysis. Opened via pencil icon on elsewhere items, "+ Produkt erfassen" button, "Produkt anlegen" in GenericProductPicker, or "Produkt bearbeiten" from product detail views. The retailer field determines the target table: ALDI -> `products`, other -> `competitor_products`. The demand group dropdown is pre-filled when the Product Photo Studio AI extracts a `demand_group`; the user can override.
 2. **Barcode scan** (extended `BarcodeScannerModal`): EAN -> ALDI lookup -> competitor lookup -> Open Food Facts auto-fill.
 3. **Checkoff prompt** (`ElsewhereCheckoffPrompt`): When checking off an elsewhere item, lightweight price + photo capture.
-4. **Photo auto-fill** (via `/api/analyze-product-photos`): "Produktfotos hochladen" button in the form sends photos to the Product Photo Studio pipeline (Claude Vision + ZBar WASM barcode scan), auto-fills all fields from extracted data.
+4. **Photo auto-fill** (via `/api/analyze-product-photos`): "Produktfotos hochladen" button in the form sends photos to the Product Photo Studio pipeline (Claude Vision + ZBar WASM barcode scan), auto-fills all fields from extracted data — now including `demand_group`.
+5. **Receipt scan** (via `/api/process-receipt`): Claude OCR now infers `demand_group` per product line from the receipt context (retailer, tax category, surrounding products). The categorization pipeline assigns `demand_group_code` on newly created competitor products. The recognized `retailer` from the receipt header is also saved to `competitor_products.retailer`.
 
 ### Photos
 
@@ -299,4 +302,4 @@ The `ProductCaptureModal` offers a single "Produktfotos hochladen" button that a
 
 ---
 
-*Last updated: 2026-03-06*
+*Last updated: 2026-03-07*

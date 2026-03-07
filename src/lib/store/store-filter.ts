@@ -12,10 +12,12 @@ export function storeMatchesQuery(store: LocalStore, queryNorm: string): boolean
 
 /**
  * Returns a relevance score for sorting:
- *   3 = city match, 2 = name/postal match, 1 = address match, 0 = no match
+ *   4 = retailer match, 3 = city match, 2 = name/postal match, 1 = address match, 0 = no match
  */
 export function storeMatchRelevance(store: LocalStore, queryNorm: string): number {
-  if (!queryNorm) return 3;
+  if (!queryNorm) return 4;
+  const retailer = normalizeForFilter(store.retailer ?? "");
+  if (retailer.includes(queryNorm)) return 4;
   const city = normalizeForFilter(store.city);
   if (city.includes(queryNorm)) return 3;
   const name = normalizeForFilter(store.name);

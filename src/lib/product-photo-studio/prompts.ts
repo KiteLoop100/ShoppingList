@@ -3,6 +3,8 @@
  * extraction, and thumbnail quality verification.
  */
 
+import { DEMAND_GROUPS_INSTRUCTION } from "@/lib/products/demand-groups-prompt";
+
 export function classifyPhotosPrompt(photoCount: number): string {
   return `Du bist ein Content-Moderator fuer eine Produkt-Datenbank. Dir werden ${photoCount} Fotos uebergeben, die angeblich verschiedene Ansichten EINES Produkts zeigen (Vorderseite, Rueckseite, Seite, Preisschild, Barcode usw.).
 
@@ -88,6 +90,10 @@ PREISSCHILD-ANALYSE (falls Preisschild-Foto vorhanden):
 - retailer_from_price_tag: Haendler-Name falls erkennbar (REWE, EDEKA, Lidl, DM, Rossmann, Penny, Netto, Kaufland usw.)
 - unit_price: Grundpreis als String falls angegeben (z.B. "1 kg = 3,98 EUR")
 
+WARENGRUPPEN-ZUORDNUNG:
+- demand_group: Ordne das Produkt anhand von Name, Verpackung und Kategorie einer Warengruppe zu.
+${DEMAND_GROUPS_INSTRUCTION}
+
 Antworte ausschliesslich mit validem JSON. Kein Markdown, keine Backticks.
 Fehlende/nicht sichtbare Werte als null. Boolesche Flags als false wenn nicht erkennbar.
 
@@ -100,6 +106,7 @@ Fehlende/nicht sichtbare Werte als null. Boolesche Flags als false wenn nicht er
   "retailer_from_price_tag": "string or null",
   "unit_price": "string or null",
   "weight_or_quantity": "string or null",
+  "demand_group": "string or null",
   "ingredients": "string or null",
   "nutrition_info": {
     "energy_kcal": null,

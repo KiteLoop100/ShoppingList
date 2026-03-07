@@ -166,6 +166,10 @@ export class AppDatabase extends Dexie {
     this.version(13).stores({
       competitor_products: "++id, product_id, name_normalized, ean_barcode, country, status, retailer, demand_group_code",
     });
+    // Multi-retailer: add retailer index to stores
+    this.version(14).stores({
+      stores: "++id, store_id, country, [latitude+longitude], has_sorting_data, retailer",
+    });
   }
 }
 

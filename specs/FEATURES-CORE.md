@@ -386,9 +386,11 @@ Users can defer any active (unchecked) item to the next day by swiping right. Th
 
 ## F04: Store Detection
 
-**Initial detection:** GPS-based (100 m radius around ALDI stores). If GPS is unavailable or no store is in range, the default store from Settings is used as fallback. Without store: default category sorting.
+**Initial detection:** GPS-based (100 m radius around known stores — ALDI, REWE, EDEKA, Lidl, or any user-created store). If GPS is unavailable or no store is in range, the default store from Settings is used as fallback. Without store: default category sorting.
 
 **Manual store picker removed (2026-02-25):** The header no longer contains a manual store picker button. Store selection is now fully automatic via GPS detection + default store in Settings. This simplifies the UI and removes a rarely-used control.
+
+**Unknown location → Create Store dialog (2026-03-07):** When GPS finds a position but no known store is within range, the app shows a dialog prompting the user to create a new store. The dialog includes a retailer dropdown (22 known DACH + NZ retailers, plus custom entry), an optional store name field, and the auto-detected address via reverse geocoding (OpenStreetMap Nominatim). The new store is saved to both Supabase and IndexedDB.
 
 **Periodic GPS monitoring:** After the initial detection, the app polls GPS every 90 seconds while open. A `gps_confirmed_in_store` flag on the list tracks whether the user is currently near a store. Hysteresis prevents flickering: enter radius is 100 m, leave radius is 200 m.
 
@@ -403,9 +405,11 @@ Users can defer any active (unchecked) item to the next day by swiping right. Th
 Core differentiator. Three-level learning algorithm (details in LEARNING-ALGORITHMS.md):
 
 1. **Layer 1:** Store-specific data (highest priority)
-2. **Layer 2:** Average across all stores
-3. **Layer 3:** Category clustering (base fallback)
+2. **Layer 2:** Average across same-chain stores (e.g. all REWEs), with all-stores fallback
+3. **Layer 3:** Category clustering (base fallback, demand group `sort_position`)
 4. **Layer 4:** Specials zone
+
+**Multi-retailer support (2026-03-07):** The learning algorithm is retailer-agnostic — it operates on demand group codes which are universal across all grocery stores. Layer 2 aggregation scopes pairwise data to stores of the same retailer chain (via `stores.retailer` field). If no same-chain data exists, it falls back to all stores. See `src/lib/store/hierarchical-order.ts`.
 
 ---
 
@@ -988,5 +992,5 @@ Integration with grocery delivery services (e.g. REWE Lieferservice, Flink, Geti
 
 ---
 
-*Last updated: 2026-03-03*
+*Last updated: 2026-03-07*
 *See also: FEATURES-ACCOUNT.md (F17), LAUNCH-READINESS.md*
