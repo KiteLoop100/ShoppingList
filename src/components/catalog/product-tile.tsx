@@ -77,7 +77,7 @@ export function ProductTile({ product, shoppingListMode }: ProductTileProps) {
 
   return (
     <>
-      <div className={`group relative aspect-square overflow-hidden rounded-xl bg-gray-100 shadow-sm transition-all hover:shadow-md ${
+      <div className={`group relative z-0 aspect-square overflow-hidden rounded-xl bg-gray-100 shadow-sm transition-all hover:shadow-md ${
         isChecked ? "opacity-30 pointer-events-none" : ""
       }`}>
         <button
@@ -116,13 +116,9 @@ export function ProductTile({ product, shoppingListMode }: ProductTileProps) {
           /* Check-off button for shopping list tile mode */
           <button
             onClick={handleCheckClick}
-            className="absolute bottom-2 right-2 z-10 flex h-11 w-11 items-center justify-center rounded-full border-2 border-white bg-aldi-blue text-white shadow-lg transition-all active:scale-95"
+            className="absolute bottom-2 right-2 z-10 h-10 w-10 rounded-full border-2 border-aldi-blue bg-white shadow-sm transition-all active:scale-95"
             aria-label={`${product.name} abhaken`}
-          >
-            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-              <circle cx="12" cy="12" r="9" />
-            </svg>
-          </button>
+          />
         ) : (
           /* Add button for catalog mode */
           <button

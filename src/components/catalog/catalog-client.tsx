@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/lib/i18n/navigation";
 import { useProducts } from "@/lib/products-context";
+import { useCurrentCountry } from "@/lib/current-country-context";
 import {
   fetchDemandGroupsFromSupabase,
   getMetaCategories,
@@ -54,6 +55,7 @@ export function CatalogClient() {
   const tCommon = useTranslations("common");
   const bp = useBreakpoint();
   const { products, loading: productsLoading } = useProducts();
+  const { country } = useCurrentCountry();
 
   const [allGroups, setAllGroups] = useState<DemandGroupRow[]>([]);
   const [selectedMeta, setSelectedMeta] = useState<string | null>(null);
@@ -145,6 +147,33 @@ export function CatalogClient() {
     return (
       <div className="flex h-[60vh] items-center justify-center text-gray-400">
         {t("loadingCategories")}
+      </div>
+    );
+  }
+
+  if (indexedProducts.length === 0) {
+    return (
+      <div className="flex h-[70vh] flex-col items-center justify-center gap-4 px-6 text-center">
+        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gray-100 text-3xl">
+          🏪
+        </div>
+        <div className="space-y-1">
+          <h2 className="text-base font-semibold text-gray-700">
+            {t("notAvailableTitle")}
+          </h2>
+          <p className="text-sm text-gray-500">
+            {t("notAvailableMessage", { country: country ?? "?" })}
+          </p>
+          <p className="text-xs text-gray-400">
+            {t("notAvailableHint")}
+          </p>
+        </div>
+        <Link
+          href="/settings"
+          className="mt-2 rounded-full bg-aldi-blue px-5 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-aldi-blue/90"
+        >
+          {t("goToSettings")}
+        </Link>
       </div>
     );
   }

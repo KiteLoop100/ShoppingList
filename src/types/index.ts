@@ -313,6 +313,8 @@ export interface SearchResult {
   price: number | null;
   score: number;
   source: SearchResultSource;
+  /** Product thumbnail for search suggestion display */
+  thumbnail_url?: string | null;
   /** Full product data, available for local search results */
   product?: Product;
 }

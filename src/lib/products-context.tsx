@@ -196,6 +196,17 @@ export function ProductsProvider({ children }: { children: ReactNode }) {
     const cached = await loadFromCache(country);
     if (seq !== fetchSeqRef.current) return;
 
+    // If IndexedDB is empty but a lastSync timestamp exists, the cache was wiped
+    // (e.g. after a schema upgrade). Clear the stale timestamp so deltaSync
+    // performs a full load instead of a no-op incremental query.
+    if (cached.length === 0 && typeof window !== "undefined") {
+      const syncKey = lastSyncKey(country);
+      if (localStorage.getItem(syncKey)) {
+        localStorage.removeItem(syncKey);
+        log.warn("[ProductsSync] IndexedDB empty but lastSync was set — clearing stale timestamp for full reload.");
+      }
+    }
+
     if (cached.length > 0) {
       setProducts(cached);
       setSearchProducts(indexProducts(cached));

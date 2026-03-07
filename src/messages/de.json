@@ -704,6 +704,10 @@
     "loadingCategories": "Kategorien laden…",
     "productCount": "{count} Produkte",
     "smartFilter": "Intelligenter Filter",
-    "smartFilterActive": "Filter aktiv"
+    "smartFilterActive": "Filter aktiv",
+    "notAvailableTitle": "Katalog nicht verfügbar",
+    "notAvailableMessage": "Für den gewählten Standardladen ({country}) sind keine Katalogdaten vorhanden.",
+    "notAvailableHint": "Wähle einen ALDI-Laden in Deutschland oder Österreich, um den Produktkatalog zu nutzen.",
+    "goToSettings": "Laden wechseln"
   }
 }

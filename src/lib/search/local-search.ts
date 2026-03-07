@@ -116,6 +116,7 @@ export async function localSearch(
       price: c.product.price,
       score: c.totalScore,
       source: "other" as const,
+      thumbnail_url: c.product.thumbnail_url ?? null,
       product: c.product,
     };
   });

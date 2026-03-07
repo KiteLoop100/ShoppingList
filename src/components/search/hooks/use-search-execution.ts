@@ -80,13 +80,14 @@ export function useSearchExecution({ query, products, country }: UseSearchExecut
       );
       if (id !== searchIdRef.current) return;
       if (!res.ok) { setResults([]); return; }
-      type ApiProduct = { product_id: string; name: string; demand_group_code: string; demand_group_name: string; price: number | null };
+      type ApiProduct = { product_id: string; name: string; demand_group_code: string; demand_group_name: string; price: number | null; thumbnail_url?: string | null };
       const json = (await res.json()) as { products?: ApiProduct[] };
       const list: SearchResult[] = (json.products ?? []).map((p) => ({
         product_id: p.product_id, name: p.name,
         demand_group_code: p.demand_group_code,
         demand_group_name: p.demand_group_name ?? "",
         price: p.price, score: 1, source: "other" as const,
+        thumbnail_url: p.thumbnail_url ?? null,
       }));
       if (id !== searchIdRef.current) return;
       setResults(list);

@@ -1,6 +1,7 @@
 "use client";
 
 import { memo } from "react";
+import Image from "next/image";
 import type { SearchResult } from "@/types";
 
 export interface SearchResultsPanelProps {
@@ -42,25 +43,41 @@ export const SearchResultsPanel = memo(function SearchResultsPanel({
           </button>
           {results.length > 0 && (
             <ul className="py-1">
-              {results.map((r) => (
-                <li key={r.product_id} role="option" aria-selected="false">
-                  <button
-                    type="button"
-                    className="flex min-h-touch w-full items-center justify-between gap-3 px-4 py-3 text-left text-[15px] text-aldi-text transition-colors hover:bg-aldi-muted-light/40 focus:bg-aldi-muted-light/40 focus:outline-none"
-                    onClick={() => onSelect(r)}
-                  >
-                    <span className="flex-1 truncate">
-                      {r.source === "favorite" && <span className="text-aldi-orange">★ </span>}
-                      {r.name}
-                    </span>
-                    {r.price != null && (
-                      <span className="shrink-0 text-sm font-medium tabular-nums text-aldi-muted">
-                        €{r.price.toFixed(2)}
+              {results.map((r) => {
+                const thumbUrl = r.thumbnail_url ?? r.product?.thumbnail_url;
+                return (
+                  <li key={r.product_id} role="option" aria-selected="false">
+                    <button
+                      type="button"
+                      className="flex min-h-touch w-full items-center gap-3 px-4 py-1.5 text-left text-[15px] text-aldi-text transition-colors hover:bg-aldi-muted-light/40 focus:bg-aldi-muted-light/40 focus:outline-none"
+                      onClick={() => onSelect(r)}
+                    >
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center">
+                        {thumbUrl && (
+                          <Image
+                            src={thumbUrl}
+                            alt=""
+                            role="presentation"
+                            width={40}
+                            height={40}
+                            sizes="40px"
+                            className="h-10 w-10 rounded object-contain"
+                          />
+                        )}
                       </span>
-                    )}
-                  </button>
-                </li>
-              ))}
+                      <span className="min-w-0 flex-1 truncate">
+                        {r.source === "favorite" && <span className="text-aldi-orange">★ </span>}
+                        {r.name}
+                      </span>
+                      {r.price != null && (
+                        <span className="shrink-0 text-sm font-medium tabular-nums text-aldi-muted">
+                          €{r.price.toFixed(2)}
+                        </span>
+                      )}
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </>

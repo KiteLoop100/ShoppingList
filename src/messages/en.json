@@ -704,6 +704,10 @@
     "loadingCategories": "Loading categories…",
     "productCount": "{count} products",
     "smartFilter": "Smart Filter",
-    "smartFilterActive": "Filter active"
+    "smartFilterActive": "Filter active",
+    "notAvailableTitle": "Catalog not available",
+    "notAvailableMessage": "No catalog data is available for your selected store ({country}).",
+    "notAvailableHint": "Please select an ALDI store in Germany or Austria to use the product catalog.",
+    "goToSettings": "Change store"
   }
 }

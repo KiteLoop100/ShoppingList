@@ -38,7 +38,7 @@ export async function GET(request: Request) {
 
   let query = supabase
     .from("products")
-    .select("product_id, name, name_normalized, demand_group_code, price, status, country, demand_groups!products_demand_group_code_fkey(name)")
+    .select("product_id, name, name_normalized, demand_group_code, price, thumbnail_url, status, country, demand_groups!products_demand_group_code_fkey(name)")
     .eq("status", "active")
     .eq("country", country)
     .limit(limit * 3);
@@ -75,6 +75,7 @@ export async function GET(request: Request) {
       demand_group_code: row.demand_group_code,
       demand_group_name: demandGroupName,
       price: row.price,
+      thumbnail_url: row.thumbnail_url ?? null,
     };
   });
   return NextResponse.json({ products });

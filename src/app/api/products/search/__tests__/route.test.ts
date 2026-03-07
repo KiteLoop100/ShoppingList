@@ -109,4 +109,47 @@ describe("GET /api/products/search", () => {
     expect(sb.eq).toHaveBeenCalledWith("country", "DE");
     expect(sb.limit).toHaveBeenCalledWith(60); // limit * 3 = 20 * 3
   });
+
+  it("includes thumbnail_url in response when product has one", async () => {
+    const product = {
+      product_id: "p-2",
+      name: "Butter",
+      name_normalized: "butter",
+      demand_group_code: "DG02",
+      price: 1.99,
+      thumbnail_url: "https://example.supabase.co/storage/v1/object/public/product-thumbnails/p2.webp",
+      status: "active",
+      country: "DE",
+      demand_groups: { name: "Molkereiprodukte" },
+    };
+    const sb = fakeSupabase([product]);
+    vi.mocked(requireSupabaseAdmin).mockReturnValue(sb as never);
+
+    const res = await GET(makeRequest({ q: "Butter" }));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.products[0].thumbnail_url).toBe(
+      "https://example.supabase.co/storage/v1/object/public/product-thumbnails/p2.webp",
+    );
+  });
+
+  it("returns thumbnail_url as null when product has no thumbnail", async () => {
+    const product = {
+      product_id: "p-3",
+      name: "Brot",
+      name_normalized: "brot",
+      demand_group_code: "DG03",
+      price: 0.99,
+      status: "active",
+      country: "DE",
+      demand_groups: { name: "Brot" },
+    };
+    const sb = fakeSupabase([product]);
+    vi.mocked(requireSupabaseAdmin).mockReturnValue(sb as never);
+
+    const res = await GET(makeRequest({ q: "Brot" }));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.products[0].thumbnail_url).toBeNull();
+  });
 });

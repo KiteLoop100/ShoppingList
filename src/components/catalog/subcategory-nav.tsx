@@ -48,7 +48,7 @@ export function SubcategoryNav({ groups, selected, onSelect, variant }: Subcateg
   }
 
   return (
-    <div className="flex shrink-0 gap-1.5 overflow-x-auto bg-white px-4 py-2 scrollbar-hide">
+    <div className="sticky top-0 z-10 flex shrink-0 gap-1.5 overflow-x-auto bg-white px-4 py-2 scrollbar-hide">
       <button
         onClick={() => onSelect(null)}
         className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-colors ${
