@@ -1,14 +1,15 @@
 /**
- * Manuelles Produkt anlegen (Capture-Seite „Produkt anlegen“).
- * Duplikat-Check: EAN → article_number → name_normalized.
- * Thumbnail: von thumbnail_url mit Sharp 150x150 in product-thumbnails.
- * Verknüpft data_upload_ids und extra Fotos (photo_uploads.product_id).
+ * Manuelles Produkt anlegen (Capture-Seite "Produkt anlegen").
+ * Duplikat-Check: EAN -> article_number -> name_normalized.
+ * Thumbnail: pipeline-processed base64 or external URL -> product-thumbnails bucket.
+ * Verknuepft data_upload_ids und extra Fotos (photo_uploads.product_id).
  */
 
 import { NextResponse } from "next/server";
 import { requireAuth, requireSupabaseAdmin } from "@/lib/api/guards";
 import sharp from "sharp";
 import { log } from "@/lib/utils/logger";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { validateExternalUrl } from "@/lib/api/validate-url";
 import { validateBody } from "@/lib/api/validate-request";
@@ -18,6 +19,49 @@ import { normalizeName } from "@/lib/products/normalize";
 import { findExistingProduct } from "@/lib/products/find-existing";
 import { upsertProduct } from "@/lib/products/upsert-product";
 import { getDefaultDemandGroupCode } from "@/lib/products/default-category";
+
+const THUMB_SIZE = 150;
+const JPEG_QUALITY = 85;
+
+/**
+ * Process a thumbnail from base64 (pipeline-processed) or external URL,
+ * upload to Supabase Storage, and return the public URL.
+ */
+async function processThumbnail(
+  supabase: SupabaseClient,
+  thumbnailBase64: string | null,
+  thumbnailUrl: string | null,
+  storagePath: string,
+): Promise<string | null> {
+  let rawBuf: Buffer;
+  if (thumbnailBase64) {
+    rawBuf = Buffer.from(thumbnailBase64, "base64");
+  } else if (thumbnailUrl) {
+    const imgRes = await fetch(thumbnailUrl);
+    if (!imgRes.ok) throw new Error(`Fetch: ${imgRes.status}`);
+    rawBuf = Buffer.from(await imgRes.arrayBuffer());
+  } else {
+    return null;
+  }
+
+  const resized = await sharp(rawBuf)
+    .rotate()
+    .resize(THUMB_SIZE, THUMB_SIZE, { fit: "contain", background: { r: 255, g: 255, b: 255 } })
+    .jpeg({ quality: JPEG_QUALITY })
+    .toBuffer();
+
+  const { error: upErr } = await supabase.storage
+    .from("product-thumbnails")
+    .upload(storagePath, resized, { contentType: "image/jpeg", upsert: true });
+
+  if (upErr) {
+    log.warn("[create-manual] thumbnail upload failed:", upErr.message);
+    return null;
+  }
+
+  const { data: urlData } = supabase.storage.from("product-thumbnails").getPublicUrl(storagePath);
+  return urlData.publicUrl;
+}
 
 export async function POST(request: Request) {
   const validated = await validateBody(request, createManualSchema);
@@ -64,11 +108,21 @@ export async function POST(request: Request) {
   const animalWelfareLevel = validated.animal_welfare_level ?? null;
   const thumbnailUrl = validated.thumbnail_url ?? null;
   const thumbnailBase64 = validated.thumbnail_base64 ?? null;
-  const thumbnailFormat = validated.thumbnail_format ?? "image/jpeg";
   const extraPhotoUrls = validated.extra_photo_urls;
   const dataUploadIds = validated.data_upload_ids;
   const userId = auth.user.id;
   let updateExistingProductId = validated.update_existing_product_id ?? null;
+
+  if (thumbnailUrl) {
+    try {
+      validateExternalUrl(thumbnailUrl);
+    } catch (e) {
+      return NextResponse.json(
+        { error: `Invalid thumbnail URL: ${e instanceof Error ? e.message : String(e)}` },
+        { status: 400 },
+      );
+    }
+  }
 
   const defaultDemandGroupCode = getDefaultDemandGroupCode();
   if (!defaultDemandGroupCode) {
@@ -98,10 +152,6 @@ export async function POST(request: Request) {
     }
   }
 
-  // #region agent log
-  fetch('http://127.0.0.1:7547/ingest/d58e5f1a-49bc-422a-bf52-4fc861b26370',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'ccf7cd'},body:JSON.stringify({sessionId:'ccf7cd',location:'create-manual/route.ts:100',message:'route-state',data:{productId,updateExistingProductId,hasThumbnailUrl:!!thumbnailUrl,hasThumbnailBase64:!!thumbnailBase64,thumbnailBase64Len:thumbnailBase64?.length??0,thumbnailFormat,name,articleNumber,ean},timestamp:Date.now(),hypothesisId:'H2,H3'})}).catch(()=>{});
-  // #endregion
-
   if (productId && updateExistingProductId) {
     const updates: Record<string, unknown> = {
       updated_at: now,
@@ -127,55 +177,17 @@ export async function POST(request: Request) {
       is_lactose_free: isLactoseFree,
       animal_welfare_level: animalWelfareLevel,
     };
+
     if (thumbnailUrl || thumbnailBase64) {
-      if (thumbnailUrl) {
-        try {
-          validateExternalUrl(thumbnailUrl);
-        } catch (e) {
-          return NextResponse.json(
-            { error: `Invalid thumbnail URL: ${e instanceof Error ? e.message : String(e)}` },
-            { status: 400 },
-          );
-        }
-      }
       try {
-        let rawBuf: Buffer;
-        if (thumbnailBase64) {
-          rawBuf = Buffer.from(thumbnailBase64, "base64");
-        } else {
-          const imgRes = await fetch(thumbnailUrl!);
-          if (!imgRes.ok) throw new Error(`Fetch: ${imgRes.status}`);
-          rawBuf = Buffer.from(await imgRes.arrayBuffer());
-        }
-        const resized = await sharp(rawBuf)
-          .rotate()
-          .resize(150, 150, { fit: "cover", position: "center" })
-          .jpeg({ quality: 85 })
-          .toBuffer();
         const path = `manual/${productId}.jpg`;
-        const { error: upErr } = await supabase.storage
-          .from("product-thumbnails")
-          .upload(path, resized, { contentType: "image/jpeg", upsert: true });
-        // #region agent log
-        fetch('http://127.0.0.1:7547/ingest/d58e5f1a-49bc-422a-bf52-4fc861b26370',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'ccf7cd'},body:JSON.stringify({sessionId:'ccf7cd',location:'create-manual/route.ts:158',message:'storage-upload-result-update',data:{uploadError:upErr?.message??null,path,resizedSize:resized.length},timestamp:Date.now(),hypothesisId:'H2'})}).catch(()=>{});
-        // #endregion
-        if (!upErr) {
-          const { data: urlData } = supabase.storage.from("product-thumbnails").getPublicUrl(path);
-          updates.thumbnail_url = urlData.publicUrl;
-          // #region agent log
-          fetch('http://127.0.0.1:7547/ingest/d58e5f1a-49bc-422a-bf52-4fc861b26370',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'ccf7cd'},body:JSON.stringify({sessionId:'ccf7cd',location:'create-manual/route.ts:162',message:'thumbnail-url-set',data:{thumbnailUrl:urlData.publicUrl},timestamp:Date.now(),hypothesisId:'H2,H4'})}).catch(()=>{});
-          // #endregion
-        }
+        const publicUrl = await processThumbnail(supabase, thumbnailBase64, thumbnailUrl, path);
+        if (publicUrl) updates.thumbnail_url = publicUrl;
       } catch (e) {
-        // #region agent log
-        fetch('http://127.0.0.1:7547/ingest/d58e5f1a-49bc-422a-bf52-4fc861b26370',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'ccf7cd'},body:JSON.stringify({sessionId:'ccf7cd',location:'create-manual/route.ts:166',message:'thumbnail-upload-exception',data:{error:e instanceof Error?e.message:String(e)},timestamp:Date.now(),hypothesisId:'H2'})}).catch(()=>{});
-        // #endregion
         log.warn("[create-manual] Thumbnail resize/upload failed:", e);
       }
     }
-    // #region agent log
-    fetch('http://127.0.0.1:7547/ingest/d58e5f1a-49bc-422a-bf52-4fc861b26370',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'ccf7cd'},body:JSON.stringify({sessionId:'ccf7cd',location:'create-manual/route.ts:172',message:'db-update-payload',data:{productId,hasThumbnailUrlInUpdates:!!updates.thumbnail_url,updateKeys:Object.keys(updates)},timestamp:Date.now(),hypothesisId:'H3,H4'})}).catch(()=>{});
-    // #endregion
+
     const { error: updErr } = await supabase
       .from("products")
       .update(updates)
@@ -186,39 +198,10 @@ export async function POST(request: Request) {
   } else if (!productId) {
     let finalThumbnailUrl: string | null = null;
     if (thumbnailUrl || thumbnailBase64) {
-      if (thumbnailUrl) {
-        try {
-          validateExternalUrl(thumbnailUrl);
-        } catch (e) {
-          return NextResponse.json(
-            { error: `Invalid thumbnail URL: ${e instanceof Error ? e.message : String(e)}` },
-            { status: 400 },
-          );
-        }
-      }
       try {
-        let rawBuf: Buffer;
-        if (thumbnailBase64) {
-          rawBuf = Buffer.from(thumbnailBase64, "base64");
-        } else {
-          const imgRes = await fetch(thumbnailUrl!);
-          if (!imgRes.ok) throw new Error(`Fetch: ${imgRes.status}`);
-          rawBuf = Buffer.from(await imgRes.arrayBuffer());
-        }
-        const resized = await sharp(rawBuf)
-          .rotate()
-          .resize(150, 150, { fit: "contain", background: { r: 255, g: 255, b: 255 } })
-          .jpeg({ quality: 85 })
-          .toBuffer();
         const tempId = crypto.randomUUID();
         const path = `manual/${tempId}.jpg`;
-        const { error: upErr } = await supabase.storage
-          .from("product-thumbnails")
-          .upload(path, resized, { contentType: "image/jpeg", upsert: true });
-        if (!upErr) {
-          const { data: urlData } = supabase.storage.from("product-thumbnails").getPublicUrl(path);
-          finalThumbnailUrl = urlData.publicUrl;
-        }
+        finalThumbnailUrl = await processThumbnail(supabase, thumbnailBase64, thumbnailUrl, path);
       } catch (e) {
         log.warn("[create-manual] Thumbnail resize/upload failed:", e);
       }

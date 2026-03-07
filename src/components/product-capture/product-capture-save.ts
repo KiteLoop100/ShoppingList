@@ -13,6 +13,7 @@ import {
 import { categorizeCompetitorProduct } from "@/lib/competitor-products/categorize-competitor-product";
 import { uploadCompetitorPhoto } from "@/lib/competitor-products/upload-competitor-photo";
 import { isHomeRetailer } from "@/lib/retailers/retailers";
+import { log } from "@/lib/utils/logger";
 import type { Product, CompetitorProduct } from "@/types";
 import type { ExtractedProductInfo } from "@/lib/product-photo-studio/types";
 import type { ProductCaptureValues } from "./hooks/use-product-capture-form";
@@ -83,10 +84,6 @@ async function saveAldiProduct(
     body.update_existing_product_id = editProduct.product_id;
   }
 
-  // #region agent log
-  fetch('http://127.0.0.1:7547/ingest/d58e5f1a-49bc-422a-bf52-4fc861b26370',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'ccf7cd'},body:JSON.stringify({sessionId:'ccf7cd',location:'product-capture-save.ts:86',message:'saveAldi-request',data:{hasThumbnailUrl:!!body.thumbnail_url,hasThumbnailBase64:!!body.thumbnail_base64,thumbnailBase64Len:(body.thumbnail_base64 as string)?.length??0,thumbnailFormat:body.thumbnail_format,name:body.name,updateExisting:body.update_existing_product_id??null},timestamp:Date.now(),hypothesisId:'H2,H3'})}).catch(()=>{});
-  // #endregion
-
   const res = await fetch("/api/products/create-manual", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -94,9 +91,6 @@ async function saveAldiProduct(
   });
 
   const data = await res.json();
-  // #region agent log
-  fetch('http://127.0.0.1:7547/ingest/d58e5f1a-49bc-422a-bf52-4fc861b26370',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'ccf7cd'},body:JSON.stringify({sessionId:'ccf7cd',location:'product-capture-save.ts:95',message:'saveAldi-response',data:{ok:res.ok,status:res.status,responseData:data},timestamp:Date.now(),hypothesisId:'H2,H3'})}).catch(()=>{});
-  // #endregion
   if (!res.ok) throw new Error(data.error ?? "Save failed");
   if (data.duplicate && data.existing_product_id) {
     return data.existing_product_id;
@@ -172,18 +166,22 @@ async function saveCompetitorProduct(
       categorizeCompetitorProduct(
         productId, values.name.trim(),
         { demandGroupFromAI: extractedDetails?.demand_group },
-      ).catch(() => { /* fire-and-forget */ });
+      ).catch((err) => { log.warn("[saveCompetitorProduct] categorization failed:", err); });
     }
   }
 
   if (processedThumbnail && photoFiles.length > 0) {
-    const thumbBlob = await fetch(processedThumbnail).then((r) => r.blob());
-    const isWebp = processedThumbnail.startsWith("data:image/webp");
-    const ext = isWebp ? "webp" : "jpg";
-    const mime = isWebp ? "image/webp" : "image/jpeg";
-    const thumbFile = new File([thumbBlob], `thumbnail.${ext}`, { type: mime });
-    const url = await uploadCompetitorPhoto(productId, thumbFile, "front");
-    if (url) await updateCompetitorProduct(productId, { thumbnail_url: url });
+    try {
+      const thumbBlob = await fetch(processedThumbnail).then((r) => r.blob());
+      const isWebp = processedThumbnail.startsWith("data:image/webp");
+      const ext = isWebp ? "webp" : "jpg";
+      const mime = isWebp ? "image/webp" : "image/jpeg";
+      const thumbFile = new File([thumbBlob], `thumbnail.${ext}`, { type: mime });
+      const url = await uploadCompetitorPhoto(productId, thumbFile, "front");
+      if (url) await updateCompetitorProduct(productId, { thumbnail_url: url });
+    } catch (err) {
+      log.warn("[saveCompetitorProduct] thumbnail upload failed:", err);
+    }
   }
 
   return productId;

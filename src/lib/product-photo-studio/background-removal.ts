@@ -156,7 +156,7 @@ export async function hasSignificantTransparency(pngBuffer: Buffer): Promise<boo
     return true;
   } catch (err) {
     log.warn("[photo-studio] transparency check error:", err instanceof Error ? err.message : err);
-    return true;
+    return false;
   }
 }
 

@@ -8,6 +8,7 @@ import { callClaudeJSON } from "@/lib/api/claude-client";
 import { CLAUDE_MODEL_SONNET } from "@/lib/api/config";
 import { decodeEanFromImageBuffer } from "@/lib/barcode-from-image";
 import { extractCompetitorProductPrompt } from "./prompts";
+import { buildImageContent } from "./build-image-content";
 import type { PhotoInput, ExtractedCompetitorProductInfo, NutritionInfo } from "./types";
 import { log } from "@/lib/utils/logger";
 
@@ -28,31 +29,6 @@ export async function scanBarcodesFromAll(
   );
 }
 
-function buildImageContent(images: PhotoInput[], scannedEan: string | null) {
-  const content: Array<
-    | { type: "image"; source: { type: "base64"; media_type: string; data: string } }
-    | { type: "text"; text: string }
-  > = [];
-
-  for (const img of images) {
-    content.push({
-      type: "image",
-      source: {
-        type: "base64",
-        media_type: img.mediaType,
-        data: img.buffer.toString("base64"),
-      },
-    });
-  }
-
-  content.push({
-    type: "text",
-    text: extractCompetitorProductPrompt(images.length, scannedEan),
-  });
-
-  return content;
-}
-
 function sanitizeNutrition(raw: unknown): NutritionInfo | null {
   if (!raw || typeof raw !== "object") return null;
   const n = raw as Record<string, unknown>;
@@ -70,24 +46,10 @@ function sanitizeNutrition(raw: unknown): NutritionInfo | null {
   return hasAny ? result : null;
 }
 
-// #region agent log
-function logRawPriceDebug(raw: Record<string, unknown>) {
-  log.debug("[photo-studio] RAW price from Claude:", {
-    price_value: raw.price,
-    price_type: typeof raw.price,
-    retailer: raw.retailer_from_price_tag,
-    retailer_type: typeof raw.retailer_from_price_tag,
-  });
-}
-// #endregion
-
 function sanitizeExtracted(
   raw: Record<string, unknown>,
   scannedEan: string | null,
 ): ExtractedCompetitorProductInfo {
-  // #region agent log
-  logRawPriceDebug(raw);
-  // #endregion
   const ns = raw.nutri_score;
   const nutri =
     typeof ns === "string" && NUTRI_SCORE_VALUES.has(ns.toUpperCase())
@@ -125,10 +87,11 @@ export async function extractProductInfo(
   scannedEan: string | null,
 ): Promise<ExtractedCompetitorProductInfo> {
   try {
+    const prompt = extractCompetitorProductPrompt(images.length, scannedEan);
     const result = await callClaudeJSON<Record<string, unknown>>({
       model: CLAUDE_MODEL_SONNET,
       max_tokens: 4096,
-      messages: [{ role: "user", content: buildImageContent(images, scannedEan) }],
+      messages: [{ role: "user", content: buildImageContent(images, prompt) }],
     });
 
     return sanitizeExtracted(result, scannedEan);

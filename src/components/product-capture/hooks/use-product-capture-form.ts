@@ -126,6 +126,8 @@ const EMPTY_VALUES: ProductCaptureValues = {
   animalWelfareLevel: null,
 };
 
+const MAX_TOTAL_BASE64_BYTES = 15_000_000;
+
 export function useProductCaptureForm(config: ProductCaptureConfig) {
   const { open, mode, onClose, onSaved, initialValues, lockedFields, editAldiProduct, editCompetitorProduct } = config;
   const locked = useMemo(() => new Set(lockedFields ?? []), [lockedFields]);
@@ -144,6 +146,7 @@ export function useProductCaptureForm(config: ProductCaptureConfig) {
   const [demandGroups, setDemandGroups] = useState<DemandGroup[]>([]);
   const [allSubGroups, setAllSubGroups] = useState<DemandSubGroupRow[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null!);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const isEditMode = mode === "edit";
 
@@ -196,6 +199,11 @@ export function useProductCaptureForm(config: ProductCaptureConfig) {
   const handlePhotosSelected = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
     if (files.length === 0) return;
+
+    abortControllerRef.current?.abort();
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     setPhotoFiles(files);
     setPhotoPreviews(files.map((f) => URL.createObjectURL(f)));
     setAnalyzing(true); setError(null); setReviewStatus(null);
@@ -206,20 +214,26 @@ export function useProductCaptureForm(config: ProductCaptureConfig) {
           return { image_base64: base64, media_type: mediaType };
         }),
       );
+
+      const totalBytes = images.reduce((sum, img) => sum + img.image_base64.length, 0);
+      if (totalBytes > MAX_TOTAL_BASE64_BYTES) {
+        throw new Error(`Bilder sind zu groß (${(totalBytes / 1_000_000).toFixed(1)} MB). Bitte weniger oder kleinere Fotos verwenden.`);
+      }
+
       const res = await fetch("/api/analyze-product-photos", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ images }),
+        signal: controller.signal,
       });
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
         throw new Error(errData.error ?? `HTTP ${res.status}`);
       }
       const data = await res.json();
+      if (controller.signal.aborted) return;
+
       if (data.status === "review_required") setReviewStatus(data.review_reason ?? "review_required");
-      // #region agent log
-      fetch('http://127.0.0.1:7547/ingest/d58e5f1a-49bc-422a-bf52-4fc861b26370',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'ccf7cd'},body:JSON.stringify({sessionId:'ccf7cd',location:'use-product-capture-form.ts:218',message:'analyze-response',data:{status:data.status,hasThumbnail:!!data.thumbnail_base64,thumbnailLen:data.thumbnail_base64?.length??0,format:data.thumbnail_format,reviewReason:data.review_reason,bgRemoved:data.background_removed,bgFailed:data.background_removal_failed},timestamp:Date.now(),hypothesisId:'H1'})}).catch(()=>{});
-      // #endregion
       if (data.thumbnail_base64) {
         const fmt = data.thumbnail_format ?? "image/webp";
         setProcessedThumbnail(`data:${fmt};base64,${data.thumbnail_base64}`);
@@ -251,6 +265,7 @@ export function useProductCaptureForm(config: ProductCaptureConfig) {
         }));
       }
     } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
       log.error("[ProductCaptureForm] analysis failed:", err);
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -260,7 +275,15 @@ export function useProductCaptureForm(config: ProductCaptureConfig) {
   }, [retailers, locked]);
 
   const removePhoto = useCallback((index: number) => {
-    setPhotoFiles((prev) => prev.filter((_, i) => i !== index));
+    setPhotoFiles((prev) => {
+      const next = prev.filter((_, i) => i !== index);
+      if (next.length === 0) {
+        setProcessedThumbnail(null);
+        setExtractedDetails(null);
+        setReviewStatus(null);
+      }
+      return next;
+    });
     setPhotoPreviews((prev) => {
       if (prev[index]) URL.revokeObjectURL(prev[index]);
       return prev.filter((_, i) => i !== index);
@@ -274,9 +297,6 @@ export function useProductCaptureForm(config: ProductCaptureConfig) {
     && !saving && !analyzing;
 
   const handleSubmit = useCallback(async () => {
-    // #region agent log
-    fetch('http://127.0.0.1:7547/ingest/d58e5f1a-49bc-422a-bf52-4fc861b26370',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'ccf7cd'},body:JSON.stringify({sessionId:'ccf7cd',location:'use-product-capture-form.ts:268',message:'handleSubmit-entry',data:{canSubmit,hasProcessedThumbnail:!!processedThumbnail,processedThumbnailPrefix:processedThumbnail?.substring(0,60),retailer:effectiveRetailer,name:values.name,photoFilesCount:photoFiles.length},timestamp:Date.now(),hypothesisId:'H1,H5'})}).catch(()=>{});
-    // #endregion
     if (!canSubmit) return;
     setSaving(true); setError(null);
     try {
@@ -290,9 +310,6 @@ export function useProductCaptureForm(config: ProductCaptureConfig) {
         photoFiles,
         country: country ?? "DE",
       });
-      // #region agent log
-      fetch('http://127.0.0.1:7547/ingest/d58e5f1a-49bc-422a-bf52-4fc861b26370',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'ccf7cd'},body:JSON.stringify({sessionId:'ccf7cd',location:'use-product-capture-form.ts:282',message:'save-success',data:{productId:result.productId,productType:result.productType},timestamp:Date.now(),hypothesisId:'H5'})}).catch(()=>{});
-      // #endregion
       onSaved(result.productId, result.productType);
       onClose();
     } catch (e: unknown) {

@@ -1,10 +1,14 @@
 /**
  * Shared Claude API client — eliminates duplicated fetch/parse/clean logic
  * across 7+ API route handlers (BL-33).
+ *
+ * Includes timeout (30s) and retry with exponential backoff for transient
+ * errors (429, 500, 502, 503, 529).
  */
 
 import { CLAUDE_MODEL_SONNET } from "./config";
 import { tryRepairTruncatedJson } from "@/lib/utils/repair-json";
+import { log } from "@/lib/utils/logger";
 
 export type ClaudeContentBlock =
   | { type: "text"; text: string }
@@ -35,39 +39,79 @@ export class ClaudeApiError extends Error {
   }
 }
 
+const CLAUDE_TIMEOUT_MS = 30_000;
+const MAX_RETRIES = 2;
+const RETRYABLE_STATUSES = new Set([429, 500, 502, 503, 529]);
+const API_URL = "https://api.anthropic.com/v1/messages";
+
+function isTimeoutError(err: unknown): boolean {
+  return err instanceof DOMException && err.name === "TimeoutError";
+}
+
 /**
  * Call the Anthropic Messages API and return the raw text response.
- * Throws {@link ClaudeApiError} on non-2xx responses.
+ * Retries up to {@link MAX_RETRIES} times on transient errors and timeouts.
+ * Throws {@link ClaudeApiError} on non-retryable non-2xx responses.
  */
 export async function callClaude(options: ClaudeOptions): Promise<string> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error("ANTHROPIC_API_KEY not configured");
 
-  const body: Record<string, unknown> = {
+  const reqBody: Record<string, unknown> = {
     model: options.model ?? CLAUDE_MODEL_SONNET,
     max_tokens: options.max_tokens,
     messages: options.messages,
   };
-  if (options.system) body.system = options.system;
-  if (options.temperature !== undefined) body.temperature = options.temperature;
+  if (options.system) reqBody.system = options.system;
+  if (options.temperature !== undefined) reqBody.temperature = options.temperature;
 
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify(body),
-  });
+  const headers = {
+    "Content-Type": "application/json",
+    "x-api-key": apiKey,
+    "anthropic-version": "2023-06-01",
+  };
+  const bodyJson = JSON.stringify(reqBody);
 
-  if (!res.ok) {
-    const errText = await res.text();
-    throw new ClaudeApiError(res.status, errText.slice(0, 300));
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const res = await fetch(API_URL, {
+        method: "POST",
+        headers,
+        body: bodyJson,
+        signal: AbortSignal.timeout(CLAUDE_TIMEOUT_MS),
+      });
+
+      if (!res.ok) {
+        const errText = await res.text().catch(() => "unknown");
+        if (RETRYABLE_STATUSES.has(res.status) && attempt < MAX_RETRIES) {
+          const delay = 1000 * Math.pow(2, attempt);
+          log.warn(`[claude] ${res.status} on attempt ${attempt + 1}, retrying in ${delay}ms`);
+          await new Promise((r) => setTimeout(r, delay));
+          continue;
+        }
+        throw new ClaudeApiError(res.status, errText.slice(0, 300));
+      }
+
+      const data = await res.json();
+      const text = (data.content?.[0]?.text as string) ?? "";
+      if (!text) {
+        log.warn("[claude] empty response text from API", { stop_reason: data.stop_reason });
+      }
+      return text;
+    } catch (err) {
+      if (isTimeoutError(err) && attempt < MAX_RETRIES) {
+        log.warn(`[claude] timeout on attempt ${attempt + 1}, retrying`);
+        continue;
+      }
+      if (err instanceof ClaudeApiError) throw err;
+      if (isTimeoutError(err)) {
+        throw new ClaudeApiError(408, "Claude API timeout after all retries");
+      }
+      throw err;
+    }
   }
 
-  const data = await res.json();
-  return (data.content?.[0]?.text as string) ?? "";
+  throw new ClaudeApiError(500, "Exhausted all retries without a response");
 }
 
 /** Strip ```json ... ``` fences that Claude sometimes wraps around JSON output. */

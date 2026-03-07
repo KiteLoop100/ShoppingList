@@ -7,37 +7,13 @@
 import { callClaudeJSON } from "@/lib/api/claude-client";
 import { CLAUDE_MODEL_SONNET } from "@/lib/api/config";
 import { classifyPhotosPrompt } from "./prompts";
+import { buildImageContent } from "./build-image-content";
 import type {
   PhotoInput,
   ClassificationResponse,
   PhotoClassification,
 } from "./types";
 import { log } from "@/lib/utils/logger";
-
-function buildImageContent(images: PhotoInput[]) {
-  const content: Array<
-    | { type: "image"; source: { type: "base64"; media_type: string; data: string } }
-    | { type: "text"; text: string }
-  > = [];
-
-  for (const img of images) {
-    content.push({
-      type: "image",
-      source: {
-        type: "base64",
-        media_type: img.mediaType,
-        data: img.buffer.toString("base64"),
-      },
-    });
-  }
-
-  content.push({
-    type: "text",
-    text: classifyPhotosPrompt(images.length),
-  });
-
-  return content;
-}
 
 function sanitizeClassification(
   raw: Record<string, unknown>,
@@ -68,7 +44,10 @@ export async function classifyPhotos(
     }>({
       model: CLAUDE_MODEL_SONNET,
       max_tokens: 1024,
-      messages: [{ role: "user", content: buildImageContent(images) }],
+      messages: [{
+        role: "user",
+        content: buildImageContent(images, classifyPhotosPrompt(images.length)),
+      }],
     });
 
     const photos = (result.photos ?? []).map((p, i) =>
