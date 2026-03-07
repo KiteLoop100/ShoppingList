@@ -93,13 +93,19 @@ export async function processCompetitorPhotos(
   const bgFailed = thumbnailResult.backgroundRemovalFailed === true;
   const budgetExhausted = elapsedMs(startMs) > PIPELINE_TIMEOUT_MS;
 
+  if (bgFailed) {
+    log.warn("[photo-studio] background removal failed, provider used:", thumbnailResult.backgroundProvider);
+  }
+
   let verification: ThumbnailVerification;
   if (budgetExhausted) {
     log.warn("[photo-studio] timeout budget exhausted after", elapsedMs(startMs), "ms — skipping verification");
     verification = {
       passes_quality_check: !bgFailed,
       quality_score: bgFailed ? 0.3 : 0.6,
-      issues: bgFailed ? ["Hintergrund nicht entfernt — Produkt ist nicht freigestellt"] : [],
+      issues: bgFailed
+        ? ["Hintergrund konnte nicht entfernt werden. Bitte prüfen Sie den Hintergrundentfernungs-Dienst (Credits aufgebraucht?)."]
+        : [],
       recommendation: bgFailed ? "review" : "approve",
     };
   } else {

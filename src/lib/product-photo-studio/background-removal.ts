@@ -161,29 +161,51 @@ export async function hasSignificantTransparency(pngBuffer: Buffer): Promise<boo
 }
 
 export async function removeBackground(imageBuffer: Buffer): Promise<BackgroundRemovalResult> {
+  const skipped: string[] = [];
+  const failures: string[] = [];
+
   for (const provider of providers) {
-    if (!provider.isAvailable()) continue;
+    if (!provider.isAvailable()) {
+      skipped.push(provider.name);
+      continue;
+    }
     try {
-      log.debug(`[photo-studio] removing background with ${provider.name}`);
+      log.debug(`[photo-studio] trying bg removal with ${provider.name}`);
       const resultBuffer = await provider.removeBackground(imageBuffer);
 
       if (provider.name !== "crop-fallback") {
         const valid = await hasSignificantTransparency(resultBuffer);
         if (!valid) {
-          log.warn(`[photo-studio] ${provider.name} transparency validation failed, trying next provider`);
+          const reason = `${provider.name}: transparency validation failed`;
+          failures.push(reason);
+          log.warn(`[photo-studio] ${reason}, trying next provider`);
           continue;
         }
       }
 
+      if (skipped.length > 0 || failures.length > 0) {
+        log.debug("[photo-studio] bg removal succeeded with", provider.name,
+          { skipped, failedBefore: failures });
+      }
       const hasTransparency = provider.name !== "crop-fallback";
       return { imageBuffer: resultBuffer, hasTransparency, providerUsed: provider.name };
     } catch (err) {
-      log.warn(
-        `[photo-studio] ${provider.name} failed, trying next:`,
-        err instanceof Error ? err.message : err,
-      );
+      const msg = err instanceof Error ? err.message : String(err);
+      const isPayment = msg.includes("402") || msg.includes("payment") || msg.includes("credit");
+      const reason = isPayment
+        ? `${provider.name}: credits exhausted or payment required`
+        : `${provider.name}: ${msg}`;
+      failures.push(reason);
+      log.warn(`[photo-studio] ${reason}`);
     }
   }
-  log.warn("[photo-studio] all background removal providers failed, using original");
+
+  log.error("[photo-studio] all bg removal providers failed", {
+    skipped,
+    failures,
+    hint: failures.some((f) => f.includes("credits exhausted"))
+      ? "remove.bg credits are likely exhausted — consider self-hosted rembg or another provider"
+      : "check provider configuration and availability",
+  });
   return { imageBuffer, hasTransparency: false, providerUsed: "none" };
 }

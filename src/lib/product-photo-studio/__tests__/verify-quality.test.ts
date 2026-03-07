@@ -158,6 +158,6 @@ describe("verifyThumbnailQuality", () => {
 
     expect(result.recommendation).toBe("review");
     expect(result.passes_quality_check).toBe(false);
-    expect(result.issues).toContain("Hintergrund nicht entfernt — Produkt ist nicht freigestellt");
+    expect(result.issues).toContain("Hintergrund konnte nicht entfernt werden. Bitte prüfen Sie den Hintergrundentfernungs-Dienst (Credits aufgebraucht?).");
   });
 });

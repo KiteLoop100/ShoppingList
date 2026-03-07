@@ -101,7 +101,7 @@ export async function verifyThumbnailQuality(
     }
 
     if (backgroundRemovalFailed) {
-      issues.push("Hintergrund nicht entfernt — Produkt ist nicht freigestellt");
+      issues.push("Hintergrund konnte nicht entfernt werden. Bitte prüfen Sie den Hintergrundentfernungs-Dienst (Credits aufgebraucht?).");
       recommendation = "review";
     }
 
