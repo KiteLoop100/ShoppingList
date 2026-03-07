@@ -10,6 +10,7 @@ export type { ProductCaptureConfig } from "./hooks/use-product-capture-form";
 
 export function ProductCaptureModal(props: ProductCaptureConfig) {
   const { open, onClose, hiddenFields } = props;
+
   const t = useTranslations("productCapture");
 
   const {
@@ -19,7 +20,7 @@ export function ProductCaptureModal(props: ProductCaptureConfig) {
     extractedDetails, reviewStatus,
     fileInputRef,
     retailers, demandGroups, filteredSubGroups,
-    isEditMode, canSubmit,
+    isEditMode, canSubmit, locked,
     handlePhotosSelected, removePhoto, handleSubmit,
   } = useProductCaptureForm(props);
 
@@ -65,6 +66,7 @@ export function ProductCaptureModal(props: ProductCaptureConfig) {
             demandGroups={demandGroups}
             filteredSubGroups={filteredSubGroups}
             hiddenFields={hiddenFields}
+            lockedFields={locked}
             labels={{
               name: t("name"),
               brand: t("brand"),

@@ -17,7 +17,12 @@ vi.mock("@/lib/retailers/retailers", () => ({
   }),
 }));
 
-const mockFetch = vi.fn();
+const realFetch = vi.fn();
+const mockFetch = vi.fn((...args: unknown[]) => {
+  const url = typeof args[0] === "string" ? args[0] : "";
+  if (url.includes("/ingest/")) return Promise.resolve(new Response("ok"));
+  return realFetch(...args);
+});
 global.fetch = mockFetch;
 
 import { saveProduct } from "../product-capture-save";
@@ -57,7 +62,7 @@ describe("saveProduct", () => {
   });
 
   test("routes to ALDI API when retailer is ALDI", async () => {
-    mockFetch.mockResolvedValueOnce({
+    realFetch.mockResolvedValueOnce({
       ok: true,
       json: () => Promise.resolve({ ok: true, product_id: "aldi-123" }),
     });
@@ -74,7 +79,7 @@ describe("saveProduct", () => {
 
     expect(result.productType).toBe("aldi");
     expect(result.productId).toBe("aldi-123");
-    expect(mockFetch).toHaveBeenCalledWith(
+    expect(realFetch).toHaveBeenCalledWith(
       "/api/products/create-manual",
       expect.objectContaining({ method: "POST" }),
     );
@@ -181,7 +186,7 @@ describe("saveProduct", () => {
   });
 
   test("sends dietary flags to ALDI API", async () => {
-    mockFetch.mockResolvedValueOnce({
+    realFetch.mockResolvedValueOnce({
       ok: true,
       json: () => Promise.resolve({ ok: true, product_id: "aldi-bio" }),
     });
@@ -203,7 +208,7 @@ describe("saveProduct", () => {
       country: "DE",
     });
 
-    const fetchCall = mockFetch.mock.calls[0];
+    const fetchCall = realFetch.mock.calls[0];
     const body = JSON.parse(fetchCall[1].body);
     expect(body.is_bio).toBe(true);
     expect(body.is_vegan).toBe(true);
@@ -290,7 +295,7 @@ describe("saveProduct", () => {
     });
 
     const fakeBlob = new Blob(["fake-image"], { type: "image/webp" });
-    mockFetch.mockResolvedValueOnce({ blob: () => Promise.resolve(fakeBlob) });
+    realFetch.mockResolvedValueOnce({ blob: () => Promise.resolve(fakeBlob) });
     vi.mocked(uploadCompetitorPhoto).mockResolvedValueOnce("https://storage/comp-webp_front.webp");
 
     const dummyFile = new File(["photo"], "photo.jpg", { type: "image/jpeg" });
@@ -313,6 +318,77 @@ describe("saveProduct", () => {
     expect(updateCompetitorProduct).toHaveBeenCalledWith("comp-webp", {
       thumbnail_url: "https://storage/comp-webp_front.webp",
     });
+  });
+
+  test("returns existing_product_id on duplicate response", async () => {
+    realFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({
+        duplicate: true,
+        product_id: "dup-111",
+        existing_product_id: "dup-111",
+        message: "Duplicate",
+      }),
+    });
+
+    const result = await saveProduct({
+      values: makeValues({ retailer: "ALDI" }),
+      editAldiProduct: null,
+      editCompetitorProduct: null,
+      extractedDetails: null,
+      processedThumbnail: null,
+      photoFiles: [],
+      country: "DE",
+    });
+
+    expect(result.productType).toBe("aldi");
+    expect(result.productId).toBe("dup-111");
+  });
+
+  test("sends thumbnail_base64 when processedThumbnail is a data URI", async () => {
+    realFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ ok: true, product_id: "aldi-thumb" }),
+    });
+
+    await saveProduct({
+      values: makeValues({ retailer: "ALDI" }),
+      editAldiProduct: null,
+      editCompetitorProduct: null,
+      extractedDetails: null,
+      processedThumbnail: "data:image/webp;base64,AABBCC",
+      photoFiles: [],
+      country: "DE",
+    });
+
+    const fetchCall = realFetch.mock.calls[0];
+    const body = JSON.parse(fetchCall[1].body);
+    expect(body.thumbnail_base64).toBe("AABBCC");
+    expect(body.thumbnail_format).toBe("image/webp");
+    expect(body.thumbnail_url).toBeNull();
+  });
+
+  test("sends thumbnail_url when processedThumbnail is an HTTPS URL", async () => {
+    realFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ ok: true, product_id: "aldi-url" }),
+    });
+
+    await saveProduct({
+      values: makeValues({ retailer: "ALDI" }),
+      editAldiProduct: null,
+      editCompetitorProduct: null,
+      extractedDetails: null,
+      processedThumbnail: "https://example.com/thumb.jpg",
+      photoFiles: [],
+      country: "DE",
+    });
+
+    const fetchCall = realFetch.mock.calls[0];
+    const body = JSON.parse(fetchCall[1].body);
+    expect(body.thumbnail_url).toBe("https://example.com/thumb.jpg");
+    expect(body.thumbnail_base64).toBeNull();
+    expect(body.thumbnail_format).toBeNull();
   });
 
   test("uploads JPEG thumbnail with correct MIME type when not WebP", async () => {
@@ -348,7 +424,7 @@ describe("saveProduct", () => {
     });
 
     const fakeBlob = new Blob(["fake-image"], { type: "image/jpeg" });
-    mockFetch.mockResolvedValueOnce({ blob: () => Promise.resolve(fakeBlob) });
+    realFetch.mockResolvedValueOnce({ blob: () => Promise.resolve(fakeBlob) });
     vi.mocked(uploadCompetitorPhoto).mockResolvedValueOnce("https://storage/comp-jpg_front.jpg");
 
     const dummyFile = new File(["photo"], "photo.jpg", { type: "image/jpeg" });

@@ -29,10 +29,82 @@ export interface ReceiptItem {
   thumbnail_url?: string | null;
 }
 
+export interface GroupedReceiptItem extends ReceiptItem {
+  grouped_count: number;
+  original_positions: number[];
+  original_item_ids: string[];
+}
+
 export interface ReceiptWithItems {
   receipt: ReceiptData;
   items: ReceiptItem[];
   photoUrls: string[];
+}
+
+function getGroupKey(item: ReceiptItem): string {
+  if (item.product_id) return `pid:${item.product_id}`;
+  if (item.competitor_product_id) return `cpid:${item.competitor_product_id}`;
+  return `name:${item.receipt_name.trim().toLowerCase()}`;
+}
+
+function itemPrice(item: ReceiptItem): number {
+  if (item.total_price != null) return item.total_price;
+  if (item.unit_price != null) return item.unit_price * item.quantity;
+  return 0;
+}
+
+export function groupReceiptItems(items: ReceiptItem[]): GroupedReceiptItem[] {
+  const groups = new Map<string, ReceiptItem[]>();
+  const order: string[] = [];
+
+  for (const item of items) {
+    const key = getGroupKey(item);
+    const bucket = groups.get(key);
+    if (bucket) {
+      bucket.push(item);
+    } else {
+      groups.set(key, [item]);
+      order.push(key);
+    }
+  }
+
+  return order.map((key) => {
+    const bucket = groups.get(key)!;
+    if (bucket.length === 1) {
+      const solo = bucket[0];
+      return {
+        ...solo,
+        grouped_count: 1,
+        original_positions: [solo.position],
+        original_item_ids: [solo.receipt_item_id],
+      };
+    }
+
+    const first = bucket[0];
+    const totalQty = bucket.reduce((s, i) => s + i.quantity, 0);
+    const totalPriceSum = bucket.reduce((s, i) => s + itemPrice(i), 0);
+    const totalWeight = first.is_weight_item
+      ? bucket.reduce((s, i) => s + (i.weight_kg ?? 0), 0)
+      : first.weight_kg;
+
+    const linked = bucket.find((i) => i.product_name || i.thumbnail_url) ?? first;
+
+    return {
+      ...first,
+      receipt_item_id: first.receipt_item_id,
+      position: Math.min(...bucket.map((i) => i.position)),
+      quantity: totalQty,
+      total_price: totalPriceSum,
+      unit_price: totalQty > 0 ? totalPriceSum / totalQty : first.unit_price,
+      weight_kg: totalWeight,
+      product_name: linked.product_name ?? first.product_name,
+      thumbnail_url: linked.thumbnail_url ?? first.thumbnail_url,
+      article_number: linked.article_number ?? first.article_number,
+      grouped_count: bucket.length,
+      original_positions: bucket.map((i) => i.position),
+      original_item_ids: bucket.map((i) => i.receipt_item_id),
+    };
+  });
 }
 
 export async function loadReceiptWithItems(

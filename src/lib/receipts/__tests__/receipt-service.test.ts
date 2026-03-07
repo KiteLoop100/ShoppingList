@@ -3,6 +3,8 @@ import {
   loadReceiptWithItems,
   linkReceiptItemToProduct,
   getSignedPhotoUrls,
+  groupReceiptItems,
+  type ReceiptItem,
 } from "../receipt-service";
 
 const RECEIPT_ID = "aaa-111";
@@ -290,5 +292,158 @@ describe("linkReceiptItemToProduct", () => {
       "[receipts] Failed to link receipt item to product:",
       dbError,
     );
+  });
+});
+
+describe("groupReceiptItems", () => {
+  const ri = (pos: number, overrides: Partial<ReceiptItem> = {}): ReceiptItem => ({
+    receipt_item_id: `item-${pos}`,
+    position: pos,
+    article_number: null,
+    receipt_name: `Item ${pos}`,
+    product_id: null,
+    competitor_product_id: null,
+    quantity: 1,
+    unit_price: 1.99,
+    total_price: 1.99,
+    is_weight_item: false,
+    weight_kg: null,
+    ...overrides,
+  });
+
+  it("returns items unchanged when there are no duplicates", () => {
+    const items = [ri(1), ri(2, { receipt_name: "Brot" }), ri(3, { receipt_name: "Milch" })];
+    const result = groupReceiptItems(items);
+
+    expect(result).toHaveLength(3);
+    expect(result[0].grouped_count).toBe(1);
+    expect(result[0].original_item_ids).toEqual(["item-1"]);
+  });
+
+  it("groups items with the same product_id", () => {
+    const items = [
+      ri(1, { product_id: "prod-A", receipt_name: "Milch", unit_price: 1.29, total_price: 1.29 }),
+      ri(2, { product_id: "prod-B", receipt_name: "Brot", unit_price: 2.49, total_price: 2.49 }),
+      ri(3, { product_id: "prod-A", receipt_name: "Milch", unit_price: 1.29, total_price: 1.29 }),
+    ];
+    const result = groupReceiptItems(items);
+
+    expect(result).toHaveLength(2);
+
+    const milch = result[0];
+    expect(milch.product_id).toBe("prod-A");
+    expect(milch.quantity).toBe(2);
+    expect(milch.total_price).toBeCloseTo(2.58);
+    expect(milch.grouped_count).toBe(2);
+    expect(milch.original_positions).toEqual([1, 3]);
+    expect(milch.original_item_ids).toEqual(["item-1", "item-3"]);
+    expect(milch.position).toBe(1);
+
+    expect(result[1].product_id).toBe("prod-B");
+    expect(result[1].grouped_count).toBe(1);
+  });
+
+  it("groups items with the same competitor_product_id", () => {
+    const items = [
+      ri(1, { competitor_product_id: "comp-X", receipt_name: "REWE Joghurt", total_price: 0.99 }),
+      ri(2, { competitor_product_id: "comp-X", receipt_name: "REWE Joghurt", total_price: 0.99 }),
+    ];
+    const result = groupReceiptItems(items);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].quantity).toBe(2);
+    expect(result[0].total_price).toBeCloseTo(1.98);
+    expect(result[0].grouped_count).toBe(2);
+  });
+
+  it("groups unlinked items by normalized receipt_name", () => {
+    const items = [
+      ri(1, { receipt_name: "  Bananen  ", total_price: 1.50 }),
+      ri(2, { receipt_name: "bananen", total_price: 1.50 }),
+      ri(3, { receipt_name: "BANANEN", total_price: 1.50 }),
+    ];
+    const result = groupReceiptItems(items);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].quantity).toBe(3);
+    expect(result[0].total_price).toBeCloseTo(4.50);
+    expect(result[0].grouped_count).toBe(3);
+    expect(result[0].original_positions).toEqual([1, 2, 3]);
+  });
+
+  it("aggregates weight items by summing weight_kg", () => {
+    const items = [
+      ri(1, { product_id: "prod-W", is_weight_item: true, weight_kg: 0.5, total_price: 2.50 }),
+      ri(2, { product_id: "prod-W", is_weight_item: true, weight_kg: 0.75, total_price: 3.75 }),
+    ];
+    const result = groupReceiptItems(items);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].weight_kg).toBeCloseTo(1.25);
+    expect(result[0].total_price).toBeCloseTo(6.25);
+    expect(result[0].is_weight_item).toBe(true);
+  });
+
+  it("calculates average unit_price for grouped items", () => {
+    const items = [
+      ri(1, { product_id: "prod-D", quantity: 1, unit_price: 2.00, total_price: 2.00 }),
+      ri(2, { product_id: "prod-D", quantity: 1, unit_price: 1.50, total_price: 1.50 }),
+    ];
+    const result = groupReceiptItems(items);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].quantity).toBe(2);
+    expect(result[0].total_price).toBeCloseTo(3.50);
+    expect(result[0].unit_price).toBeCloseTo(1.75);
+  });
+
+  it("uses thumbnail_url from the item that has one", () => {
+    const items = [
+      ri(1, { product_id: "prod-T", product_name: undefined, thumbnail_url: undefined }),
+      ri(2, { product_id: "prod-T", product_name: "Eier", thumbnail_url: "https://thumb.jpg" }),
+    ];
+    const result = groupReceiptItems(items);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].thumbnail_url).toBe("https://thumb.jpg");
+    expect(result[0].product_name).toBe("Eier");
+  });
+
+  it("returns empty array for empty input", () => {
+    expect(groupReceiptItems([])).toEqual([]);
+  });
+
+  it("preserves first-seen order of groups", () => {
+    const items = [
+      ri(1, { receipt_name: "Apfel" }),
+      ri(2, { receipt_name: "Birne" }),
+      ri(3, { receipt_name: "Apfel" }),
+      ri(4, { receipt_name: "Cherry" }),
+      ri(5, { receipt_name: "Birne" }),
+    ];
+    const result = groupReceiptItems(items);
+
+    expect(result.map((r) => r.receipt_name)).toEqual(["Apfel", "Birne", "Cherry"]);
+  });
+
+  it("does not merge linked and unlinked items with same name", () => {
+    const items = [
+      ri(1, { product_id: "prod-M", receipt_name: "Milch" }),
+      ri(2, { receipt_name: "Milch" }),
+    ];
+    const result = groupReceiptItems(items);
+
+    expect(result).toHaveLength(2);
+  });
+
+  it("uses smallest position from the group", () => {
+    const items = [
+      ri(5, { product_id: "prod-A" }),
+      ri(2, { product_id: "prod-A" }),
+      ri(8, { product_id: "prod-A" }),
+    ];
+    const result = groupReceiptItems(items);
+
+    expect(result[0].position).toBe(2);
   });
 });

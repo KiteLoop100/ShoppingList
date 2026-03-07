@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import Image from "next/image";
 import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -11,8 +11,10 @@ import { getRetailerByName } from "@/lib/retailers/retailers";
 import {
   loadReceiptWithItems,
   linkReceiptItemToProduct,
+  groupReceiptItems,
   type ReceiptData,
   type ReceiptItem,
+  type GroupedReceiptItem,
 } from "@/lib/receipts/receipt-service";
 import { ProductCaptureModal } from "@/components/product-capture/product-capture-modal";
 import type { ProductCaptureValues } from "@/components/product-capture/hooks/use-product-capture-form";
@@ -26,12 +28,14 @@ export default function ReceiptDetailPage() {
   const receiptId = params.receiptId as string;
 
   const [receipt, setReceipt] = useState<ReceiptData | null>(null);
-  const [items, setItems] = useState<ReceiptItem[]>([]);
+  const [rawItems, setRawItems] = useState<ReceiptItem[]>([]);
   const [photoUrls, setPhotoUrls] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [showPhotos, setShowPhotos] = useState(false);
   const [captureItem, setCaptureItem] = useState<ReceiptItem | null>(null);
   const [toast, setToast] = useState(false);
+
+  const groupedItems = useMemo(() => groupReceiptItems(rawItems), [rawItems]);
 
   const loadReceipt = useCallback(async () => {
     const supabase = createClientIfConfigured();
@@ -43,7 +47,7 @@ export default function ReceiptDetailPage() {
     const result = await loadReceiptWithItems(receiptId, supabase);
     if (result) {
       setReceipt(result.receipt);
-      setItems(result.items);
+      setRawItems(result.items);
       setPhotoUrls(result.photoUrls);
     }
     setLoading(false);
@@ -123,7 +127,7 @@ export default function ReceiptDetailPage() {
     );
   }
 
-  const itemsSubtotal = items.reduce((sum, item) => {
+  const itemsSubtotal = rawItems.reduce((sum, item) => {
     return sum + (item.total_price ?? item.unit_price ?? 0) * (item.total_price ? 1 : item.quantity);
   }, 0);
 
@@ -232,11 +236,11 @@ export default function ReceiptDetailPage() {
         <div className="rounded-2xl bg-white shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
           <div className="flex items-center justify-between border-b border-aldi-muted-light px-5 py-3">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-aldi-muted">
-              {t("products")} ({items.length})
+              {t("products")} ({groupedItems.length})
             </h3>
-            {items.length > 0 && (() => {
-              const linked = items.filter((i) => i.product_name).length;
-              const unlinked = items.length - linked;
+            {groupedItems.length > 0 && (() => {
+              const linked = groupedItems.filter((i) => i.product_name).length;
+              const unlinked = groupedItems.length - linked;
               return unlinked > 0 ? (
                 <span className="text-[11px] text-aldi-muted">
                   {linked} {t("linked")}, {unlinked} {t("unlinked")}
@@ -246,15 +250,11 @@ export default function ReceiptDetailPage() {
           </div>
 
           <div className="divide-y divide-aldi-muted-light/50">
-            {items.map((item) => {
+            {groupedItems.map((item) => {
               const displayName =
                 item.product_name || item.receipt_name;
               const isLinked = !!(item.product_id || item.competitor_product_id);
-              const price =
-                item.total_price ??
-                (item.unit_price != null
-                  ? item.unit_price * item.quantity
-                  : null);
+              const price = item.total_price;
 
               return (
                 <div
@@ -265,24 +265,33 @@ export default function ReceiptDetailPage() {
                     {item.position}
                   </span>
                   <div className="flex min-w-0 flex-1 flex-col">
-                    <span
-                      className={`truncate text-sm ${
-                        isLinked
-                          ? "font-medium text-aldi-text"
-                          : "text-aldi-text-secondary"
-                      }`}
-                    >
-                      {displayName}
+                    <span className="flex items-center gap-1.5">
+                      <span
+                        className={`truncate text-sm ${
+                          isLinked
+                            ? "font-medium text-aldi-text"
+                            : "text-aldi-text-secondary"
+                        }`}
+                      >
+                        {displayName}
+                      </span>
+                      {item.quantity > 1 && !item.is_weight_item && (
+                        <span className="shrink-0 rounded-full bg-aldi-blue-light px-1.5 py-0.5 text-[11px] font-semibold leading-none text-aldi-blue">
+                          {item.quantity}×
+                        </span>
+                      )}
                     </span>
                     <span className="flex items-center gap-2 text-[11px] text-aldi-muted">
                       {item.article_number && (
                         <span>Art. {item.article_number}</span>
                       )}
-                      {item.quantity > 1 && !item.is_weight_item && (
-                        <span>{item.quantity}×</span>
-                      )}
-                      {item.is_weight_item && item.weight_kg && (
-                        <span>{item.weight_kg} kg</span>
+                      {item.is_weight_item && item.weight_kg != null && (
+                        <span>
+                          {Number.isInteger(item.weight_kg)
+                            ? item.weight_kg
+                            : item.weight_kg.toFixed(2)}{" "}
+                          kg
+                        </span>
                       )}
                       {isLinked ? (
                         <span className="rounded bg-green-50 px-1 text-green-600">
@@ -358,6 +367,7 @@ export default function ReceiptDetailPage() {
         onSaved={handlePhotoSaved}
         initialValues={captureInitialValues}
         hiddenFields={captureItem?.product_id ? ["retailer"] : undefined}
+        lockedFields={["name", "articleNumber", "price"]}
       />
 
       {toast && (

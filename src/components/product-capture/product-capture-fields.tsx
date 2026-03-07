@@ -26,6 +26,9 @@ export interface ProductCaptureFieldLabels {
   criteria: CriteriaLabels;
 }
 
+const INPUT_BASE = "w-full rounded-xl border-2 border-aldi-muted-light px-3 py-2.5 text-sm focus:border-aldi-blue focus:outline-none";
+const INPUT_LOCKED = "w-full rounded-xl border-2 border-aldi-muted-light bg-gray-100 px-3 py-2.5 text-sm text-gray-500";
+
 export function ProductCaptureFields({
   values,
   setField,
@@ -33,6 +36,7 @@ export function ProductCaptureFields({
   demandGroups,
   filteredSubGroups,
   hiddenFields,
+  lockedFields,
   labels,
 }: {
   values: ProductCaptureValues;
@@ -41,9 +45,11 @@ export function ProductCaptureFields({
   demandGroups: DemandGroup[];
   filteredSubGroups: DemandSubGroupRow[];
   hiddenFields?: string[];
+  lockedFields?: ReadonlySet<string>;
   labels: ProductCaptureFieldLabels;
 }) {
   const hidden = new Set(hiddenFields ?? []);
+  const locked = lockedFields ?? new Set<string>();
   const showCustomRetailer = values.retailer === "__custom__";
 
   return (
@@ -52,8 +58,10 @@ export function ProductCaptureFields({
       <div>
         <label className="mb-1 block text-xs font-medium text-aldi-muted">{labels.name} *</label>
         <input
-          type="text" value={values.name} onChange={(e) => setField("name", e.target.value)}
-          className="w-full rounded-xl border-2 border-aldi-muted-light px-3 py-2.5 text-sm focus:border-aldi-blue focus:outline-none"
+          type="text" value={values.name}
+          onChange={(e) => setField("name", e.target.value)}
+          disabled={locked.has("name")}
+          className={locked.has("name") ? INPUT_LOCKED : INPUT_BASE}
         />
       </div>
 
@@ -84,12 +92,13 @@ export function ProductCaptureFields({
           </div>
           <div className="w-28">
             <label className="mb-1 block text-xs font-medium text-aldi-muted">{labels.price}</label>
-            <div className="flex items-center rounded-xl border-2 border-aldi-muted-light focus-within:border-aldi-blue">
+            <div className={`flex items-center rounded-xl border-2 border-aldi-muted-light ${locked.has("price") ? "bg-gray-100" : "focus-within:border-aldi-blue"}`}>
               <span className="pl-3 text-sm text-aldi-muted">&euro;</span>
               <input
                 type="text" inputMode="decimal" value={values.price}
                 onChange={(e) => setField("price", e.target.value)} placeholder="0,00"
-                className="w-full bg-transparent px-2 py-2.5 text-sm focus:outline-none"
+                disabled={locked.has("price")}
+                className={`w-full bg-transparent px-2 py-2.5 text-sm focus:outline-none ${locked.has("price") ? "text-gray-500" : ""}`}
               />
             </div>
           </div>
@@ -110,12 +119,13 @@ export function ProductCaptureFields({
       {hidden.has("retailer") && (
         <div>
           <label className="mb-1 block text-xs font-medium text-aldi-muted">{labels.price}</label>
-          <div className="flex items-center rounded-xl border-2 border-aldi-muted-light focus-within:border-aldi-blue">
+          <div className={`flex items-center rounded-xl border-2 border-aldi-muted-light ${locked.has("price") ? "bg-gray-100" : "focus-within:border-aldi-blue"}`}>
             <span className="pl-3 text-sm text-aldi-muted">&euro;</span>
             <input
               type="text" inputMode="decimal" value={values.price}
               onChange={(e) => setField("price", e.target.value)} placeholder="0,00"
-              className="w-full bg-transparent px-2 py-2.5 text-sm focus:outline-none"
+              disabled={locked.has("price")}
+              className={`w-full bg-transparent px-2 py-2.5 text-sm focus:outline-none ${locked.has("price") ? "text-gray-500" : ""}`}
             />
           </div>
         </div>
@@ -165,8 +175,10 @@ export function ProductCaptureFields({
       <div>
         <label className="mb-1 block text-xs font-medium text-aldi-muted">{labels.articleNumber}</label>
         <input
-          type="text" value={values.articleNumber} onChange={(e) => setField("articleNumber", e.target.value)}
-          className="w-full rounded-xl border-2 border-aldi-muted-light px-3 py-2.5 text-sm focus:border-aldi-blue focus:outline-none"
+          type="text" value={values.articleNumber}
+          onChange={(e) => setField("articleNumber", e.target.value)}
+          disabled={locked.has("articleNumber")}
+          className={locked.has("articleNumber") ? INPUT_LOCKED : INPUT_BASE}
         />
       </div>
 

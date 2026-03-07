@@ -83,6 +83,10 @@ async function saveAldiProduct(
     body.update_existing_product_id = editProduct.product_id;
   }
 
+  // #region agent log
+  fetch('http://127.0.0.1:7547/ingest/d58e5f1a-49bc-422a-bf52-4fc861b26370',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'ccf7cd'},body:JSON.stringify({sessionId:'ccf7cd',location:'product-capture-save.ts:86',message:'saveAldi-request',data:{hasThumbnailUrl:!!body.thumbnail_url,hasThumbnailBase64:!!body.thumbnail_base64,thumbnailBase64Len:(body.thumbnail_base64 as string)?.length??0,thumbnailFormat:body.thumbnail_format,name:body.name,updateExisting:body.update_existing_product_id??null},timestamp:Date.now(),hypothesisId:'H2,H3'})}).catch(()=>{});
+  // #endregion
+
   const res = await fetch("/api/products/create-manual", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -90,7 +94,13 @@ async function saveAldiProduct(
   });
 
   const data = await res.json();
+  // #region agent log
+  fetch('http://127.0.0.1:7547/ingest/d58e5f1a-49bc-422a-bf52-4fc861b26370',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'ccf7cd'},body:JSON.stringify({sessionId:'ccf7cd',location:'product-capture-save.ts:95',message:'saveAldi-response',data:{ok:res.ok,status:res.status,responseData:data},timestamp:Date.now(),hypothesisId:'H2,H3'})}).catch(()=>{});
+  // #endregion
   if (!res.ok) throw new Error(data.error ?? "Save failed");
+  if (data.duplicate && data.existing_product_id) {
+    return data.existing_product_id;
+  }
   return data.product_id;
 }
 

@@ -89,6 +89,7 @@ export async function POST(request: Request) {
       if (!thumbnailBase64 && !thumbnailUrl) {
         return NextResponse.json({
           duplicate: true,
+          product_id: productId,
           existing_product_id: productId,
           message: "Ein Produkt mit gleicher EAN, Artikelnummer oder Name existiert bereits.",
         });
@@ -96,6 +97,10 @@ export async function POST(request: Request) {
       updateExistingProductId = productId;
     }
   }
+
+  // #region agent log
+  fetch('http://127.0.0.1:7547/ingest/d58e5f1a-49bc-422a-bf52-4fc861b26370',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'ccf7cd'},body:JSON.stringify({sessionId:'ccf7cd',location:'create-manual/route.ts:100',message:'route-state',data:{productId,updateExistingProductId,hasThumbnailUrl:!!thumbnailUrl,hasThumbnailBase64:!!thumbnailBase64,thumbnailBase64Len:thumbnailBase64?.length??0,thumbnailFormat,name,articleNumber,ean},timestamp:Date.now(),hypothesisId:'H2,H3'})}).catch(()=>{});
+  // #endregion
 
   if (productId && updateExistingProductId) {
     const updates: Record<string, unknown> = {
@@ -151,14 +156,26 @@ export async function POST(request: Request) {
         const { error: upErr } = await supabase.storage
           .from("product-thumbnails")
           .upload(path, resized, { contentType: "image/jpeg", upsert: true });
+        // #region agent log
+        fetch('http://127.0.0.1:7547/ingest/d58e5f1a-49bc-422a-bf52-4fc861b26370',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'ccf7cd'},body:JSON.stringify({sessionId:'ccf7cd',location:'create-manual/route.ts:158',message:'storage-upload-result-update',data:{uploadError:upErr?.message??null,path,resizedSize:resized.length},timestamp:Date.now(),hypothesisId:'H2'})}).catch(()=>{});
+        // #endregion
         if (!upErr) {
           const { data: urlData } = supabase.storage.from("product-thumbnails").getPublicUrl(path);
           updates.thumbnail_url = urlData.publicUrl;
+          // #region agent log
+          fetch('http://127.0.0.1:7547/ingest/d58e5f1a-49bc-422a-bf52-4fc861b26370',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'ccf7cd'},body:JSON.stringify({sessionId:'ccf7cd',location:'create-manual/route.ts:162',message:'thumbnail-url-set',data:{thumbnailUrl:urlData.publicUrl},timestamp:Date.now(),hypothesisId:'H2,H4'})}).catch(()=>{});
+          // #endregion
         }
       } catch (e) {
+        // #region agent log
+        fetch('http://127.0.0.1:7547/ingest/d58e5f1a-49bc-422a-bf52-4fc861b26370',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'ccf7cd'},body:JSON.stringify({sessionId:'ccf7cd',location:'create-manual/route.ts:166',message:'thumbnail-upload-exception',data:{error:e instanceof Error?e.message:String(e)},timestamp:Date.now(),hypothesisId:'H2'})}).catch(()=>{});
+        // #endregion
         log.warn("[create-manual] Thumbnail resize/upload failed:", e);
       }
     }
+    // #region agent log
+    fetch('http://127.0.0.1:7547/ingest/d58e5f1a-49bc-422a-bf52-4fc861b26370',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'ccf7cd'},body:JSON.stringify({sessionId:'ccf7cd',location:'create-manual/route.ts:172',message:'db-update-payload',data:{productId,hasThumbnailUrlInUpdates:!!updates.thumbnail_url,updateKeys:Object.keys(updates)},timestamp:Date.now(),hypothesisId:'H3,H4'})}).catch(()=>{});
+    // #endregion
     const { error: updErr } = await supabase
       .from("products")
       .update(updates)

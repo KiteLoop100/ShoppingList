@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { useCurrentCountry } from "@/lib/current-country-context";
 import { getRetailersForCountry } from "@/lib/retailers/retailers";
 import {
@@ -41,6 +41,7 @@ export interface ProductCaptureConfig {
   onSaved: (productId: string, productType: "aldi" | "competitor") => void;
   initialValues?: Partial<ProductCaptureValues>;
   hiddenFields?: string[];
+  lockedFields?: string[];
   editAldiProduct?: Product | null;
   editCompetitorProduct?: CompetitorProduct | null;
 }
@@ -126,7 +127,8 @@ const EMPTY_VALUES: ProductCaptureValues = {
 };
 
 export function useProductCaptureForm(config: ProductCaptureConfig) {
-  const { open, mode, onClose, onSaved, initialValues, editAldiProduct, editCompetitorProduct } = config;
+  const { open, mode, onClose, onSaved, initialValues, lockedFields, editAldiProduct, editCompetitorProduct } = config;
+  const locked = useMemo(() => new Set(lockedFields ?? []), [lockedFields]);
   const { country } = useCurrentCountry();
   const retailers = getRetailersForCountry(country ?? "DE");
 
@@ -215,6 +217,9 @@ export function useProductCaptureForm(config: ProductCaptureConfig) {
       }
       const data = await res.json();
       if (data.status === "review_required") setReviewStatus(data.review_reason ?? "review_required");
+      // #region agent log
+      fetch('http://127.0.0.1:7547/ingest/d58e5f1a-49bc-422a-bf52-4fc861b26370',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'ccf7cd'},body:JSON.stringify({sessionId:'ccf7cd',location:'use-product-capture-form.ts:218',message:'analyze-response',data:{status:data.status,hasThumbnail:!!data.thumbnail_base64,thumbnailLen:data.thumbnail_base64?.length??0,format:data.thumbnail_format,reviewReason:data.review_reason,bgRemoved:data.background_removed,bgFailed:data.background_removal_failed},timestamp:Date.now(),hypothesisId:'H1'})}).catch(()=>{});
+      // #endregion
       if (data.thumbnail_base64) {
         const fmt = data.thumbnail_format ?? "image/webp";
         setProcessedThumbnail(`data:${fmt};base64,${data.thumbnail_base64}`);
@@ -225,11 +230,14 @@ export function useProductCaptureForm(config: ProductCaptureConfig) {
         const aiDemandGroupCode = extractDemandGroupCode(extracted.demand_group);
         setValues((prev) => ({
           ...prev,
-          name: extracted.name ? titleCase(extracted.name) : prev.name,
+          name: locked.has("name") ? prev.name
+            : (extracted.name && !prev.name) ? titleCase(extracted.name) : prev.name,
           brand: (extracted.brand && !prev.brand) ? extracted.brand : prev.brand,
           ean: (extracted.ean_barcode && !prev.ean) ? extracted.ean_barcode : prev.ean,
-          articleNumber: (extracted.article_number && !prev.articleNumber) ? extracted.article_number : prev.articleNumber,
-          price: (extracted.price != null && !prev.price) ? String(extracted.price).replace(".", ",") : prev.price,
+          articleNumber: locked.has("articleNumber") ? prev.articleNumber
+            : (extracted.article_number && !prev.articleNumber) ? extracted.article_number : prev.articleNumber,
+          price: locked.has("price") ? prev.price
+            : (extracted.price != null && !prev.price) ? String(extracted.price).replace(".", ",") : prev.price,
           weightOrQuantity: (extracted.weight_or_quantity && !prev.weightOrQuantity) ? extracted.weight_or_quantity : prev.weightOrQuantity,
           demandGroupCode: (aiDemandGroupCode && !prev.demandGroupCode) ? aiDemandGroupCode : prev.demandGroupCode,
           isBio: extracted.is_bio || prev.isBio,
@@ -249,7 +257,7 @@ export function useProductCaptureForm(config: ProductCaptureConfig) {
       setAnalyzing(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
-  }, [retailers]);
+  }, [retailers, locked]);
 
   const removePhoto = useCallback((index: number) => {
     setPhotoFiles((prev) => prev.filter((_, i) => i !== index));
@@ -266,6 +274,9 @@ export function useProductCaptureForm(config: ProductCaptureConfig) {
     && !saving && !analyzing;
 
   const handleSubmit = useCallback(async () => {
+    // #region agent log
+    fetch('http://127.0.0.1:7547/ingest/d58e5f1a-49bc-422a-bf52-4fc861b26370',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'ccf7cd'},body:JSON.stringify({sessionId:'ccf7cd',location:'use-product-capture-form.ts:268',message:'handleSubmit-entry',data:{canSubmit,hasProcessedThumbnail:!!processedThumbnail,processedThumbnailPrefix:processedThumbnail?.substring(0,60),retailer:effectiveRetailer,name:values.name,photoFilesCount:photoFiles.length},timestamp:Date.now(),hypothesisId:'H1,H5'})}).catch(()=>{});
+    // #endregion
     if (!canSubmit) return;
     setSaving(true); setError(null);
     try {
@@ -279,6 +290,9 @@ export function useProductCaptureForm(config: ProductCaptureConfig) {
         photoFiles,
         country: country ?? "DE",
       });
+      // #region agent log
+      fetch('http://127.0.0.1:7547/ingest/d58e5f1a-49bc-422a-bf52-4fc861b26370',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'ccf7cd'},body:JSON.stringify({sessionId:'ccf7cd',location:'use-product-capture-form.ts:282',message:'save-success',data:{productId:result.productId,productType:result.productType},timestamp:Date.now(),hypothesisId:'H5'})}).catch(()=>{});
+      // #endregion
       onSaved(result.productId, result.productType);
       onClose();
     } catch (e: unknown) {
@@ -294,7 +308,7 @@ export function useProductCaptureForm(config: ProductCaptureConfig) {
     extractedDetails, reviewStatus,
     fileInputRef,
     retailers, demandGroups, filteredSubGroups,
-    isEditMode, canSubmit,
+    isEditMode, canSubmit, locked,
     handlePhotosSelected, removePhoto, handleSubmit,
   };
 }
