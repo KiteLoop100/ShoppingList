@@ -6,10 +6,14 @@ import {
 } from "@/lib/store/store-service";
 import type { GeoPosition } from "@/lib/store/store-service";
 import type { LocalStore } from "@/lib/db";
-import { startInStoreMonitor, stopInStoreMonitor } from "@/lib/store/in-store-monitor";
+import { createInStoreMonitor } from "@/lib/store/in-store-monitor";
+import type { InStoreMonitorHandle } from "@/lib/store/in-store-monitor";
 import type { SortMode } from "@/components/search/product-search";
+import { log } from "@/lib/utils/logger";
 
 const SORT_TOAST_MS = 2000;
+const GPS_RETRY_DELAY_MS = 10_000;
+const GPS_MAX_RETRIES = 2;
 
 interface UseStoreDetectionOptions {
   listId: string | null | undefined;
@@ -26,7 +30,7 @@ export interface StoreDetectionState {
   isInStore: boolean;
   detectedStoreName: string | null;
   showSortToast: boolean;
-  /** GPS position available but no known store nearby — user can create one. */
+  /** GPS position available but no known store nearby -- user can create one. */
   unknownLocation: GeoPosition | null;
   /** Call after user creates a store from the unknown-location prompt. */
   handleStoreCreated: (store: LocalStore) => void;
@@ -41,7 +45,12 @@ export interface StoreDetectionState {
  * sort-mode switching when the active store changes.
  *
  * When GPS is available but no known store is nearby, `unknownLocation` is set
- * so the caller can show a "create store" dialog.
+ * so the caller can show a "create store" dialog. The monitor still starts so
+ * the store is detected once the user arrives.
+ *
+ * On GPS failure the hook retries up to GPS_MAX_RETRIES times with a
+ * GPS_RETRY_DELAY_MS delay. If all retries fail, the default store from
+ * Settings is used as fallback.
  */
 export function useStoreDetection({
   listId,
@@ -57,41 +66,91 @@ export function useStoreDetection({
   const [detectedStoreName, setDetectedStoreName] = useState<string | null>(null);
   const [showSortToast, setShowSortToast] = useState(false);
   const [unknownLocation, setUnknownLocation] = useState<GeoPosition | null>(null);
-  const gpsTriedRef = useRef(false);
+  const gpsAttemptRef = useRef(0);
   const prevStoreIdRef = useRef<string | null | "__init__">("__init__");
   const manualSortRef = useRef(false);
   manualSortRef.current = userHasManuallyChosenSort;
+  const monitorRef = useRef<InStoreMonitorHandle | null>(null);
+
+  const startMonitor = useCallback(
+    (forListId: string, initiallyInStore: boolean) => {
+      monitorRef.current?.stop();
+      monitorRef.current = createInStoreMonitor(
+        forListId,
+        initiallyInStore,
+        (inStore, nearestStore) => {
+          setIsInStore(inStore);
+          if (nearestStore) setDetectedStoreName(nearestStore.name);
+        }
+      );
+    },
+    []
+  );
+
+  const stopMonitor = useCallback(() => {
+    monitorRef.current?.stop();
+    monitorRef.current = null;
+  }, []);
 
   useEffect(() => {
-    if (!listId || gpsTriedRef.current) return;
-    gpsTriedRef.current = true;
+    if (!listId || gpsAttemptRef.current > 0) return;
 
-    detectStoreOrPosition(listId).then(async ({ result, gpsPosition }) => {
+    let cancelled = false;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+
+    async function attempt(retryCount: number): Promise<void> {
+      if (cancelled) return;
+      gpsAttemptRef.current = retryCount + 1;
+
+      const { result, gpsPosition } = await detectStoreOrPosition(listId!);
+
+      if (cancelled) return;
+
       if (result) {
         const { store: detectedStore, detectedByGps } = result;
         setDetectedStoreName(detectedStore.name);
 
         if (detectedByGps) {
           setIsInStore(true);
-          await setListGpsConfirmed(listId, true);
+          await setListGpsConfirmed(listId!, true);
           if (!manualSortRef.current && !sortRestoredFromSession.current) {
             setSortMode("shopping-order");
             setShowSortToast(true);
           }
         }
 
-        startInStoreMonitor(listId, detectedByGps, (inStore, nearestStore) => {
-          setIsInStore(inStore);
-          if (nearestStore) setDetectedStoreName(nearestStore.name);
-        });
-
+        startMonitor(listId!, detectedByGps);
         refetchRef.current();
-      } else if (gpsPosition) {
-        setUnknownLocation(gpsPosition);
+        return;
       }
-    });
 
-    return () => stopInStoreMonitor();
+      if (gpsPosition) {
+        setUnknownLocation(gpsPosition);
+        startMonitor(listId!, false);
+        return;
+      }
+
+      if (retryCount < GPS_MAX_RETRIES) {
+        log.debug(
+          `[useStoreDetection] GPS attempt ${retryCount + 1} failed, retrying in ${GPS_RETRY_DELAY_MS / 1000}s`
+        );
+        retryTimer = setTimeout(
+          () => void attempt(retryCount + 1),
+          GPS_RETRY_DELAY_MS
+        );
+        return;
+      }
+
+      log.warn("[useStoreDetection] All GPS retries exhausted, using default store fallback");
+    }
+
+    void attempt(0);
+
+    return () => {
+      cancelled = true;
+      if (retryTimer !== null) clearTimeout(retryTimer);
+      stopMonitor();
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [listId]);
 
@@ -109,21 +168,16 @@ export function useStoreDetection({
         setShowSortToast(true);
       }
 
-      startInStoreMonitor(listId, true, (inStore, nearestStore) => {
-        setIsInStore(inStore);
-        if (nearestStore) setDetectedStoreName(nearestStore.name);
-      });
-
+      startMonitor(listId, true);
       refetchRef.current();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [listId]);
+  }, [listId, startMonitor]);
 
   const handleSkipCreateStore = useCallback(() => {
     setUnknownLocation(null);
   }, []);
 
-  // F03: Auto-switch sort mode when the active store is set or cleared
   useEffect(() => {
     if (loading) return;
 
@@ -146,7 +200,6 @@ export function useStoreDetection({
     }
   }, [loading, storeId, setSortMode, setUserHasManuallyChosenSort]);
 
-  // Sort toast auto-dismiss
   useEffect(() => {
     if (!showSortToast) return;
     const id = setTimeout(() => setShowSortToast(false), SORT_TOAST_MS);
@@ -154,11 +207,11 @@ export function useStoreDetection({
   }, [showSortToast]);
 
   const resetOnCompletion = useCallback(() => {
-    stopInStoreMonitor();
+    stopMonitor();
     setIsInStore(false);
     setDetectedStoreName(null);
     setUnknownLocation(null);
-  }, []);
+  }, [stopMonitor]);
 
   return {
     isInStore,

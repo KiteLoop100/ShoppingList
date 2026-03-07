@@ -33,6 +33,35 @@ export function ReceiptProcessingPhase({ t, progress, photos }: ReceiptProcessin
   );
 }
 
+interface ReceiptSubmittedPhaseProps {
+  t: (key: string) => string;
+  onClose: () => void;
+}
+
+export function ReceiptSubmittedPhase({ t, onClose }: ReceiptSubmittedPhaseProps) {
+  return (
+    <div className="flex flex-1 flex-col items-center justify-center gap-6 p-8">
+      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-aldi-blue">
+        <svg className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+        </svg>
+      </div>
+      <div className="text-center">
+        <p className="text-lg font-semibold text-white">{t("submittedTitle")}</p>
+        <p className="mt-3 text-sm leading-relaxed text-white/70">{t("submittedMessage")}</p>
+      </div>
+      <div className="h-6 w-6 animate-spin rounded-full border-2 border-white/20 border-t-white/60" />
+      <button
+        type="button"
+        onClick={onClose}
+        className="mt-2 rounded-xl bg-white/10 px-8 py-3 text-sm font-medium text-white transition-transform active:scale-95"
+      >
+        {t("submittedClose")}
+      </button>
+    </div>
+  );
+}
+
 interface ReceiptDonePhaseProps {
   t: (key: string, values?: TranslationValues) => string;
   result: ReceiptResult;

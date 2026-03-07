@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   loadReceiptWithItems,
+  linkReceiptItemToProduct,
   getSignedPhotoUrls,
 } from "../receipt-service";
 
@@ -104,7 +105,10 @@ describe("loadReceiptWithItems", () => {
     const supabase = createMockSupabase(
       { data: { ...baseReceipt }, error: null },
       { data: items, error: null },
-      { data: [{ product_id: "prod-1", name: "Milch" }, { product_id: "prod-2", name: "Brot" }], error: null }
+      { data: [
+        { product_id: "prod-1", name: "Milch", thumbnail_url: null },
+        { product_id: "prod-2", name: "Brot", thumbnail_url: null },
+      ], error: null }
     );
 
     const result = await loadReceiptWithItems(RECEIPT_ID, supabase);
@@ -123,7 +127,7 @@ describe("loadReceiptWithItems", () => {
       { data: { ...baseReceipt }, error: null },
       { data: items, error: null },
       { data: [], error: null },
-      { data: [{ product_id: "comp-1", name: "LIDL Milch" }], error: null }
+      { data: [{ product_id: "comp-1", name: "LIDL Milch", thumbnail_url: null }], error: null }
     );
 
     const result = await loadReceiptWithItems(RECEIPT_ID, supabase);
@@ -203,5 +207,88 @@ describe("getSignedPhotoUrls", () => {
 
     expect(result).toEqual(["https://signed/photo1", "https://signed/photo2"]);
     expect(supabase.storage.from).toHaveBeenCalledWith("receipt-photos");
+  });
+});
+
+describe("loadReceiptWithItems – thumbnail_url", () => {
+  it("resolves thumbnail_url from ALDI products", async () => {
+    const items = [makeItem(1, { product_id: "prod-1" })];
+    const thumbUrl = "https://storage.example.com/product-thumbnails/abc.webp";
+
+    const supabase = createMockSupabase(
+      { data: { ...baseReceipt }, error: null },
+      { data: items, error: null },
+      { data: [{ product_id: "prod-1", name: "Bio Eier", thumbnail_url: thumbUrl }], error: null },
+    );
+
+    const result = await loadReceiptWithItems(RECEIPT_ID, supabase);
+
+    expect(result!.items[0].thumbnail_url).toBe(thumbUrl);
+    expect(result!.items[0].product_name).toBe("Bio Eier");
+  });
+
+  it("resolves thumbnail_url from competitor products", async () => {
+    const items = [makeItem(1, { competitor_product_id: "comp-1" })];
+    const thumbUrl = "https://storage.example.com/competitor/thumb.jpg";
+
+    const supabase = createMockSupabase(
+      { data: { ...baseReceipt }, error: null },
+      { data: items, error: null },
+      { data: [], error: null },
+      { data: [{ product_id: "comp-1", name: "REWE Milch", thumbnail_url: thumbUrl }], error: null },
+    );
+
+    const result = await loadReceiptWithItems(RECEIPT_ID, supabase);
+
+    expect(result!.items[0].thumbnail_url).toBe(thumbUrl);
+  });
+
+  it("returns null thumbnail_url for unlinked items", async () => {
+    const items = [makeItem(1)];
+
+    const supabase = createMockSupabase(
+      { data: { ...baseReceipt }, error: null },
+      { data: items, error: null },
+    );
+
+    const result = await loadReceiptWithItems(RECEIPT_ID, supabase);
+
+    expect(result!.items[0].thumbnail_url).toBeNull();
+    expect(result!.items[0].product_name).toBeNull();
+  });
+});
+
+describe("linkReceiptItemToProduct", () => {
+  it("updates the receipt item with product_id", async () => {
+    const updateFn = vi.fn().mockReturnValue({
+      eq: vi.fn().mockResolvedValue({ error: null }),
+    });
+
+    const supabase = {
+      from: vi.fn(() => ({ update: updateFn })),
+    } as unknown as import("@supabase/supabase-js").SupabaseClient;
+
+    await linkReceiptItemToProduct("item-1", "prod-new", supabase);
+
+    expect(supabase.from).toHaveBeenCalledWith("receipt_items");
+    expect(updateFn).toHaveBeenCalledWith({ product_id: "prod-new" });
+  });
+
+  it("throws and logs when update fails", async () => {
+    const dbError = { code: "42501", message: "permission denied" };
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const updateFn = vi.fn().mockReturnValue({
+      eq: vi.fn().mockResolvedValue({ error: dbError }),
+    });
+
+    const supabase = {
+      from: vi.fn(() => ({ update: updateFn })),
+    } as unknown as import("@supabase/supabase-js").SupabaseClient;
+
+    await expect(linkReceiptItemToProduct("item-1", "prod-x", supabase)).rejects.toEqual(dbError);
+    expect(warnSpy).toHaveBeenCalledWith(
+      "[receipts] Failed to link receipt item to product:",
+      dbError,
+    );
   });
 });

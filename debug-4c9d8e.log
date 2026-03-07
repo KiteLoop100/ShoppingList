@@ -1,0 +1,14 @@
+{"sessionId":"4c9d8e","location":"client:processReceipt-start","message":"processReceipt CALLED","data":{"photoCount":5,"callTs":1772907863908},"timestamp":1772907863908,"hypothesisId":"H-1B,H-1E","_relay":true,"_relayTs":1772907864809}
+{"sessionId":"4c9d8e","location":"client:upload-photo-0","message":"upload photo 0","data":{"index":0,"status":200,"ok":true},"timestamp":1772907865681,"hypothesisId":"H-1C","_relay":true,"_relayTs":1772907866098}
+{"sessionId":"4c9d8e","location":"client:upload-photo-1","message":"upload photo 1","data":{"index":1,"status":200,"ok":true},"timestamp":1772907866158,"hypothesisId":"H-1C","_relay":true,"_relayTs":1772907866576}
+{"sessionId":"4c9d8e","location":"client:upload-photo-2","message":"upload photo 2","data":{"index":2,"status":200,"ok":true},"timestamp":1772907866705,"hypothesisId":"H-1C","_relay":true,"_relayTs":1772907867135}
+{"sessionId":"4c9d8e","location":"client:upload-photo-3","message":"upload photo 3","data":{"index":3,"status":200,"ok":true},"timestamp":1772907867207,"hypothesisId":"H-1C","_relay":true,"_relayTs":1772907867636}
+{"sessionId":"4c9d8e","location":"client:upload-photo-4","message":"upload photo 4","data":{"index":4,"status":200,"ok":true},"timestamp":1772907867730,"hypothesisId":"H-1C","_relay":true,"_relayTs":1772907868158}
+{"sessionId":"4c9d8e","location":"client:submitted-phase","message":"uploads done — fire-and-forget analysis","data":{"urlCount":5,"ts":1772907867731},"timestamp":1772907867731,"hypothesisId":"H-1C","_relay":true,"_relayTs":1772907868159}
+{"sessionId":"4c9d8e","timestamp":1772907868622,"hypothesisId":"H-1B,H-2A","message":"process-receipt called","data":{"userId":"37c0d54d-c423-4c44-858d-40b4fdad2845","photoCount":5,"ts":1772907868622}}
+{"sessionId":"4c9d8e","timestamp":1772907868642,"hypothesisId":"H-1C","message":"calling callReceiptOcr","data":{"photoCount":5}}
+{"sessionId":"4c9d8e","timestamp":1772907955808,"hypothesisId":"H-1C,H-2B","message":"callReceiptOcr returned","data":{"durationMs":87166,"status":"valid","retailer":"ALDI"}}
+{"sessionId":"4c9d8e","timestamp":1772907955809,"hypothesisId":"H-1A,H-2A","message":"status valid — calling processValidReceipt","data":{"productCount":57}}
+{"sessionId":"4c9d8e","timestamp":1772907955810,"hypothesisId":"H-2A,H-2B","message":"about to INSERT receipt","data":{"userId":"37c0d54d-c423-4c44-858d-40b4fdad2845","receiptNumber":"5363 BN92/003/035","purchaseDate":"2026-03-07","totalAmount":205.83,"storeName":"ALDI SÜD","ts":1772907955810}}
+{"sessionId":"4c9d8e","timestamp":1772907956531,"hypothesisId":"H-2A,H-1A","message":"INSERT receipt result","data":{"receiptId":"2938b687-67d0-4f82-8364-1db81040d7c9"}}
+{"sessionId":"4c9d8e","timestamp":1772907964925,"hypothesisId":"H-1A","message":"processValidReceipt done","data":{"receiptId":"2938b687-67d0-4f82-8364-1db81040d7c9","itemsCount":57}}

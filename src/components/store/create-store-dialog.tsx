@@ -8,7 +8,7 @@ import type { LocalStore } from "@/lib/db";
 import type { GeoPosition } from "@/lib/store/store-service";
 
 interface CreateStoreDialogProps {
-  position: GeoPosition;
+  position?: GeoPosition | null;
   onCreated: (store: LocalStore) => void;
   onSkip: () => void;
 }
@@ -28,6 +28,7 @@ export function CreateStoreDialog({ position, onCreated, onSkip }: CreateStoreDi
   const canSubmit = effectiveRetailer.length > 0 && !creating;
 
   useEffect(() => {
+    if (!position) return;
     let cancelled = false;
     reverseGeocode(position.latitude, position.longitude).then((geo) => {
       if (!cancelled && geo) {
@@ -36,7 +37,7 @@ export function CreateStoreDialog({ position, onCreated, onSkip }: CreateStoreDi
       }
     });
     return () => { cancelled = true; };
-  }, [position.latitude, position.longitude]);
+  }, [position]);
 
   const handleCreate = useCallback(async () => {
     if (!canSubmit) return;
@@ -45,8 +46,8 @@ export function CreateStoreDialog({ position, onCreated, onSkip }: CreateStoreDi
       const store = await createStore({
         retailer: effectiveRetailer,
         name: storeName.trim() || undefined,
-        latitude: position.latitude,
-        longitude: position.longitude,
+        latitude: position?.latitude,
+        longitude: position?.longitude,
       });
       onCreated(store);
     } catch {

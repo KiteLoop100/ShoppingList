@@ -18,6 +18,7 @@
 | **FEATURES-ACCOUNT.md** | F17: Accounts, Auth, Multi-Device, IndexedDB→Supabase Migration | 200 |
 | **LAUNCH-READINESS.md** | Checkliste für Friendly User Test (100–1.000 Nutzer) | 200 |
 | **ALDI-DATA-REQUEST.md** | Data request for ALDI: 40 fields in 3 priority tiers | 150 |
+| **FEATURES-ALDI-KUNDEN-UNTERSTUETZUNG.md** | F30: Crowdsourced Customer Intelligence — OOS-Meldungen, Regalfotos, Micro-Surveys, Tasting-Feedback, Sortimentswünsche | 280 |
 | **SECURITY-BACKLOG.md** | Offene Sicherheitsthemen (Storage, RLS, Auth, API-Schutz) | 150 |
 | **CHANGELOG.md** | Spec change history | 100 |
 

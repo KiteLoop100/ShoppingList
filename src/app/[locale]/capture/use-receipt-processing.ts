@@ -4,6 +4,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "@/lib/i18n/navigation";
 import { log } from "@/lib/utils/logger";
+import { MAX_RECEIPT_PHOTOS } from "@/lib/receipts/constants";
 
 export interface CapturedPhoto {
   id: string;
@@ -12,7 +13,7 @@ export interface CapturedPhoto {
   mediaType: string;
 }
 
-export type ScannerPhase = "camera" | "fallback" | "processing" | "done" | "error";
+export type ScannerPhase = "camera" | "fallback" | "processing" | "submitted" | "done" | "error";
 
 export interface ReceiptResult {
   receipt_id: string;
@@ -26,6 +27,44 @@ export interface ReceiptResult {
 
 const MAX_IMAGE_DIMENSION = 1600;
 const JPEG_QUALITY = 0.7;
+
+interface SSEResult {
+  type: "result" | "error";
+  data: unknown;
+}
+
+async function readSSEStream(body: ReadableStream<Uint8Array>): Promise<SSEResult> {
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let lastEvent: SSEResult | null = null;
+
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (value) buffer += decoder.decode(value, { stream: true });
+
+    const blocks = buffer.split("\n\n");
+    buffer = blocks.pop() || "";
+
+    for (const block of blocks) {
+      if (!block.trim()) continue;
+      let eventType = "";
+      let eventData = "";
+      for (const line of block.split("\n")) {
+        if (line.startsWith("event: ")) eventType = line.slice(7);
+        else if (line.startsWith("data: ")) eventData = line.slice(6);
+      }
+      if (eventType === "result" || eventType === "error") {
+        lastEvent = { type: eventType, data: JSON.parse(eventData) };
+      }
+    }
+
+    if (done) break;
+  }
+
+  if (!lastEvent) throw new Error("No result received from server");
+  return lastEvent;
+}
 
 function resizeImageToBase64(source: HTMLVideoElement | HTMLImageElement | string): Promise<{ dataUrl: string; base64: string }> {
   return new Promise((resolve) => {
@@ -65,8 +104,56 @@ function resizeImageToBase64(source: HTMLVideoElement | HTMLImageElement | strin
   });
 }
 
-export function useReceiptProcessing(options: { open: boolean; onClose: () => void }) {
-  const { open, onClose } = options;
+type TranslateFn = (key: string, values?: Record<string, unknown>) => string;
+
+function fireAndForgetAnalysis(
+  photoUrls: string[],
+  photoPaths: string[],
+  setResult: (r: ReceiptResult) => void,
+  setPhase: (p: ScannerPhase) => void,
+  t: TranslateFn,
+) {
+  (async () => {
+    try {
+      const res = await fetch("/api/process-receipt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ photo_urls: photoUrls, photo_paths: photoPaths }),
+      });
+
+      if (!res.ok || !res.body) {
+        const errData = await res.json().catch(() => ({}));
+        log.warn("[receipt-scanner] process-receipt failed:", errData);
+        return;
+      }
+
+      const sseResult = await readSSEStream(res.body);
+
+      if (sseResult.type === "error") {
+        const errData = sseResult.data as Record<string, unknown>;
+        if (errData.error === "duplicate_receipt") {
+          setResult({ receipt_id: (errData.receipt_id as string) ?? "", items_count: 0, prices_updated: 0 });
+          setPhase("done");
+          return;
+        }
+        if (errData.error === "not_a_receipt") {
+          setPhase("error");
+          return;
+        }
+        log.warn("[receipt-scanner] process-receipt error event:", errData);
+        return;
+      }
+
+      setResult(sseResult.data as ReceiptResult);
+      setPhase("done");
+    } catch (err) {
+      log.warn("[receipt-scanner] background analysis failed (non-blocking):", err);
+    }
+  })();
+}
+
+export function useReceiptProcessing(options: { open: boolean; onClose: () => void; onSubmitted?: () => void }) {
+  const { open, onClose, onSubmitted } = options;
   const t = useTranslations("receipt");
   const router = useRouter();
   const videoRef = useRef<HTMLVideoElement>(null) as React.RefObject<HTMLVideoElement>;
@@ -128,17 +215,25 @@ export function useReceiptProcessing(options: { open: boolean; onClose: () => vo
     const video = videoRef.current;
     if (!video) return;
 
+    setPhotos((prev) => {
+      if (prev.length >= MAX_RECEIPT_PHOTOS) return prev;
+      return prev;
+    });
+
     const { dataUrl, base64 } = await resizeImageToBase64(video);
 
-    setPhotos((prev) => [
-      ...prev,
-      {
-        id: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-        dataUrl,
-        base64,
-        mediaType: "image/jpeg",
-      },
-    ]);
+    setPhotos((prev) => {
+      if (prev.length >= MAX_RECEIPT_PHOTOS) return prev;
+      return [
+        ...prev,
+        {
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          dataUrl,
+          base64,
+          mediaType: "image/jpeg",
+        },
+      ];
+    });
   }, []);
 
   const handleFileInput = useCallback(
@@ -153,15 +248,18 @@ export function useReceiptProcessing(options: { open: boolean; onClose: () => vo
         const { dataUrl, base64 } = await resizeImageToBase64(rawUrl);
         URL.revokeObjectURL(rawUrl);
 
-        setPhotos((prev) => [
-          ...prev,
-          {
-            id: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-            dataUrl,
-            base64,
-            mediaType: "image/jpeg",
-          },
-        ]);
+        setPhotos((prev) => {
+          if (prev.length >= MAX_RECEIPT_PHOTOS) return prev;
+          return [
+            ...prev,
+            {
+              id: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+              dataUrl,
+              base64,
+              mediaType: "image/jpeg",
+            },
+          ];
+        });
       }
 
       e.target.value = "";
@@ -179,6 +277,10 @@ export function useReceiptProcessing(options: { open: boolean; onClose: () => vo
     stopCamera();
     setPhase("processing");
     setProgress(t("uploading"));
+
+    // #region agent log
+    fetch('/api/debug-log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'4c9d8e',location:'client:processReceipt-start',message:'processReceipt CALLED',data:{photoCount:photos.length,callTs:Date.now()},timestamp:Date.now(),hypothesisId:'H-1B,H-1E'})}).catch(()=>{});
+    // #endregion
 
     try {
       const uploadedUrls: string[] = [];
@@ -198,6 +300,10 @@ export function useReceiptProcessing(options: { open: boolean; onClose: () => vo
           }),
         });
 
+        // #region agent log
+        fetch('/api/debug-log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'4c9d8e',location:`client:upload-photo-${i}`,message:`upload photo ${i}`,data:{index:i,status:uploadRes.status,ok:uploadRes.ok},timestamp:Date.now(),hypothesisId:'H-1C'})}).catch(()=>{});
+        // #endregion
+
         if (!uploadRes.ok) {
           if (uploadRes.status === 429) {
             throw new Error(t("rateLimitExceeded"));
@@ -211,45 +317,23 @@ export function useReceiptProcessing(options: { open: boolean; onClose: () => vo
         uploadedPaths.push(path);
       }
 
-      setProgress(t("analyzing"));
+      setPhase("submitted");
+      onSubmitted?.();
 
-      const res = await fetch("/api/process-receipt", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          photo_urls: uploadedUrls,
-          photo_paths: uploadedPaths,
-        }),
-      });
+      // #region agent log
+      fetch('/api/debug-log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'4c9d8e',location:'client:submitted-phase',message:'uploads done — fire-and-forget analysis',data:{urlCount:uploadedUrls.length,ts:Date.now()},timestamp:Date.now(),hypothesisId:'H-1C'})}).catch(()=>{});
+      // #endregion
 
-      if (!res.ok) {
-        if (res.status === 429) {
-          throw new Error(t("rateLimitExceeded"));
-        }
-        const errData = await res.json().catch(() => ({}));
-        if (errData.error === "not_a_receipt") {
-          throw new Error(t("notAReceipt"));
-        }
-        if (errData.error === "unsupported_retailer") {
-          const name = errData.store_name;
-          throw new Error(
-            name
-              ? t("unsupportedRetailerNamed", { name })
-              : t("unsupportedRetailer")
-          );
-        }
-        throw new Error(errData.error || `HTTP ${res.status}`);
-      }
-
-      const data = await res.json();
-      setResult(data);
-      setPhase("done");
+      fireAndForgetAnalysis(uploadedUrls, uploadedPaths, setResult, setPhase, t);
     } catch (err) {
+      // #region agent log
+      fetch('/api/debug-log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'4c9d8e',location:'client:CATCH-BLOCK',message:'CATCH BLOCK FIRED — user sees error screen',data:{errMsg:err instanceof Error?err.message:String(err),errType:(err as Error)?.constructor?.name,ts:Date.now()},timestamp:Date.now(),hypothesisId:'H-1A,H-1C,H-1E,H-1F'})}).catch(()=>{});
+      // #endregion
       log.error("[receipt-scanner] Receipt processing error:", err);
       setErrorMsg(err instanceof Error ? err.message : t("processingError"));
       setPhase("error");
     }
-  }, [photos, stopCamera, t]);
+  }, [photos, stopCamera, t, onSubmitted]);
 
   const handleClose = useCallback(() => {
     stopCamera();
@@ -269,7 +353,9 @@ export function useReceiptProcessing(options: { open: boolean; onClose: () => vo
   }, [result, router, handleClose]);
 
   const retryFromFallback = useCallback(() => {
-    setPhase("fallback");
+    setPhotos([]);
+    setResult(null);
+    setPhase("camera");
     setErrorMsg("");
   }, []);
 

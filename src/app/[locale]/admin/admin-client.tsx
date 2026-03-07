@@ -13,8 +13,10 @@ import { GalleryUploadPanel } from "./gallery-upload-panel";
 import { FeedbackPanel } from "./feedback-panel";
 import { useGalleryUpload } from "./use-gallery-upload";
 import { CreateProductModal } from "@/app/[locale]/capture/create-product-modal";
+import { CreateStoreDialog } from "@/components/store/create-store-dialog";
+import type { GeoPosition } from "@/lib/store/store-service";
 
-type Section = "products" | "aliases" | "feedback";
+type Section = "products" | "aliases" | "feedback" | "stores";
 
 export function AdminClient() {
   const t = useTranslations("admin");
@@ -23,6 +25,9 @@ export function AdminClient() {
   const { refetch: refetchProducts } = useProducts();
   const [section, setSection] = useState<Section>("products");
   const [createProductOpen, setCreateProductOpen] = useState(false);
+  const [createStoreOpen, setCreateStoreOpen] = useState(false);
+  const [storePosition, setStorePosition] = useState<GeoPosition | null>(null);
+  const [gpsLoading, setGpsLoading] = useState(false);
 
   const [demandGroups, setDemandGroups] = useState<DemandGroup[]>([]);
   const [aliases, setAliases] = useState<LocalCategoryAlias[]>([]);
@@ -42,6 +47,23 @@ export function AdminClient() {
     loadData();
   }, [loadData]);
 
+  const handleOpenCreateStore = useCallback(() => {
+    setGpsLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setStorePosition({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
+        setGpsLoading(false);
+        setCreateStoreOpen(true);
+      },
+      () => {
+        setStorePosition(null);
+        setGpsLoading(false);
+        setCreateStoreOpen(true);
+      },
+      { timeout: 5000, maximumAge: 60000 }
+    );
+  }, []);
+
   return (
     <AdminAuthGuard>
       <main className="mx-auto min-h-screen max-w-4xl bg-aldi-bg p-4">
@@ -51,7 +73,7 @@ export function AdminClient() {
         </header>
 
         <nav className="mb-6 flex gap-2 border-b border-aldi-muted-light pb-2">
-          {(["products", "aliases", "feedback"] as Section[]).map((s) => (
+          {(["products", "aliases", "feedback", "stores"] as Section[]).map((s) => (
             <button
               key={s}
               type="button"
@@ -91,6 +113,28 @@ export function AdminClient() {
         {section === "feedback" && (
           <FeedbackPanel />
         )}
+
+        {section === "stores" && (
+          <section className="space-y-6">
+            <h2 className="text-lg font-bold text-aldi-blue">{t("stores")}</h2>
+            <button
+              type="button"
+              onClick={handleOpenCreateStore}
+              disabled={gpsLoading}
+              className="flex w-full items-center gap-4 rounded-2xl bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.08)] transition-all active:scale-[0.98] disabled:opacity-60"
+            >
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-aldi-blue text-white">
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                </svg>
+              </span>
+              <span className="text-[15px] font-medium text-aldi-text">
+                {gpsLoading ? t("gettingGps") : t("addStore")}
+              </span>
+            </button>
+          </section>
+        )}
+
         <CreateProductModal
           open={createProductOpen}
           onClose={() => setCreateProductOpen(false)}
@@ -99,6 +143,14 @@ export function AdminClient() {
             loadData();
           }}
         />
+
+        {createStoreOpen && (
+          <CreateStoreDialog
+            position={storePosition}
+            onCreated={() => setCreateStoreOpen(false)}
+            onSkip={() => setCreateStoreOpen(false)}
+          />
+        )}
       </main>
     </AdminAuthGuard>
   );

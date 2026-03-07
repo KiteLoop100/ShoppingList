@@ -10,9 +10,9 @@ const feedbackSchema = z.object({
   product_id: z.string().uuid().nullish(),
   trip_id: z.string().uuid().nullish(),
   store_id: z.string().uuid().nullish(),
-  category: z.string().min(1),
+  category: z.string().min(1).nullish(),
   rating: z.number().int().min(1).max(5).nullish(),
-  message: z.string().min(10).max(2000),
+  message: z.string().max(2000).default(""),
 });
 
 export async function POST(request: Request) {
@@ -59,7 +59,7 @@ export async function POST(request: Request) {
       product_id: validated.product_id ?? null,
       trip_id: validated.trip_id ?? null,
       store_id: validated.store_id ?? null,
-      category: validated.category,
+      category: validated.category ?? null,
       rating: validated.rating ?? null,
       message: validated.message,
     })

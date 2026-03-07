@@ -40,3 +40,10 @@ describe("featureName", () => {
 - At least 1 happy-path test per function
 - At least 1 edge-case or error test per function
 - For bug fixes: write a test that reproduces the bug FIRST, then fix it
+
+## Pre-Push Type Check (mandatory)
+Before pushing or deploying, run:
+```bash
+npx tsc --noEmit
+```
+This catches type errors locally in seconds and prevents failed Vercel builds. Run it after any interface change or when editing files that export types used across modules.

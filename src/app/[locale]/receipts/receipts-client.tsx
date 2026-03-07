@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/lib/i18n/navigation";
 import { getCurrentUserId } from "@/lib/auth/auth-context";
@@ -9,6 +9,9 @@ import { formatDateCompact } from "@/lib/utils/format-date";
 import { ReceiptScanner } from "@/app/[locale]/capture/receipt-scanner";
 import { CardSkeleton } from "@/components/ui/skeleton";
 import { getRetailerByName } from "@/lib/retailers/retailers";
+
+const POLL_INTERVAL_MS = 8_000;
+const MAX_POLL_COUNT = 30;
 
 interface ReceiptSummary {
   receipt_id: string;
@@ -24,10 +27,15 @@ interface ReceiptSummary {
 export function ReceiptsClientPage() {
   const t = useTranslations("receipts");
   const tCommon = useTranslations("common");
+  const tReceipt = useTranslations("receipt");
   const [receipts, setReceipts] = useState<ReceiptSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
+  const [pendingReceipt, setPendingReceipt] = useState(false);
+  const receiptCountBeforeSubmit = useRef(0);
+  const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollCountRef = useRef(0);
 
   const loadReceipts = useCallback(async () => {
     const supabase = createClientIfConfigured();
@@ -57,6 +65,40 @@ export function ReceiptsClientPage() {
   useEffect(() => {
     loadReceipts();
   }, [loadReceipts]);
+
+  const stopPolling = useCallback(() => {
+    if (pollTimerRef.current) {
+      clearInterval(pollTimerRef.current);
+      pollTimerRef.current = null;
+    }
+    pollCountRef.current = 0;
+  }, []);
+
+  const startPolling = useCallback(() => {
+    stopPolling();
+    receiptCountBeforeSubmit.current = receipts.length;
+    setPendingReceipt(true);
+
+    pollTimerRef.current = setInterval(async () => {
+      pollCountRef.current++;
+      await loadReceipts();
+    }, POLL_INTERVAL_MS);
+  }, [receipts.length, loadReceipts, stopPolling]);
+
+  useEffect(() => {
+    if (!pendingReceipt) return;
+    if (receipts.length > receiptCountBeforeSubmit.current) {
+      setPendingReceipt(false);
+      stopPolling();
+    } else if (pollCountRef.current >= MAX_POLL_COUNT) {
+      setPendingReceipt(false);
+      stopPolling();
+    }
+  }, [receipts.length, pendingReceipt, stopPolling]);
+
+  useEffect(() => {
+    return () => stopPolling();
+  }, [stopPolling]);
 
   const retailerCounts = useMemo(() => {
     const counts = new Map<string, number>();
@@ -144,7 +186,7 @@ export function ReceiptsClientPage() {
             <CardSkeleton />
             <CardSkeleton />
           </div>
-        ) : receipts.length === 0 ? (
+        ) : receipts.length === 0 && !pendingReceipt ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-3 py-16">
             <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-aldi-blue-light">
               <svg
@@ -209,7 +251,7 @@ export function ReceiptsClientPage() {
               </div>
             )}
 
-            {filteredReceipts.length === 0 && activeFilter ? (
+            {filteredReceipts.length === 0 && !pendingReceipt && activeFilter ? (
               <div className="flex flex-1 flex-col items-center justify-center py-16">
                 <p className="text-sm text-aldi-muted">
                   {t("noReceiptsForRetailer", { retailer: activeFilter })}
@@ -217,6 +259,21 @@ export function ReceiptsClientPage() {
               </div>
             ) : (
               <div className="flex flex-col gap-2">
+                {pendingReceipt && (
+                  <div className="flex items-center gap-4 rounded-2xl border-2 border-dashed border-aldi-blue/30 bg-aldi-blue-light/50 p-4">
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-aldi-blue/10">
+                      <div className="h-5 w-5 animate-spin rounded-full border-2 border-aldi-blue/20 border-t-aldi-blue" />
+                    </span>
+                    <span className="flex min-w-0 flex-1 flex-col gap-1">
+                      <span className="text-[15px] font-medium text-aldi-blue">
+                        {tReceipt("pendingTitle")}
+                      </span>
+                      <span className="text-xs leading-relaxed text-aldi-muted">
+                        {tReceipt("pendingPlaceholder")}
+                      </span>
+                    </span>
+                  </div>
+                )}
                 {filteredReceipts.map((receipt) => {
                   const retailerCfg = receipt.retailer
                     ? getRetailerByName(receipt.retailer)
@@ -304,6 +361,7 @@ export function ReceiptsClientPage() {
           setScannerOpen(false);
           loadReceipts();
         }}
+        onSubmitted={startPolling}
       />
     </main>
   );

@@ -76,7 +76,7 @@ export interface FeedbackInput {
   product_id?: string | null;
   trip_id?: string | null;
   store_id?: string | null;
-  category: FeedbackCategory;
+  category?: FeedbackCategory | null;
   rating?: number | null;
   message: string;
 }

@@ -10,9 +10,14 @@ import { formatDateLong } from "@/lib/utils/format-date";
 import { getRetailerByName } from "@/lib/retailers/retailers";
 import {
   loadReceiptWithItems,
+  linkReceiptItemToProduct,
   type ReceiptData,
   type ReceiptItem,
 } from "@/lib/receipts/receipt-service";
+import { ProductCaptureModal } from "@/components/product-capture/product-capture-modal";
+import type { ProductCaptureValues } from "@/components/product-capture/hooks/use-product-capture-form";
+
+const RECEIPT_THUMB_SIZE = 40;
 
 export default function ReceiptDetailPage() {
   const t = useTranslations("receipts");
@@ -25,6 +30,8 @@ export default function ReceiptDetailPage() {
   const [photoUrls, setPhotoUrls] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [showPhotos, setShowPhotos] = useState(false);
+  const [captureItem, setCaptureItem] = useState<ReceiptItem | null>(null);
+  const [toast, setToast] = useState(false);
 
   const loadReceipt = useCallback(async () => {
     const supabase = createClientIfConfigured();
@@ -45,6 +52,33 @@ export default function ReceiptDetailPage() {
   useEffect(() => {
     loadReceipt();
   }, [loadReceipt]);
+
+  const handlePhotoSaved = useCallback(async (productId: string) => {
+    if (!captureItem) return;
+
+    const supabase = createClientIfConfigured();
+    if (supabase && !captureItem.product_id && !captureItem.competitor_product_id) {
+      try {
+        await linkReceiptItemToProduct(captureItem.receipt_item_id, productId, supabase);
+      } catch {
+        console.warn("[receipts] Failed to link receipt item after product creation");
+      }
+    }
+
+    setCaptureItem(null);
+    setToast(true);
+    setTimeout(() => setToast(false), 2500);
+    loadReceipt();
+  }, [captureItem, loadReceipt]);
+
+  const captureInitialValues: Partial<ProductCaptureValues> | undefined = captureItem
+    ? {
+        name: captureItem.receipt_name,
+        articleNumber: captureItem.article_number ?? "",
+        retailer: receipt?.retailer ?? "ALDI",
+        price: captureItem.unit_price != null ? String(captureItem.unit_price) : "",
+      }
+    : undefined;
 
   if (loading) {
     return (
@@ -264,6 +298,33 @@ export default function ReceiptDetailPage() {
                       )}
                     </span>
                   </div>
+
+                  {item.thumbnail_url ? (
+                    <div className="h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-white">
+                      <Image
+                        src={item.thumbnail_url}
+                        alt=""
+                        role="presentation"
+                        width={RECEIPT_THUMB_SIZE}
+                        height={RECEIPT_THUMB_SIZE}
+                        className="h-full w-full object-contain object-center"
+                        unoptimized
+                      />
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setCaptureItem(item)}
+                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-dashed border-aldi-muted-light text-aldi-muted transition-colors hover:border-aldi-blue hover:text-aldi-blue"
+                      title={t("addPhoto")}
+                    >
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" aria-hidden>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z" />
+                      </svg>
+                    </button>
+                  )}
+
                   <span className="shrink-0 text-sm font-medium tabular-nums text-aldi-text">
                     {typeof price === "number"
                       ? `${price.toFixed(2)} €`
@@ -289,6 +350,21 @@ export default function ReceiptDetailPage() {
           </div>
         </div>
       </div>
+
+      <ProductCaptureModal
+        open={!!captureItem}
+        mode={captureItem?.product_id ? "edit" : "create"}
+        onClose={() => setCaptureItem(null)}
+        onSaved={handlePhotoSaved}
+        initialValues={captureInitialValues}
+        hiddenFields={captureItem?.product_id ? ["retailer"] : undefined}
+      />
+
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-full bg-aldi-text px-5 py-2.5 text-sm font-medium text-white shadow-lg">
+          {t("photoSaved")}
+        </div>
+      )}
     </main>
   );
 }

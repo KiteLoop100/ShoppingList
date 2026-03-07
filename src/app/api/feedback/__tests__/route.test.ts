@@ -83,25 +83,36 @@ describe("POST /api/feedback", () => {
     expect(res.status).toBe(400);
   });
 
-  it("returns 400 when category is missing", async () => {
+  it("accepts feedback without category (category is optional)", async () => {
     const res = await POST(
       makeRequest({
-        feedback_type: "general",
-        message: "Something is broken in the app.",
+        feedback_type: "post_shopping",
+        message: "Great shopping experience overall.",
       }),
     );
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(200);
   });
 
-  it("returns 400 when message is too short (< 10 chars)", async () => {
+  it("accepts post_shopping feedback with only a rating and no message", async () => {
+    const res = await POST(
+      makeRequest({
+        feedback_type: "post_shopping",
+        rating: 4,
+        message: "",
+      }),
+    );
+    expect(res.status).toBe(200);
+  });
+
+  it("accepts short message (min length removed)", async () => {
     const res = await POST(
       makeRequest({
         feedback_type: "general",
-        category: "bug",
+        category: "suggestion",
         message: "short",
       }),
     );
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(200);
   });
 
   it("returns 400 when body is invalid JSON", async () => {

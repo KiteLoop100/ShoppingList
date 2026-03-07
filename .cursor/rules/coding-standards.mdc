@@ -40,6 +40,18 @@ catch (e) { log.warn("[context] operation failed:", e); }
 `Das aktuelle Jahr ist ${new Date().getFullYear()}.`
 ```
 
+## Nullability Conventions
+Use `null` for explicit "no value" in async function return types; use `undefined` (optional `?`) for optional interface/object fields. At the boundary between the two, convert with `?? undefined`.
+```typescript
+// BAD — null leaking into an interface that expects undefined
+interface Result { position?: GeoPosition }
+const pos: GeoPosition | null = await getPos();
+return { position: pos }; // TS error: null not assignable to GeoPosition | undefined
+
+// GOOD
+return { position: pos ?? undefined };
+```
+
 ## Supabase Types
 - Use generated Supabase types (`npx supabase gen types typescript`) instead of manual `Record<string, unknown>` conversions.
 

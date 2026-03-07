@@ -3,14 +3,16 @@
 import { useReceiptProcessing } from "./use-receipt-processing";
 import { ReceiptCameraPhase } from "./receipt-camera-phase";
 import { ReceiptFallbackPhase } from "./receipt-fallback-phase";
-import { ReceiptProcessingPhase, ReceiptDonePhase, ReceiptErrorPhase } from "./receipt-result-phase";
+import { ReceiptProcessingPhase, ReceiptSubmittedPhase, ReceiptDonePhase, ReceiptErrorPhase } from "./receipt-result-phase";
+import { MAX_RECEIPT_PHOTOS } from "@/lib/receipts/constants";
 
 interface Props {
   open: boolean;
   onClose: () => void;
+  onSubmitted?: () => void;
 }
 
-export function ReceiptScanner({ open, onClose }: Props) {
+export function ReceiptScanner({ open, onClose, onSubmitted }: Props) {
   const {
     t,
     videoRef,
@@ -28,7 +30,7 @@ export function ReceiptScanner({ open, onClose }: Props) {
     handleClose,
     handleViewReceipt,
     retryFromFallback,
-  } = useReceiptProcessing({ open, onClose });
+  } = useReceiptProcessing({ open, onClose, onSubmitted });
 
   if (!open) return null;
 
@@ -50,9 +52,12 @@ export function ReceiptScanner({ open, onClose }: Props) {
         <ReceiptCameraPhase
           t={t}
           videoRef={videoRef}
+          fileInputRef={fileInputRef}
           cameraReady={cameraReady}
           photos={photos}
+          maxPhotos={MAX_RECEIPT_PHOTOS}
           onCapture={capturePhoto}
+          onFileInput={handleFileInput}
           onRemovePhoto={removePhoto}
           onProcess={processReceipt}
         />
@@ -63,6 +68,7 @@ export function ReceiptScanner({ open, onClose }: Props) {
           t={t}
           fileInputRef={fileInputRef}
           photos={photos}
+          maxPhotos={MAX_RECEIPT_PHOTOS}
           onFileInput={handleFileInput}
           onRemovePhoto={removePhoto}
           onProcess={processReceipt}
@@ -71,6 +77,10 @@ export function ReceiptScanner({ open, onClose }: Props) {
 
       {phase === "processing" && (
         <ReceiptProcessingPhase t={t} progress={progress} photos={photos} />
+      )}
+
+      {phase === "submitted" && (
+        <ReceiptSubmittedPhase t={t} onClose={handleClose} />
       )}
 
       {phase === "done" && result && (

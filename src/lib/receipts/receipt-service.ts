@@ -26,6 +26,7 @@ export interface ReceiptItem {
   is_weight_item: boolean;
   weight_kg: number | null;
   product_name?: string | null;
+  thumbnail_url?: string | null;
 }
 
 export interface ReceiptWithItems {
@@ -77,45 +78,63 @@ export async function loadReceiptWithItems(
       .filter((i) => i.competitor_product_id)
       .map((i) => i.competitor_product_id as string);
 
-    let productNames: Record<string, string> = {};
+    let productInfo: Record<string, { name: string; thumbnail_url: string | null }> = {};
 
     if (aldiProductIds.length > 0) {
       const { data: products } = await supabase
         .from("products")
-        .select("product_id, name")
+        .select("product_id, name, thumbnail_url")
         .in("product_id", aldiProductIds);
 
       if (products) {
-        productNames = Object.fromEntries(
-          products.map((p) => [p.product_id, p.name])
-        );
+        for (const p of products) {
+          productInfo[p.product_id] = { name: p.name, thumbnail_url: p.thumbnail_url };
+        }
       }
     }
 
     if (competitorProductIds.length > 0) {
       const { data: cProducts } = await supabase
         .from("competitor_products")
-        .select("product_id, name")
+        .select("product_id, name, thumbnail_url")
         .in("product_id", competitorProductIds);
 
       if (cProducts) {
         for (const p of cProducts) {
-          productNames[p.product_id] = p.name;
+          productInfo[p.product_id] = { name: p.name, thumbnail_url: p.thumbnail_url };
         }
       }
     }
 
     items = itemsRes.data.map((item) => {
       const linkedId = item.product_id || item.competitor_product_id;
+      const info = linkedId ? productInfo[linkedId] : null;
       return {
         ...item,
         competitor_product_id: item.competitor_product_id ?? null,
-        product_name: linkedId ? productNames[linkedId] || null : null,
+        product_name: info?.name ?? null,
+        thumbnail_url: info?.thumbnail_url ?? null,
       };
     });
   }
 
   return { receipt, items, photoUrls };
+}
+
+export async function linkReceiptItemToProduct(
+  receiptItemId: string,
+  productId: string,
+  supabase: SupabaseClient,
+): Promise<void> {
+  const { error } = await supabase
+    .from("receipt_items")
+    .update({ product_id: productId })
+    .eq("receipt_item_id", receiptItemId);
+
+  if (error) {
+    console.warn("[receipts] Failed to link receipt item to product:", error);
+    throw error;
+  }
 }
 
 export async function getSignedPhotoUrls(

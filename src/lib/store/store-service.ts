@@ -183,8 +183,8 @@ export async function detectAndSetStoreForList(
       await setListStore(listId, store.store_id);
       return { store, detectedByGps: true, gpsPosition };
     }
-  } catch {
-    // Permission denied or error – ignore
+  } catch (e) {
+    log.warn("[detectAndSetStoreForList] GPS failed:", e);
   }
   const { getDefaultStoreId } = await import("@/lib/settings/default-store");
   const defaultId = getDefaultStoreId();
@@ -211,8 +211,8 @@ export async function detectStoreOrPosition(
       await setListStore(listId, store.store_id);
       return { result: { store, detectedByGps: true, gpsPosition }, gpsPosition };
     }
-  } catch {
-    // Permission denied or error – ignore
+  } catch (e) {
+    log.warn("[detectStoreOrPosition] GPS failed:", e);
   }
   const { getDefaultStoreId } = await import("@/lib/settings/default-store");
   const defaultId = getDefaultStoreId();
@@ -221,7 +221,7 @@ export async function detectStoreOrPosition(
     const store = all.find((s) => s.store_id === defaultId);
     if (store) {
       await setListStore(listId, store.store_id);
-      return { result: { store, detectedByGps: false, gpsPosition }, gpsPosition };
+      return { result: { store, detectedByGps: false, gpsPosition: gpsPosition ?? undefined }, gpsPosition };
     }
   }
   return { result: null, gpsPosition };
@@ -267,8 +267,8 @@ export async function reverseGeocode(
 export interface CreateStoreInput {
   retailer: string;
   name?: string;
-  latitude: number;
-  longitude: number;
+  latitude?: number | null;
+  longitude?: number | null;
   address?: string;
   city?: string;
   postalCode?: string;
@@ -281,8 +281,10 @@ export async function createStore(input: CreateStoreInput): Promise<LocalStore> 
   const storeId = generateId("store");
 
   let { address, city, postalCode, country } = input;
+  const lat = input.latitude ?? null;
+  const lng = input.longitude ?? null;
   if (!address || !city) {
-    const geo = await reverseGeocode(input.latitude, input.longitude);
+    const geo = lat != null && lng != null ? await reverseGeocode(lat, lng) : null;
     if (geo) {
       address = address || geo.address;
       city = city || geo.city;
@@ -300,8 +302,8 @@ export async function createStore(input: CreateStoreInput): Promise<LocalStore> 
     city: city || "",
     postal_code: postalCode || "",
     country: country || "DE",
-    latitude: input.latitude,
-    longitude: input.longitude,
+    latitude: lat ?? 0,
+    longitude: lng ?? 0,
     has_sorting_data: false,
     sorting_data_quality: 0,
     retailer: input.retailer,
