@@ -104,6 +104,7 @@ function sanitizeExtracted(
       raw.retailer_from_price_tag != null ? String(raw.retailer_from_price_tag) : null,
     unit_price: raw.unit_price != null ? String(raw.unit_price) : null,
     weight_or_quantity: raw.weight_or_quantity != null ? String(raw.weight_or_quantity) : null,
+    demand_group: raw.demand_group != null ? String(raw.demand_group) : null,
     ingredients: raw.ingredients != null ? String(raw.ingredients) : null,
     nutrition_info: sanitizeNutrition(raw.nutrition_info),
     allergens: raw.allergens != null ? String(raw.allergens) : null,
