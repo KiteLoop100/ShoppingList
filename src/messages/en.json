@@ -476,7 +476,7 @@
     "startingCamera": "Starting camera…",
     "photo": "Photo",
     "photoCount": "{count} photos",
-    "hint": "Take photos of your receipt. For long receipts, take multiple photos.",
+    "hint": "Hold the camera close to the receipt. For long receipts, take multiple overlapping photos so all lines are captured.",
     "selectFromGallery": "Gallery",
     "tooManyPhotos": "Maximum {max} photos allowed. Please remove some photos first.",
     "uploading": "Uploading photos…",
@@ -509,6 +509,9 @@
     "unsupportedRetailer": "This retailer is not yet supported. Currently, receipts from ALDI, LIDL, REWE, EDEKA and other major chains can be captured.",
     "unsupportedRetailerNamed": "The retailer \"{name}\" is not yet supported. Currently, receipts from ALDI, LIDL, REWE, EDEKA and other major chains can be captured.",
     "duplicateReceipt": "This receipt has already been captured.",
+    "mergedTitle": "Receipt recognized",
+    "mergedItemsAdded": "{count} new products added",
+    "mergedNoNewItems": "No new products found — everything already captured.",
     "retailerDetected": "Retailer: {name}"
   },
   "autoReorder": {

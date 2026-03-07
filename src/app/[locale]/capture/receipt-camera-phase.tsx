@@ -46,9 +46,7 @@ export function ReceiptCameraPhase({
             <div className="text-sm text-white/60">{t("startingCamera")}</div>
           </div>
         )}
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-          <div className="h-[75%] w-[85%] rounded-2xl border-2 border-white/30" />
-        </div>
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/40 to-transparent h-24" />
       </div>
 
       {photos.length > 0 && (
@@ -130,7 +128,7 @@ export function ReceiptCameraPhase({
         className="hidden"
       />
 
-      <div className="bg-black pb-4 text-center text-xs text-white/40">
+      <div className="bg-black px-6 pb-4 text-center text-xs leading-relaxed text-white/60">
         {t("hint")}
       </div>
     </>

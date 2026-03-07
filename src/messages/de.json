@@ -476,7 +476,7 @@
     "startingCamera": "Kamera wird gestartet…",
     "photo": "Foto",
     "photoCount": "{count} Fotos",
-    "hint": "Fotografiere den Kassenzettel. Bei langen Bons mehrere Fotos machen.",
+    "hint": "Halte die Kamera nah an den Bon. Bei langen Kassenzetteln mehrere überlappende Fotos machen, damit alle Zeilen erfasst werden.",
     "selectFromGallery": "Aus Galerie",
     "tooManyPhotos": "Maximal {max} Fotos möglich. Bitte entferne zuerst einige Fotos.",
     "uploading": "Fotos werden hochgeladen…",
@@ -509,6 +509,9 @@
     "unsupportedRetailer": "Dieser Händler wird noch nicht unterstützt. Aktuell können Kassenzettel von ALDI, LIDL, REWE, EDEKA und weiteren großen Ketten erfasst werden.",
     "unsupportedRetailerNamed": "Der Händler \"{name}\" wird noch nicht unterstützt. Aktuell können Kassenzettel von ALDI, LIDL, REWE, EDEKA und weiteren großen Ketten erfasst werden.",
     "duplicateReceipt": "Dieser Kassenzettel wurde bereits erfasst.",
+    "mergedTitle": "Kassenzettel erkannt",
+    "mergedItemsAdded": "{count} neue Produkte hinzugefügt",
+    "mergedNoNewItems": "Keine neuen Produkte erkannt — alles bereits erfasst.",
     "retailerDetected": "Händler: {name}"
   },
   "autoReorder": {

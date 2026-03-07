@@ -23,10 +23,12 @@ export interface ReceiptResult {
   total_amount?: number;
   items_count: number;
   prices_updated: number;
+  merged?: boolean;
+  items_added?: number;
 }
 
-const MAX_IMAGE_DIMENSION = 1600;
-const JPEG_QUALITY = 0.7;
+const MAX_IMAGE_DIMENSION = 2400;
+const JPEG_QUALITY = 0.85;
 
 interface SSEResult {
   type: "result" | "error";

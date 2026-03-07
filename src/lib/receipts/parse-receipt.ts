@@ -24,6 +24,7 @@ import { log } from "@/lib/utils/logger";
 import { isHomeRetailer, normalizeRetailerName } from "@/lib/retailers/retailers";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { RECEIPT_PROMPT, NON_PRODUCT_PATTERN } from "./receipt-prompt";
+import { mergeIntoExistingReceipt } from "./merge-receipt";
 
 export interface ReceiptProduct {
   position: number;
@@ -65,6 +66,8 @@ export interface ProcessReceiptResult {
   items_count: number;
   prices_updated: number;
   items_linked: number;
+  merged?: boolean;
+  items_added?: number;
 }
 
 interface ReceiptItemInsert {
@@ -116,7 +119,7 @@ export async function callReceiptOcr(photoUrls: string[]): Promise<ReceiptOcrRes
   return parseClaudeJsonResponse<ReceiptOcrResult>(rawText);
 }
 
-async function findOrCreateCompetitorProductServer(
+export async function findOrCreateCompetitorProductServer(
   supabase: SupabaseClient, receiptName: string, country: string,
   userId: string, retailer: string | null,
 ): Promise<{ productId: string; isNew: boolean } | null> {
@@ -175,41 +178,45 @@ export async function processValidReceipt(
   dbgLog("H-2A,H-2B", "about to INSERT receipt", { userId, receiptNumber, purchaseDate: ocrResult.purchase_date, totalAmount: ocrResult.total_amount, storeName: ocrResult.store_name, ts: Date.now() });
   // #endregion
 
-  const throwDuplicate = (receiptId: string, reason: string) => {
-    // #region agent log
-    dbgLog("H-2A", `DUPLICATE DETECTED (${reason})`, { existingId: receiptId, receiptNumber });
-    // #endregion
-    cleanupPhotos(supabase, photoPaths);
-    throw Object.assign(new Error("duplicate_receipt"), { code: "duplicate_receipt", receipt_id: receiptId });
-  };
-
-  if (receiptNumber) {
-    const { data: existing } = await supabase
-      .from("receipts")
-      .select("receipt_id")
-      .eq("user_id", userId)
-      .eq("receipt_number", receiptNumber)
-      .limit(1)
-      .maybeSingle();
-
-    if (existing) throwDuplicate(existing.receipt_id, "receipt_number");
-  }
-
-  if (retailerNormalized && ocrResult.purchase_date && typeof ocrResult.total_amount === "number") {
-    let query = supabase
-      .from("receipts")
-      .select("receipt_id")
-      .eq("user_id", userId)
-      .eq("retailer", retailerNormalized)
-      .eq("purchase_date", ocrResult.purchase_date)
-      .eq("total_amount", ocrResult.total_amount);
-
-    if (ocrResult.purchase_time) {
-      query = query.eq("purchase_time", ocrResult.purchase_time);
+  const findDuplicate = async (): Promise<string | null> => {
+    if (receiptNumber) {
+      const { data: existing } = await supabase
+        .from("receipts")
+        .select("receipt_id")
+        .eq("user_id", userId)
+        .eq("receipt_number", receiptNumber)
+        .limit(1)
+        .maybeSingle();
+      if (existing) return existing.receipt_id;
     }
 
-    const { data: existing } = await query.limit(1).maybeSingle();
-    if (existing) throwDuplicate(existing.receipt_id, "retailer+date+amount");
+    if (retailerNormalized && ocrResult.purchase_date && typeof ocrResult.total_amount === "number") {
+      let query = supabase
+        .from("receipts")
+        .select("receipt_id")
+        .eq("user_id", userId)
+        .eq("retailer", retailerNormalized)
+        .eq("purchase_date", ocrResult.purchase_date)
+        .eq("total_amount", ocrResult.total_amount);
+
+      if (ocrResult.purchase_time) {
+        query = query.eq("purchase_time", ocrResult.purchase_time);
+      }
+
+      const { data: existing } = await query.limit(1).maybeSingle();
+      if (existing) return existing.receipt_id;
+    }
+
+    return null;
+  };
+
+  const duplicateReceiptId = await findDuplicate();
+  if (duplicateReceiptId) {
+    log.info("[process-receipt] Duplicate detected, attempting merge", { existingId: duplicateReceiptId });
+    cleanupPhotos(supabase, photoPaths);
+    return mergeIntoExistingReceipt(
+      supabase, userId, duplicateReceiptId, ocrResult, retailerNormalized, isAldi,
+    );
   }
 
   const { data: receiptRow, error: receiptErr } = await supabase
