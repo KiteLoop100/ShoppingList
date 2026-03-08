@@ -143,4 +143,28 @@ describe("removeReflections", () => {
     const meta = await sharp(result).metadata();
     expect(meta.channels).toBe(4);
   });
+
+  test("handles RGBA image with reflections without 'unsupported image format' error", async () => {
+    const base = await sharp({
+      create: { width: 100, height: 100, channels: 4, background: { r: 100, g: 100, b: 100, alpha: 200 } },
+    }).png().toBuffer();
+
+    const whiteRect = await sharp({
+      create: { width: 30, height: 30, channels: 4, background: { r: 252, g: 252, b: 252, alpha: 255 } },
+    }).png().toBuffer();
+
+    const input = await sharp(base)
+      .composite([{ input: whiteRect, left: 10, top: 10 }])
+      .png()
+      .toBuffer();
+
+    const result = await removeReflections(input);
+
+    expect(result).toBeInstanceOf(Buffer);
+    const meta = await sharp(result).metadata();
+    expect(meta.format).toBe("png");
+    expect(meta.channels).toBe(4);
+    expect(meta.width).toBe(100);
+    expect(meta.height).toBe(100);
+  });
 });

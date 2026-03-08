@@ -171,7 +171,7 @@ describe("removeBackground", () => {
       }),
     );
     const body = JSON.parse(mockFetch.mock.calls[0][1].body as string);
-    expect(body.model).toBe("lucataco/remove-bg");
+    expect(body.version).toBe("lucataco/remove-bg");
 
     vi.unstubAllGlobals();
   });
@@ -262,7 +262,7 @@ describe("removeBackground", () => {
     await removeBackground(input);
 
     const body = JSON.parse(mockFetch.mock.calls[0][1].body as string);
-    expect(body.model).toBe("cjwbw/rembg");
+    expect(body.version).toBe("cjwbw/rembg");
 
     vi.unstubAllGlobals();
   });

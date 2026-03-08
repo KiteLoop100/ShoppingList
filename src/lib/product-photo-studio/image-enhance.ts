@@ -79,12 +79,12 @@ export async function removeReflections(imageBuffer: Buffer): Promise<Buffer> {
       }
     }
 
-    let output = sharp(result, { raw: { width, height, channels: 3 } });
+    const rgbPng = await sharp(result, { raw: { width, height, channels: 3 } }).png().toBuffer();
     if (hasAlpha) {
       const alpha = await sharp(imageBuffer).extractChannel(3).toBuffer();
-      output = sharp(await output.toBuffer()).joinChannel(alpha);
+      return sharp(rgbPng).joinChannel(alpha).png().toBuffer();
     }
-    return output.png().toBuffer();
+    return rgbPng;
   } catch (err) {
     log.warn("[photo-studio] reflection removal failed, using original:", err instanceof Error ? err.message : err);
     return imageBuffer;

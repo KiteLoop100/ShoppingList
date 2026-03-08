@@ -232,11 +232,18 @@ export function useProductCaptureForm(config: ProductCaptureConfig) {
       }
       const data = await res.json();
       if (controller.signal.aborted) return;
+      // #region agent log
+      fetch('http://127.0.0.1:7547/ingest/d58e5f1a-49bc-422a-bf52-4fc861b26370',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'7cce08'},body:JSON.stringify({sessionId:'7cce08',location:'use-product-capture-form.ts:234',message:'API response received',data:{status:data.status,hasThumbnail:!!data.thumbnail_base64,thumbnailLen:data.thumbnail_base64?.length??0,thumbnailFormat:data.thumbnail_format,hasExtracted:!!data.extracted_data,ok:data.ok,error:data.error},timestamp:Date.now(),hypothesisId:'H2,H3'})}).catch(()=>{});
+      // #endregion
 
       if (data.status === "review_required") setReviewStatus(data.review_reason ?? "review_required");
       if (data.thumbnail_base64) {
         const fmt = data.thumbnail_format ?? "image/webp";
-        setProcessedThumbnail(`data:${fmt};base64,${data.thumbnail_base64}`);
+        const thumbUri = `data:${fmt};base64,${data.thumbnail_base64}`;
+        // #region agent log
+        fetch('http://127.0.0.1:7547/ingest/d58e5f1a-49bc-422a-bf52-4fc861b26370',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'7cce08'},body:JSON.stringify({sessionId:'7cce08',location:'use-product-capture-form.ts:243',message:'processedThumbnail set',data:{uriPrefix:thumbUri.substring(0,80),uriLen:thumbUri.length},timestamp:Date.now(),hypothesisId:'H5'})}).catch(()=>{});
+        // #endregion
+        setProcessedThumbnail(thumbUri);
       }
       const extracted = data.extracted_data as ExtractedProductInfo | null;
       if (extracted) {
@@ -267,6 +274,9 @@ export function useProductCaptureForm(config: ProductCaptureConfig) {
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") return;
       log.error("[ProductCaptureForm] analysis failed:", err);
+      // #region agent log
+      fetch('http://127.0.0.1:7547/ingest/d58e5f1a-49bc-422a-bf52-4fc861b26370',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'7cce08'},body:JSON.stringify({sessionId:'7cce08',location:'use-product-capture-form.ts:270',message:'analysis error caught',data:{error:err instanceof Error?err.message:String(err)},timestamp:Date.now(),hypothesisId:'H3'})}).catch(()=>{});
+      // #endregion
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setAnalyzing(false);

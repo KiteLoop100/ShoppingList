@@ -100,7 +100,7 @@ class ReplicateProvider implements BackgroundRemovalProvider {
         Prefer: "wait",
       },
       body: JSON.stringify({
-        model,
+        version: model,
         input: { image: `data:image/jpeg;base64,${b64}` },
       }),
       signal: AbortSignal.timeout(REPLICATE_TIMEOUT_MS),
