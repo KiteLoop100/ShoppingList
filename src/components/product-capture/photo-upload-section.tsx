@@ -27,10 +27,6 @@ export function PhotoUploadSection({
     reviewRequired: string;
   };
 }) {
-  // #region agent log
-  if (typeof window !== 'undefined') fetch('http://127.0.0.1:7547/ingest/d58e5f1a-49bc-422a-bf52-4fc861b26370',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'7cce08'},body:JSON.stringify({sessionId:'7cce08',location:'photo-upload-section.tsx:30',message:'render',data:{previewCount:photoPreviews.length,hasThumb:!!processedThumbnail,analyzing,reviewStatus,previewUrls:photoPreviews.slice(0,2)},timestamp:Date.now(),hypothesisId:'H1,H4,H5'})}).catch(()=>{});
-  // #endregion
-
   return (
     <div>
       <label className="mb-1 block text-xs font-medium text-aldi-muted">

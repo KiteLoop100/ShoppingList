@@ -145,6 +145,10 @@ describe("removeBackground", () => {
     const mockFetch = vi.fn()
       .mockResolvedValueOnce({
         ok: true,
+        json: () => Promise.resolve({ latest_version: { id: "abc123def456" } }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
         json: () => Promise.resolve({
           status: "succeeded",
           output: "https://replicate.delivery/test/output.png",
@@ -164,14 +168,11 @@ describe("removeBackground", () => {
     expect(result.hasTransparency).toBe(true);
     expect(result.providerUsed).toBe("replicate");
     expect(mockFetch).toHaveBeenCalledWith(
-      "https://api.replicate.com/v1/predictions",
-      expect.objectContaining({
-        method: "POST",
-        headers: expect.objectContaining({ Authorization: "Bearer test-token" }),
-      }),
+      expect.stringContaining("api.replicate.com/v1/models/lucataco/remove-bg"),
+      expect.objectContaining({ headers: expect.objectContaining({ Authorization: "Bearer test-token" }) }),
     );
-    const body = JSON.parse(mockFetch.mock.calls[0][1].body as string);
-    expect(body.version).toBe("lucataco/remove-bg");
+    const predictionBody = JSON.parse(mockFetch.mock.calls[1][1].body as string);
+    expect(predictionBody.version).toBe("abc123def456");
 
     vi.unstubAllGlobals();
   });
@@ -179,11 +180,16 @@ describe("removeBackground", () => {
   test("replicate provider falls through on API error", async () => {
     process.env.REPLICATE_API_TOKEN = "test-token";
 
-    const mockFetch = vi.fn().mockResolvedValueOnce({
-      ok: false,
-      status: 422,
-      text: () => Promise.resolve("invalid input"),
-    });
+    const mockFetch = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ latest_version: { id: "abc123" } }),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 422,
+        text: () => Promise.resolve("invalid input"),
+      });
     vi.stubGlobal("fetch", mockFetch);
 
     const input = await makeTestBuffer();
@@ -198,13 +204,18 @@ describe("removeBackground", () => {
   test("replicate provider falls through on failed prediction", async () => {
     process.env.REPLICATE_API_TOKEN = "test-token";
 
-    const mockFetch = vi.fn().mockResolvedValueOnce({
-      ok: true,
-      json: () => Promise.resolve({
-        status: "failed",
-        error: "model crashed",
-      }),
-    });
+    const mockFetch = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ latest_version: { id: "abc123" } }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({
+          status: "failed",
+          error: "model crashed",
+        }),
+      });
     vi.stubGlobal("fetch", mockFetch);
 
     const input = await makeTestBuffer();
@@ -245,6 +256,10 @@ describe("removeBackground", () => {
     const mockFetch = vi.fn()
       .mockResolvedValueOnce({
         ok: true,
+        json: () => Promise.resolve({ latest_version: { id: "custom-version-hash" } }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
         json: () => Promise.resolve({
           status: "succeeded",
           output: "https://replicate.delivery/test/output.png",
@@ -261,8 +276,12 @@ describe("removeBackground", () => {
     const input = await makeTestBuffer();
     await removeBackground(input);
 
-    const body = JSON.parse(mockFetch.mock.calls[0][1].body as string);
-    expect(body.version).toBe("cjwbw/rembg");
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringContaining("api.replicate.com/v1/models/cjwbw/rembg"),
+      expect.anything(),
+    );
+    const predictionBody = JSON.parse(mockFetch.mock.calls[1][1].body as string);
+    expect(predictionBody.version).toBe("custom-version-hash");
 
     vi.unstubAllGlobals();
   });

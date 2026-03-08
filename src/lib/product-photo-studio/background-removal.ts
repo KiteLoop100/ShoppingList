@@ -77,19 +77,52 @@ class SelfHostedProvider implements BackgroundRemovalProvider {
  * Background removal via Replicate API (e.g. lucataco/remove-bg).
  * Uses `Prefer: wait` header for synchronous prediction.
  * Configurable model via REPLICATE_BG_MODEL env var.
+ *
+ * Community models require a 64-char version hash. If the configured
+ * model is in "owner/name" format, we resolve the latest version first
+ * via GET /v1/models/{owner}/{name}.
  */
 class ReplicateProvider implements BackgroundRemovalProvider {
   name = "replicate";
+  private cachedModel: string | null = null;
+  private cachedVersion: string | null = null;
 
   isAvailable(): boolean {
     return !!process.env.REPLICATE_API_TOKEN;
+  }
+
+  private async resolveVersion(token: string): Promise<string> {
+    const model = process.env.REPLICATE_BG_MODEL ?? "lucataco/remove-bg";
+    if (this.cachedVersion && this.cachedModel === model) return this.cachedVersion;
+
+    if (model.length === 64 && /^[a-f0-9]+$/.test(model)) {
+      this.cachedModel = model;
+      this.cachedVersion = model;
+      return model;
+    }
+
+    const res = await fetch(`https://api.replicate.com/v1/models/${model}`, {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(EXTERNAL_FETCH_TIMEOUT_MS),
+    });
+    if (!res.ok) {
+      throw new Error(`Replicate model lookup failed ${res.status} for ${model}`);
+    }
+    const data = (await res.json()) as { latest_version?: { id?: string } };
+    const versionId = data.latest_version?.id;
+    if (!versionId) throw new Error(`No version found for Replicate model ${model}`);
+
+    log.debug("[photo-studio] replicate: resolved", model, "→", versionId.substring(0, 12) + "…");
+    this.cachedModel = model;
+    this.cachedVersion = versionId;
+    return versionId;
   }
 
   async removeBackground(imageBuffer: Buffer): Promise<Buffer> {
     const token = process.env.REPLICATE_API_TOKEN;
     if (!token) throw new Error("REPLICATE_API_TOKEN not configured");
 
-    const model = process.env.REPLICATE_BG_MODEL ?? "lucataco/remove-bg";
+    const version = await this.resolveVersion(token);
     const b64 = imageBuffer.toString("base64");
 
     const res = await fetch("https://api.replicate.com/v1/predictions", {
@@ -100,7 +133,7 @@ class ReplicateProvider implements BackgroundRemovalProvider {
         Prefer: "wait",
       },
       body: JSON.stringify({
-        version: model,
+        version,
         input: { image: `data:image/jpeg;base64,${b64}` },
       }),
       signal: AbortSignal.timeout(REPLICATE_TIMEOUT_MS),
