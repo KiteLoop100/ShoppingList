@@ -268,7 +268,14 @@ describe("createThumbnail", () => {
     expect(meta.height).toBe(100);
   });
 
-  test("sets backgroundRemovalFailed when crop-fallback is used", async () => {
+  test("sets backgroundRemovalFailed when crop-fallback is used after provider failures", async () => {
+    mockedRemoveBg.mockImplementation(async (buf) => ({
+      imageBuffer: buf,
+      hasTransparency: false,
+      providerUsed: "crop-fallback",
+      noProvidersConfigured: false,
+    }));
+
     const img = await makeTestImage();
     const classification = makeClassification([
       { photo_type: "product_front", quality_score: 0.9 },
@@ -277,6 +284,25 @@ describe("createThumbnail", () => {
     const result = await createThumbnail([img], classification);
 
     expect(result.backgroundRemovalFailed).toBe(true);
+    expect(result.backgroundRemoved).toBe(false);
+  });
+
+  test("does NOT set backgroundRemovalFailed when no providers are configured", async () => {
+    mockedRemoveBg.mockImplementation(async (buf) => ({
+      imageBuffer: buf,
+      hasTransparency: false,
+      providerUsed: "crop-fallback",
+      noProvidersConfigured: true,
+    }));
+
+    const img = await makeTestImage();
+    const classification = makeClassification([
+      { photo_type: "product_front", quality_score: 0.9 },
+    ]);
+
+    const result = await createThumbnail([img], classification);
+
+    expect(result.backgroundRemovalFailed).toBe(false);
     expect(result.backgroundRemoved).toBe(false);
   });
 

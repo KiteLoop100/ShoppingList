@@ -197,7 +197,9 @@ After the "Shopping complete" animation (when the last product is checked off), 
 
 ---
 
-## 7. Admin: Feedback Viewer
+## 7. Admin: Feedback Viewer (Planned — API exists, UI not yet built)
+
+> **Status:** The API endpoints (GET and PATCH on `/api/feedback`) are implemented with admin auth, but the admin UI page (`/admin/feedback/`) does not exist yet. Feedback can currently only be viewed via direct API calls or Supabase dashboard.
 
 A new section in the admin area (`/admin`) to view and manage feedback:
 
@@ -323,4 +325,4 @@ Add to DATA-MODEL.md as section 20:
 ---
 
 *Created: 2026-02-27*
-*Status: Implemented — MVP*
+*Status: Partially Implemented — API endpoints done, Admin Feedback Viewer UI pending*

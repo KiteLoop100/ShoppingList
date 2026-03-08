@@ -1,145 +1,121 @@
-import { describe, test, expect } from "vitest";
+import { describe, test, expect, vi, beforeEach, afterEach } from "vitest";
 
 /**
- * Tests for the ShoppingTileGrid helper logic (toRows, row collapsing).
- * The actual component uses React hooks, so we test the pure functions
- * and the row-collapsing algorithm separately.
+ * Tests for the ShoppingTileGrid exit-animation logic.
+ *
+ * The component now uses a flat CSS grid with exit animations:
+ * - Checked items enter an "exiting" set and play an animation.
+ * - After EXIT_ANIMATION_MS (300ms), the item is removed and onCheck is called.
+ * - Remaining items reflow automatically via CSS Grid.
+ *
+ * Since we can't render React components (no jsdom), we test the
+ * underlying state-management logic as pure functions.
  */
 
-function toRows(ids: string[]): string[][] {
-  const rows: string[][] = [];
-  for (let i = 0; i < ids.length; i += 2) {
-    rows.push(ids.slice(i, Math.min(i + 2, ids.length)));
-  }
-  return rows;
+const EXIT_ANIMATION_MS = 300;
+
+interface ExitState {
+  exitingIds: Set<string>;
+  timers: Map<string, ReturnType<typeof setTimeout>>;
 }
 
-function getVisibleRows(stableOrder: string[], checkedIds: Set<string>): string[][] {
-  const rows = toRows(stableOrder);
-  return rows.filter((row) => !row.every((id) => checkedIds.has(id)));
+function createExitState(): ExitState {
+  return { exitingIds: new Set(), timers: new Map() };
 }
 
-function collapseFullRows(
-  stableOrder: string[],
-  checkedIds: Set<string>,
-): { newOrder: string[]; newCheckedIds: Set<string> } {
-  const rows = toRows(stableOrder);
-  const fullRowIds = new Set(
-    rows.filter((r) => r.every((id) => checkedIds.has(id))).flat(),
-  );
-  if (fullRowIds.size === 0) return { newOrder: stableOrder, newCheckedIds: checkedIds };
+function handleCheck(
+  state: ExitState,
+  itemId: string,
+  onCheck: (id: string, checked: boolean) => void,
+): ExitState {
+  const next: ExitState = {
+    exitingIds: new Set([...state.exitingIds, itemId]),
+    timers: new Map(state.timers),
+  };
 
-  const newOrder = stableOrder.filter((id) => !fullRowIds.has(id));
-  const newCheckedIds = new Set(checkedIds);
-  fullRowIds.forEach((id) => newCheckedIds.delete(id));
-  return { newOrder, newCheckedIds };
+  const timer = setTimeout(() => {
+    next.exitingIds.delete(itemId);
+    next.timers.delete(itemId);
+    onCheck(itemId, true);
+  }, EXIT_ANIMATION_MS);
+
+  next.timers.set(itemId, timer);
+  return next;
 }
 
-describe("toRows", () => {
-  test("groups items into pairs", () => {
-    expect(toRows(["a", "b", "c", "d"])).toEqual([["a", "b"], ["c", "d"]]);
+function getVisibleItems(allIds: string[], exitingIds: Set<string>): string[] {
+  return allIds;
+}
+
+function getExitingItems(allIds: string[], exitingIds: Set<string>): string[] {
+  return allIds.filter((id) => exitingIds.has(id));
+}
+
+describe("ShoppingTileGrid exit logic", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
   });
 
-  test("handles odd number of items", () => {
-    expect(toRows(["a", "b", "c"])).toEqual([["a", "b"], ["c"]]);
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
-  test("handles single item", () => {
-    expect(toRows(["a"])).toEqual([["a"]]);
+  test("item is added to exitingIds on check", () => {
+    const state = createExitState();
+    const onCheck = vi.fn();
+    const next = handleCheck(state, "item-1", onCheck);
+
+    expect(next.exitingIds.has("item-1")).toBe(true);
+    expect(onCheck).not.toHaveBeenCalled();
   });
 
-  test("handles empty array", () => {
-    expect(toRows([])).toEqual([]);
-  });
-});
+  test("onCheck is called after EXIT_ANIMATION_MS", () => {
+    const state = createExitState();
+    const onCheck = vi.fn();
+    handleCheck(state, "item-1", onCheck);
 
-describe("getVisibleRows", () => {
-  test("shows all rows when nothing is checked", () => {
-    const order = ["a", "b", "c", "d"];
-    const checked = new Set<string>();
-    expect(getVisibleRows(order, checked)).toEqual([["a", "b"], ["c", "d"]]);
+    vi.advanceTimersByTime(EXIT_ANIMATION_MS);
+    expect(onCheck).toHaveBeenCalledWith("item-1", true);
   });
 
-  test("keeps row visible when only one tile is checked", () => {
-    const order = ["a", "b", "c", "d"];
-    const checked = new Set(["a"]);
-    const rows = getVisibleRows(order, checked);
-    expect(rows).toEqual([["a", "b"], ["c", "d"]]);
+  test("onCheck is NOT called before animation completes", () => {
+    const state = createExitState();
+    const onCheck = vi.fn();
+    handleCheck(state, "item-1", onCheck);
+
+    vi.advanceTimersByTime(EXIT_ANIMATION_MS - 1);
+    expect(onCheck).not.toHaveBeenCalled();
   });
 
-  test("hides row when both tiles are checked", () => {
-    const order = ["a", "b", "c", "d"];
-    const checked = new Set(["a", "b"]);
-    const rows = getVisibleRows(order, checked);
-    expect(rows).toEqual([["c", "d"]]);
+  test("multiple items can be exiting simultaneously", () => {
+    let state = createExitState();
+    const onCheck = vi.fn();
+    state = handleCheck(state, "item-1", onCheck);
+    state = handleCheck(state, "item-2", onCheck);
+
+    expect(state.exitingIds.has("item-1")).toBe(true);
+    expect(state.exitingIds.has("item-2")).toBe(true);
+    expect(state.timers.size).toBe(2);
   });
 
-  test("hides single-item last row when checked", () => {
-    const order = ["a", "b", "c"];
-    const checked = new Set(["c"]);
-    const rows = getVisibleRows(order, checked);
-    expect(rows).toEqual([["a", "b"]]);
+  test("all visible items are returned (exiting items still present)", () => {
+    const allIds = ["a", "b", "c", "d"];
+    const exitingIds = new Set(["b"]);
+    const visible = getVisibleItems(allIds, exitingIds);
+    expect(visible).toEqual(["a", "b", "c", "d"]);
   });
 
-  test("hides multiple full rows", () => {
-    const order = ["a", "b", "c", "d", "e", "f"];
-    const checked = new Set(["a", "b", "e", "f"]);
-    const rows = getVisibleRows(order, checked);
-    expect(rows).toEqual([["c", "d"]]);
+  test("exiting items are correctly identified", () => {
+    const allIds = ["a", "b", "c", "d"];
+    const exitingIds = new Set(["b", "d"]);
+    const exiting = getExitingItems(allIds, exitingIds);
+    expect(exiting).toEqual(["b", "d"]);
   });
 
-  test("returns empty when all checked", () => {
-    const order = ["a", "b"];
-    const checked = new Set(["a", "b"]);
-    expect(getVisibleRows(order, checked)).toEqual([]);
-  });
-});
-
-describe("collapseFullRows", () => {
-  test("removes fully checked rows from stableOrder", () => {
-    const order = ["a", "b", "c", "d"];
-    const checked = new Set(["a", "b"]);
-    const { newOrder, newCheckedIds } = collapseFullRows(order, checked);
-    expect(newOrder).toEqual(["c", "d"]);
-    expect(newCheckedIds.size).toBe(0);
-  });
-
-  test("does not remove partially checked rows", () => {
-    const order = ["a", "b", "c", "d"];
-    const checked = new Set(["a"]);
-    const { newOrder, newCheckedIds } = collapseFullRows(order, checked);
-    expect(newOrder).toEqual(["a", "b", "c", "d"]);
-    expect(newCheckedIds).toEqual(new Set(["a"]));
-  });
-
-  test("collapses single-item last row", () => {
-    const order = ["a", "b", "c"];
-    const checked = new Set(["c"]);
-    const { newOrder, newCheckedIds } = collapseFullRows(order, checked);
-    expect(newOrder).toEqual(["a", "b"]);
-    expect(newCheckedIds.size).toBe(0);
-  });
-
-  test("preserves order after collapsing middle row", () => {
-    const order = ["a", "b", "c", "d", "e", "f"];
-    const checked = new Set(["c", "d"]);
-    const { newOrder } = collapseFullRows(order, checked);
-    expect(newOrder).toEqual(["a", "b", "e", "f"]);
-  });
-
-  test("no-op when nothing is checked", () => {
-    const order = ["a", "b", "c", "d"];
-    const checked = new Set<string>();
-    const { newOrder, newCheckedIds } = collapseFullRows(order, checked);
-    expect(newOrder).toEqual(order);
-    expect(newCheckedIds.size).toBe(0);
-  });
-
-  test("collapses all rows when everything is checked", () => {
-    const order = ["a", "b", "c", "d"];
-    const checked = new Set(["a", "b", "c", "d"]);
-    const { newOrder, newCheckedIds } = collapseFullRows(order, checked);
-    expect(newOrder).toEqual([]);
-    expect(newCheckedIds.size).toBe(0);
+  test("non-exiting items get no exit class", () => {
+    const allIds = ["a", "b", "c"];
+    const exitingIds = new Set(["b"]);
+    const nonExiting = allIds.filter((id) => !exitingIds.has(id));
+    expect(nonExiting).toEqual(["a", "c"]);
   });
 });

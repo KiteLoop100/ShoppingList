@@ -2,9 +2,10 @@
  * Background removal providers with strategy pattern.
  * Priority chain:
  * 1. Self-hosted model (BiRefNet/RMBG-2.0 via SELF_HOSTED_BG_REMOVAL_URL)
- * 2. remove.bg API with type=product (requires REMOVE_BG_API_KEY)
- * 3. remove.bg API with type=auto (fallback for similar-color packaging)
- * 4. AI-guided crop via Claude bounding box + Sharp
+ * 2. Replicate API (lucataco/remove-bg via REPLICATE_API_TOKEN)
+ * 3. remove.bg API with type=product (requires REMOVE_BG_API_KEY)
+ * 4. remove.bg API with type=auto (fallback for similar-color packaging)
+ * 5. AI-guided crop via Claude bounding box + Sharp (always available)
  */
 
 import sharp from "sharp";
@@ -12,6 +13,7 @@ import type { BackgroundRemovalProvider, BackgroundRemovalResult } from "./types
 import { log } from "@/lib/utils/logger";
 
 const EXTERNAL_FETCH_TIMEOUT_MS = 15_000;
+const REPLICATE_TIMEOUT_MS = 30_000;
 
 async function callRemoveBgApi(imageBuffer: Buffer, apiKey: string, type: "product" | "auto"): Promise<Buffer> {
   const formData = new FormData();
@@ -71,22 +73,85 @@ class SelfHostedProvider implements BackgroundRemovalProvider {
   }
 }
 
-class RemoveBgProvider implements BackgroundRemovalProvider {
-  name = "remove.bg";
+/**
+ * Background removal via Replicate API (e.g. lucataco/remove-bg).
+ * Uses `Prefer: wait` header for synchronous prediction.
+ * Configurable model via REPLICATE_BG_MODEL env var.
+ */
+class ReplicateProvider implements BackgroundRemovalProvider {
+  name = "replicate";
 
   isAvailable(): boolean {
-    return !!process.env.REMOVE_BG_API_KEY;
+    return !!process.env.REPLICATE_API_TOKEN;
   }
 
   async removeBackground(imageBuffer: Buffer): Promise<Buffer> {
-    const apiKey = process.env.REMOVE_BG_API_KEY;
-    if (!apiKey) throw new Error("REMOVE_BG_API_KEY not configured");
-    return callRemoveBgApi(imageBuffer, apiKey, "product");
+    const token = process.env.REPLICATE_API_TOKEN;
+    if (!token) throw new Error("REPLICATE_API_TOKEN not configured");
+
+    const model = process.env.REPLICATE_BG_MODEL ?? "lucataco/remove-bg";
+    const b64 = imageBuffer.toString("base64");
+
+    const res = await fetch(
+      `https://api.replicate.com/v1/models/${model}/predictions`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+          Prefer: "wait",
+        },
+        body: JSON.stringify({
+          input: { image: `data:image/jpeg;base64,${b64}` },
+        }),
+        signal: AbortSignal.timeout(REPLICATE_TIMEOUT_MS),
+      },
+    );
+
+    if (!res.ok) {
+      const errText = await res.text().catch(() => "unknown");
+      throw new Error(`Replicate API error ${res.status}: ${errText}`);
+    }
+
+    const prediction = (await res.json()) as {
+      status: string;
+      error?: string;
+      output?: string | string[];
+    };
+
+    if (prediction.status !== "succeeded") {
+      throw new Error(
+        `Replicate prediction ${prediction.status}: ${prediction.error ?? "timed out or still processing"}`,
+      );
+    }
+
+    const outputUrl =
+      typeof prediction.output === "string"
+        ? prediction.output
+        : Array.isArray(prediction.output)
+          ? prediction.output[0]
+          : null;
+    if (!outputUrl) throw new Error("Replicate returned no output URL");
+
+    const imgRes = await fetch(outputUrl, {
+      signal: AbortSignal.timeout(EXTERNAL_FETCH_TIMEOUT_MS),
+    });
+    if (!imgRes.ok) {
+      throw new Error(`Failed to download Replicate output: ${imgRes.status}`);
+    }
+
+    return Buffer.from(await imgRes.arrayBuffer());
   }
 }
 
-class RemoveBgAutoFallbackProvider implements BackgroundRemovalProvider {
-  name = "remove.bg-auto";
+class RemoveBgProvider implements BackgroundRemovalProvider {
+  name: string;
+  private type: "product" | "auto";
+
+  constructor(type: "product" | "auto") {
+    this.name = type === "product" ? "remove.bg" : "remove.bg-auto";
+    this.type = type;
+  }
 
   isAvailable(): boolean {
     return !!process.env.REMOVE_BG_API_KEY;
@@ -95,7 +160,7 @@ class RemoveBgAutoFallbackProvider implements BackgroundRemovalProvider {
   async removeBackground(imageBuffer: Buffer): Promise<Buffer> {
     const apiKey = process.env.REMOVE_BG_API_KEY;
     if (!apiKey) throw new Error("REMOVE_BG_API_KEY not configured");
-    return callRemoveBgApi(imageBuffer, apiKey, "auto");
+    return callRemoveBgApi(imageBuffer, apiKey, this.type);
   }
 }
 
@@ -116,8 +181,9 @@ class CropFallbackProvider implements BackgroundRemovalProvider {
 
 const providers: BackgroundRemovalProvider[] = [
   new SelfHostedProvider(),
-  new RemoveBgProvider(),
-  new RemoveBgAutoFallbackProvider(),
+  new ReplicateProvider(),
+  new RemoveBgProvider("product"),
+  new RemoveBgProvider("auto"),
   new CropFallbackProvider(),
 ];
 
@@ -183,12 +249,33 @@ export async function removeBackground(imageBuffer: Buffer): Promise<BackgroundR
         }
       }
 
+      if (provider.name === "crop-fallback") {
+        const noRealProviders = failures.length === 0;
+        if (noRealProviders && skipped.length > 0) {
+          log.warn(
+            "[photo-studio] no background removal providers configured.",
+            "Set REPLICATE_API_TOKEN, REMOVE_BG_API_KEY, or SELF_HOSTED_BG_REMOVAL_URL.",
+            "Skipped:", skipped.join(", "),
+          );
+        } else if (failures.length > 0) {
+          log.warn("[photo-studio] all bg removal providers failed, using crop-fallback.",
+            "Failures:", failures.join("; "),
+            skipped.length > 0 ? `Skipped: ${skipped.join(", ")}` : "",
+          );
+        }
+        return {
+          imageBuffer: resultBuffer,
+          hasTransparency: false,
+          providerUsed: provider.name,
+          noProvidersConfigured: noRealProviders,
+        };
+      }
+
       if (skipped.length > 0 || failures.length > 0) {
         log.debug("[photo-studio] bg removal succeeded with", provider.name,
           { skipped, failedBefore: failures });
       }
-      const hasTransparency = provider.name !== "crop-fallback";
-      return { imageBuffer: resultBuffer, hasTransparency, providerUsed: provider.name };
+      return { imageBuffer: resultBuffer, hasTransparency: true, providerUsed: provider.name };
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       const isPayment = msg.includes("402") || msg.includes("payment") || msg.includes("credit");

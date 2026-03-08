@@ -19,9 +19,10 @@ photos/AT/*.png
 photos/AT/*.webp
 batch-results*.json
 
-# Flyer PDFs
+# Flyer PDFs and processing state
 flyers/DE/*.pdf
 flyers/AT/*.pdf
+flyers/**/.processed.json
 
 .vercel
 

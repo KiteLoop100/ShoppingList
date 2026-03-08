@@ -47,6 +47,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   delete process.env.REMOVE_BG_API_KEY;
   delete process.env.SELF_HOSTED_BG_REMOVAL_URL;
+  delete process.env.REPLICATE_API_TOKEN;
+  delete process.env.REPLICATE_BG_MODEL;
 });
 
 describe("hasSignificantTransparency", () => {
@@ -88,6 +90,29 @@ describe("removeBackground", () => {
     expect(meta.height).toBe(200);
   });
 
+  test("sets noProvidersConfigured when no real providers are available", async () => {
+    const input = await makeTestBuffer();
+    const result = await removeBackground(input);
+
+    expect(result.providerUsed).toBe("crop-fallback");
+    expect(result.noProvidersConfigured).toBe(true);
+  });
+
+  test("does not set noProvidersConfigured when providers fail", async () => {
+    process.env.SELF_HOSTED_BG_REMOVAL_URL = "http://localhost:5000/remove";
+
+    const mockFetch = vi.fn().mockRejectedValueOnce(new Error("connection refused"));
+    vi.stubGlobal("fetch", mockFetch);
+
+    const input = await makeTestBuffer();
+    const result = await removeBackground(input);
+
+    expect(result.providerUsed).toBe("crop-fallback");
+    expect(result.noProvidersConfigured).toBe(false);
+
+    vi.unstubAllGlobals();
+  });
+
   test("self-hosted provider is checked first when URL is set", async () => {
     process.env.SELF_HOSTED_BG_REMOVAL_URL = "http://localhost:5000/remove";
 
@@ -112,6 +137,83 @@ describe("removeBackground", () => {
     vi.unstubAllGlobals();
   });
 
+  test("replicate provider is tried when token is set", async () => {
+    process.env.REPLICATE_API_TOKEN = "test-token";
+
+    const goodResult = await makeGoodBgRemovalResult(50);
+
+    const mockFetch = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({
+          status: "succeeded",
+          output: "https://replicate.delivery/test/output.png",
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        arrayBuffer: () => Promise.resolve(
+          goodResult.buffer.slice(goodResult.byteOffset, goodResult.byteOffset + goodResult.byteLength),
+        ),
+      });
+    vi.stubGlobal("fetch", mockFetch);
+
+    const input = await makeTestBuffer();
+    const result = await removeBackground(input);
+
+    expect(result.hasTransparency).toBe(true);
+    expect(result.providerUsed).toBe("replicate");
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringContaining("api.replicate.com"),
+      expect.objectContaining({
+        method: "POST",
+        headers: expect.objectContaining({ Authorization: "Bearer test-token" }),
+      }),
+    );
+
+    vi.unstubAllGlobals();
+  });
+
+  test("replicate provider falls through on API error", async () => {
+    process.env.REPLICATE_API_TOKEN = "test-token";
+
+    const mockFetch = vi.fn().mockResolvedValueOnce({
+      ok: false,
+      status: 422,
+      text: () => Promise.resolve("invalid input"),
+    });
+    vi.stubGlobal("fetch", mockFetch);
+
+    const input = await makeTestBuffer();
+    const result = await removeBackground(input);
+
+    expect(result.providerUsed).toBe("crop-fallback");
+    expect(result.noProvidersConfigured).toBe(false);
+
+    vi.unstubAllGlobals();
+  });
+
+  test("replicate provider falls through on failed prediction", async () => {
+    process.env.REPLICATE_API_TOKEN = "test-token";
+
+    const mockFetch = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({
+        status: "failed",
+        error: "model crashed",
+      }),
+    });
+    vi.stubGlobal("fetch", mockFetch);
+
+    const input = await makeTestBuffer();
+    const result = await removeBackground(input);
+
+    expect(result.providerUsed).toBe("crop-fallback");
+    expect(result.noProvidersConfigured).toBe(false);
+
+    vi.unstubAllGlobals();
+  });
+
   test("falls through to next provider when transparency validation fails", async () => {
     process.env.SELF_HOSTED_BG_REMOVAL_URL = "http://localhost:5000/remove";
 
@@ -128,6 +230,39 @@ describe("removeBackground", () => {
 
     expect(result.providerUsed).toBe("crop-fallback");
     expect(result.hasTransparency).toBe(false);
+
+    vi.unstubAllGlobals();
+  });
+
+  test("uses custom Replicate model from env var", async () => {
+    process.env.REPLICATE_API_TOKEN = "test-token";
+    process.env.REPLICATE_BG_MODEL = "cjwbw/rembg";
+
+    const goodResult = await makeGoodBgRemovalResult(50);
+
+    const mockFetch = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({
+          status: "succeeded",
+          output: "https://replicate.delivery/test/output.png",
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        arrayBuffer: () => Promise.resolve(
+          goodResult.buffer.slice(goodResult.byteOffset, goodResult.byteOffset + goodResult.byteLength),
+        ),
+      });
+    vi.stubGlobal("fetch", mockFetch);
+
+    const input = await makeTestBuffer();
+    await removeBackground(input);
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringContaining("cjwbw/rembg"),
+      expect.anything(),
+    );
 
     vi.unstubAllGlobals();
   });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useState, useCallback, useMemo, useRef } from "react";
 import { ProductTile } from "@/components/catalog/product-tile";
 import type { Product } from "@/types";
 import type { ListItemWithMeta } from "@/lib/list/list-helpers";
@@ -9,6 +9,9 @@ interface ShoppingTileGridProps {
   items: ListItemWithMeta[];
   products: Product[];
   onCheck: (itemId: string, checked: boolean) => void;
+  onDelete?: (itemId: string) => void;
+  onDefer?: (itemId: string) => void;
+  onBuyElsewhere?: (itemId: string) => void;
 }
 
 function toTileProduct(
@@ -39,18 +42,16 @@ function toTileProduct(
   };
 }
 
-/** Groups a flat array into pairs (rows of 2). */
-function toRows(ids: string[]): string[][] {
-  const rows: string[][] = [];
-  for (let i = 0; i < ids.length; i += 2) {
-    rows.push(ids.slice(i, Math.min(i + 2, ids.length)));
-  }
-  return rows;
-}
+const EXIT_ANIMATION_MS = 300;
 
-const ROW_COLLAPSE_DELAY_MS = 400;
-
-export function ShoppingTileGrid({ items, products, onCheck }: ShoppingTileGridProps) {
+export function ShoppingTileGrid({
+  items,
+  products,
+  onCheck,
+  onDelete,
+  onDefer,
+  onBuyElsewhere,
+}: ShoppingTileGridProps) {
   const productMap = useMemo(
     () => new Map(products.map((p) => [p.product_id, p])),
     [products],
@@ -60,109 +61,61 @@ export function ShoppingTileGrid({ items, products, onCheck }: ShoppingTileGridP
     [items],
   );
 
-  // Stable layout: item IDs in their fixed grid positions
-  const [stableOrder, setStableOrder] = useState<string[]>([]);
-  // Items checked within the tile view (rendered as empty placeholders)
-  const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
-  const collapseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Rebuild stableOrder when new items appear (but not when items are removed by checking)
-  useEffect(() => {
-    const currentItemIds = new Set(items.map((i) => i.item_id));
-    setStableOrder((prev) => {
-      if (prev.length === 0) return items.map((i) => i.item_id);
-      const hasNewItems = items.some(
-        (i) => !prev.includes(i.item_id) && !checkedIds.has(i.item_id),
-      );
-      if (!hasNewItems) return prev;
-      const existingSet = new Set(prev);
-      const merged = [
-        ...prev.filter((id) => currentItemIds.has(id) || checkedIds.has(id)),
-      ];
-      for (const item of items) {
-        if (!existingSet.has(item.item_id)) merged.push(item.item_id);
-      }
-      return merged;
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items]);
-
-  useEffect(() => {
-    return () => {
-      if (collapseTimerRef.current) clearTimeout(collapseTimerRef.current);
-    };
-  }, []);
-
-  // Schedule row collapse when full rows are detected
-  useEffect(() => {
-    const rows = toRows(stableOrder);
-    const hasFullRow = rows.some((row) => row.every((id) => checkedIds.has(id)));
-    if (!hasFullRow) return;
-
-    if (collapseTimerRef.current) clearTimeout(collapseTimerRef.current);
-    collapseTimerRef.current = setTimeout(() => {
-      collapseTimerRef.current = null;
-      const rowsNow = toRows(stableOrder);
-      const fullRowIds = new Set(
-        rowsNow.filter((r) => r.every((id) => checkedIds.has(id))).flat(),
-      );
-      if (fullRowIds.size === 0) return;
-
-      setStableOrder((prev) => prev.filter((id) => !fullRowIds.has(id)));
-      setCheckedIds((prev) => {
-        const next = new Set(prev);
-        fullRowIds.forEach((id) => next.delete(id));
-        return next;
-      });
-    }, ROW_COLLAPSE_DELAY_MS);
-
-    return () => {
-      if (collapseTimerRef.current) clearTimeout(collapseTimerRef.current);
-    };
-  }, [checkedIds, stableOrder]);
+  const [exitingIds, setExitingIds] = useState<Set<string>>(new Set());
+  const exitTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   const handleCheck = useCallback(
     (itemId: string) => {
-      setCheckedIds((prev) => new Set([...prev, itemId]));
-      onCheck(itemId, true);
+      setExitingIds((prev) => new Set([...prev, itemId]));
+
+      const timer = setTimeout(() => {
+        exitTimers.current.delete(itemId);
+        setExitingIds((prev) => {
+          const next = new Set(prev);
+          next.delete(itemId);
+          return next;
+        });
+        onCheck(itemId, true);
+      }, EXIT_ANIMATION_MS);
+
+      exitTimers.current.set(itemId, timer);
     },
     [onCheck],
   );
 
-  const rows = toRows(stableOrder);
-  const visibleRows = rows.filter(
-    (row) => !row.every((id) => checkedIds.has(id)),
+  const visibleItems = items.filter(
+    (i) => !exitingIds.has(i.item_id) || exitingIds.has(i.item_id),
   );
 
-  if (visibleRows.length === 0) return null;
+  if (visibleItems.length === 0) return null;
 
   return (
-    <div className="space-y-2">
-      {visibleRows.map((row) => (
-        <div key={row.join("-")} className="grid grid-cols-2 gap-2">
-          {row.map((itemId) => {
-            if (checkedIds.has(itemId)) {
-              return <div key={itemId} className="aspect-square" />;
-            }
-            const item = itemMap.get(itemId);
-            if (!item) {
-              return <div key={itemId} className="aspect-square" />;
-            }
-            const tileProduct = toTileProduct(item, productMap);
-            return (
-              <ProductTile
-                key={itemId}
-                product={tileProduct}
-                shoppingListMode={{
-                  checked: false,
-                  onCheck: () => handleCheck(itemId),
-                  quantity: item.quantity,
-                }}
-              />
-            );
-          })}
-        </div>
-      ))}
+    <div className="grid grid-cols-2 gap-2">
+      {visibleItems.map((item) => {
+        const isExiting = exitingIds.has(item.item_id);
+        const tileProduct = toTileProduct(item, productMap);
+
+        return (
+          <div
+            key={item.item_id}
+            className={isExiting ? "animate-tile-exit" : "animate-tile-enter"}
+          >
+            <ProductTile
+              product={tileProduct}
+              shoppingListMode={{
+                checked: false,
+                onCheck: () => handleCheck(item.item_id),
+                quantity: item.quantity,
+                onDefer: onDefer ? () => onDefer(item.item_id) : undefined,
+                onBuyElsewhere: onBuyElsewhere
+                  ? () => onBuyElsewhere(item.item_id)
+                  : undefined,
+                onDelete: onDelete ? () => onDelete(item.item_id) : undefined,
+              }}
+            />
+          </div>
+        );
+      })}
     </div>
   );
 }

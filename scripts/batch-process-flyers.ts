@@ -14,6 +14,7 @@
  *   --country DE|AT        Which folder to process (required)
  *   --limit N              Process only the first N PDFs
  *   --dry-run              Extract data but don't write to Supabase
+ *   --force                Re-process all PDFs, even if already imported
  *   --delete-existing      Delete existing flyers for this country first
  *   --delay N              Delay in ms between pages (default 5000)
  *   --claude-model NAME    Claude model (default: claude-opus-4-6)
@@ -26,7 +27,7 @@
 
 import { config } from "dotenv";
 import { resolve } from "path";
-import { readdirSync, readFileSync } from "fs";
+import { readdirSync, readFileSync, existsSync, writeFileSync } from "fs";
 import { createClient } from "@supabase/supabase-js";
 import { PDFDocument } from "pdf-lib";
 import {
@@ -35,10 +36,12 @@ import {
   matchBboxesToProducts,
   processPageProducts,
   deleteExistingFlyers,
+  filterNewFiles,
   FIRST_PAGE_PROMPT,
   PAGE_PROMPT,
   type FirstPageResult,
   type PageResult,
+  type ProcessedEntry,
 } from "./lib/flyer-import-helpers";
 
 config({ path: resolve(process.cwd(), ".env.local") });
@@ -56,6 +59,7 @@ function parseArgs() {
     country: "",
     limit: Infinity,
     dryRun: false,
+    force: false,
     deleteExisting: false,
     delay: 5000,
     claudeModel: "claude-opus-4-6",
@@ -66,6 +70,7 @@ function parseArgs() {
       case "--country": opts.country = (args[++i] ?? "").toUpperCase(); break;
       case "--limit": opts.limit = parseInt(args[++i] ?? "0", 10) || Infinity; break;
       case "--dry-run": opts.dryRun = true; break;
+      case "--force": opts.force = true; break;
       case "--delete-existing": opts.deleteExisting = true; break;
       case "--delay": opts.delay = parseInt(args[++i] ?? "5000", 10) || 5000; break;
       case "--claude-model": opts.claudeModel = args[++i] ?? opts.claudeModel; break;
@@ -90,21 +95,53 @@ async function main() {
   if (!SUPABASE_URL || !SUPABASE_KEY) { console.error("SUPABASE_URL/KEY fehlt"); process.exit(1); }
 
   const flyersDir = resolve(process.cwd(), "flyers", opts.country);
-  let files: string[];
+  const processedPath = resolve(flyersDir, ".processed.json");
+
+  let allFiles: string[];
   try {
-    files = readdirSync(flyersDir).filter((f) => f.toLowerCase().endsWith(".pdf")).sort();
+    allFiles = readdirSync(flyersDir).filter((f) => f.toLowerCase().endsWith(".pdf")).sort();
   } catch {
     console.error(`Ordner nicht gefunden: ${flyersDir}`);
     process.exit(1);
   }
-  if (files.length === 0) { console.error(`Keine PDFs in ${flyersDir}`); process.exit(1); }
+  if (allFiles.length === 0) { console.error(`Keine PDFs in ${flyersDir}`); process.exit(1); }
+
+  let processed: Record<string, ProcessedEntry> = {};
+  if (existsSync(processedPath)) {
+    try {
+      processed = JSON.parse(readFileSync(processedPath, "utf-8"));
+    } catch (e) {
+      console.warn(`WARNUNG: ${processedPath} konnte nicht gelesen werden, wird neu erstellt.`);
+      processed = {};
+    }
+  }
+
+  if (opts.deleteExisting) {
+    processed = {};
+  }
+
+  const { files: filteredFiles, skipped: skippedFiles } = filterNewFiles(allFiles, processed, opts);
+  let files = filteredFiles;
+
   if (opts.limit < files.length) files = files.slice(0, opts.limit);
+
+  if (files.length === 0) {
+    console.log(`\n=== Batch-Handzettelverarbeitung (${opts.country}) ===\n`);
+    console.log(`Ordner:       ${flyersDir}`);
+    console.log(`PDFs gesamt:  ${allFiles.length}`);
+    console.log(`Übersprungen: ${skippedFiles.length} (bereits verarbeitet)`);
+    console.log(`Neu:          0`);
+    console.log("\nKeine neuen PDFs zu verarbeiten. Nutze --force um alle erneut zu verarbeiten.");
+    return;
+  }
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
   console.log(`\n=== Batch-Handzettelverarbeitung (${opts.country}) ===\n`);
   console.log(`Ordner:       ${flyersDir}`);
-  console.log(`PDFs:         ${files.length}`);
+  console.log(`PDFs gesamt:  ${allFiles.length}`);
+  if (skippedFiles.length > 0) console.log(`Übersprungen: ${skippedFiles.length} (bereits verarbeitet)`);
+  console.log(`Zu verarbeiten: ${files.length}${opts.force ? " (--force)" : " (neu)"}`);
   console.log(`Claude:       ${opts.claudeModel}`);
   console.log(`Gemini:       ${opts.geminiModel}`);
   console.log(`Delay:        ${opts.delay}ms`);
@@ -224,6 +261,12 @@ async function main() {
       }
 
       if (pageNum < pageCount) await sleep(opts.delay);
+    }
+
+    // Track successfully processed file
+    if (!opts.dryRun && flyerId !== "dry-run") {
+      processed[file] = { flyerId, processedAt: new Date().toISOString() };
+      writeFileSync(processedPath, JSON.stringify(processed, null, 2), "utf-8");
     }
   }
 

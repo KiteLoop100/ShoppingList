@@ -235,7 +235,8 @@ export async function POST(request: Request) {
     });
 
     if (!result) {
-      return NextResponse.json({ error: "Insert failed" }, { status: 500 });
+      log.error("[create-manual] upsertProduct returned null for:", nameNormalized);
+      return NextResponse.json({ error: "Produkt konnte nicht gespeichert werden. Bitte erneut versuchen." }, { status: 500 });
     }
     productId = result.product_id;
 

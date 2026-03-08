@@ -13,6 +13,7 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { log } from "@/lib/utils/logger";
 
 export interface ProductData {
   name?: string | null;
@@ -106,7 +107,10 @@ export async function upsertProduct(
       .update(updates)
       .eq("product_id", existingProductId);
 
-    if (error) return null;
+    if (error) {
+      log.error("[upsertProduct] update failed:", error.message, { code: error.code, productId: existingProductId });
+      return null;
+    }
     return { product_id: existingProductId, created: false };
   }
 
@@ -130,6 +134,9 @@ export async function upsertProduct(
     .select("product_id")
     .single();
 
-  if (error || !inserted) return null;
+  if (error || !inserted) {
+    log.error("[upsertProduct] insert failed:", error?.message ?? "no data returned", { code: error?.code });
+    return null;
+  }
   return { product_id: inserted.product_id, created: true };
 }

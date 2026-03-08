@@ -39,7 +39,7 @@
 | **Supabase Auth** | Authentication | Anonymous auth (for anonymous-first model) + email/password (later) |
 | **Supabase Storage** | File storage | Product photos, thumbnails, flyer pages |
 | **Vercel Serverless Functions** | Server logic | Photo processing, Claude API calls |
-| **Claude API (Anthropic)** | AI/Vision | Product photo analysis, receipt scanning, category assignment |
+| **Gemini AI** (`@google/genai`) | AI/Vision | Product photo analysis, receipt scanning, flyer processing, category assignment |
 | **PostgreSQL** | Database | Relational DB with JSON support. Part of Supabase |
 
 ### 2.3 Hosting & Deployment
@@ -55,7 +55,7 @@
 |------------|------|--------|
 | **Supabase Auth** | Email/password + anonymous auth | Active (Block 0) |
 | **Supabase Realtime** | Live sync for multi-device shopping list | Active (with Account feature) |
-| **@sentry/nextjs** | Error tracking and monitoring | Active (Block 4) |
+| **Sentry** | Error tracking and monitoring | Active (Block 4) — config files present (`sentry.client.config.ts`, `sentry.server.config.ts`, `sentry.edge.config.ts`) |
 | **@upstash/ratelimit** | API rate limiting | Active (Block 3) |
 | **zod** | API input validation | Active (Block 3) |
 
@@ -114,11 +114,12 @@
 │                                                            │
 │  ┌──────────────────────────────────────────────────────┐ │
 │  │  Vercel Serverless Functions                          │ │
-│  │  • /api/process-photo (Claude Vision)                │ │
-  │  │  • /api/confirm-photo                                │ │
-  │  │  • /api/process-flyer-page                           │ │
-  │  │  • /api/analyze-product-photos (Photo Studio)         │ │
-│  │  • /api/admin/batch-jobs                              │ │
+│  │  • /api/process-photo (Gemini Vision)                 │ │
+│  │  • /api/confirm-photo                                │ │
+│  │  • /api/process-flyer-page                           │ │
+│  │  • /api/analyze-product-photos (Photo Studio)        │ │
+│  │  • /api/process-receipt (SSE stream)                 │ │
+│  │  • /api/feedback, /api/admin/* + 10 more             │ │
 │  └──────────────────────────────────────────────────────┘ │
 └────────────────────────────────────────────────────────────┘
 ```
@@ -131,11 +132,10 @@
 Interface: SearchModule
 Input:  query (string), user_id? (string), limit? (number), products? (Product[])
 Output: SearchResult[] = { product_id, name, category, price, score, matchType, source }
-Architecture: 5-layer local-first pipeline
+Architecture: 4-stage local-first pipeline
 
 Input Preprocessing (normalization, prefix/suffix stripping, plural stemming)
-Query Classification (empty → smart default, barcode → EAN, text → search)
-Candidate Retrieval (9-level match type hierarchy with word boundary analysis)
+Candidate Retrieval (11-level match type hierarchy with word boundary analysis)
 Scoring Engine (5 weighted signals: match quality, popularity, personal, preferences, freshness)
 Post-Processing (allergen exclusion, expired specials removal, limit)
 
@@ -161,7 +161,7 @@ Interface: CategoryAssigner
 Implementation: 3-stage fallback chain
   1. AI hint (from caller context, e.g. receipt OCR or photo extraction)
   2. Keyword-based fallback (getDemandGroupFallback — ~40 patterns)
-  3. Claude Haiku API (/api/assign-category — ~90% accuracy)
+  3. Gemini API (/api/assign-category — ~90% accuracy)
 
 Used for both ALDI products and competitor products.
 Service: src/lib/competitor-products/categorize-competitor-product.ts
@@ -193,32 +193,46 @@ Later: ML model for pattern recognition
 
 ### 6.1 Endpoints
 
+The API uses task-oriented routes (not REST CRUD). List and store operations use Supabase client directly (no API routes).
+
 ```
 Products:
-  GET    /api/products?search={query}     Product search
-  POST   /api/products                    Create product (admin/crowdsource)
-  PATCH  /api/products/{id}               Edit product
+  GET    /api/products/search?q={query}&country={DE|AT}&limit={20}   Product search (Supabase)
+  POST   /api/products/create-manual                                  Create/update product (auth required)
 
-List:
-  GET    /api/lists/active                Load active list
-  POST   /api/lists/active/items          Add product to list
-  PATCH  /api/lists/active/items/{id}     Update item (quantity, check-off)
-  DELETE /api/lists/active/items/{id}     Remove item
-
-Stores:
-  GET    /api/stores?lat={}&lng={}        Nearby stores
-  GET    /api/stores/{id}/aisle-order     Aisle order for store
-
-Photos:
-  POST   /api/process-photo              Process photo/PDF
-  POST   /api/confirm-photo              Confirm review
-  POST   /api/process-flyer-page         Process single flyer page
-  POST   /api/analyze-product-photos     Unified product photo analysis (multi-image pipeline: classify, extract, thumbnail, verify)
+Photos & Vision:
+  POST   /api/process-photo              Process photo/PDF (Gemini Vision)
+  POST   /api/confirm-photo              Confirm review result
+  POST   /api/analyze-product-photos     Unified product photo analysis (multi-image pipeline)
+  POST   /api/analyze-competitor-photos  Competitor product photo analysis
+  POST   /api/apply-thumbnail-overwrites Apply pending thumbnail overwrites
 
 Receipts:
-  POST   /api/upload-receipt-photo       Upload single receipt photo → Storage URL
-  POST   /api/process-receipt            Process receipt URLs via Claude Vision
+  POST   /api/upload-receipt-photo       Upload receipt photo → Storage URL (auth required)
+  POST   /api/process-receipt            Process receipt via Gemini Vision (SSE stream)
+
+Flyers:
+  POST   /api/process-flyer-page         Process single flyer page
+  GET    /api/flyer-processing-status    Check flyer processing progress (admin)
+  PATCH  /api/flyer-country              Update flyer country
+
+Categories:
+  POST   /api/assign-category            AI demand-group assignment (Gemini)
+
+Feedback:
+  POST   /api/feedback                   Submit user feedback (rate-limited: 10/day)
+  GET    /api/feedback                   List feedback with filters (admin)
+  PATCH  /api/feedback                   Update feedback status (admin)
+
+Admin:
+  POST   /api/admin/login                Password login → session cookie
+  GET    /api/admin/check                Verify admin session
+
+Debug:
+  POST   /api/debug-log                  Debug relay (no auth — remove before launch)
 ```
+
+Note: List operations (add/remove/check-off items), store queries, and aisle order calculation are handled client-side via Supabase client + IndexedDB. No API routes exist for these.
 
 ### 6.2 Rate-Limiting & Input Validation
 
@@ -226,11 +240,13 @@ Receipts:
 
 - **Rate-Limit Helper:** `src/lib/api/rate-limit.ts`
 - **Upstash Redis** via `@upstash/ratelimit` + `@upstash/redis`
-- **Claude endpoints** (process-receipt, process-photo, assign-category): 5 requests/hour/user (sliding window)
-- **General endpoints** (upload-receipt-photo, process-flyer-page): 20 requests/minute/user (sliding window)
-- **Admin routes** (`/api/admin/*`): No rate limiting (password-protected)
+- **AI endpoints** (process-receipt, process-photo, assign-category, analyze-product-photos, analyze-competitor-photos): 50 requests/hour/user (sliding window) — testing phase; reduce to 5-10/h before public release
+- **General endpoints** (upload-receipt-photo, process-flyer-page, products/create-manual, confirm-photo, flyer-country, apply-thumbnail-overwrites, flyer-processing-status): 20 requests/minute/user (sliding window)
+- **Feedback endpoint:** 10 requests/day/user
+- **Admin login:** 5 attempts/15 minutes
+- **Admin routes** (`/api/admin/check`): No rate limiting (session-protected)
 - **Graceful degradation:** When `UPSTASH_REDIS_REST_URL` is not set (local dev), rate limiting is skipped
-- **Zod validation:** All 6 API routes validate input with typed schemas. Invalid payloads → HTTP 400 with structured error details
+- **Zod validation:** Most API routes validate input with typed Zod schemas. Invalid payloads → HTTP 400 with structured error details
 - **Client-side:** Receipt scanner and capture components show localized 429 error messages
 - **Env vars required:** `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`
 
@@ -263,24 +279,43 @@ Receipts:
       /page.tsx            ← Home / shopping list (S1)
       /capture/            ← Photo capture (F13)
       /flyer/              ← Flyer browser (F14)
-      /settings/           ← Settings (S3)
-      /admin/              ← Admin (S4)
+      /catalog/            ← Product catalog (F29)
+      /feedback/           ← Customer feedback (F25)
+      /receipts/           ← Receipt history
+      /login/              ← Login / registration
+      /privacy/            ← Privacy policy
+      /settings/           ← Settings (F12)
+      /admin/              ← Admin (password-protected)
     /api/                  ← Serverless functions
 
   /components
     /search                ← Search module
     /list                  ← List view, list items
     /store                 ← Store creation dialog
-    /store-picker          ← Store selection
+    /catalog               ← Product catalog
+    /product-capture       ← Product capture modal
+    /feedback              ← Feedback forms
+    /onboarding            ← Onboarding screens
     /common                ← Buttons, icons, layout
+    /ui                    ← Base UI components
 
   /lib
     /supabase              ← Supabase client setup
-    /db                    ← IndexedDB / Dexie.js (Phase 2)
-    /list                  ← Checkoff, pairwise, archive
-    /store                 ← Hierarchical order
+    /db                    ← IndexedDB / Dexie.js (offline cache)
+    /list                  ← Checkoff, pairwise, archive, auto-reorder
+    /store                 ← Hierarchical order, store detection, GPS
     /search                ← Search pipeline (see SEARCH-ARCHITECTURE.md §10)
-    /products              ← Demand group logic
+    /products              ← Normalization, dedup, demand groups
+    /api/photo-processing  ← Gemini Vision pipeline
+    /product-photo-studio  ← Background removal, thumbnails
+    /auth                  ← Auth context, anonymous-first
+    /receipts              ← Receipt parsing, merge
+    /flyers                ← Flyer service
+    /competitor-products   ← Competitor product handling
+    /retailers             ← Retailer registry
+    /categories            ← Demand group service, colors
+    /settings              ← Settings sync
+    /utils                 ← Logger, formatting, ID generation
 
   /messages
     /de.json               ← German translations
@@ -306,10 +341,10 @@ Receipts:
 
 ### 7.3 State Management
 - Local React state for UI (search mode, picker open, etc.)
-- **Current (MVP):** IndexedDB (Dexie.js) for shopping list, trips, preferences. Supabase for products, receipts, auto-reorder.
-- **Implemented:** Shopping list, trips, preferences live in Supabase. IndexedDB is a read-only delta-sync cache for products and demand groups. See FEATURES-ACCOUNT.md section 3.
-- Supabase Realtime for live sync across devices (Post-Account feature)
-- No global state manager (Redux etc.) in MVP
+- **Supabase (source of truth):** Shopping lists, list items, trips, receipts, auto-reorder settings, user settings, feedback
+- **IndexedDB (read-only cache):** Products, demand groups, stores, aisle orders, pairwise comparisons — delta-synced from Supabase
+- **Supabase Realtime:** Live sync on `list_items` for multi-device shopping list. See FEATURES-ACCOUNT.md section 3.
+- No global state manager (Redux etc.)
 
 ---
 
@@ -323,7 +358,7 @@ Developer (Cursor) → Git Push → GitHub → Vercel (auto-deploy)
 ```
 
 ### 8.2 Environments
-- **Development:** Local with `next dev` (port 3001)
+- **Development:** Local with `next dev` (port 3000)
 - **Preview:** Auto for every git branch (Vercel)
 - **Production:** Master branch → production deployment
 
@@ -336,7 +371,7 @@ Developer (Cursor) → Git Push → GitHub → Vercel (auto-deploy)
 ### 8.4 Monitoring
 - **Active:** Vercel built-in analytics, Supabase dashboard
 - **Active:** Sentry error tracking (`@sentry/nextjs`) – client, server, and edge configs. Global error boundary (`global-error.tsx`). All Claude-calling API routes report exceptions.
-- **Active:** Anthropic API budget monitoring (limit set in dashboard)
+- **Active:** Gemini API budget monitoring (limit set in Google Cloud dashboard)
 
 ---
 

@@ -46,9 +46,19 @@ const config: Config = {
           "0%": { opacity: "0", transform: "translateY(-4px)" },
           "100%": { opacity: "1", transform: "translateY(0)" },
         },
+        "tile-exit": {
+          "0%": { opacity: "1", transform: "scale(1)" },
+          "100%": { opacity: "0", transform: "scale(0.85)" },
+        },
+        "tile-enter": {
+          "0%": { opacity: "0", transform: "scale(0.95)" },
+          "100%": { opacity: "1", transform: "scale(1)" },
+        },
       },
       animation: {
         "fade-in": "fade-in-down 200ms ease-out",
+        "tile-exit": "tile-exit 300ms ease-in forwards",
+        "tile-enter": "tile-enter 200ms ease-out",
       },
     },
   },

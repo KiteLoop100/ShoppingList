@@ -141,6 +141,9 @@ export const ShoppingListContent = memo(function ShoppingListContent({
                 items={unchecked}
                 products={products}
                 onCheck={setItemChecked}
+                onDelete={handleDelete}
+                onDefer={handleDefer}
+                onBuyElsewhere={actions.handleBuyElsewhere}
               />
             ) : (
               <ListSection items={dataSortMode === "shopping-order" ? unchecked : uncheckedSorted}

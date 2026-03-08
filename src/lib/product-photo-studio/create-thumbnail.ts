@@ -209,7 +209,9 @@ export async function processImageToThumbnail(
     compositeOnCanvas(enhanced, THUMB_SIZE, false),
   ]);
 
-  const bgFailed = bgResult.providerUsed === "crop-fallback" || bgResult.providerUsed === "none";
+  const bgFailed =
+    (bgResult.providerUsed === "crop-fallback" && !bgResult.noProvidersConfigured)
+    || bgResult.providerUsed === "none";
   if (bgFailed) {
     log.warn("[photo-studio] background removal failed, provider:", bgResult.providerUsed);
   }

@@ -134,6 +134,8 @@ export interface BackgroundRemovalResult {
   imageBuffer: Buffer;
   hasTransparency: boolean;
   providerUsed: string;
+  /** True when no real BG removal provider was configured (only crop-fallback available). */
+  noProvidersConfigured?: boolean;
 }
 
 export interface BackgroundRemovalProvider {

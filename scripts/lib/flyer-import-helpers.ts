@@ -339,6 +339,26 @@ export async function processPageProducts(
   return { created, updated };
 }
 
+// ── Processed-file tracking ─────────────────────────────────────
+
+export interface ProcessedEntry {
+  flyerId: string;
+  processedAt: string;
+}
+
+export function filterNewFiles(
+  allFiles: string[],
+  processed: Record<string, ProcessedEntry>,
+  opts: { force?: boolean; dryRun?: boolean },
+): { files: string[]; skipped: string[] } {
+  if (opts.force || opts.dryRun) {
+    return { files: allFiles, skipped: [] };
+  }
+  const files = allFiles.filter((f) => !processed[f]);
+  const skipped = allFiles.filter((f) => !!processed[f]);
+  return { files, skipped };
+}
+
 // ── Delete Existing Flyers ──────────────────────────────────────
 
 export async function deleteExistingFlyers(
