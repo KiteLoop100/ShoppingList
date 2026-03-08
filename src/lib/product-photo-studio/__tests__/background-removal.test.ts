@@ -164,12 +164,14 @@ describe("removeBackground", () => {
     expect(result.hasTransparency).toBe(true);
     expect(result.providerUsed).toBe("replicate");
     expect(mockFetch).toHaveBeenCalledWith(
-      expect.stringContaining("api.replicate.com"),
+      "https://api.replicate.com/v1/predictions",
       expect.objectContaining({
         method: "POST",
         headers: expect.objectContaining({ Authorization: "Bearer test-token" }),
       }),
     );
+    const body = JSON.parse(mockFetch.mock.calls[0][1].body as string);
+    expect(body.model).toBe("lucataco/remove-bg");
 
     vi.unstubAllGlobals();
   });
@@ -259,10 +261,8 @@ describe("removeBackground", () => {
     const input = await makeTestBuffer();
     await removeBackground(input);
 
-    expect(mockFetch).toHaveBeenCalledWith(
-      expect.stringContaining("cjwbw/rembg"),
-      expect.anything(),
-    );
+    const body = JSON.parse(mockFetch.mock.calls[0][1].body as string);
+    expect(body.model).toBe("cjwbw/rembg");
 
     vi.unstubAllGlobals();
   });

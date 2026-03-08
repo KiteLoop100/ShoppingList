@@ -92,21 +92,19 @@ class ReplicateProvider implements BackgroundRemovalProvider {
     const model = process.env.REPLICATE_BG_MODEL ?? "lucataco/remove-bg";
     const b64 = imageBuffer.toString("base64");
 
-    const res = await fetch(
-      `https://api.replicate.com/v1/models/${model}/predictions`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-          Prefer: "wait",
-        },
-        body: JSON.stringify({
-          input: { image: `data:image/jpeg;base64,${b64}` },
-        }),
-        signal: AbortSignal.timeout(REPLICATE_TIMEOUT_MS),
+    const res = await fetch("https://api.replicate.com/v1/predictions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+        Prefer: "wait",
       },
-    );
+      body: JSON.stringify({
+        model,
+        input: { image: `data:image/jpeg;base64,${b64}` },
+      }),
+      signal: AbortSignal.timeout(REPLICATE_TIMEOUT_MS),
+    });
 
     if (!res.ok) {
       const errText = await res.text().catch(() => "unknown");
