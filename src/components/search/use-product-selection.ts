@@ -17,8 +17,11 @@ export interface ProductSelectionState {
   effectiveQuantities: number[];
   selectedCount: number;
   selectedItems: { product_id: string; quantity: number }[];
+  allSelected: boolean;
   toggle: (index: number) => void;
   changeQuantity: (index: number, delta: number) => void;
+  selectAll: () => void;
+  deselectAll: () => void;
 }
 
 export function useProductSelection({
@@ -56,6 +59,14 @@ export function useProductSelection({
     });
   }, []);
 
+  const selectAll = useCallback(() => {
+    setSelected(items.map(() => true));
+  }, [items]);
+
+  const deselectAll = useCallback(() => {
+    setSelected(items.map(() => false));
+  }, [items]);
+
   const effectiveSelected = useMemo(
     () => (selected.length === items.length ? selected : items.map(() => initiallySelected)),
     [selected, items, initiallySelected],
@@ -68,6 +79,11 @@ export function useProductSelection({
 
   const selectedCount = useMemo(
     () => effectiveSelected.filter(Boolean).length,
+    [effectiveSelected],
+  );
+
+  const allSelected = useMemo(
+    () => effectiveSelected.length > 0 && effectiveSelected.every(Boolean),
     [effectiveSelected],
   );
 
@@ -84,5 +100,5 @@ export function useProductSelection({
     [items, effectiveQuantities, effectiveSelected],
   );
 
-  return { effectiveSelected, effectiveQuantities, selectedCount, selectedItems, toggle, changeQuantity };
+  return { effectiveSelected, effectiveQuantities, selectedCount, selectedItems, allSelected, toggle, changeQuantity, selectAll, deselectAll };
 }

@@ -142,7 +142,7 @@ describe("verifyThumbnailQuality", () => {
     expect(imageContent.source?.media_type).toBe("image/webp");
   });
 
-  test("forces review when backgroundRemovalFailed is true", async () => {
+  test("adds informational issue but does not force review when backgroundRemovalFailed is true", async () => {
     mockedCallClaude.mockResolvedValueOnce({
       passes_quality_check: true,
       quality_score: 0.9,
@@ -156,8 +156,8 @@ describe("verifyThumbnailQuality", () => {
 
     const result = await verifyThumbnailQuality(img, "image/webp", true);
 
-    expect(result.recommendation).toBe("review");
-    expect(result.passes_quality_check).toBe(false);
-    expect(result.issues).toContain("Hintergrund konnte nicht entfernt werden. Bitte prüfen Sie den Hintergrundentfernungs-Dienst (Credits aufgebraucht?).");
+    expect(result.recommendation).toBe("approve");
+    expect(result.passes_quality_check).toBe(true);
+    expect(result.issues).toContain("Hintergrund konnte nicht entfernt werden (Soft-Fallback mit weißem Hintergrund).");
   });
 });

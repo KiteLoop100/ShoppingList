@@ -7,6 +7,12 @@ import Link from "next/link";
 import type { Product } from "@/types";
 import type { RecentListProduct } from "@/lib/list";
 import { useProductSelection } from "./use-product-selection";
+import {
+  sortRecentByCategory,
+  computeSections,
+  SECTION_ICONS,
+  type CategoryGroupKey,
+} from "@/lib/list/recent-purchase-categories";
 
 function looksLikeUuid(s: string): boolean {
   const t = s.trim();
@@ -43,18 +49,34 @@ export const RecentPurchasesPanel = memo(function RecentPurchasesPanel({
 
   const productMap = useMemo(() => new Map(products.map((p) => [p.product_id, p])), [products]);
 
-  const validRecentProducts = useMemo(
-    () =>
-      recentProducts.filter((r) => {
-        const product = productMap.get(r.product_id);
-        const name = product?.name?.trim();
-        return !!name && !looksLikeUuid(name);
-      }),
-    [recentProducts, productMap],
+  const sortedProducts = useMemo(() => {
+    const valid = recentProducts.filter((r) => {
+      const product = productMap.get(r.product_id);
+      const name = product?.name?.trim();
+      return !!name && !looksLikeUuid(name);
+    });
+    return sortRecentByCategory(valid, productMap);
+  }, [recentProducts, productMap]);
+
+  const sections = useMemo(
+    () => computeSections(sortedProducts, productMap),
+    [sortedProducts, productMap],
   );
 
-  const { effectiveSelected, effectiveQuantities, selectedCount, selectedItems, toggle, changeQuantity } =
-    useProductSelection({ items: validRecentProducts, initiallySelected: true });
+  const sectionLabelKey: Record<CategoryGroupKey, string> = {
+    produce: "recentSectionProduce",
+    chilled: "recentSectionChilled",
+    frozen: "recentSectionFrozen",
+    dry: "recentSectionDry",
+  };
+
+  const sectionStartSet = useMemo(
+    () => new Set(sections.map((s) => s.startIndex)),
+    [sections],
+  );
+
+  const { effectiveSelected, effectiveQuantities, selectedCount, selectedItems, allSelected, toggle, changeQuantity, selectAll, deselectAll } =
+    useProductSelection({ items: sortedProducts, initiallySelected: true });
 
   return (
     <div
@@ -66,7 +88,7 @@ export const RecentPurchasesPanel = memo(function RecentPurchasesPanel({
         <div className="flex flex-1 items-center justify-center p-4 text-sm text-aldi-muted">
           {loadingLabel}
         </div>
-      ) : validRecentProducts.length === 0 ? (
+      ) : sortedProducts.length === 0 ? (
         <div className="flex flex-1 flex-col items-center justify-center p-6">
           <svg
             className="mb-4 h-16 w-16 text-aldi-muted-light"
@@ -114,14 +136,46 @@ export const RecentPurchasesPanel = memo(function RecentPurchasesPanel({
               {addCountLabel(selectedCount)}
             </button>
           </div>
-          <ul className="min-h-0 flex-1 overflow-auto py-2" role="listbox" style={{ minHeight: 0 }}>
-            {validRecentProducts.map((r, index) => {
+          <div className="shrink-0 border-b border-aldi-muted-light bg-gray-50 px-4 py-2">
+            <button
+              type="button"
+              className="flex items-center gap-2 py-1"
+              onClick={allSelected ? deselectAll : selectAll}
+            >
+              <span
+                className={`flex h-6 w-6 items-center justify-center rounded-full border-2 text-sm font-bold transition-colors ${
+                  allSelected
+                    ? "border-aldi-blue bg-aldi-blue text-white"
+                    : "border-aldi-muted-light bg-white text-transparent"
+                }`}
+                aria-hidden
+              >
+                ✓
+              </span>
+              <span className="text-sm font-medium text-aldi-blue">
+                {allSelected ? t("recentDeselectAll") : t("recentSelectAll")}
+              </span>
+            </button>
+          </div>
+          <ul className="min-h-0 flex-1 overflow-auto" role="listbox" style={{ minHeight: 0 }}>
+            {sortedProducts.map((r, index) => {
               const product = productMap.get(r.product_id);
               const name = product?.name ?? r.product_id;
               const qty = effectiveQuantities[index];
               const isSelected = effectiveSelected[index];
+              const section = sectionStartSet.has(index)
+                ? sections.find((s) => s.startIndex === index)
+                : undefined;
               return (
                 <li key={r.product_id} role="option" aria-selected={isSelected}>
+                  {section && (
+                    <div className="sticky top-0 z-[1] flex items-center gap-2 border-b border-aldi-muted-light bg-gray-100 px-4 py-1.5">
+                      <span aria-hidden>{SECTION_ICONS[section.key]}</span>
+                      <span className="text-xs font-semibold uppercase tracking-wide text-aldi-muted">
+                        {t(sectionLabelKey[section.key])}
+                      </span>
+                    </div>
+                  )}
                   <div className="flex min-h-touch w-full items-center gap-2 px-4 py-2">
                     <button
                       type="button"

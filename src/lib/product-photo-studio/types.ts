@@ -146,6 +146,8 @@ export interface BackgroundRemovalProvider {
 
 // ── Pipeline Output ──
 
+export type ThumbnailType = "background_removed" | "soft_fallback";
+
 export interface ProductPhotoStudioResult {
   status: "success" | "review_required";
   reviewReason?: string;
@@ -158,5 +160,6 @@ export interface ProductPhotoStudioResult {
   backgroundRemoved: boolean;
   backgroundRemovalFailed?: boolean;
   backgroundProvider?: string;
+  thumbnailType?: ThumbnailType;
   processingTimeMs: number;
 }

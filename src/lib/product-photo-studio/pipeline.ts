@@ -10,7 +10,7 @@ import { classifyPhotos } from "./validate-classify";
 import { extractProductInfo, scanBarcodesFromAll } from "./extract-product-info";
 import { createThumbnail } from "./create-thumbnail";
 import { verifyThumbnailQuality } from "./verify-quality";
-import type { ProductPhotoStudioInput, ProductPhotoStudioResult, ThumbnailVerification } from "./types";
+import type { ProductPhotoStudioInput, ProductPhotoStudioResult, ThumbnailVerification, ThumbnailType } from "./types";
 import type { PipelineRunner } from "./pipeline-runner";
 import { log } from "@/lib/utils/logger";
 
@@ -54,22 +54,26 @@ export async function processCompetitorPhotos(
     : await classifyFn();
   log.debug("[photo-studio] classify took", Date.now() - classifyStartMs, "ms");
 
-  // ── GATE: Content moderation ──
-  const rejected = classification.photos.filter((p) => !p.is_product_photo);
-  if (rejected.length > 0 || classification.suspicious_content) {
-    log.warn(
-      "[photo-studio] moderation gate: rejected",
-      rejected.length,
-      "photos",
-    );
+  // ── GATE: Content moderation (suspicious content only) ──
+  if (classification.suspicious_content) {
+    log.warn("[photo-studio] moderation gate: suspicious content detected");
     return {
       status: "review_required",
-      reviewReason: rejected[0]?.rejection_reason ?? "suspicious_content",
+      reviewReason: "suspicious_content",
       classification,
       extractedData: null,
       backgroundRemoved: false,
       processingTimeMs: elapsedMs(startMs),
     };
+  }
+
+  const rejected = classification.photos.filter((p) => !p.is_product_photo);
+  if (rejected.length > 0) {
+    log.warn(
+      "[photo-studio] moderation:",
+      rejected.length,
+      "photos not classified as products — continuing pipeline",
+    );
   }
 
   const scannedEan = barcodeResults.find((e: string | null) => e !== null) ?? null;
@@ -124,13 +128,27 @@ export async function processCompetitorPhotos(
   }
 
   const finalEan = scannedEan ?? extractedData.ean_barcode;
-  const needsReview =
-    verification.recommendation === "reject" ||
-    verification.recommendation === "review";
+
+  const hasThumbnail = thumbnailResult.fullSize != null;
+  const allRejected = classification.photos.every((p) => !p.is_product_photo);
+
+  let finalStatus: "success" | "review_required";
+  let finalReviewReason: string | undefined;
+
+  if (allRejected && !hasThumbnail) {
+    finalStatus = "review_required";
+    finalReviewReason = rejected[0]?.rejection_reason ?? "no_product_photos";
+  } else {
+    finalStatus = "success";
+  }
+
+  const thumbnailType: ThumbnailType | undefined = hasThumbnail
+    ? (thumbnailResult.backgroundRemoved ? "background_removed" : "soft_fallback")
+    : undefined;
 
   if (runner) {
-    if (needsReview) {
-      await runner.markError(verification.issues.join("; "));
+    if (finalStatus === "review_required") {
+      await runner.markError(finalReviewReason ?? "review_required");
     } else {
       await runner.markCompleted();
     }
@@ -140,12 +158,14 @@ export async function processCompetitorPhotos(
     "[photo-studio] completed in",
     elapsedMs(startMs),
     "ms, status:",
-    needsReview ? "review_required" : "success",
+    finalStatus,
+    "thumbnailType:",
+    thumbnailType ?? "none",
   );
 
   return {
-    status: needsReview ? "review_required" : "success",
-    reviewReason: needsReview ? verification.issues.join("; ") : undefined,
+    status: finalStatus,
+    reviewReason: finalReviewReason,
     classification,
     extractedData: { ...extractedData, ean_barcode: finalEan },
     thumbnailFull: thumbnailResult.fullSize,
@@ -155,6 +175,7 @@ export async function processCompetitorPhotos(
     backgroundRemoved: thumbnailResult.backgroundRemoved,
     backgroundRemovalFailed: bgFailed,
     backgroundProvider: thumbnailResult.backgroundProvider,
+    thumbnailType,
     processingTimeMs: elapsedMs(startMs),
   };
 }

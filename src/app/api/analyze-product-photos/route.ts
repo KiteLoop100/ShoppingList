@@ -66,6 +66,7 @@ export async function POST(request: Request) {
       thumbnail_small_base64: result.thumbnailSmall
         ? result.thumbnailSmall.toString("base64")
         : null,
+      thumbnail_type: result.thumbnailType ?? null,
       quality_score: result.qualityScore ?? null,
       background_removed: result.backgroundRemoved,
       background_removal_failed: result.backgroundRemovalFailed ?? false,

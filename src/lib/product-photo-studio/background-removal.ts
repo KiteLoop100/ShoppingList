@@ -1,15 +1,21 @@
 /**
- * Background removal providers with strategy pattern.
+ * Background removal with tiered provider logic and edge-quality scoring.
  * Priority chain:
  * 1. Self-hosted model (BiRefNet/RMBG-2.0 via SELF_HOSTED_BG_REMOVAL_URL)
- * 2. Replicate API (lucataco/remove-bg via REPLICATE_API_TOKEN)
- * 3. remove.bg API with type=product (requires REMOVE_BG_API_KEY)
- * 4. remove.bg API with type=auto (fallback for similar-color packaging)
- * 5. AI-guided crop via Claude bounding box + Sharp (always available)
+ * 2. remove.bg API with type=product (requires REMOVE_BG_API_KEY) — only if #1 recommends retry
+ * 3. Replicate API (lucataco/remove-bg via REPLICATE_API_TOKEN) — only if #2 recommends retry
+ *
+ * Each result is scored via calculateEdgeQualityScore (transparency + halo + edge smoothness).
+ * Recommendation drives the decision:
+ *   - "accept" → use this result
+ *   - "retry"  → try next provider in chain
+ *   - "fallback" → stop immediately, caller applies soft-fallback
+ * Returns null when all providers fail or recommend fallback.
  */
 
 import sharp from "sharp";
 import type { BackgroundRemovalProvider, BackgroundRemovalResult } from "./types";
+import { calculateEdgeQualityScore, type EdgeQualityRecommendation } from "./edge-quality";
 import { log } from "@/lib/utils/logger";
 
 const EXTERNAL_FETCH_TIMEOUT_MS = 15_000;
@@ -38,12 +44,6 @@ async function callRemoveBgApi(imageBuffer: Buffer, apiKey: string, type: "produ
   return Buffer.from(await response.arrayBuffer());
 }
 
-/**
- * Self-hosted background removal via BiRefNet, RMBG-2.0, or similar.
- * Expects a service at SELF_HOSTED_BG_REMOVAL_URL that accepts POST with
- * multipart image_file and returns PNG with alpha channel.
- * Deploy with: https://github.com/danielgatis/rembg (Docker) or Replicate API.
- */
 class SelfHostedProvider implements BackgroundRemovalProvider {
   name = "self-hosted";
 
@@ -73,15 +73,6 @@ class SelfHostedProvider implements BackgroundRemovalProvider {
   }
 }
 
-/**
- * Background removal via Replicate API (e.g. lucataco/remove-bg).
- * Uses `Prefer: wait` header for synchronous prediction.
- * Configurable model via REPLICATE_BG_MODEL env var.
- *
- * Community models require a 64-char version hash. If the configured
- * model is in "owner/name" format, we resolve the latest version first
- * via GET /v1/models/{owner}/{name}.
- */
 class ReplicateProvider implements BackgroundRemovalProvider {
   name = "replicate";
   private cachedModel: string | null = null;
@@ -176,13 +167,7 @@ class ReplicateProvider implements BackgroundRemovalProvider {
 }
 
 class RemoveBgProvider implements BackgroundRemovalProvider {
-  name: string;
-  private type: "product" | "auto";
-
-  constructor(type: "product" | "auto") {
-    this.name = type === "product" ? "remove.bg" : "remove.bg-auto";
-    this.type = type;
-  }
+  name = "remove.bg";
 
   isAvailable(): boolean {
     return !!process.env.REMOVE_BG_API_KEY;
@@ -191,40 +176,17 @@ class RemoveBgProvider implements BackgroundRemovalProvider {
   async removeBackground(imageBuffer: Buffer): Promise<Buffer> {
     const apiKey = process.env.REMOVE_BG_API_KEY;
     if (!apiKey) throw new Error("REMOVE_BG_API_KEY not configured");
-    return callRemoveBgApi(imageBuffer, apiKey, this.type);
+    return callRemoveBgApi(imageBuffer, apiKey, "product");
   }
 }
 
-class CropFallbackProvider implements BackgroundRemovalProvider {
-  name = "crop-fallback";
-
-  isAvailable(): boolean {
-    return true;
-  }
-
-  async removeBackground(imageBuffer: Buffer): Promise<Buffer> {
-    // No additional cropping — preCropToProduct has already isolated the product
-    // region via Claude bounding-box detection. A second crop here would
-    // double-crop and clip tall/narrow products like bottles.
-    return sharp(imageBuffer).rotate().toBuffer();
-  }
-}
-
-const providers: BackgroundRemovalProvider[] = [
-  new SelfHostedProvider(),
-  new ReplicateProvider(),
-  new RemoveBgProvider("product"),
-  new RemoveBgProvider("auto"),
-  new CropFallbackProvider(),
-];
-
-const MIN_TRANSPARENCY_RATIO = 0.03;
-const MAX_TRANSPARENCY_RATIO = 0.97;
+const selfHostedProvider = new SelfHostedProvider();
+const removeBgProvider = new RemoveBgProvider();
+const replicateProvider = new ReplicateProvider();
 
 /**
- * Validate that bg removal actually produced meaningful transparency.
- * Rejects results where <3% or >97% of pixels are transparent,
- * which indicates the provider silently failed or removed everything.
+ * Kept for backward compatibility — validates that a PNG has meaningful
+ * alpha channel. Delegates to the edge-quality module internally.
  */
 export async function hasSignificantTransparency(pngBuffer: Buffer): Promise<boolean> {
   try {
@@ -241,11 +203,11 @@ export async function hasSignificantTransparency(pngBuffer: Buffer): Promise<boo
     }
 
     const ratio = transparentPixels / totalPixels;
-    if (ratio < MIN_TRANSPARENCY_RATIO) {
+    if (ratio < 0.03) {
       log.warn("[photo-studio] bg removal produced only", (ratio * 100).toFixed(1) + "% transparency — likely failed");
       return false;
     }
-    if (ratio > MAX_TRANSPARENCY_RATIO) {
+    if (ratio > 0.97) {
       log.warn("[photo-studio] bg removal produced", (ratio * 100).toFixed(1) + "% transparency — removed too much");
       return false;
     }
@@ -257,73 +219,105 @@ export async function hasSignificantTransparency(pngBuffer: Buffer): Promise<boo
   }
 }
 
-export async function removeBackground(imageBuffer: Buffer): Promise<BackgroundRemovalResult> {
+interface ProviderAttempt {
+  provider: BackgroundRemovalProvider;
+  buffer: Buffer;
+  isValid: boolean;
+  recommendation: EdgeQualityRecommendation;
+}
+
+/**
+ * Try a single provider: call it, score the result, log diagnostics.
+ * Returns null on provider error (caught and logged).
+ */
+async function tryProvider(
+  provider: BackgroundRemovalProvider,
+  imageBuffer: Buffer,
+  failures: string[],
+): Promise<ProviderAttempt | null> {
+  if (!provider.isAvailable()) return null;
+
+  try {
+    log.debug(`[BG-Removal] trying provider=${provider.name}`);
+    const resultBuffer = await provider.removeBackground(imageBuffer);
+    const eq = await calculateEdgeQualityScore(resultBuffer);
+
+    log.info(
+      `[BG-Removal] provider=${provider.name} score=${eq.score.toFixed(3)} recommendation=${eq.recommendation} halo=${eq.haloScore.toFixed(3)} edge=${eq.edgeSmoothness.toFixed(3)}`,
+    );
+
+    return { provider, buffer: resultBuffer, isValid: eq.isValid, recommendation: eq.recommendation };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    const isPayment = msg.includes("402") || msg.includes("payment") || msg.includes("credit");
+    const reason = isPayment
+      ? `${provider.name}: credits exhausted or payment required`
+      : `${provider.name}: ${msg}`;
+    failures.push(reason);
+    log.warn(`[BG-Removal] ${reason}`);
+    return null;
+  }
+}
+
+/**
+ * Remove background using a tiered provider strategy:
+ * 1. Self-hosted  →  2. remove.bg (product)  →  3. Replicate
+ *
+ * Returns null when every provider either fails or produces invalid transparency,
+ * so the caller can apply a soft-fallback (e.g. white background composite).
+ */
+export async function removeBackground(imageBuffer: Buffer): Promise<BackgroundRemovalResult | null> {
   const skipped: string[] = [];
   const failures: string[] = [];
 
-  for (const provider of providers) {
+  const orderedProviders: BackgroundRemovalProvider[] = [
+    selfHostedProvider,
+    removeBgProvider,
+    replicateProvider,
+  ];
+
+  for (const provider of orderedProviders) {
     if (!provider.isAvailable()) {
       skipped.push(provider.name);
       continue;
     }
-    try {
-      log.debug(`[photo-studio] trying bg removal with ${provider.name}`);
-      const resultBuffer = await provider.removeBackground(imageBuffer);
 
-      if (provider.name !== "crop-fallback") {
-        const valid = await hasSignificantTransparency(resultBuffer);
-        if (!valid) {
-          const reason = `${provider.name}: transparency validation failed`;
-          failures.push(reason);
-          log.warn(`[photo-studio] ${reason}, trying next provider`);
-          continue;
-        }
-      }
+    const attempt = await tryProvider(provider, imageBuffer, failures);
 
-      if (provider.name === "crop-fallback") {
-        const noRealProviders = failures.length === 0;
-        if (noRealProviders && skipped.length > 0) {
-          log.warn(
-            "[photo-studio] no background removal providers configured.",
-            "Set REPLICATE_API_TOKEN, REMOVE_BG_API_KEY, or SELF_HOSTED_BG_REMOVAL_URL.",
-            "Skipped:", skipped.join(", "),
-          );
-        } else if (failures.length > 0) {
-          log.warn("[photo-studio] all bg removal providers failed, using crop-fallback.",
-            "Failures:", failures.join("; "),
-            skipped.length > 0 ? `Skipped: ${skipped.join(", ")}` : "",
-          );
-        }
-        return {
-          imageBuffer: resultBuffer,
-          hasTransparency: false,
-          providerUsed: provider.name,
-          noProvidersConfigured: noRealProviders,
-        };
-      }
+    if (!attempt) continue;
 
+    if (attempt.recommendation === "accept") {
       if (skipped.length > 0 || failures.length > 0) {
-        log.debug("[photo-studio] bg removal succeeded with", provider.name,
-          { skipped, failedBefore: failures });
+        log.debug("[BG-Removal] succeeded with", provider.name, { skipped, failedBefore: failures });
       }
-      return { imageBuffer: resultBuffer, hasTransparency: true, providerUsed: provider.name };
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      const isPayment = msg.includes("402") || msg.includes("payment") || msg.includes("credit");
-      const reason = isPayment
-        ? `${provider.name}: credits exhausted or payment required`
-        : `${provider.name}: ${msg}`;
-      failures.push(reason);
-      log.warn(`[photo-studio] ${reason}`);
+      return { imageBuffer: attempt.buffer, hasTransparency: true, providerUsed: provider.name };
     }
+
+    if (attempt.recommendation === "fallback") {
+      log.warn(`[BG-Removal] ${provider.name}: quality too low (fallback), skipping remaining providers`);
+      break;
+    }
+
+    log.warn(`[BG-Removal] ${provider.name}: quality marginal (retry), trying next provider`);
+    failures.push(`${provider.name}: edge-quality below accept threshold`);
   }
 
-  log.error("[photo-studio] all bg removal providers failed", {
-    skipped,
-    failures,
-    hint: failures.some((f) => f.includes("credits exhausted"))
-      ? "remove.bg credits are likely exhausted — consider self-hosted rembg or another provider"
-      : "check provider configuration and availability",
-  });
-  return { imageBuffer, hasTransparency: false, providerUsed: "none" };
+  const noProviders = failures.length === 0 && skipped.length > 0;
+  if (noProviders) {
+    log.warn(
+      "[BG-Removal] no background removal providers configured.",
+      "Set SELF_HOSTED_BG_REMOVAL_URL, REMOVE_BG_API_KEY, or REPLICATE_API_TOKEN.",
+      "Skipped:", skipped.join(", "),
+    );
+  } else {
+    log.error("[BG-Removal] all providers failed", {
+      skipped,
+      failures,
+      hint: failures.some((f) => f.includes("credits exhausted"))
+        ? "remove.bg credits are likely exhausted — consider self-hosted rembg"
+        : "check provider configuration and availability",
+    });
+  }
+
+  return null;
 }

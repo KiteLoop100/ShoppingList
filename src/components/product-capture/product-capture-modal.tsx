@@ -16,7 +16,7 @@ export function ProductCaptureModal(props: ProductCaptureConfig) {
   const {
     values, setField,
     saving, analyzing, error,
-    photoPreviews, processedThumbnail,
+    photoPreviews, processedThumbnail, thumbnailType,
     extractedDetails, reviewStatus,
     fileInputRef,
     retailers, demandGroups, filteredSubGroups,
@@ -47,6 +47,7 @@ export function ProductCaptureModal(props: ProductCaptureConfig) {
             fileInputRef={fileInputRef}
             photoPreviews={photoPreviews}
             processedThumbnail={processedThumbnail}
+            thumbnailType={thumbnailType}
             analyzing={analyzing}
             reviewStatus={reviewStatus}
             onPhotosSelected={handlePhotosSelected}
@@ -57,6 +58,7 @@ export function ProductCaptureModal(props: ProductCaptureConfig) {
               hint: t("photosHint"),
               analyzing: t("photoAnalyzing"),
               reviewRequired: t("photoReviewRequired"),
+              softFallback: t("photoSoftFallback"),
             }}
           />
           <ProductCaptureFields

@@ -121,23 +121,90 @@ export async function enhanceProduct(imageBuffer: Buffer): Promise<Buffer> {
   return sharp(rgb).joinChannel(alpha).png().toBuffer();
 }
 
+const TRIM_MIN_PIXEL_RATIO = 0.5;
+
 /**
  * Composite product on white canvas with optional drop shadow.
- * Shadow uses the product's alpha channel blurred + reduced opacity.
+ *
+ * RGBA images (background removed): edge-to-edge — transparent edges are
+ * trimmed, then the product is scaled to fill the full canvas height (or
+ * width, if wider than tall) with no padding.
+ *
+ * RGB images (soft-fallback): legacy 80 % sizing with even padding so the
+ * uncropped photo is not clipped at the edges.
  */
 export async function compositeOnCanvas(
   imageBuffer: Buffer,
   size: number,
   withShadow: boolean,
 ): Promise<{ buffer: Buffer; format: "image/webp" | "image/jpeg" }> {
-  const productArea = Math.round(size * (1 - 2 * PADDING_RATIO));
-  const offset = Math.round((size - productArea) / 2);
+  const meta = await sharp(imageBuffer).metadata();
+  const hasAlpha = (meta.channels ?? 3) >= 4;
 
-  const product = await sharp(imageBuffer)
-    .ensureAlpha()
-    .resize(productArea, productArea, { fit: "contain", background: TRANSPARENT })
-    .png()
-    .toBuffer();
+  let product: Buffer;
+  let compositeLeft: number;
+  let compositeTop: number;
+
+  if (hasAlpha) {
+    // --- Edge-to-edge for background-removed (RGBA) images ---
+
+    let trimmed = imageBuffer;
+    let tw = meta.width ?? size;
+    let th = meta.height ?? size;
+
+    try {
+      const trimmedBuf = await sharp(imageBuffer).trim().toBuffer();
+      const trimmedMeta = await sharp(trimmedBuf).metadata();
+      const origPixels = (meta.width ?? 0) * (meta.height ?? 0);
+      const trimPixels = (trimmedMeta.width ?? 0) * (trimmedMeta.height ?? 0);
+
+      if (origPixels > 0 && trimPixels / origPixels >= TRIM_MIN_PIXEL_RATIO) {
+        trimmed = trimmedBuf;
+        tw = trimmedMeta.width ?? size;
+        th = trimmedMeta.height ?? size;
+      } else {
+        log.warn("[photo-studio] trim too aggressive (kept " +
+          ((trimPixels / origPixels) * 100).toFixed(1) + "%), skipping");
+      }
+    } catch (err) {
+      log.warn("[photo-studio] trim failed, using original:",
+        err instanceof Error ? err.message : err);
+    }
+
+    const aspectRatio = tw / th;
+    let fitWidth: number;
+    let fitHeight: number;
+
+    if (aspectRatio <= 1) {
+      fitHeight = size;
+      fitWidth = Math.max(1, Math.round(size * aspectRatio));
+    } else {
+      fitWidth = size;
+      fitHeight = Math.max(1, Math.round(size / aspectRatio));
+    }
+
+    product = await sharp(trimmed)
+      .ensureAlpha()
+      .resize(fitWidth, fitHeight, { fit: "contain", background: TRANSPARENT })
+      .png()
+      .toBuffer();
+
+    compositeLeft = Math.round((size - fitWidth) / 2);
+    compositeTop = Math.round((size - fitHeight) / 2);
+  } else {
+    // --- Legacy 80 % sizing for non-BG-removed (RGB) images ---
+    const productArea = Math.round(size * (1 - 2 * PADDING_RATIO));
+    const offset = Math.round((size - productArea) / 2);
+
+    product = await sharp(imageBuffer)
+      .ensureAlpha()
+      .resize(productArea, productArea, { fit: "contain", background: TRANSPARENT })
+      .png()
+      .toBuffer();
+
+    compositeLeft = offset;
+    compositeTop = offset;
+  }
 
   const layers: sharp.OverlayOptions[] = [];
 
@@ -157,14 +224,14 @@ export async function compositeOnCanvas(
           .png()
           .toBuffer();
 
-        layers.push({ input: shadow, left: offset, top: offset + SHADOW_OFFSET_Y });
+        layers.push({ input: shadow, left: compositeLeft, top: compositeTop + SHADOW_OFFSET_Y });
       }
     } catch (err) {
       log.warn("[photo-studio] shadow creation failed, skipping:", err instanceof Error ? err.message : err);
     }
   }
 
-  layers.push({ input: product, left: offset, top: offset });
+  layers.push({ input: product, left: compositeLeft, top: compositeTop });
 
   const isFullSize = size > THUMB_SIZE;
   const canvas = sharp({

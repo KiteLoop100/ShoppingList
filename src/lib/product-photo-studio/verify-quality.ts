@@ -101,12 +101,11 @@ export async function verifyThumbnailQuality(
     }
 
     if (backgroundRemovalFailed) {
-      issues.push("Hintergrund konnte nicht entfernt werden. Bitte prüfen Sie den Hintergrundentfernungs-Dienst (Credits aufgebraucht?).");
-      recommendation = "review";
+      issues.push("Hintergrund konnte nicht entfernt werden (Soft-Fallback mit weißem Hintergrund).");
     }
 
     return {
-      passes_quality_check: claudeResult.passes_quality_check !== false && !backgroundRemovalFailed,
+      passes_quality_check: claudeResult.passes_quality_check !== false,
       quality_score: typeof claudeResult.quality_score === "number" ? claudeResult.quality_score : 0.5,
       issues,
       recommendation,

@@ -6,6 +6,7 @@ export function PhotoUploadSection({
   fileInputRef,
   photoPreviews,
   processedThumbnail,
+  thumbnailType,
   analyzing,
   reviewStatus,
   onPhotosSelected,
@@ -15,6 +16,7 @@ export function PhotoUploadSection({
   fileInputRef: RefObject<HTMLInputElement>;
   photoPreviews: string[];
   processedThumbnail: string | null;
+  thumbnailType?: "background_removed" | "soft_fallback" | null;
   analyzing: boolean;
   reviewStatus: string | null;
   onPhotosSelected: (e: React.ChangeEvent<HTMLInputElement>) => void;
@@ -25,6 +27,7 @@ export function PhotoUploadSection({
     hint: string;
     analyzing: string;
     reviewRequired: string;
+    softFallback?: string;
   };
 }) {
   return (
@@ -59,7 +62,11 @@ export function PhotoUploadSection({
           {processedThumbnail && (
             <div className="relative">
               <img src={processedThumbnail} alt="" className="h-16 w-16 rounded-lg border-2 border-green-400 object-cover" />
-              <span className="absolute -right-1 -top-1 rounded-full bg-green-500 px-1 text-[9px] text-white">&#10003;</span>
+              {thumbnailType === "soft_fallback" ? (
+                <span className="absolute -right-1 -top-1 rounded-full bg-blue-500 px-1 text-[9px] text-white" title={labels.softFallback}>&#8505;</span>
+              ) : (
+                <span className="absolute -right-1 -top-1 rounded-full bg-green-500 px-1 text-[9px] text-white">&#10003;</span>
+              )}
             </div>
           )}
           {photoPreviews.map((url, i) => (

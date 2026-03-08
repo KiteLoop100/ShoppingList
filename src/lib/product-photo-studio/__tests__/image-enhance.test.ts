@@ -50,8 +50,27 @@ describe("enhanceProduct", () => {
   });
 });
 
+async function makeProductOnTransparentBg(
+  productW: number,
+  productH: number,
+  padX: number,
+  padY: number,
+): Promise<Buffer> {
+  const totalW = productW + 2 * padX;
+  const totalH = productH + 2 * padY;
+  const product = await sharp({
+    create: { width: productW, height: productH, channels: 4, background: { r: 200, g: 100, b: 50, alpha: 255 } },
+  }).png().toBuffer();
+  return sharp({
+    create: { width: totalW, height: totalH, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } },
+  })
+    .composite([{ input: product, left: padX, top: padY }])
+    .png()
+    .toBuffer();
+}
+
 describe("compositeOnCanvas", () => {
-  test("produces 1200x1200 WebP for full-size", async () => {
+  test("produces 1200x1200 WebP for full-size (RGB)", async () => {
     const input = await makeTestImage(100, 100, 3);
     const { buffer, format } = await compositeOnCanvas(input, 1200, false);
 
@@ -62,8 +81,75 @@ describe("compositeOnCanvas", () => {
     expect(format).toBe("image/webp");
   });
 
-  test("produces 150x150 JPEG for thumbnail", async () => {
+  test("produces 150x150 JPEG for thumbnail (RGB)", async () => {
     const input = await makeTestImage(100, 100, 3);
+    const { buffer, format } = await compositeOnCanvas(input, 150, false);
+
+    const meta = await sharp(buffer).metadata();
+    expect(meta.width).toBe(150);
+    expect(meta.height).toBe(150);
+    expect(meta.format).toBe("jpeg");
+    expect(format).toBe("image/jpeg");
+  });
+
+  test("RGB image uses legacy 80% sizing with padding", async () => {
+    const input = await makeTestImage(400, 400, 3);
+    const { buffer } = await compositeOnCanvas(input, 1200, false);
+
+    const meta = await sharp(buffer).metadata();
+    expect(meta.width).toBe(1200);
+    expect(meta.height).toBe(1200);
+
+    const { data, info } = await sharp(buffer).raw().toBuffer({ resolveWithObject: true });
+    const isWhite = (idx: number) =>
+      data[idx] >= 250 && data[idx + 1] >= 250 && data[idx + 2] >= 250;
+    const centerIdx = (600 * info.width + 600) * info.channels;
+    expect(isWhite(centerIdx)).toBe(false);
+    const cornerIdx = 0;
+    expect(isWhite(cornerIdx)).toBe(true);
+  });
+
+  test("RGBA tall image fills full canvas height (edge-to-edge)", async () => {
+    const input = await makeProductOnTransparentBg(200, 400, 10, 20);
+    const { buffer } = await compositeOnCanvas(input, 1200, false);
+
+    const meta = await sharp(buffer).metadata();
+    expect(meta.width).toBe(1200);
+    expect(meta.height).toBe(1200);
+
+    const { data, info } = await sharp(buffer).raw().toBuffer({ resolveWithObject: true });
+    const isWhite = (x: number, y: number) => {
+      const idx = (y * info.width + x) * info.channels;
+      return data[idx] >= 250 && data[idx + 1] >= 250 && data[idx + 2] >= 250;
+    };
+
+    // Center column, top and bottom rows should be non-white (product fills height)
+    const cx = Math.round(info.width / 2);
+    expect(isWhite(cx, 2)).toBe(false);
+    expect(isWhite(cx, info.height - 3)).toBe(false);
+  });
+
+  test("RGBA wide image fills full canvas width", async () => {
+    const input = await makeProductOnTransparentBg(400, 200, 20, 10);
+    const { buffer } = await compositeOnCanvas(input, 1200, false);
+
+    const meta = await sharp(buffer).metadata();
+    expect(meta.width).toBe(1200);
+
+    const { data, info } = await sharp(buffer).raw().toBuffer({ resolveWithObject: true });
+    const isWhite = (x: number, y: number) => {
+      const idx = (y * info.width + x) * info.channels;
+      return data[idx] >= 250 && data[idx + 1] >= 250 && data[idx + 2] >= 250;
+    };
+
+    // Center row, left and right edges should be non-white (product fills width)
+    const cy = Math.round(info.height / 2);
+    expect(isWhite(2, cy)).toBe(false);
+    expect(isWhite(info.width - 3, cy)).toBe(false);
+  });
+
+  test("RGBA thumbnail (150px) also uses edge-to-edge", async () => {
+    const input = await makeProductOnTransparentBg(100, 200, 10, 10);
     const { buffer, format } = await compositeOnCanvas(input, 150, false);
 
     const meta = await sharp(buffer).metadata();
@@ -83,16 +169,6 @@ describe("compositeOnCanvas", () => {
     const meta = await sharp(buffer).metadata();
     expect(meta.width).toBe(1200);
     expect(meta.height).toBe(1200);
-  });
-
-  test("product fills roughly 80% of the canvas", async () => {
-    const input = await sharp({
-      create: { width: 400, height: 400, channels: 4, background: { r: 200, g: 100, b: 50, alpha: 255 } },
-    }).png().toBuffer();
-
-    const { buffer } = await compositeOnCanvas(input, 1200, false);
-    const meta = await sharp(buffer).metadata();
-    expect(meta.width).toBe(1200);
   });
 });
 

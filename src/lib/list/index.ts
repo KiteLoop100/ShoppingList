@@ -12,6 +12,16 @@ export { archiveListAsTrip } from "./archive-trip";
 export { getRecentListProducts } from "./recent-list-products";
 export type { RecentListProduct } from "./recent-list-products";
 export {
+  sortRecentByCategory,
+  computeSections,
+  getCategoryGroup,
+  SECTION_ICONS,
+} from "./recent-purchase-categories";
+export type {
+  CategoryGroupKey,
+  CategorySection,
+} from "./recent-purchase-categories";
+export {
   canFillWithTypicalProducts,
   fillListWithTypicalProducts,
 } from "./typical-products";

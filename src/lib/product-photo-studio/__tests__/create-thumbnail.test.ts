@@ -6,20 +6,30 @@ vi.mock("../background-removal", () => ({
   removeBackground: vi.fn(),
 }));
 
-vi.mock("@/lib/api/photo-processing/image-utils", () => ({
-  getProductBoundingBox: vi.fn(),
-  detectTextRotation: vi.fn(),
-  detectTiltCorrection: vi.fn(),
+vi.mock("../edge-quality", () => ({
+  calculateEdgeQualityScore: vi.fn().mockResolvedValue({
+    score: 0.8,
+    transparencyRatio: 0.5,
+    haloScore: 0.9,
+    edgeSmoothness: 0.7,
+    isValid: true,
+    recommendation: "accept",
+    diagnostics: { nearWhiteEdgePixelRatio: 0.05, perimeterAreaRatio: 0.6 },
+  }),
+}));
+
+vi.mock("../gemini-bbox", () => ({
+  geminiSmartPreCrop: vi.fn(),
+  claudeSmartPreCrop: vi.fn(),
 }));
 
 import { removeBackground } from "../background-removal";
-import { getProductBoundingBox, detectTextRotation, detectTiltCorrection } from "@/lib/api/photo-processing/image-utils";
+import { geminiSmartPreCrop, claudeSmartPreCrop } from "../gemini-bbox";
 import { createThumbnail } from "../create-thumbnail";
 
 const mockedRemoveBg = vi.mocked(removeBackground);
-const mockedGetBBox = vi.mocked(getProductBoundingBox);
-const mockedDetectRotation = vi.mocked(detectTextRotation);
-const mockedDetectTilt = vi.mocked(detectTiltCorrection);
+const mockedGeminiPreCrop = vi.mocked(geminiSmartPreCrop);
+const mockedClaudePreCrop = vi.mocked(claudeSmartPreCrop);
 
 async function makeTestImage(width = 100, height = 100): Promise<PhotoInput> {
   const buffer = await sharp({
@@ -57,9 +67,8 @@ beforeEach(() => {
     hasTransparency: false,
     providerUsed: "crop-fallback",
   }));
-  mockedGetBBox.mockResolvedValue(null);
-  mockedDetectRotation.mockResolvedValue(0);
-  mockedDetectTilt.mockResolvedValue(0);
+  mockedGeminiPreCrop.mockResolvedValue(null);
+  mockedClaudePreCrop.mockResolvedValue(null);
 });
 
 describe("createThumbnail", () => {
@@ -148,9 +157,12 @@ describe("createThumbnail", () => {
     expect(meta.height).toBe(100);
   });
 
-  test("applies rotation from dedicated detection (independent of bbox)", async () => {
-    mockedGetBBox.mockResolvedValueOnce(null);
-    mockedDetectRotation.mockResolvedValueOnce(90);
+  test("applies rotation when pre-crop returns rotation", async () => {
+    mockedGeminiPreCrop.mockResolvedValueOnce({
+      bbox: { x: 0, y: 0, width: 100, height: 200 },
+      rotation: 90,
+      tilt: 0,
+    });
 
     const img = await makeTestImage(100, 200);
     const classification = makeClassification([
@@ -161,16 +173,16 @@ describe("createThumbnail", () => {
 
     const passedBuf = mockedRemoveBg.mock.calls[0][0];
     const meta = await sharp(passedBuf).metadata();
-    // 100x200 rotated 90° CW becomes 200x100
     expect(meta.width).toBe(200);
     expect(meta.height).toBe(100);
   });
 
-  test("applies both crop and rotation when both are detected", async () => {
-    mockedGetBBox.mockResolvedValueOnce({
-      crop_x: 10, crop_y: 10, crop_width: 80, crop_height: 180,
+  test("applies crop and rotation together from single pre-crop result", async () => {
+    mockedGeminiPreCrop.mockResolvedValueOnce({
+      bbox: { x: 10, y: 10, width: 80, height: 180 },
+      rotation: 90,
+      tilt: 0,
     });
-    mockedDetectRotation.mockResolvedValueOnce(90);
 
     const img = await makeTestImage(100, 200);
     const classification = makeClassification([
@@ -181,16 +193,16 @@ describe("createThumbnail", () => {
 
     const passedBuf = mockedRemoveBg.mock.calls[0][0];
     const meta = await sharp(passedBuf).metadata();
-    // Crop to ~100x200 (with padding), then rotate 90° → ~200x100
     expect(meta.width).toBe(200);
     expect(meta.height).toBe(100);
   });
 
-  test("does not rotate when rotation is 0", async () => {
-    mockedGetBBox.mockResolvedValueOnce({
-      crop_x: 10, crop_y: 10, crop_width: 80, crop_height: 80,
+  test("does not rotate when pre-crop returns rotation 0", async () => {
+    mockedGeminiPreCrop.mockResolvedValueOnce({
+      bbox: { x: 10, y: 10, width: 80, height: 80 },
+      rotation: 0,
+      tilt: 0,
     });
-    mockedDetectRotation.mockResolvedValueOnce(0);
 
     const img = await makeTestImage(100, 100);
     const classification = makeClassification([
@@ -205,17 +217,12 @@ describe("createThumbnail", () => {
     expect(meta.height).toBe(100);
   });
 
-  test("runs bbox and rotation detection in parallel", async () => {
-    let bboxCallTime = 0;
-    let rotationCallTime = 0;
-
-    mockedGetBBox.mockImplementation(async () => {
-      bboxCallTime = Date.now();
-      return null;
-    });
-    mockedDetectRotation.mockImplementation(async () => {
-      rotationCallTime = Date.now();
-      return 0;
+  test("falls back to Claude when Gemini returns null", async () => {
+    mockedGeminiPreCrop.mockResolvedValueOnce(null);
+    mockedClaudePreCrop.mockResolvedValueOnce({
+      bbox: { x: 10, y: 10, width: 80, height: 80 },
+      rotation: 0,
+      tilt: 0,
     });
 
     const img = await makeTestImage(100, 100);
@@ -225,15 +232,15 @@ describe("createThumbnail", () => {
 
     await createThumbnail([img], classification);
 
-    // Both should be called (timestamps within 50ms of each other = parallel)
-    expect(mockedGetBBox).toHaveBeenCalledTimes(1);
-    expect(mockedDetectRotation).toHaveBeenCalledTimes(1);
-    expect(Math.abs(bboxCallTime - rotationCallTime)).toBeLessThan(50);
+    expect(mockedGeminiPreCrop).toHaveBeenCalledTimes(1);
+    expect(mockedClaudePreCrop).toHaveBeenCalledTimes(1);
   });
 
   test("pre-crops with 20% margin and minimum 50px padding", async () => {
-    mockedGetBBox.mockResolvedValueOnce({
-      crop_x: 20, crop_y: 30, crop_width: 160, crop_height: 340,
+    mockedGeminiPreCrop.mockResolvedValueOnce({
+      bbox: { x: 20, y: 30, width: 160, height: 340 },
+      rotation: 0,
+      tilt: 0,
     });
 
     const img = await makeTestImage(200, 400);
@@ -243,7 +250,7 @@ describe("createThumbnail", () => {
 
     await createThumbnail([img], classification);
 
-    expect(mockedGetBBox).toHaveBeenCalled();
+    expect(mockedGeminiPreCrop).toHaveBeenCalled();
     const passedBuf = mockedRemoveBg.mock.calls[0][0];
     const meta = await sharp(passedBuf).metadata();
     expect(meta.width).toBe(200);
@@ -251,8 +258,10 @@ describe("createThumbnail", () => {
   });
 
   test("pre-crop margin is clamped at image boundaries", async () => {
-    mockedGetBBox.mockResolvedValueOnce({
-      crop_x: 0, crop_y: 0, crop_width: 80, crop_height: 90,
+    mockedGeminiPreCrop.mockResolvedValueOnce({
+      bbox: { x: 0, y: 0, width: 80, height: 90 },
+      rotation: 0,
+      tilt: 0,
     });
 
     const img = await makeTestImage(100, 100);
@@ -268,13 +277,8 @@ describe("createThumbnail", () => {
     expect(meta.height).toBe(100);
   });
 
-  test("sets backgroundRemovalFailed when crop-fallback is used after provider failures", async () => {
-    mockedRemoveBg.mockImplementation(async (buf) => ({
-      imageBuffer: buf,
-      hasTransparency: false,
-      providerUsed: "crop-fallback",
-      noProvidersConfigured: false,
-    }));
+  test("uses soft-fallback when removeBackground returns null", async () => {
+    mockedRemoveBg.mockResolvedValue(null);
 
     const img = await makeTestImage();
     const classification = makeClassification([
@@ -285,29 +289,16 @@ describe("createThumbnail", () => {
 
     expect(result.backgroundRemovalFailed).toBe(true);
     expect(result.backgroundRemoved).toBe(false);
+    expect(result.backgroundProvider).toBe("soft-fallback");
+
+    const fullMeta = await sharp(result.fullSize).metadata();
+    expect(fullMeta.width).toBe(1200);
+    expect(fullMeta.height).toBe(1200);
   });
 
-  test("does NOT set backgroundRemovalFailed when no providers are configured", async () => {
-    mockedRemoveBg.mockImplementation(async (buf) => ({
-      imageBuffer: buf,
-      hasTransparency: false,
-      providerUsed: "crop-fallback",
-      noProvidersConfigured: true,
-    }));
-
-    const img = await makeTestImage();
-    const classification = makeClassification([
-      { photo_type: "product_front", quality_score: 0.9 },
-    ]);
-
-    const result = await createThumbnail([img], classification);
-
-    expect(result.backgroundRemovalFailed).toBe(false);
-    expect(result.backgroundRemoved).toBe(false);
-  });
-
-  test("falls back to full image when bounding box detection fails", async () => {
-    mockedGetBBox.mockRejectedValueOnce(new Error("Claude unavailable"));
+  test("falls back to full image when both providers return null", async () => {
+    mockedGeminiPreCrop.mockResolvedValueOnce(null);
+    mockedClaudePreCrop.mockResolvedValueOnce(null);
 
     const img = await makeTestImage(100, 100);
     const classification = makeClassification([

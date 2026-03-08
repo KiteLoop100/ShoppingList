@@ -79,7 +79,10 @@ export type RotationDegrees = number;
 const MIN_BBOX_AREA_RATIO = 0.05;
 const MAX_BBOX_AREA_RATIO = 0.98;
 
-/** Ask Claude for product bounding box. Returns null when detection fails or crop is unnecessary. */
+/**
+ * @deprecated Use `geminiSmartPreCrop()` or `claudeSmartPreCrop()` from `gemini-bbox.ts` instead.
+ * Kept for `generateFrontThumbnailBuffer()` compatibility.
+ */
 export async function getProductBoundingBox(
   imageBase64: string,
   mediaType: string,
@@ -156,7 +159,10 @@ const POSITION_TO_CARDINAL: Record<string, number> = {
   top: 270,
 };
 
-/** Detect cardinal rotation (0/90/180/270) from first-letter position. */
+/**
+ * @deprecated Use `geminiSmartPreCrop()` or `claudeSmartPreCrop()` from `gemini-bbox.ts` instead.
+ * Kept for `generateFrontThumbnailBuffer()` compatibility.
+ */
 export async function detectTextRotation(
   imageBase64: string,
   mediaType: string,
@@ -205,9 +211,8 @@ export async function detectTextRotation(
 const MAX_TILT = 15;
 
 /**
- * Detect fine tilt correction on an already cardinal-rotated image.
- * Runs as a separate, focused Claude call after the cardinal rotation
- * has been applied, so the model only needs to judge small deviations.
+ * @deprecated Use `geminiSmartPreCrop()` or `claudeSmartPreCrop()` from `gemini-bbox.ts` instead.
+ * Kept for `generateFrontThumbnailBuffer()` compatibility.
  */
 export async function detectTiltCorrection(
   imageBase64: string,

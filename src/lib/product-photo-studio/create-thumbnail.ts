@@ -8,8 +8,10 @@
 
 import sharp from "sharp";
 import { removeBackground } from "./background-removal";
+import { calculateEdgeQualityScore } from "./edge-quality";
 import { enhanceProduct, removeReflections, compositeOnCanvas, FULL_SIZE, THUMB_SIZE } from "./image-enhance";
-import { getProductBoundingBox, detectTextRotation, detectTiltCorrection } from "@/lib/api/photo-processing/image-utils";
+import { geminiSmartPreCrop, claudeSmartPreCrop } from "./gemini-bbox";
+import type { PreCropData } from "./gemini-bbox";
 import { log } from "@/lib/utils/logger";
 import type {
   PhotoInput,
@@ -74,9 +76,53 @@ const PRECROP_MARGIN = 0.20;
 const MIN_PAD_PX = 50;
 
 /**
+ * Apply PreCropData (bbox crop, cardinal rotation, fine tilt) to an image buffer.
+ */
+async function applyPreCropData(
+  imageBuffer: Buffer,
+  data: PreCropData,
+  imgWidth: number,
+  imgHeight: number,
+): Promise<Buffer> {
+  let output = imageBuffer;
+
+  const padX = Math.max(MIN_PAD_PX, Math.round(data.bbox.width * PRECROP_MARGIN));
+  const padY = Math.max(MIN_PAD_PX, Math.round(data.bbox.height * PRECROP_MARGIN));
+  const left = Math.max(0, data.bbox.x - padX);
+  const top = Math.max(0, data.bbox.y - padY);
+  const cropWidth = Math.min(imgWidth - left, data.bbox.width + 2 * padX);
+  const cropHeight = Math.min(imgHeight - top, data.bbox.height + 2 * padY);
+
+  log.debug("[photo-studio] pre-crop: bbox",
+    `${data.bbox.width}x${data.bbox.height}`,
+    "pad", `${padX}x${padY}`,
+    "final", `${cropWidth}x${cropHeight}`);
+
+  output = await sharp(output)
+    .extract({ left, top, width: cropWidth, height: cropHeight })
+    .toBuffer();
+
+  if (data.rotation !== 0) {
+    log.debug("[photo-studio] applying rotation:", data.rotation, "degrees");
+    output = await sharp(output)
+      .rotate(data.rotation, { background: { r: 255, g: 255, b: 255 } })
+      .toBuffer();
+  }
+
+  if (data.tilt !== 0) {
+    log.debug("[photo-studio] applying tilt correction:", data.tilt, "degrees");
+    output = await sharp(output)
+      .rotate(data.tilt, { background: { r: 255, g: 255, b: 255 } })
+      .toBuffer();
+  }
+
+  return output;
+}
+
+/**
  * 3b-pre: Crop to product region before background removal.
- * Uses Claude-guided bounding box to remove table/shelf/hand areas,
- * giving remove.bg a cleaner source image.
+ * Uses a single Gemini Flash call for bbox + rotation + tilt detection,
+ * with a consolidated Claude Sonnet call as fallback.
  * Padding is the larger of 20% of crop dimension or 50px per side,
  * preventing tall/narrow products from being clipped.
  */
@@ -84,53 +130,21 @@ export async function preCropToProduct(imageBuffer: Buffer): Promise<Buffer> {
   const oriented = await sharp(imageBuffer).rotate().toBuffer();
   const { width = 0, height = 0 } = await sharp(oriented).metadata();
   if (!width || !height) return oriented;
+
   try {
-    const base64 = oriented.toString("base64");
+    let preCropData = await geminiSmartPreCrop(oriented);
 
-    const [cropRegion, rotation] = await Promise.all([
-      getProductBoundingBox(base64, "image/jpeg", width, height),
-      detectTextRotation(base64, "image/jpeg"),
-    ]);
-
-    let output = oriented;
-
-    if (cropRegion) {
-      const padX = Math.max(MIN_PAD_PX, Math.round(cropRegion.crop_width * PRECROP_MARGIN));
-      const padY = Math.max(MIN_PAD_PX, Math.round(cropRegion.crop_height * PRECROP_MARGIN));
-      const left = Math.max(0, cropRegion.crop_x - padX);
-      const top = Math.max(0, cropRegion.crop_y - padY);
-      const cropWidth = Math.min(width - left, cropRegion.crop_width + 2 * padX);
-      const cropHeight = Math.min(height - top, cropRegion.crop_height + 2 * padY);
-
-      log.debug(
-        "[photo-studio] pre-crop: bbox",
-        `${cropRegion.crop_width}x${cropRegion.crop_height}`,
-        "pad", `${padX}x${padY}`,
-        "final", `${cropWidth}x${cropHeight}`,
-      );
-
-      output = await sharp(oriented)
-        .extract({ left, top, width: cropWidth, height: cropHeight })
-        .toBuffer();
+    if (!preCropData) {
+      log.debug("[photo-studio] Gemini pre-crop returned null, trying Claude fallback");
+      preCropData = await claudeSmartPreCrop(oriented);
     }
 
-    if (rotation !== 0) {
-      log.debug("[photo-studio] applying content-aware rotation:", rotation, "degrees");
-      output = await sharp(output)
-        .rotate(rotation, { background: { r: 255, g: 255, b: 255 } })
-        .toBuffer();
-
-      const tiltBase64 = output.toString("base64");
-      const tilt = await detectTiltCorrection(tiltBase64, "image/jpeg");
-      if (tilt !== 0) {
-        log.debug("[photo-studio] applying tilt correction:", tilt, "degrees");
-        output = await sharp(output)
-          .rotate(tilt, { background: { r: 255, g: 255, b: 255 } })
-          .toBuffer();
-      }
+    if (!preCropData) {
+      log.debug("[photo-studio] no pre-crop data from either provider, using original");
+      return oriented;
     }
 
-    return output;
+    return await applyPreCropData(oriented, preCropData, width, height);
   } catch (err) {
     log.warn("[photo-studio] pre-crop failed, using original:", err instanceof Error ? err.message : err);
     return oriented;
@@ -183,8 +197,37 @@ async function isProductClipped(imageBuffer: Buffer, hasAlpha: boolean): Promise
 }
 
 /**
+ * Soft-fallback: enhance the cropped image and composite on a white
+ * background without drop shadow. Used when all BG removal providers fail.
+ */
+async function softFallback(croppedImage: Buffer): Promise<ThumbnailResult> {
+  log.warn("[photo-studio] all BG removal providers failed — using soft-fallback (white background)");
+  const enhanced = await enhanceProduct(croppedImage);
+  const [fullSizeResult, thumbnailResult] = await Promise.all([
+    compositeOnCanvas(enhanced, FULL_SIZE, false),
+    compositeOnCanvas(enhanced, THUMB_SIZE, false),
+  ]);
+  return {
+    fullSize: fullSizeResult.buffer,
+    fullSizeFormat: fullSizeResult.format,
+    thumbnail: thumbnailResult.buffer,
+    thumbnailFormat: thumbnailResult.format,
+    backgroundRemoved: false,
+    backgroundProvider: "soft-fallback",
+    backgroundRemovalFailed: true,
+  };
+}
+
+/**
  * Shared thumbnail processing: bg removal -> enhance -> composite.
  * Used by both the photo studio pipeline and the single-photo capture flow.
+ *
+ * Flow:
+ * 1. Pre-crop (unless skipPreCrop)
+ * 2. removeBackground (tiered: self-hosted → remove.bg → replicate)
+ * 3. If null → soft-fallback (enhance + white bg, no shadow)
+ * 4. If valid but clipped → retry without pre-crop
+ * 5. If retry also fails → soft-fallback
  */
 export async function processImageToThumbnail(
   imageBuffer: Buffer,
@@ -192,6 +235,11 @@ export async function processImageToThumbnail(
 ): Promise<ThumbnailResult> {
   const input = skipPreCrop ? imageBuffer : await preCropToProduct(imageBuffer);
   const bgResult = await removeBackground(input);
+
+  if (!bgResult) {
+    return softFallback(input);
+  }
+
   const deReflected = await removeReflections(bgResult.imageBuffer);
   const enhanced = await enhanceProduct(deReflected);
   const addShadow = bgResult.hasTransparency;
@@ -200,7 +248,41 @@ export async function processImageToThumbnail(
     const clipped = await isProductClipped(bgResult.imageBuffer, true);
     if (clipped) {
       log.warn("[photo-studio] retrying without pre-crop due to clipping");
-      return processImageToThumbnail(imageBuffer, true);
+      const retryResult = await removeBackground(imageBuffer);
+
+      if (!retryResult) {
+        return softFallback(imageBuffer);
+      }
+
+      const retryEq = await calculateEdgeQualityScore(retryResult.imageBuffer);
+      log.info(
+        `[BG-Removal] retry-no-precrop provider=${retryResult.providerUsed} score=${retryEq.score.toFixed(3)} recommendation=${retryEq.recommendation} halo=${retryEq.haloScore.toFixed(3)} edge=${retryEq.edgeSmoothness.toFixed(3)}`,
+      );
+
+      if (retryEq.recommendation !== "accept") {
+        return softFallback(imageBuffer);
+      }
+
+      const retryClipped = await isProductClipped(retryResult.imageBuffer, true);
+      if (retryClipped) {
+        log.warn("[photo-studio] retry also clipped, using soft-fallback");
+        return softFallback(imageBuffer);
+      }
+
+      const retryDeReflected = await removeReflections(retryResult.imageBuffer);
+      const retryEnhanced = await enhanceProduct(retryDeReflected);
+      const [fullSizeResult, thumbnailResult] = await Promise.all([
+        compositeOnCanvas(retryEnhanced, FULL_SIZE, true),
+        compositeOnCanvas(retryEnhanced, THUMB_SIZE, false),
+      ]);
+      return {
+        fullSize: fullSizeResult.buffer,
+        fullSizeFormat: fullSizeResult.format,
+        thumbnail: thumbnailResult.buffer,
+        thumbnailFormat: thumbnailResult.format,
+        backgroundRemoved: true,
+        backgroundProvider: retryResult.providerUsed,
+      };
     }
   }
 
@@ -209,13 +291,6 @@ export async function processImageToThumbnail(
     compositeOnCanvas(enhanced, THUMB_SIZE, false),
   ]);
 
-  const bgFailed =
-    (bgResult.providerUsed === "crop-fallback" && !bgResult.noProvidersConfigured)
-    || bgResult.providerUsed === "none";
-  if (bgFailed) {
-    log.warn("[photo-studio] background removal failed, provider:", bgResult.providerUsed);
-  }
-
   return {
     fullSize: fullSizeResult.buffer,
     fullSizeFormat: fullSizeResult.format,
@@ -223,7 +298,6 @@ export async function processImageToThumbnail(
     thumbnailFormat: thumbnailResult.format,
     backgroundRemoved: bgResult.hasTransparency,
     backgroundProvider: bgResult.providerUsed,
-    backgroundRemovalFailed: bgFailed,
   };
 }
 

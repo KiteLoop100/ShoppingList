@@ -141,6 +141,7 @@ export function useProductCaptureForm(config: ProductCaptureConfig) {
   const [photoFiles, setPhotoFiles] = useState<File[]>([]);
   const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
   const [processedThumbnail, setProcessedThumbnail] = useState<string | null>(null);
+  const [thumbnailType, setThumbnailType] = useState<"background_removed" | "soft_fallback" | null>(null);
   const [extractedDetails, setExtractedDetails] = useState<ExtractedProductInfo | null>(null);
   const [reviewStatus, setReviewStatus] = useState<string | null>(null);
   const [demandGroups, setDemandGroups] = useState<DemandGroup[]>([]);
@@ -180,7 +181,8 @@ export function useProductCaptureForm(config: ProductCaptureConfig) {
 
     setValues({ ...EMPTY_VALUES, ...init });
     setPhotoFiles([]); setPhotoPreviews([]);
-    setProcessedThumbnail(null); setExtractedDetails(null);
+    setProcessedThumbnail(null); setThumbnailType(null);
+    setExtractedDetails(null);
     setReviewStatus(null); setError(null); setAnalyzing(false);
   }, [open, editAldiProduct, editCompetitorProduct, initialValues]);
 
@@ -233,10 +235,13 @@ export function useProductCaptureForm(config: ProductCaptureConfig) {
       const data = await res.json();
       if (controller.signal.aborted) return;
 
-      if (data.status === "review_required") setReviewStatus(data.review_reason ?? "review_required");
       if (data.thumbnail_base64) {
         const fmt = data.thumbnail_format ?? "image/webp";
         setProcessedThumbnail(`data:${fmt};base64,${data.thumbnail_base64}`);
+        setThumbnailType(data.thumbnail_type ?? null);
+      }
+      if (data.status === "review_required" && !data.thumbnail_base64) {
+        setReviewStatus(data.review_reason ?? "review_required");
       }
       const extracted = data.extracted_data as ExtractedProductInfo | null;
       if (extracted) {
@@ -279,6 +284,7 @@ export function useProductCaptureForm(config: ProductCaptureConfig) {
       const next = prev.filter((_, i) => i !== index);
       if (next.length === 0) {
         setProcessedThumbnail(null);
+        setThumbnailType(null);
         setExtractedDetails(null);
         setReviewStatus(null);
       }
@@ -321,7 +327,7 @@ export function useProductCaptureForm(config: ProductCaptureConfig) {
   return {
     values, setField, setValues,
     saving, analyzing, error,
-    photoFiles, photoPreviews, processedThumbnail,
+    photoFiles, photoPreviews, processedThumbnail, thumbnailType,
     extractedDetails, reviewStatus,
     fileInputRef,
     retailers, demandGroups, filteredSubGroups,
