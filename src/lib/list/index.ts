@@ -25,3 +25,13 @@ export {
   canFillWithTypicalProducts,
   fillListWithTypicalProducts,
 } from "./typical-products";
+export {
+  getRetailerReceiptSummary,
+  getReceiptProductsByTrip,
+  filterToShelfStable,
+} from "./receipt-purchase-menu";
+export type {
+  RetailerReceiptSummary,
+  ReceiptProduct,
+  ReceiptTripMode,
+} from "./receipt-purchase-menu";

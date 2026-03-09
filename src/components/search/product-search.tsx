@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useTranslations } from "next-intl";
 import { useProducts } from "@/lib/products-context";
 import { useCurrentCountry } from "@/lib/current-country-context";
-import type { RecentListProduct } from "@/lib/list";
+import type { RecentListProduct, ReceiptProduct } from "@/lib/list";
 import type { Product, SortMode } from "@/types";
 import dynamic from "next/dynamic";
 import { useAddToList } from "./hooks/use-add-to-list";
@@ -14,6 +14,7 @@ import { SearchResultsPanel } from "./search-results-panel";
 import { RecentPurchasesPanel } from "./recent-purchases-panel";
 import { SpecialsPanel } from "./specials-panel";
 import { RetailerProductsPanel } from "./retailer-products-panel";
+import { PurchaseHistoryMenu, type MenuSelection } from "./purchase-history-menu";
 
 export type { SortMode } from "@/types";
 
@@ -41,6 +42,7 @@ export function ProductSearch({
   const { products } = useProducts();
   const { country } = useCurrentCountry();
   const [query, setQuery] = useState("");
+  const [displayQuery, setDisplayQuery] = useState("");
   const [barcodeScannerOpen, setBarcodeScannerOpen] = useState(false);
   const [sortToastText, setSortToastText] = useState<string | null>(null);
   const sortToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -49,11 +51,12 @@ export function ProductSearch({
 
   const {
     results, recentListProducts, specialsProducts, retailerProducts,
+    receiptProducts, receiptTitle,
     isSearching: loading, isRecentCommand, isSpecialsCommand,
-    retailerPrefix, trimmedQuery, resetResults,
+    retailerPrefix, receiptCommand, trimmedQuery, resetResults,
   } = useSearchExecution({ query, products, country });
 
-  const resetSearch = useCallback(() => { setQuery(""); resetResults(); }, [resetResults]);
+  const resetSearch = useCallback(() => { setQuery(""); setDisplayQuery(""); resetResults(); }, [resetResults]);
   const focusInput = useCallback(() => { inputRef.current?.focus(); }, []);
 
   const {
@@ -82,9 +85,10 @@ export function ProductSearch({
     async (items: { product_id: string; quantity: number }[]) => { await confirmBatchAdd(items); },
     [confirmBatchAdd],
   );
-  const triggerRecentPurchases = useCallback(() => {
+  const handleMenuSelect = useCallback((selection: MenuSelection) => {
     inputRef.current?.blur();
-    setQuery("letzte einkäufe");
+    setQuery(selection.command);
+    setDisplayQuery(selection.label);
   }, []);
 
   const handleSortToggle = useCallback(() => {
@@ -104,15 +108,43 @@ export function ProductSearch({
   }, [sortMode, onSortModeChange, t]);
 
   const showResults = trimmedQuery.length >= MIN_QUERY_LENGTH;
-  const showClear = query.length > 0;
+  const showClear = query.length > 0 || displayQuery.length > 0;
   const showChips = query.length === 0;
   const recentForPanel: RecentListProduct[] | null =
     recentListProducts === "pending" || recentListProducts === null ? null : recentListProducts;
   const specialsForPanel: Product[] | null =
     specialsProducts === "pending" || specialsProducts === null ? null : specialsProducts;
+  const receiptForPanel: ReceiptProduct[] | null =
+    receiptProducts === "pending" || receiptProducts === null ? null : receiptProducts;
+
+  const receiptPanelTitle = useMemo(() => {
+    if (!receiptCommand || !receiptTitle) return "";
+    const { retailer, mode, n } = receiptCommand;
+    const displayRetailer = retailer === "ALDI" ? "ALDI SÜD" : retailer;
+    if (mode === "single") {
+      const key = n <= 2 ? `receiptTitleSingle${n}` : "receiptTitleSingle0";
+      return t(key, { retailer: displayRetailer });
+    }
+    if (mode === "combined") return t("receiptTitleCombined", { retailer: displayRetailer, count: n });
+    return t("receiptTitleNotRecently", { retailer: displayRetailer });
+  }, [receiptCommand, receiptTitle, t]);
+
+  const receiptRecentProducts: RecentListProduct[] = useMemo(
+    () => (receiptForPanel ?? []).map((rp) => ({ product_id: rp.product_id, frequency: rp.frequency })),
+    [receiptForPanel],
+  );
 
   const resultsContent = showResults && (
-    isRecentCommand ? (
+    receiptCommand ? (
+      <RecentPurchasesPanel
+        recentProducts={receiptRecentProducts} products={products} loading={loading}
+        onConfirm={confirmRecentPurchases} onCancel={clearSearch}
+        addCountLabel={(count) => t("lastTripAddCount", { count })}
+        cancelLabel={t("lastTripCancel")} titleLabel={receiptPanelTitle}
+        noneLabel={t("recentPurchasesNone")} loadingLabel={t("searching")}
+        receiptProducts={receiptForPanel ?? undefined}
+      />
+    ) : isRecentCommand ? (
       <RecentPurchasesPanel
         recentProducts={recentForPanel ?? []} products={products} loading={loading}
         onConfirm={confirmRecentPurchases} onCancel={clearSearch}
@@ -158,18 +190,15 @@ export function ProductSearch({
         >
           <div className="flex items-center">
             <input
-              ref={inputRef} type="search" value={query}
-              onChange={(e) => setQuery(e.target.value)} onKeyDown={handleKeyDown}
+              ref={inputRef} type="search" value={displayQuery || query}
+              onChange={(e) => { setDisplayQuery(""); setQuery(e.target.value); }} onKeyDown={handleKeyDown}
               onBlur={() => { setTimeout(() => window.scrollTo({ top: 0 }), 100); }}
               placeholder={placeholder} aria-label={ariaLabel ?? placeholder}
               autoComplete="off" enterKeyHint="done" disabled={adding}
               className="min-h-touch min-w-0 flex-1 rounded-xl border-0 bg-transparent px-4 py-3 text-[15px] text-aldi-text placeholder:text-aldi-muted focus:outline-none disabled:opacity-50"
             />
             {showChips && (
-              <button type="button" onClick={triggerRecentPurchases}
-                className="shrink-0 rounded-full border border-aldi-muted-light bg-gray-50 px-2 py-0.5 text-[10px] text-aldi-muted transition-colors hover:border-aldi-blue/50 hover:text-aldi-blue">
-                {t("chipRecentPurchases")}
-              </button>
+              <PurchaseHistoryMenu onSelect={handleMenuSelect} />
             )}
             <button type="button" onClick={() => setBarcodeScannerOpen(true)} aria-label={t("barcodeScanner")}
               className="touch-target shrink-0 px-2 text-aldi-muted transition-colors hover:text-aldi-blue">

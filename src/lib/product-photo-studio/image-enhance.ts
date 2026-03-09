@@ -9,7 +9,7 @@ import { log } from "@/lib/utils/logger";
 
 export const FULL_SIZE = 1200;
 export const THUMB_SIZE = 150;
-const PADDING_RATIO = 0.10;
+const PADDING_RATIO = 0.0;
 const WHITE = { r: 255, g: 255, b: 255 };
 const TRANSPARENT = { r: 0, g: 0, b: 0, alpha: 0 };
 const SHADOW_BLUR_SIGMA = 6;
@@ -121,7 +121,7 @@ export async function enhanceProduct(imageBuffer: Buffer): Promise<Buffer> {
   return sharp(rgb).joinChannel(alpha).png().toBuffer();
 }
 
-const TRIM_MIN_PIXEL_RATIO = 0.5;
+const TRIM_MIN_PIXEL_RATIO = 0.05;
 
 /**
  * Composite product on white canvas with optional drop shadow.
@@ -130,8 +130,8 @@ const TRIM_MIN_PIXEL_RATIO = 0.5;
  * trimmed, then the product is scaled to fill the full canvas height (or
  * width, if wider than tall) with no padding.
  *
- * RGB images (soft-fallback): legacy 80 % sizing with even padding so the
- * uncropped photo is not clipped at the edges.
+ * RGB images (soft-fallback): product is scaled to fill one canvas axis
+ * (contain-fit, no padding) so it matches edge-to-edge behavior.
  */
 export async function compositeOnCanvas(
   imageBuffer: Buffer,
@@ -153,7 +153,7 @@ export async function compositeOnCanvas(
     let th = meta.height ?? size;
 
     try {
-      const trimmedBuf = await sharp(imageBuffer).trim().toBuffer();
+      const trimmedBuf = await sharp(imageBuffer).trim({ threshold: 30 }).toBuffer();
       const trimmedMeta = await sharp(trimmedBuf).metadata();
       const origPixels = (meta.width ?? 0) * (meta.height ?? 0);
       const trimPixels = (trimmedMeta.width ?? 0) * (trimmedMeta.height ?? 0);
@@ -192,7 +192,7 @@ export async function compositeOnCanvas(
     compositeLeft = Math.round((size - fitWidth) / 2);
     compositeTop = Math.round((size - fitHeight) / 2);
   } else {
-    // --- Legacy 80 % sizing for non-BG-removed (RGB) images ---
+    // --- Edge-to-edge for non-BG-removed (RGB) images ---
     const productArea = Math.round(size * (1 - 2 * PADDING_RATIO));
     const offset = Math.round((size - productArea) / 2);
 

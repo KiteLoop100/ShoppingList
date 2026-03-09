@@ -427,6 +427,18 @@ Preferences are stored in Supabase `user_settings` (synced across devices) with 
 | F27 | Export / Share List | Phase 3+ | Planned → see `FEATURES-PLANNED.md` |
 | F28 | Responsive Multi-Device (Desktop & Tablet) | Pre-Launch | **In progress** → see `UI.md` §6, `ARCHITECTURE.md` §7 |
 | F29 | Product Catalog | MVP | **Implemented** → see below |
+| F30 | ALDI Customer Intelligence | Phase 5 | Planned → see `FEATURES-ALDI-KUNDEN-UNTERSTUETZUNG.md` |
+| F31 | Vergessen-Detektor (Forgotten Items) | Phase 2 | Planned → see `FEATURES-PLANNED.md` |
+| F32 | 1-Tap Nachkauf (Repeat Last Trip) | Phase 2 | Planned → see `FEATURES-PLANNED.md` |
+| F33 | Haushaltsbudget-Tracker | Phase 2 | Planned → see `FEATURES-PLANNED.md` |
+| F34 | Preisgedaechtnis (Personal Price History) | Phase 2 | Planned → see `FEATURES-PLANNED.md` |
+| F35 | Warenkorb-Optimierer (Cart Savings Tips) | Phase 3 | Planned → see `FEATURES-PLANNED.md` |
+| F36 | Saisonkalender (Seasonal Produce) | Phase 2 | Planned → see `FEATURES-PLANNED.md` |
+| F37 | Dark Mode | Phase 2 | Planned → see `FEATURES-PLANNED.md` |
+| F38 | Bulk Text Entry (Multi-Add) | Phase 2 | Planned → see `FEATURES-PLANNED.md` |
+| F39 | Listenvorlagen / Templates | Phase 2 | Planned → see `FEATURES-PLANNED.md` |
+| F40 | Multi-Listen (Multiple Lists) | Phase 3 | Planned → see `FEATURES-PLANNED.md` |
+| F41 | Loyalty Card Wallet | Phase 3 | Planned → see `FEATURES-PLANNED.md` |
 
 ---
 
@@ -525,5 +537,5 @@ No `matchScore` signal (no search query involved).
 
 ---
 
-*Last updated: 2026-03-07*
-*See also: [FEATURES-PLANNED.md](FEATURES-PLANNED.md) (F02-SS, F15, F20, F22, F27), [FEATURES-ACCOUNT.md](FEATURES-ACCOUNT.md) (F17), [LAUNCH-READINESS.md](LAUNCH-READINESS.md)*
+*Last updated: 2026-03-08*
+*See also: [FEATURES-PLANNED.md](FEATURES-PLANNED.md) (prioritized feature backlog, F02-SS through F41), [FEATURES-ACCOUNT.md](FEATURES-ACCOUNT.md) (F17), [LAUNCH-READINESS.md](LAUNCH-READINESS.md)*

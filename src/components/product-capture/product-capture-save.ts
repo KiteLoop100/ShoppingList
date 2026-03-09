@@ -21,6 +21,7 @@ import type { ProductCaptureValues } from "./hooks/use-product-capture-form";
 export interface SaveResult {
   productId: string;
   productType: "aldi" | "competitor";
+  name: string;
 }
 
 function applyExtractedUpdates(
@@ -206,7 +207,7 @@ export async function saveProduct(opts: {
       opts.extractedDetails,
       opts.processedThumbnail,
     );
-    return { productId, productType: "aldi" };
+    return { productId, productType: "aldi", name: opts.values.name.trim() };
   }
 
   const productId = await saveCompetitorProduct(
@@ -217,5 +218,5 @@ export async function saveProduct(opts: {
     opts.photoFiles,
     opts.country,
   );
-  return { productId, productType: "competitor" };
+  return { productId, productType: "competitor", name: opts.values.name.trim() };
 }

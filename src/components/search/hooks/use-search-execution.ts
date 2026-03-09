@@ -4,9 +4,13 @@ import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { log } from "@/lib/utils/logger";
 import {
   searchModule, isLastTripCommand, isAktionsartikelCommand,
-  detectRetailerPrefix, type RetailerPrefixResult,
+  detectRetailerPrefix, parseReceiptCommand, detectReceiptPhrase,
+  type RetailerPrefixResult, type ReceiptCommandResult,
 } from "@/lib/search";
-import { getRecentListProducts, type RecentListProduct } from "@/lib/list";
+import {
+  getRecentListProducts, getReceiptProductsByTrip,
+  type RecentListProduct, type ReceiptProduct,
+} from "@/lib/list";
 import { searchRetailerProducts, type RetailerProductResult } from "@/lib/competitor-products/competitor-product-service";
 import type { Product, SearchResult } from "@/types";
 
@@ -54,12 +58,24 @@ export function useSearchExecution({ query, products, country }: UseSearchExecut
         : null,
     [trimmedQuery, country],
   );
+  const receiptCommand = useMemo(
+    (): ReceiptCommandResult | null =>
+      trimmedQuery.length >= MIN_QUERY_LENGTH
+        ? (parseReceiptCommand(trimmedQuery) ?? detectReceiptPhrase(trimmedQuery))
+        : null,
+    [trimmedQuery],
+  );
+
+  const [receiptProducts, setReceiptProducts] = useState<ReceiptProduct[] | null | "pending">(null);
+  const [receiptTitle, setReceiptTitle] = useState<string | null>(null);
 
   const resetResults = useCallback(() => {
     setResults([]);
     setRecentListProducts(null);
     setSpecialsProducts(null);
     setRetailerProducts([]);
+    setReceiptProducts(null);
+    setReceiptTitle(null);
   }, []);
 
   const runSearch = useCallback(async (q: string, id: number) => {
@@ -105,6 +121,23 @@ export function useSearchExecution({ query, products, country }: UseSearchExecut
       setIsSearching(false);
     }
   }, []);
+
+  const fetchReceiptProducts = useCallback(
+    async (cmd: ReceiptCommandResult) => {
+      setIsSearching(true);
+      setReceiptProducts("pending");
+      try {
+        const items = await getReceiptProductsByTrip(cmd.retailer, cmd.mode, cmd.n);
+        setReceiptProducts(items);
+      } catch (e) {
+        log.error("[fetchReceiptProducts] failed:", e);
+        setReceiptProducts([]);
+      } finally {
+        setIsSearching(false);
+      }
+    },
+    [],
+  );
 
   const fetchSpecials = useCallback(() => {
     setIsSearching(true);
@@ -155,27 +188,32 @@ export function useSearchExecution({ query, products, country }: UseSearchExecut
     const id = ++searchIdRef.current;
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
-      if (isRecentCommand) {
-        setResults([]); setSpecialsProducts(null); setRetailerProducts([]);
+      if (receiptCommand) {
+        setResults([]); setRecentListProducts(null); setSpecialsProducts(null); setRetailerProducts([]);
+        setReceiptTitle(`${receiptCommand.retailer}:${receiptCommand.mode}:${receiptCommand.n}`);
+        fetchReceiptProducts(receiptCommand);
+      } else if (isRecentCommand) {
+        setResults([]); setSpecialsProducts(null); setRetailerProducts([]); setReceiptProducts(null); setReceiptTitle(null);
         fetchRecentPurchases();
       } else if (isSpecialsCommand) {
-        setResults([]); setRecentListProducts(null); setRetailerProducts([]);
+        setResults([]); setRecentListProducts(null); setRetailerProducts([]); setReceiptProducts(null); setReceiptTitle(null);
         fetchSpecials();
       } else if (retailerPrefix) {
-        setRecentListProducts(null); setSpecialsProducts(null); setResults([]);
+        setRecentListProducts(null); setSpecialsProducts(null); setResults([]); setReceiptProducts(null); setReceiptTitle(null);
         runRetailerSearch(retailerPrefix.retailer.name, retailerPrefix.productQuery, id);
       } else {
-        setRecentListProducts(null); setSpecialsProducts(null); setRetailerProducts([]);
+        setRecentListProducts(null); setSpecialsProducts(null); setRetailerProducts([]); setReceiptProducts(null); setReceiptTitle(null);
         runSearch(query, id);
       }
       debounceRef.current = null;
     }, SEARCH_DEBOUNCE_MS);
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
-  }, [query, isRecentCommand, isSpecialsCommand, retailerPrefix, runSearch, runRetailerSearch, fetchRecentPurchases, fetchSpecials]);
+  }, [query, receiptCommand, isRecentCommand, isSpecialsCommand, retailerPrefix, runSearch, runRetailerSearch, fetchRecentPurchases, fetchReceiptProducts, fetchSpecials]);
 
   return {
     results, recentListProducts, specialsProducts, retailerProducts,
+    receiptProducts, receiptTitle,
     isSearching, isRecentCommand, isSpecialsCommand, retailerPrefix,
-    trimmedQuery, resetResults,
+    receiptCommand, trimmedQuery, resetResults,
   };
 }

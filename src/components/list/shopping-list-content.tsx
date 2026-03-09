@@ -202,7 +202,7 @@ export const ShoppingListContent = memo(function ShoppingListContent({
         open={ms.captureOpen}
         mode={ms.captureConfig?.mode ?? "create"}
         onClose={modals.closeCapture}
-        onSaved={async (productId, productType) => {
+        onSaved={async (productId, productType, name) => {
           const itemId = ms.captureConfig?.itemId;
           if (itemId) {
             const linkField = productType === "aldi" ? "product_id" : "competitor_product_id";
@@ -210,6 +210,20 @@ export const ShoppingListContent = memo(function ShoppingListContent({
             catch (e) { console.warn("[shopping-list] link after capture failed:", e); }
           }
           if (productType === "aldi") {
+            const isEdit = ms.captureConfig?.mode === "edit" && ms.captureConfig?.editAldiProduct != null;
+            if (isEdit) {
+              const allItems = [...unchecked, ...checked, ...deferred];
+              const linkedItems = allItems.filter(
+                (it) => it.product_id === productId && it.custom_name == null,
+              );
+              await Promise.all(
+                linkedItems.map((it) =>
+                  updateListItem(it.item_id, { display_name: name }).catch((e) =>
+                    console.warn("[shopping-list] display_name sync failed:", e),
+                  ),
+                ),
+              );
+            }
             await refetchProducts();
           } else {
             await refetchCompetitorProducts();

@@ -261,10 +261,9 @@ describe("loadReceiptWithItems – thumbnail_url", () => {
 });
 
 describe("linkReceiptItemToProduct", () => {
-  it("updates the receipt item with product_id", async () => {
-    const updateFn = vi.fn().mockReturnValue({
-      eq: vi.fn().mockResolvedValue({ error: null }),
-    });
+  it("updates a single receipt item with product_id", async () => {
+    const inFn = vi.fn().mockResolvedValue({ error: null });
+    const updateFn = vi.fn().mockReturnValue({ in: inFn });
 
     const supabase = {
       from: vi.fn(() => ({ update: updateFn })),
@@ -274,14 +273,28 @@ describe("linkReceiptItemToProduct", () => {
 
     expect(supabase.from).toHaveBeenCalledWith("receipt_items");
     expect(updateFn).toHaveBeenCalledWith({ product_id: "prod-new" });
+    expect(inFn).toHaveBeenCalledWith("receipt_item_id", ["item-1"]);
+  });
+
+  it("updates multiple receipt items when given an array of IDs", async () => {
+    const inFn = vi.fn().mockResolvedValue({ error: null });
+    const updateFn = vi.fn().mockReturnValue({ in: inFn });
+
+    const supabase = {
+      from: vi.fn(() => ({ update: updateFn })),
+    } as unknown as import("@supabase/supabase-js").SupabaseClient;
+
+    await linkReceiptItemToProduct(["item-1", "item-2", "item-3"], "prod-new", supabase);
+
+    expect(updateFn).toHaveBeenCalledWith({ product_id: "prod-new" });
+    expect(inFn).toHaveBeenCalledWith("receipt_item_id", ["item-1", "item-2", "item-3"]);
   });
 
   it("throws and logs when update fails", async () => {
     const dbError = { code: "42501", message: "permission denied" };
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const updateFn = vi.fn().mockReturnValue({
-      eq: vi.fn().mockResolvedValue({ error: dbError }),
-    });
+    const inFn = vi.fn().mockResolvedValue({ error: dbError });
+    const updateFn = vi.fn().mockReturnValue({ in: inFn });
 
     const supabase = {
       from: vi.fn(() => ({ update: updateFn })),
@@ -289,7 +302,7 @@ describe("linkReceiptItemToProduct", () => {
 
     await expect(linkReceiptItemToProduct("item-1", "prod-x", supabase)).rejects.toEqual(dbError);
     expect(warnSpy).toHaveBeenCalledWith(
-      "[receipts] Failed to link receipt item to product:",
+      "[receipts] Failed to link receipt item(s) to product:",
       dbError,
     );
   });

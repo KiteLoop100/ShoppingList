@@ -9,4 +9,8 @@ import type { SearchResult } from "@/types";
 
 export const searchModule: SearchModule = localSearch;
 export type { SearchResult };
-export { isLastTripCommand, isAktionsartikelCommand, detectRetailerPrefix, type RetailerPrefixResult } from "./commands";
+export {
+  isLastTripCommand, isAktionsartikelCommand, detectRetailerPrefix,
+  parseReceiptCommand, buildReceiptCommand, detectReceiptPhrase,
+  type RetailerPrefixResult, type ReceiptCommandResult,
+} from "./commands";

@@ -194,17 +194,18 @@ export async function loadReceiptWithItems(
 }
 
 export async function linkReceiptItemToProduct(
-  receiptItemId: string,
+  receiptItemIds: string | string[],
   productId: string,
   supabase: SupabaseClient,
 ): Promise<void> {
+  const ids = Array.isArray(receiptItemIds) ? receiptItemIds : [receiptItemIds];
   const { error } = await supabase
     .from("receipt_items")
     .update({ product_id: productId })
-    .eq("receipt_item_id", receiptItemId);
+    .in("receipt_item_id", ids);
 
   if (error) {
-    console.warn("[receipts] Failed to link receipt item to product:", error);
+    console.warn("[receipts] Failed to link receipt item(s) to product:", error);
     throw error;
   }
 }

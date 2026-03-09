@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { useRouter } from "@/lib/i18n/navigation";
 import { log } from "@/lib/utils/logger";
 import { MAX_RECEIPT_PHOTOS } from "@/lib/receipts/constants";
+import { markReceiptsChanged } from "@/lib/receipts/receipt-cache-signal";
 
 export interface CapturedPhoto {
   id: string;
@@ -135,6 +136,7 @@ function fireAndForgetAnalysis(
       if (sseResult.type === "error") {
         const errData = sseResult.data as Record<string, unknown>;
         if (errData.error === "duplicate_receipt") {
+          markReceiptsChanged();
           setResult({ receipt_id: (errData.receipt_id as string) ?? "", items_count: 0, prices_updated: 0 });
           setPhase("done");
           return;
@@ -147,6 +149,7 @@ function fireAndForgetAnalysis(
         return;
       }
 
+      markReceiptsChanged();
       setResult(sseResult.data as ReceiptResult);
       setPhase("done");
     } catch (err) {

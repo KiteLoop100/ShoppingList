@@ -92,8 +92,8 @@ describe("compositeOnCanvas", () => {
     expect(format).toBe("image/jpeg");
   });
 
-  test("RGB image uses legacy 80% sizing with padding", async () => {
-    const input = await makeTestImage(400, 400, 3);
+  test("RGB image fills full canvas axis (no padding)", async () => {
+    const input = await makeTestImage(400, 200, 3);
     const { buffer } = await compositeOnCanvas(input, 1200, false);
 
     const meta = await sharp(buffer).metadata();
@@ -101,12 +101,13 @@ describe("compositeOnCanvas", () => {
     expect(meta.height).toBe(1200);
 
     const { data, info } = await sharp(buffer).raw().toBuffer({ resolveWithObject: true });
-    const isWhite = (idx: number) =>
-      data[idx] >= 250 && data[idx + 1] >= 250 && data[idx + 2] >= 250;
-    const centerIdx = (600 * info.width + 600) * info.channels;
-    expect(isWhite(centerIdx)).toBe(false);
-    const cornerIdx = 0;
-    expect(isWhite(cornerIdx)).toBe(true);
+    const isWhite = (x: number, y: number) => {
+      const idx = (y * info.width + x) * info.channels;
+      return data[idx] >= 250 && data[idx + 1] >= 250 && data[idx + 2] >= 250;
+    };
+    const cy = Math.round(info.height / 2);
+    expect(isWhite(2, cy)).toBe(false);
+    expect(isWhite(info.width - 3, cy)).toBe(false);
   });
 
   test("RGBA tall image fills full canvas height (edge-to-edge)", async () => {
@@ -146,6 +147,26 @@ describe("compositeOnCanvas", () => {
     const cy = Math.round(info.height / 2);
     expect(isWhite(2, cy)).toBe(false);
     expect(isWhite(info.width - 3, cy)).toBe(false);
+  });
+
+  test("RGBA narrow product with large transparent margin fills full height", async () => {
+    // Simulates a bottle: 100px wide x 400px tall on a 500x500 transparent canvas
+    // After trim, the product is 20% of image area — previously skipped by TRIM_MIN_PIXEL_RATIO=0.5
+    const input = await makeProductOnTransparentBg(100, 400, 200, 50);
+    const { buffer } = await compositeOnCanvas(input, 1200, false);
+
+    const { data, info } = await sharp(buffer).raw().toBuffer({ resolveWithObject: true });
+    const isWhite = (x: number, y: number) => {
+      const idx = (y * info.width + x) * info.channels;
+      return data[idx] >= 250 && data[idx + 1] >= 250 && data[idx + 2] >= 250;
+    };
+
+    const cx = Math.round(info.width / 2);
+    expect(isWhite(cx, 2)).toBe(false);
+    expect(isWhite(cx, info.height - 3)).toBe(false);
+
+    expect(isWhite(2, Math.round(info.height / 2))).toBe(true);
+    expect(isWhite(info.width - 3, Math.round(info.height / 2))).toBe(true);
   });
 
   test("RGBA thumbnail (150px) also uses edge-to-edge", async () => {

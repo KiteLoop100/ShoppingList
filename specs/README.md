@@ -8,7 +8,7 @@
 | **PRODUCT.md** | Product concept, target audience, design principles | 100 |
 | **MVP.md** | What's in the MVP, what's not | 145 |
 | **FEATURES-CORE.md** | F01-F12, F23, F29: Search, shopping list, sorting, store detection, settings, catalog, comments | 530 |
-| **FEATURES-PLANNED.md** | F02-SS, F15, F20, F22, F27: Detailed specs for planned/unimplemented features | 230 |
+| **FEATURES-PLANNED.md** | Prioritized feature backlog (27 features ranked by Nutzen x Einfachheit). Detailed specs for F02-SS, F15, F20, F22, F27. Lightweight specs for F31-F41 (Vergessen-Detektor, Budget-Tracker, Dark Mode, Templates, etc.) | 350 |
 | **FEATURES-CAPTURE.md** | F13: Photo upload, receipt scan, PDF import, review workflow, manual creation | 217 |
 | **FEATURES-FLYER.md** | F14: Flyer browser, add specials to list | 163 |
 | **FEATURES-ELSEWHERE.md** | F26: Buy Elsewhere, competitor products, multi-retailer | 213 |
@@ -60,5 +60,6 @@ Always reference the specific file:
 - Search scoring / weights -> "Read SEARCH-SCORING.md"
 - Sorting logic -> "Read LEARNING-ALGORITHMS.md"
 - Account / Auth -> "Read FEATURES-ACCOUNT.md"
+- Feature prioritization / what to build next -> "Read FEATURES-PLANNED.md Priority Backlog"
 - Planned features (voice, recipe, semantic search) -> "Read FEATURES-PLANNED.md"
 - Launch preparation -> "Read LAUNCH-READINESS.md"

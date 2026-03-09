@@ -38,7 +38,7 @@ export interface ProductCaptureConfig {
   open: boolean;
   mode: "create" | "edit";
   onClose: () => void;
-  onSaved: (productId: string, productType: "aldi" | "competitor") => void;
+  onSaved: (productId: string, productType: "aldi" | "competitor", name: string) => void;
   initialValues?: Partial<ProductCaptureValues>;
   hiddenFields?: string[];
   lockedFields?: string[];
@@ -316,7 +316,7 @@ export function useProductCaptureForm(config: ProductCaptureConfig) {
         photoFiles,
         country: country ?? "DE",
       });
-      onSaved(result.productId, result.productType);
+      onSaved(result.productId, result.productType, result.name);
       onClose();
     } catch (e: unknown) {
       log.error("[ProductCaptureForm] save failed:", e);

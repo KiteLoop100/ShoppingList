@@ -32,7 +32,7 @@ export default function ReceiptDetailPage() {
   const [photoUrls, setPhotoUrls] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [showPhotos, setShowPhotos] = useState(false);
-  const [captureItem, setCaptureItem] = useState<ReceiptItem | null>(null);
+  const [captureItem, setCaptureItem] = useState<GroupedReceiptItem | null>(null);
   const [toast, setToast] = useState(false);
 
   const groupedItems = useMemo(() => groupReceiptItems(rawItems), [rawItems]);
@@ -60,12 +60,14 @@ export default function ReceiptDetailPage() {
   const handlePhotoSaved = useCallback(async (productId: string) => {
     if (!captureItem) return;
 
+    const itemIds = captureItem.original_item_ids ?? [captureItem.receipt_item_id];
+
     const supabase = createClientIfConfigured();
-    if (supabase && !captureItem.product_id && !captureItem.competitor_product_id) {
+    if (supabase) {
       try {
-        await linkReceiptItemToProduct(captureItem.receipt_item_id, productId, supabase);
-      } catch {
-        console.warn("[receipts] Failed to link receipt item after product creation");
+        await linkReceiptItemToProduct(itemIds, productId, supabase);
+      } catch (e) {
+        console.warn("[receipts] Failed to link receipt item(s) after product creation:", e);
       }
     }
 
@@ -362,11 +364,10 @@ export default function ReceiptDetailPage() {
 
       <ProductCaptureModal
         open={!!captureItem}
-        mode={captureItem?.product_id ? "edit" : "create"}
+        mode="create"
         onClose={() => setCaptureItem(null)}
         onSaved={handlePhotoSaved}
         initialValues={captureInitialValues}
-        hiddenFields={captureItem?.product_id ? ["retailer"] : undefined}
         lockedFields={["name", "articleNumber", "price"]}
       />
 
