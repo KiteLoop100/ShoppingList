@@ -110,11 +110,10 @@ export function useProductCreation(options: {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const dsgTable = "demand_sub_groups" in db ? (db as unknown as Record<string, { toArray: () => Promise<SgOption[]> }>).demand_sub_groups : null;
       const [idbGroups, sbGroups, idbSubs, sbSubs] = await Promise.all([
         db.demand_groups.toArray(),
         fetchDemandGroupsFromSupabase(),
-        dsgTable ? dsgTable.toArray().catch(() => [] as SgOption[]) : Promise.resolve([] as SgOption[]),
+        db.demand_sub_groups.toArray().catch(() => [] as SgOption[]),
         fetchDemandSubGroupsFromSupabase(),
       ]);
       if (cancelled) return;

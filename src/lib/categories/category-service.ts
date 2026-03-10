@@ -9,6 +9,8 @@ export interface DemandGroupRow {
   color: string | null;
   sort_position: number;
   parent_group: string | null;
+  is_meta: boolean;
+  source: string;
 }
 
 let _dgCache: DemandGroupRow[] | null = null;
@@ -32,7 +34,8 @@ async function _fetchDemandGroups(): Promise<DemandGroupRow[] | null> {
 
   const { data } = await supabase
     .from("demand_groups")
-    .select("code, name, name_en, icon, color, sort_position, parent_group")
+    .select("code, name, name_en, icon, color, sort_position, parent_group, is_meta, source")
+    .neq("source", "merged")
     .order("sort_position");
 
   if (data) _dgCache = data as DemandGroupRow[];
@@ -48,15 +51,18 @@ export function toDemandGroups(rows: DemandGroupRow[]): DemandGroup[] {
     icon: r.icon,
     color: r.color,
     sort_position: r.sort_position,
+    parent_group: r.parent_group,
+    is_meta: r.is_meta,
+    source: r.source as DemandGroup["source"],
   }));
 }
 
 /**
- * Get meta-categories (top-level groups with no parent).
- * These are the 14 consolidated categories for the catalog view.
+ * Get meta-categories (top-level groups marked is_meta).
+ * These are the consolidated categories for the catalog view.
  */
 export function getMetaCategories(rows: DemandGroupRow[]): DemandGroupRow[] {
-  return rows.filter((r) => r.parent_group === null && r.code.startsWith("M"));
+  return rows.filter((r) => r.is_meta);
 }
 
 /**
@@ -80,8 +86,10 @@ export function getChildGroupCodes(rows: DemandGroupRow[], metaCategoryCode: str
 export interface DemandSubGroupRow {
   code: string;
   name: string;
+  name_en: string | null;
   demand_group_code: string;
   sort_position: number;
+  source: string;
 }
 
 let _dsgCache: DemandSubGroupRow[] | null = null;
@@ -102,7 +110,8 @@ async function _fetchDemandSubGroups(): Promise<DemandSubGroupRow[] | null> {
 
   const { data } = await supabase
     .from("demand_sub_groups")
-    .select("code, name, demand_group_code, sort_position")
+    .select("code, name, name_en, demand_group_code, sort_position, source")
+    .neq("source", "merged")
     .order("sort_position");
 
   if (data) _dsgCache = data as DemandSubGroupRow[];

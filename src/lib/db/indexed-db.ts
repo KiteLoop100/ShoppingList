@@ -11,6 +11,7 @@ import type {
   Product,
   CompetitorProduct,
   DemandGroup,
+  DemandSubGroup,
   Store,
   ListItem,
   AisleOrder,
@@ -20,7 +21,6 @@ import type {
   ShoppingList,
   ShoppingTrip,
   TripItem,
-  CategoryAlias,
   SortingError,
   PairwiseComparison,
   CheckoffSequence,
@@ -29,6 +29,10 @@ import type {
 export interface LocalProduct extends Product {}
 
 export interface LocalDemandGroup extends DemandGroup {
+  id?: number;
+}
+
+export interface LocalDemandSubGroup extends DemandSubGroup {
   id?: number;
 }
 
@@ -65,10 +69,6 @@ export interface LocalTripItem extends TripItem {
   id?: number;
 }
 
-export interface LocalCategoryAlias extends CategoryAlias {
-  id?: number;
-}
-
 export interface LocalSortingError extends SortingError {
   id?: number;
 }
@@ -89,7 +89,7 @@ export class AppDatabase extends Dexie {
   products!: Table<LocalProduct, string>;
   competitor_products!: Table<LocalCompetitorProduct, number>;
   demand_groups!: Table<LocalDemandGroup, number>;
-  category_aliases!: Table<LocalCategoryAlias, number>;
+  demand_sub_groups!: Table<LocalDemandSubGroup, number>;
   sorting_errors!: Table<LocalSortingError, number>;
   stores!: Table<LocalStore, number>;
   list_items!: Table<LocalListItem, number>;
@@ -169,6 +169,14 @@ export class AppDatabase extends Dexie {
     // Multi-retailer: add retailer index to stores
     this.version(14).stores({
       stores: "++id, store_id, country, [latitude+longitude], has_sorting_data, retailer",
+    });
+    // C4: Drop category_aliases table (replaced by demand_groups)
+    this.version(15).stores({
+      category_aliases: null,
+    });
+    // Demand sub-groups table for offline-first sub-group lookups
+    this.version(16).stores({
+      demand_sub_groups: "++id, code, demand_group_code, sort_position",
     });
   }
 }

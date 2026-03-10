@@ -23,7 +23,7 @@ import {
   type SortData,
 } from "./list-data-helpers";
 import type { LocalStore } from "@/lib/db";
-import type { DemandGroup, Product, SortMode } from "@/types";
+import type { DemandGroup, DemandSubGroup, Product, SortMode } from "@/types";
 
 export type {
   ListDataCaches,
@@ -84,6 +84,7 @@ export function useListFetch(sortMode: SortMode): UseListFetchResult {
   const isFirstLoad = useRef(true);
   const refetchSeqRef = useRef(0);
   const demandGroupsCacheRef = useRef<DemandGroup[] | null>(null);
+  const demandSubGroupsCacheRef = useRef<DemandSubGroup[] | null>(null);
   const autoReorderCacheRef = useRef<AutoReorderSetting[] | null>(null);
   const idbProductsCacheRef = useRef<Product[] | null>(null);
   const prevContextProductsLenRef = useRef(contextProducts.length);
@@ -102,6 +103,7 @@ export function useListFetch(sortMode: SortMode): UseListFetchResult {
       const todayStr = new Date().toISOString().slice(0, 10);
       const caches: ListDataCaches = {
         demandGroupsCache: demandGroupsCacheRef,
+        demandSubGroupsCache: demandSubGroupsCacheRef,
         autoReorderCache: autoReorderCacheRef,
         idbProductsCache: idbProductsCacheRef,
       };

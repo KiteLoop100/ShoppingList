@@ -22,14 +22,6 @@ export interface User {
   last_active_at: string;
 }
 
-export interface Category {
-  category_id: string;
-  name: string;
-  name_translations: Record<string, string>;
-  icon: string;
-  default_sort_position: number;
-}
-
 export interface Product {
   product_id: string;
   article_number?: string | null;
@@ -37,7 +29,6 @@ export interface Product {
   name: string;
   name_normalized: string;
   brand: string | null;
-  demand_group?: string | null;
   demand_sub_group?: string | null;
   demand_group_code: string;
   price: number | null;
@@ -192,7 +183,6 @@ export interface CheckoffSequenceItem {
   item_id: string;
   demand_group_code: string;
   checked_at: string;
-  demand_group?: string | null;
   /** Demand sub-group (from product) for pairwise extraction. */
   demand_sub_group?: string | null;
   /** product_id for product-level pairwise. */
@@ -227,18 +217,7 @@ export interface AggregatedAisleOrder {
   last_calculated_at: string;
 }
 
-/** Category alias (DATA-MODEL 6b): maps terms/brands to category_id for automatic assignment. */
-export type CategoryAliasSource = "manual" | "ai" | "crowdsourcing";
-
-export interface CategoryAlias {
-  alias_id: string;
-  term_normalized: string;
-  category_id: string;
-  source: CategoryAliasSource;
-  confidence: number;
-  created_at: string;
-  updated_at: string;
-}
+export type DemandGroupSource = "curated" | "ai_generated" | "official" | "merged";
 
 export interface DemandGroup {
   code: string;
@@ -248,6 +227,17 @@ export interface DemandGroup {
   color: string | null;
   sort_position: number;
   parent_group?: string | null;
+  is_meta?: boolean;
+  source?: DemandGroupSource;
+}
+
+export interface DemandSubGroup {
+  code: string;
+  name: string;
+  name_en: string | null;
+  demand_group_code: string;
+  sort_position: number;
+  source?: DemandGroupSource;
 }
 
 export type OfflineQueueAction = "add" | "update" | "delete";
@@ -274,7 +264,6 @@ export interface CompetitorProduct {
   retailer: string | null;
   thumbnail_url: string | null;
   other_photo_url: string | null;
-  category_id: string | null;
   demand_group_code: string | null;
   demand_sub_group: string | null;
   assortment_type: string | null;

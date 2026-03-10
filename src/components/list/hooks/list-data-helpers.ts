@@ -3,13 +3,17 @@ import { db } from "@/lib/db";
 import { getActiveListWithItems } from "@/lib/list";
 import { type ProductMetaForSort, type ListItemWithMeta } from "@/lib/list/list-helpers";
 import { getStoreById } from "@/lib/store/store-service";
-import { fetchDemandGroupsFromSupabase, toDemandGroups } from "@/lib/categories/category-service";
+import {
+  fetchDemandGroupsFromSupabase,
+  fetchDemandSubGroupsFromSupabase,
+  toDemandGroups,
+} from "@/lib/categories/category-service";
 import {
   fetchActiveAutoReorderSettings,
   type AutoReorderSetting,
 } from "@/lib/list/auto-reorder-service";
-import type { LocalDemandGroup, LocalListItem, LocalShoppingList, LocalStore } from "@/lib/db";
-import type { DemandGroup, Product } from "@/types";
+import type { LocalDemandGroup, LocalDemandSubGroup, LocalListItem, LocalShoppingList, LocalStore } from "@/lib/db";
+import type { DemandGroup, DemandSubGroup, Product } from "@/types";
 
 // ─── Constants ────────────────────────────────────────────────────────
 
@@ -23,6 +27,7 @@ const COUNTRY_TZ: Record<string, string> = {
 
 export interface ListDataCaches {
   demandGroupsCache: { current: DemandGroup[] | null };
+  demandSubGroupsCache: { current: DemandSubGroup[] | null };
   autoReorderCache: { current: AutoReorderSetting[] | null };
   idbProductsCache: { current: Product[] | null };
 }
@@ -84,15 +89,18 @@ export function computeActivationTime(specialStartDate: string, country: string)
 
 export async function fetchListData(caches: ListDataCaches): Promise<FetchedListData> {
   const shouldFetchDemandGroups = caches.demandGroupsCache.current === null;
+  const shouldFetchSubGroups = caches.demandSubGroupsCache.current === null;
   const shouldFetchReorder = caches.autoReorderCache.current === null;
   const shouldFetchIdbProducts = caches.idbProductsCache.current === null;
 
-  const [listResult, idbProductsResult, reorderRows, idbDgs, dgRows] = await Promise.all([
+  const [listResult, idbProductsResult, reorderRows, idbDgs, dgRows, idbDsgs, dsgRows] = await Promise.all([
     getActiveListWithItems(),
     shouldFetchIdbProducts ? db.products.toArray() : Promise.resolve([] as Product[]),
     shouldFetchReorder ? fetchActiveAutoReorderSettings() : Promise.resolve(null),
     shouldFetchDemandGroups ? db.demand_groups.toArray() : Promise.resolve([] as LocalDemandGroup[]),
     shouldFetchDemandGroups ? fetchDemandGroupsFromSupabase() : Promise.resolve(null),
+    shouldFetchSubGroups ? db.demand_sub_groups.toArray().catch(() => [] as LocalDemandSubGroup[]) : Promise.resolve([] as LocalDemandSubGroup[]),
+    shouldFetchSubGroups ? fetchDemandSubGroupsFromSupabase() : Promise.resolve(null),
   ]);
 
   const { list, items } = listResult;
@@ -122,6 +130,22 @@ export async function fetchListData(caches: ListDataCaches): Promise<FetchedList
     setDemandGroups(demandGroups);
   }
 
+  if (caches.demandSubGroupsCache.current === null) {
+    const subGroups: DemandSubGroup[] = idbDsgs.map(sg => ({
+      code: sg.code, name: sg.name, name_en: sg.name_en, demand_group_code: sg.demand_group_code, sort_position: sg.sort_position,
+    }));
+    if (dsgRows?.length) {
+      const codeSet = new Set(subGroups.map(sg => sg.code));
+      for (const row of dsgRows) {
+        if (!codeSet.has(row.code)) {
+          codeSet.add(row.code);
+          subGroups.push({ code: row.code, name: row.name, name_en: row.name_en, demand_group_code: row.demand_group_code, sort_position: row.sort_position });
+        }
+      }
+    }
+    caches.demandSubGroupsCache.current = subGroups;
+  }
+
   if (caches.autoReorderCache.current === null) {
     caches.autoReorderCache.current = ((reorderRows ?? []) as AutoReorderSetting[]).map(row => ({
       ...row,
@@ -146,8 +170,8 @@ export function buildProductMaps(idbProducts: Product[], contextProducts: Produc
 
   const SPECIAL_TYPES = new Set(["special", "special_food", "special_nonfood"]);
 
-  const markHasAdditionalInfo = (p: Pick<Product, "product_id" | "thumbnail_url" | "brand" | "nutrition_info" | "ingredients" | "allergens" | "weight_or_quantity" | "article_number" | "ean_barcode" | "demand_group" | "assortment_type" | "special_start_date" | "special_end_date">) => {
-    if (p.thumbnail_url || (p.brand != null && p.brand !== "") || (p.nutrition_info != null && typeof p.nutrition_info === "object" && Object.keys(p.nutrition_info).length > 0) || (p.ingredients != null && p.ingredients !== "") || (p.allergens != null && p.allergens !== "") || (p.weight_or_quantity != null && p.weight_or_quantity !== "") || (p.article_number != null && p.article_number !== "") || (p.ean_barcode != null && p.ean_barcode !== "") || (p.demand_group != null && p.demand_group !== "") || (p.assortment_type === "special" || p.assortment_type === "special_food" || p.assortment_type === "special_nonfood") || (p.special_start_date != null && p.special_start_date !== "") || (p.special_end_date != null && p.special_end_date !== "")) {
+  const markHasAdditionalInfo = (p: Pick<Product, "product_id" | "thumbnail_url" | "brand" | "nutrition_info" | "ingredients" | "allergens" | "weight_or_quantity" | "article_number" | "ean_barcode" | "demand_group_code" | "assortment_type" | "special_start_date" | "special_end_date">) => {
+    if (p.thumbnail_url || (p.brand != null && p.brand !== "") || (p.nutrition_info != null && typeof p.nutrition_info === "object" && Object.keys(p.nutrition_info).length > 0) || (p.ingredients != null && p.ingredients !== "") || (p.allergens != null && p.allergens !== "") || (p.weight_or_quantity != null && p.weight_or_quantity !== "") || (p.article_number != null && p.article_number !== "") || (p.ean_barcode != null && p.ean_barcode !== "") || (p.demand_group_code != null && p.demand_group_code !== "") || (p.assortment_type === "special" || p.assortment_type === "special_food" || p.assortment_type === "special_nonfood") || (p.special_start_date != null && p.special_start_date !== "") || (p.special_end_date != null && p.special_end_date !== "")) {
       productIdsWithAdditionalInfo.add(p.product_id);
     }
   };
@@ -157,7 +181,7 @@ export function buildProductMaps(idbProducts: Product[], contextProducts: Produc
     if (p.thumbnail_url) productThumbnailMap.set(p.product_id, p.thumbnail_url);
     markHasAdditionalInfo(p);
     productMetaMap.set(p.product_id, {
-      demand_group: p.demand_group ?? null,
+      demand_group_code: p.demand_group_code ?? null,
       demand_sub_group: p.demand_sub_group ?? null,
       popularity_score: p.popularity_score ?? null,
       is_special: SPECIAL_TYPES.has(p.assortment_type ?? ""),
