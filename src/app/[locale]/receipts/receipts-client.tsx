@@ -10,7 +10,7 @@ import { formatDateCompact } from "@/lib/utils/format-date";
 import { ReceiptScanner } from "@/app/[locale]/capture/receipt-scanner";
 import { CardSkeleton } from "@/components/ui/skeleton";
 import { getRetailerByName } from "@/lib/retailers/retailers";
-import { isInventoryEnabled } from "@/lib/settings/settings-sync";
+import { isInventoryEnabled, loadSettings } from "@/lib/settings/settings-sync";
 import { InventoryList } from "@/components/inventory/inventory-list";
 
 const POLL_INTERVAL_MS = 8_000;
@@ -39,7 +39,7 @@ export function ReceiptsClientPage() {
   const [scannerOpen, setScannerOpen] = useState(false);
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
   const [pendingReceipt, setPendingReceipt] = useState(false);
-  const inventoryActive = isInventoryEnabled();
+  const [inventoryActive, setInventoryActive] = useState(isInventoryEnabled());
   const initialTab = searchParams.get("tab") === "inventory" && inventoryActive ? "inventory" : "receipts";
   const [activeTab, setActiveTab] = useState<ActiveTab>(initialTab);
   const receiptCountBeforeSubmit = useRef(0);
@@ -74,6 +74,12 @@ export function ReceiptsClientPage() {
   useEffect(() => {
     loadReceipts();
   }, [loadReceipts]);
+
+  useEffect(() => {
+    loadSettings().then((s) => {
+      setInventoryActive(s.enable_inventory);
+    });
+  }, []);
 
   const stopPolling = useCallback(() => {
     if (pollTimerRef.current) {

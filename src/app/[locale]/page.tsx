@@ -14,7 +14,7 @@ import { useStoreDetection } from "@/hooks/use-store-detection";
 import { OnboardingFlow, ONBOARDING_COMPLETE_KEY } from "@/components/onboarding/onboarding-flow";
 import { useAuth } from "@/lib/auth/auth-context";
 import { PostShoppingPrompt } from "@/components/feedback/post-shopping-prompt";
-import { isInventoryEnabled } from "@/lib/settings/settings-sync";
+import { isInventoryEnabled, loadSettings } from "@/lib/settings/settings-sync";
 
 const COMPLETION_DELAY_MS = 1800;
 
@@ -27,6 +27,7 @@ export default function MainScreenPage() {
   const tFlyer = useTranslations("flyer");
   const tReceipts = useTranslations("receipts");
 
+  const [invEnabled, setInvEnabled] = useState(isInventoryEnabled());
   const [showCompletion, setShowCompletion] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [lastTripId, setLastTripId] = useState<string | null>(null);
@@ -34,6 +35,10 @@ export default function MainScreenPage() {
   const [showFeedbackPrompt, setShowFeedbackPrompt] = useState(false);
   const searchParams = useSearchParams();
   const { user, isAnonymous } = useAuth();
+
+  useEffect(() => {
+    loadSettings().then((s) => setInvEnabled(s.enable_inventory));
+  }, []);
 
   useEffect(() => {
     const forceShow = searchParams.get("onboarding") === "true";
@@ -211,12 +216,12 @@ export default function MainScreenPage() {
         <Link
           href="/receipts"
           className="touch-target flex items-center justify-center gap-1.5 rounded-xl text-aldi-blue transition-colors hover:bg-aldi-blue-light md:px-2"
-          aria-label={isInventoryEnabled() ? tReceipts("householdTitle") : tReceipts("navLabel")}
+          aria-label={invEnabled ? tReceipts("householdTitle") : tReceipts("navLabel")}
         >
           <svg className="h-[22px] w-[22px]" fill="none" viewBox="0 0 24 24" strokeWidth={1.75} stroke="currentColor" aria-hidden>
             <path strokeLinecap="round" strokeLinejoin="round" d="M9 14.25l6-6m4.5-3.493V21.75l-3.75-1.5-3.75 1.5-3.75-1.5-3.75 1.5V4.757c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0c1.1.128 1.907 1.077 1.907 2.185zM9.75 9h.008v.008H9.75V9zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm4.125 4.5h.008v.008h-.008V13.5zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
           </svg>
-          <span className="hidden text-xs font-medium md:inline">{isInventoryEnabled() ? tReceipts("householdTitle") : tReceipts("navLabel")}</span>
+          <span className="hidden text-xs font-medium md:inline">{invEnabled ? tReceipts("householdTitle") : tReceipts("navLabel")}</span>
         </Link>
         <Link
           href="/flyer"

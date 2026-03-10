@@ -8,7 +8,7 @@ import {
 } from "@/lib/list/receipt-purchase-menu";
 import { buildReceiptCommand, CONSUMED_COMMAND } from "@/lib/search/commands";
 import { getLastReceiptChangeTs } from "@/lib/receipts/receipt-cache-signal";
-import { isInventoryEnabled } from "@/lib/settings/settings-sync";
+import { isInventoryEnabled, loadSettings } from "@/lib/settings/settings-sync";
 
 export interface MenuSelection {
   command: string;
@@ -85,8 +85,13 @@ export function PurchaseHistoryMenu({ onSelect }: PurchaseHistoryMenuProps) {
   const [open, setOpen] = useState(false);
   const [summaries, setSummaries] = useState<RetailerReceiptSummary[] | null>(null);
   const [loading, setLoading] = useState(false);
+  const [invEnabled, setInvEnabled] = useState(isInventoryEnabled());
   const menuRef = useRef<HTMLDivElement>(null);
   const cacheRef = useRef<{ data: RetailerReceiptSummary[]; ts: number } | null>(null);
+
+  useEffect(() => {
+    loadSettings().then((s) => setInvEnabled(s.enable_inventory));
+  }, []);
 
   const loadSummaries = useCallback(async () => {
     const changeTs = getLastReceiptChangeTs();
@@ -215,7 +220,7 @@ export function PurchaseHistoryMenu({ onSelect }: PurchaseHistoryMenuProps) {
                   ))}
                 </div>
               ))}
-              {isInventoryEnabled() && (
+              {invEnabled && (
                 <>
                   <div className="border-t border-gray-200" />
                   <button
