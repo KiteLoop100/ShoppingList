@@ -8,7 +8,7 @@ import {
 } from "@/lib/list/receipt-purchase-menu";
 import { buildReceiptCommand, CONSUMED_COMMAND } from "@/lib/search/commands";
 import { getLastReceiptChangeTs } from "@/lib/receipts/receipt-cache-signal";
-import { isInventoryEnabled, loadSettings } from "@/lib/settings/settings-sync";
+import { loadSettings } from "@/lib/settings/settings-sync";
 
 export interface MenuSelection {
   command: string;
@@ -85,7 +85,7 @@ export function PurchaseHistoryMenu({ onSelect }: PurchaseHistoryMenuProps) {
   const [open, setOpen] = useState(false);
   const [summaries, setSummaries] = useState<RetailerReceiptSummary[] | null>(null);
   const [loading, setLoading] = useState(false);
-  const [invEnabled, setInvEnabled] = useState(isInventoryEnabled());
+  const [invEnabled, setInvEnabled] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const cacheRef = useRef<{ data: RetailerReceiptSummary[]; ts: number } | null>(null);
 

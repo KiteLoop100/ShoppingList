@@ -113,7 +113,10 @@ import {
   removeInventoryItem,
   isInventoryEnabledForUser,
   upsertInventoryFromReceipt,
+  productToInventoryInput,
+  competitorProductToInventoryInput,
 } from "../inventory-service";
+import type { Product, CompetitorProduct } from "@/types";
 
 describe("inventory-service", () => {
   beforeEach(() => {
@@ -330,6 +333,75 @@ describe("inventory-service", () => {
       ]);
 
       expect(sb.from).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("productToInventoryInput", () => {
+    const product = {
+      product_id: "prod-42",
+      name: "Milsani H-Milch 3,5%",
+      demand_group_code: "MP",
+      thumbnail_url: "https://example.com/milk.jpg",
+    } as Product;
+
+    test("maps ALDI product to InventoryUpsertInput with source manual", () => {
+      const result = productToInventoryInput(product, "manual");
+      expect(result).toEqual({
+        product_id: "prod-42",
+        competitor_product_id: null,
+        display_name: "Milsani H-Milch 3,5%",
+        demand_group_code: "MP",
+        thumbnail_url: "https://example.com/milk.jpg",
+        quantity: 1,
+        source: "manual",
+      });
+    });
+
+    test("maps ALDI product with source barcode", () => {
+      const result = productToInventoryInput(product, "barcode");
+      expect(result.source).toBe("barcode");
+      expect(result.product_id).toBe("prod-42");
+    });
+
+    test("handles missing thumbnail_url", () => {
+      const noThumb = { ...product, thumbnail_url: undefined } as Product;
+      const result = productToInventoryInput(noThumb, "manual");
+      expect(result.thumbnail_url).toBeNull();
+    });
+  });
+
+  describe("competitorProductToInventoryInput", () => {
+    const competitor = {
+      product_id: "comp-99",
+      name: "Kerrygold Butter",
+      demand_group_code: "MP",
+      thumbnail_url: "https://example.com/butter.jpg",
+    } as CompetitorProduct;
+
+    test("maps competitor product with product_id null", () => {
+      const result = competitorProductToInventoryInput(competitor, "manual");
+      expect(result).toEqual({
+        product_id: null,
+        competitor_product_id: "comp-99",
+        display_name: "Kerrygold Butter",
+        demand_group_code: "MP",
+        thumbnail_url: "https://example.com/butter.jpg",
+        quantity: 1,
+        source: "manual",
+      });
+    });
+
+    test("maps competitor product with source barcode", () => {
+      const result = competitorProductToInventoryInput(competitor, "barcode");
+      expect(result.source).toBe("barcode");
+      expect(result.competitor_product_id).toBe("comp-99");
+      expect(result.product_id).toBeNull();
+    });
+
+    test("handles null demand_group_code", () => {
+      const noDgc = { ...competitor, demand_group_code: null } as CompetitorProduct;
+      const result = competitorProductToInventoryInput(noDgc, "manual");
+      expect(result.demand_group_code).toBeNull();
     });
   });
 });

@@ -14,7 +14,7 @@ import { useStoreDetection } from "@/hooks/use-store-detection";
 import { OnboardingFlow, ONBOARDING_COMPLETE_KEY } from "@/components/onboarding/onboarding-flow";
 import { useAuth } from "@/lib/auth/auth-context";
 import { PostShoppingPrompt } from "@/components/feedback/post-shopping-prompt";
-import { isInventoryEnabled, loadSettings } from "@/lib/settings/settings-sync";
+import { loadSettings } from "@/lib/settings/settings-sync";
 
 const COMPLETION_DELAY_MS = 1800;
 
@@ -27,7 +27,7 @@ export default function MainScreenPage() {
   const tFlyer = useTranslations("flyer");
   const tReceipts = useTranslations("receipts");
 
-  const [invEnabled, setInvEnabled] = useState(isInventoryEnabled());
+  const [invEnabled, setInvEnabled] = useState(false);
   const [showCompletion, setShowCompletion] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [lastTripId, setLastTripId] = useState<string | null>(null);

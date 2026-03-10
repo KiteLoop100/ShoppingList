@@ -5,7 +5,7 @@
 
 import { log } from "@/lib/utils/logger";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { InventoryUpsertInput } from "./inventory-types";
+import type { InventoryItem, InventoryUpsertInput } from "./inventory-types";
 import { upsertInventoryItem, isInventoryEnabledForUser } from "./inventory-service";
 
 export interface ReceiptItemForInventory {
@@ -21,6 +21,8 @@ export interface ReceiptItemForInventory {
  * Upsert inventory items from a processed receipt.
  * Called from both parse-receipt.ts and merge-receipt.ts.
  * Checks enable_inventory server-side before writing.
+ * Enriches items with demand_group_code/thumbnail_url from product tables
+ * when receipt items don't carry these fields.
  */
 export async function upsertInventoryFromReceipt(
   supabase: SupabaseClient,
@@ -31,20 +33,60 @@ export async function upsertInventoryFromReceipt(
   const enabled = await isInventoryEnabledForUser(supabase, userId);
   if (!enabled) return;
 
-  for (const item of items) {
-    if (!item.product_id && !item.competitor_product_id) continue;
+  const relevantItems = items.filter((i) => i.product_id || i.competitor_product_id);
+  if (relevantItems.length === 0) return;
+
+  const productMeta = await batchLookupProductMeta(supabase, relevantItems);
+
+  for (const item of relevantItems) {
+    const key = item.product_id ?? item.competitor_product_id ?? "";
+    const meta = productMeta.get(key);
 
     await upsertInventoryItem(supabase, userId, {
       product_id: item.product_id,
       competitor_product_id: item.competitor_product_id,
       display_name: item.receipt_name,
-      demand_group_code: item.demand_group_code ?? null,
-      thumbnail_url: item.thumbnail_url ?? null,
+      demand_group_code: item.demand_group_code ?? meta?.demand_group_code ?? null,
+      thumbnail_url: item.thumbnail_url ?? meta?.thumbnail_url ?? null,
       quantity: item.quantity,
       source: "receipt",
       source_receipt_id: receiptId,
     });
   }
+}
+
+type ProductMeta = { demand_group_code: string | null; thumbnail_url: string | null };
+
+async function batchLookupProductMeta(
+  supabase: SupabaseClient,
+  items: ReceiptItemForInventory[],
+): Promise<Map<string, ProductMeta>> {
+  const result = new Map<string, ProductMeta>();
+
+  const productIds = items.filter((i) => i.product_id).map((i) => i.product_id!);
+  const competitorIds = items.filter((i) => !i.product_id && i.competitor_product_id).map((i) => i.competitor_product_id!);
+
+  if (productIds.length > 0) {
+    const { data } = await supabase
+      .from("products")
+      .select("product_id, demand_group_code, thumbnail_url")
+      .in("product_id", [...new Set(productIds)]);
+    for (const p of data ?? []) {
+      result.set(p.product_id, { demand_group_code: p.demand_group_code, thumbnail_url: p.thumbnail_url });
+    }
+  }
+
+  if (competitorIds.length > 0) {
+    const { data } = await supabase
+      .from("competitor_products")
+      .select("product_id, demand_group_code, thumbnail_url")
+      .in("product_id", [...new Set(competitorIds)]);
+    for (const p of data ?? []) {
+      result.set(p.product_id, { demand_group_code: p.demand_group_code, thumbnail_url: p.thumbnail_url });
+    }
+  }
+
+  return result;
 }
 
 /**
@@ -77,7 +119,8 @@ export async function backfillFromReceipts(
 
   if (iError || !items?.length) return 0;
 
-  const aggregated = new Map<string, { display_name: string; product_id: string | null; competitor_product_id: string | null; quantity: number }>();
+  type AggItem = { display_name: string; product_id: string | null; competitor_product_id: string | null; quantity: number };
+  const aggregated = new Map<string, AggItem>();
   for (const item of items) {
     const pid = item.product_id ?? item.competitor_product_id;
     if (!pid) continue;
@@ -95,6 +138,14 @@ export async function backfillFromReceipts(
     }
   }
 
+  const metaItems: ReceiptItemForInventory[] = [...aggregated.values()].map((a) => ({
+    product_id: a.product_id,
+    competitor_product_id: a.competitor_product_id,
+    receipt_name: a.display_name,
+    quantity: a.quantity,
+  }));
+  const productMeta = await batchLookupProductMeta(supabase, metaItems);
+
   const { data: existingInv } = await supabase
     .from("inventory_items")
     .select("id, product_id, competitor_product_id, quantity")
@@ -111,7 +162,9 @@ export async function backfillFromReceipts(
   const updates: { id: string; quantity: number }[] = [];
 
   for (const [, agg] of aggregated) {
-    const key = `${agg.product_id ? "p" : "c"}:${agg.product_id ?? agg.competitor_product_id}`;
+    const pid = agg.product_id ?? agg.competitor_product_id ?? "";
+    const meta = productMeta.get(pid);
+    const key = `${agg.product_id ? "p" : "c"}:${pid}`;
     const ex = existingMap.get(key);
     if (ex) {
       updates.push({ id: ex.id, quantity: ex.quantity + agg.quantity });
@@ -121,6 +174,8 @@ export async function backfillFromReceipts(
         product_id: agg.product_id,
         competitor_product_id: agg.competitor_product_id,
         display_name: agg.display_name,
+        demand_group_code: meta?.demand_group_code ?? null,
+        thumbnail_url: meta?.thumbnail_url ?? null,
         quantity: agg.quantity,
         source: "receipt",
       });
@@ -149,4 +204,33 @@ export async function backfillFromReceipts(
   }
 
   return count;
+}
+
+/**
+ * Enrich inventory items that have null demand_group_code by looking up
+ * the product/competitor_product tables. Mutates items in-place.
+ */
+export async function enrichMissingDemandGroupCodes(
+  supabase: SupabaseClient,
+  items: InventoryItem[],
+): Promise<void> {
+  const needsEnrich = items.filter((i) => !i.demand_group_code);
+  if (needsEnrich.length === 0) return;
+
+  const enrichItems: ReceiptItemForInventory[] = needsEnrich.map((i) => ({
+    product_id: i.product_id,
+    competitor_product_id: i.competitor_product_id,
+    receipt_name: i.display_name,
+    quantity: i.quantity,
+  }));
+  const meta = await batchLookupProductMeta(supabase, enrichItems);
+
+  for (const item of needsEnrich) {
+    const pid = item.product_id ?? item.competitor_product_id;
+    if (pid) {
+      const m = meta.get(pid);
+      if (m?.demand_group_code) item.demand_group_code = m.demand_group_code;
+      if (m?.thumbnail_url && !item.thumbnail_url) item.thumbnail_url = m.thumbnail_url;
+    }
+  }
 }

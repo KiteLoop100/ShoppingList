@@ -1,6 +1,6 @@
 # FEATURES-INVENTORY.md — Household Inventory (Haushaltsinventar)
 
-> **Status:** Mostly Complete (manual-add pending)
+> **Status:** Complete
 > **Feature-ID:** F42
 > **Phase:** Phase 2
 > **Default:** Deaktiviert (opt-in via Settings Toggle)
@@ -98,7 +98,7 @@ Barcode scan ──────┘     (sealed/opened)
 | Translations (DE + EN) | Done | `src/messages/de.json`, `en.json` |
 | Navigation updates | Done | `src/components/layout/app-shell.tsx`, `src/app/[locale]/page.tsx` |
 | Type exports | Done | `src/types/index.ts` |
-| **Manual add** (product search + barcode button in inventory tab) | **Pending** | — |
+| Manual add (product search + barcode button in inventory tab) | Done | `src/components/inventory/inventory-add-modal.tsx`, `inventory-list.tsx` |
 
 ## Robustness Notes
 

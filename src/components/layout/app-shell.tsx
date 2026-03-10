@@ -4,7 +4,7 @@ import { type ReactNode, useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { Link, usePathname } from "@/lib/i18n/navigation";
 import { useBreakpoint } from "@/hooks/use-breakpoint";
-import { isInventoryEnabled, loadSettings } from "@/lib/settings/settings-sync";
+import { loadSettings } from "@/lib/settings/settings-sync";
 
 interface AppShellProps {
   children: ReactNode;
@@ -17,7 +17,7 @@ export function AppShell({ children }: AppShellProps) {
   const tFlyer = useTranslations("flyer");
   const tReceipts = useTranslations("receipts");
   const pathname = usePathname();
-  const [invEnabled, setInvEnabled] = useState(isInventoryEnabled());
+  const [invEnabled, setInvEnabled] = useState(false);
 
   useEffect(() => {
     loadSettings().then((s) => setInvEnabled(s.enable_inventory));
