@@ -154,7 +154,7 @@ describe("/api/assign-category", () => {
   });
 
   test("AG code increments from existing AG codes", async () => {
-    const { generateNextAgCode } = await import("../route");
+    const { generateNextAgCode } = await import("@/lib/categories/generate-ag-code");
     const sb = mockSupabase();
     sb._fromFn.mockReturnValue({
       select: vi.fn().mockReturnValue({
@@ -171,7 +171,7 @@ describe("/api/assign-category", () => {
   });
 
   test("AG code starts at AG01 with no existing codes", async () => {
-    const { generateNextAgCode } = await import("../route");
+    const { generateNextAgCode } = await import("@/lib/categories/generate-ag-code");
     const sb = mockSupabase();
     sb._fromFn.mockReturnValue({
       select: vi.fn().mockReturnValue({
