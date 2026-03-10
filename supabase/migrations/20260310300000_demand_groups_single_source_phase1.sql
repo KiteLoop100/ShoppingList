@@ -22,19 +22,28 @@ ALTER TABLE demand_sub_groups ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFA
 ALTER TABLE demand_sub_groups ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT now();
 
 -- =====================================================================
--- 1c. CHECK constraints on demand_groups
+-- 1c. CHECK constraints on demand_groups (idempotent via DO block)
 -- =====================================================================
-ALTER TABLE demand_groups ADD CONSTRAINT chk_dg_source
-  CHECK (source IN ('curated', 'ai_generated', 'official', 'merged'));
+DO $$ BEGIN
+  ALTER TABLE demand_groups ADD CONSTRAINT chk_dg_source
+    CHECK (source IN ('curated', 'ai_generated', 'official', 'merged'));
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-ALTER TABLE demand_groups ADD CONSTRAINT chk_dg_hierarchy
-  CHECK ((is_meta = true AND parent_group IS NULL) OR (is_meta = false));
+DO $$ BEGIN
+  ALTER TABLE demand_groups ADD CONSTRAINT chk_dg_hierarchy
+    CHECK ((is_meta = true AND parent_group IS NULL) OR (is_meta = false));
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- =====================================================================
 -- 1d. CHECK constraint on demand_sub_groups
 -- =====================================================================
-ALTER TABLE demand_sub_groups ADD CONSTRAINT chk_dsg_source
-  CHECK (source IN ('curated', 'ai_generated', 'official', 'merged'));
+DO $$ BEGIN
+  ALTER TABLE demand_sub_groups ADD CONSTRAINT chk_dsg_source
+    CHECK (source IN ('curated', 'ai_generated', 'official', 'merged'));
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- =====================================================================
 -- 1e. Mark existing meta-categories (M01–M14)
