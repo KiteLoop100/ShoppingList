@@ -59,7 +59,6 @@ export function ProductDetailView({
         imageLabels={imageLabels}
         retailerNames={retailerNames}
         productPhotos={productPhotos}
-        offlineHint={t("offlinePhotosHint")}
       />
 
       {isAldi && (

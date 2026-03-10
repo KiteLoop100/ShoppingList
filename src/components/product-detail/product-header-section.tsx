@@ -10,7 +10,6 @@ interface ProductHeaderSectionProps {
   imageLabels: Record<string, string>;
   retailerNames?: string[];
   productPhotos?: ProductPhoto[];
-  offlineHint?: string;
 }
 
 export function ProductHeaderSection({
@@ -18,11 +17,9 @@ export function ProductHeaderSection({
   imageLabels,
   retailerNames,
   productPhotos,
-  offlineHint,
 }: ProductHeaderSectionProps) {
   const images: ProductImage[] = getProductImages(product, productPhotos);
   const hasBrand = product.brand != null && product.brand !== "";
-  const hasExtraPhotos = productPhotos && productPhotos.length > 1;
 
   return (
     <div className="mb-4 flex flex-col items-start gap-3">
@@ -45,15 +42,11 @@ export function ProductHeaderSection({
           ))}
         </div>
       )}
-      {offlineHint && !hasExtraPhotos && (
-        <p className="text-[11px] italic text-aldi-muted">{offlineHint}</p>
-      )}
       <div className="min-w-0">
         <p className="text-base font-medium text-aldi-text">{product.name}</p>
         {hasBrand && <p className="mt-0.5 text-sm text-aldi-muted">{product.brand}</p>}
         {retailerNames && retailerNames.length > 0 && (
           <p className="mt-1 text-sm text-aldi-muted">
-            <span className="mr-1">🏪</span>
             {retailerNames.join(", ")}
           </p>
         )}
