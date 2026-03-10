@@ -4,7 +4,7 @@
  * Uses the anon key so RLS policies are respected.
  */
 
-import { createServerClient } from "@supabase/ssr";
+import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 function parseCookies(
@@ -21,9 +21,14 @@ function parseCookies(
  * Create a Supabase client that carries the caller's auth session.
  * Cookie-based: the browser client (@supabase/ssr) stores the session
  * in sb-* cookies which are sent automatically with same-origin fetch().
+ *
+ * When `responseHeaders` is provided, refreshed session cookies are
+ * written back to the response. Without it, token refresh is silently
+ * skipped (read-only mode for lightweight auth checks).
  */
 export function createSupabaseServerFromRequest(
-  request: Request
+  request: Request,
+  responseHeaders?: Headers
 ): SupabaseClient | null {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -37,9 +42,17 @@ export function createSupabaseServerFromRequest(
       getAll() {
         return requestCookies;
       },
-      setAll() {
-        // Token refresh is handled by the browser client;
-        // route handlers only verify the existing session.
+      setAll(cookiesToSet: { name: string; value: string; options: CookieOptions }[]) {
+        if (!responseHeaders) return;
+        for (const { name, value, options } of cookiesToSet) {
+          const parts = [`${name}=${value}`];
+          if (options?.path) parts.push(`Path=${options.path}`);
+          if (options?.maxAge != null) parts.push(`Max-Age=${options.maxAge}`);
+          if (options?.httpOnly) parts.push("HttpOnly");
+          if (options?.secure) parts.push("Secure");
+          if (options?.sameSite) parts.push(`SameSite=${options.sameSite}`);
+          responseHeaders.append("Set-Cookie", parts.join("; "));
+        }
       },
     },
   });

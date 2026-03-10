@@ -13,6 +13,7 @@ import { getOrCreateActiveList } from "@/lib/list/active-list";
 import { getStoreById } from "@/lib/store/store-service";
 import { getDefaultStoreId } from "@/lib/settings/default-store";
 import { getCountryFromDevice } from "@/lib/geo/country-from-device";
+import { checkGpsAllowed } from "@/lib/geo/gps-permission";
 
 type CountryCode = string; // e.g. "AT" | "DE"
 
@@ -61,10 +62,14 @@ export function CurrentCountryProvider({ children }: { children: ReactNode }) {
             return;
           }
         }
-        // 3. GPS / device location
-        const fromDevice = await getCountryFromDevice();
+        // 3. GPS / device location (only if GPS is enabled)
+        const gpsCheck = await checkGpsAllowed();
         if (cancelled) return;
-        setCountryState(fromDevice);
+        if (gpsCheck.allowed) {
+          const fromDevice = await getCountryFromDevice();
+          if (cancelled) return;
+          setCountryState(fromDevice);
+        }
       } catch {
         // Already initialized to "DE", nothing to do
       }

@@ -117,11 +117,19 @@ class InStoreMonitor implements InStoreMonitorHandle {
   }
 }
 
+export interface CreateInStoreMonitorOptions {
+  gpsEnabled?: boolean;
+}
+
 export function createInStoreMonitor(
   listId: string,
   initiallyInStore: boolean,
-  onUpdate: InStoreCallback
+  onUpdate: InStoreCallback,
+  options?: CreateInStoreMonitorOptions
 ): InStoreMonitorHandle {
+  if (options?.gpsEnabled === false) {
+    return { stop() {} };
+  }
   const monitor = new InStoreMonitor(listId, initiallyInStore, onUpdate);
   monitor.start();
   return monitor;

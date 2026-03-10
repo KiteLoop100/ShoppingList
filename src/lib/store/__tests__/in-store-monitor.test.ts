@@ -50,6 +50,7 @@ import {
   findNearest,
   ENTER_RADIUS_M,
   LEAVE_RADIUS_M,
+  type CreateInStoreMonitorOptions,
 } from "@/lib/store/in-store-monitor";
 
 describe("findNearest", () => {
@@ -199,6 +200,18 @@ describe("InStoreMonitor", () => {
     // monitor is still alive (didn't stop after 2 errors post-reset).
     expect(onUpdate).toHaveBeenCalledTimes(1);
 
+    monitor.stop();
+  });
+
+  test("returns no-op monitor when gpsEnabled is false", async () => {
+    const onUpdate = vi.fn();
+    const monitor = createInStoreMonitor("list-1", false, onUpdate, {
+      gpsEnabled: false,
+    });
+
+    await vi.advanceTimersByTimeAsync(90_000);
+
+    expect(onUpdate).not.toHaveBeenCalled();
     monitor.stop();
   });
 });

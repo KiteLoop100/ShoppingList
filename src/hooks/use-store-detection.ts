@@ -9,6 +9,7 @@ import type { LocalStore } from "@/lib/db";
 import { createInStoreMonitor } from "@/lib/store/in-store-monitor";
 import type { InStoreMonitorHandle } from "@/lib/store/in-store-monitor";
 import type { SortMode } from "@/components/search/product-search";
+import { checkGpsAllowed } from "@/lib/geo/gps-permission";
 import { log } from "@/lib/utils/logger";
 
 const SORT_TOAST_MS = 2000;
@@ -100,6 +101,17 @@ export function useStoreDetection({
 
     async function attempt(retryCount: number): Promise<void> {
       if (cancelled) return;
+
+      if (retryCount === 0) {
+        const gpsCheck = await checkGpsAllowed();
+        if (cancelled) return;
+        if (!gpsCheck.allowed) {
+          log.info(`[useStoreDetection] GPS skipped: ${gpsCheck.reason}`);
+          gpsAttemptRef.current = 1;
+          return;
+        }
+      }
+
       gpsAttemptRef.current = retryCount + 1;
 
       const { result, gpsPosition } = await detectStoreOrPosition(listId!);

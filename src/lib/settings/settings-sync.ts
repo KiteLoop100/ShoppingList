@@ -11,6 +11,7 @@ import { log } from "@/lib/utils/logger";
 export interface UserSettings {
   preferred_language: "de" | "en";
   default_store_id: string | null;
+  gps_enabled: boolean;
   exclude_gluten: boolean;
   exclude_lactose: boolean;
   exclude_nuts: boolean;
@@ -26,6 +27,7 @@ const LOCAL_CACHE_KEY = "user-settings-cache";
 const DEFAULTS: UserSettings = {
   preferred_language: "de",
   default_store_id: null,
+  gps_enabled: true,
   exclude_gluten: false,
   exclude_lactose: false,
   exclude_nuts: false,
@@ -79,6 +81,7 @@ export async function loadSettings(forceUserId?: string): Promise<UserSettings> 
       const settings: UserSettings = {
         preferred_language: (data.preferred_language as UserSettings["preferred_language"]) ?? DEFAULTS.preferred_language,
         default_store_id: data.default_store_id ?? DEFAULTS.default_store_id,
+        gps_enabled: data.gps_enabled ?? DEFAULTS.gps_enabled,
         exclude_gluten: data.exclude_gluten ?? DEFAULTS.exclude_gluten,
         exclude_lactose: data.exclude_lactose ?? DEFAULTS.exclude_lactose,
         exclude_nuts: data.exclude_nuts ?? DEFAULTS.exclude_nuts,
@@ -125,6 +128,7 @@ export async function saveSettings(
         user_id: userId,
         preferred_language: merged.preferred_language,
         default_store_id: merged.default_store_id,
+        gps_enabled: merged.gps_enabled,
         exclude_gluten: merged.exclude_gluten,
         exclude_lactose: merged.exclude_lactose,
         exclude_nuts: merged.exclude_nuts,

@@ -14,6 +14,7 @@ import {
 import { APP_VERSION } from "@/lib/app-config";
 import { useAuth } from "@/lib/auth/auth-context";
 import { loadSettings, saveSettings } from "@/lib/settings/settings-sync";
+import { queryGeolocationPermission } from "@/lib/geo/gps-permission";
 import { createClientIfConfigured } from "@/lib/supabase/client";
 import type { LocalStore } from "@/lib/db";
 import { normalizeForFilter, filterAndSortStores } from "@/lib/store/store-filter";
@@ -34,6 +35,8 @@ export function SettingsClient() {
 
   const [stores, setStores] = useState<LocalStore[]>([]);
   const [defaultStoreId, setDefaultStoreIdState] = useState<string | null>(null);
+  const [gpsEnabled, setGpsEnabled] = useState(true);
+  const [gpsBrowserDenied, setGpsBrowserDenied] = useState(false);
   const [loading, setLoading] = useState(true);
   const [storeSearchQuery, setStoreSearchQuery] = useState("");
   const [prefs, setPrefs] = useState<ProductPreferences>(getProductPreferences);
@@ -62,6 +65,7 @@ export function SettingsClient() {
       } else {
         setDefaultStoreIdState(getDefaultStoreId());
       }
+      setGpsEnabled(s.gps_enabled);
       setPrefs({
         exclude_gluten: s.exclude_gluten,
         exclude_lactose: s.exclude_lactose,
@@ -109,6 +113,9 @@ export function SettingsClient() {
             const storeId = (s.default_store_id as string | null) ?? null;
             setDefaultStoreId(storeId);
             setDefaultStoreIdState(storeId);
+          }
+          if (s.gps_enabled !== undefined) {
+            setGpsEnabled(Boolean(s.gps_enabled));
           }
           const nextPrefs: ProductPreferences = {
             exclude_gluten: Boolean(s.exclude_gluten),
@@ -162,6 +169,19 @@ export function SettingsClient() {
     const selected = value ? stores.find((s) => s.store_id === value) : null;
     setCountry(selected?.country?.toUpperCase() ?? "DE");
   }, [locale, prefs, user?.id, stores, setCountry]);
+
+  const handleGpsToggle = useCallback(async (enabled: boolean) => {
+    if (enabled) {
+      const browserPerm = await queryGeolocationPermission();
+      if (browserPerm === "denied") {
+        setGpsBrowserDenied(true);
+        setTimeout(() => setGpsBrowserDenied(false), 5000);
+        return;
+      }
+    }
+    setGpsEnabled(enabled);
+    saveSettings({ gps_enabled: enabled }, user?.id).catch(() => {});
+  }, [user?.id]);
 
   const saveSettingsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const debouncedSaveSettings = useCallback(
@@ -375,6 +395,31 @@ export function SettingsClient() {
                 )}
               </div>
             </>
+          )}
+        </div>
+
+        <div>
+          <label className="mb-1 block text-sm font-semibold uppercase tracking-wide text-aldi-muted">
+            {t("gpsDetection")}
+          </label>
+          <p className="mb-3 text-xs text-aldi-muted">{t("gpsDetectionHint")}</p>
+          <label className="flex cursor-pointer items-center gap-3 rounded-xl border-2 border-aldi-muted-light bg-white px-4 py-3 transition-colors hover:border-aldi-blue/30">
+            <div className="relative inline-flex h-6 w-11 shrink-0 items-center">
+              <input
+                type="checkbox"
+                className="peer sr-only"
+                checked={gpsEnabled}
+                onChange={(e) => void handleGpsToggle(e.target.checked)}
+              />
+              <div className="h-6 w-11 rounded-full bg-gray-200 transition-colors peer-checked:bg-aldi-blue peer-focus-visible:ring-2 peer-focus-visible:ring-aldi-blue/50" />
+              <div className="absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform peer-checked:translate-x-5" />
+            </div>
+            <span className="text-sm font-medium text-aldi-text">{t("gpsEnabled")}</span>
+          </label>
+          {gpsBrowserDenied && (
+            <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              {t("gpsBrowserDeniedToast")}
+            </p>
           )}
         </div>
 
