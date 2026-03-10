@@ -17,6 +17,11 @@ import {
   type GroupedReceiptItem,
 } from "@/lib/receipts/receipt-service";
 import { ProductCaptureModal } from "@/components/product-capture/product-capture-modal";
+import { ProductDetailModal } from "@/components/list/product-detail-modal";
+import { CompetitorProductDetailModal } from "@/components/list/competitor-product-detail-modal";
+import { db } from "@/lib/db";
+import { findCompetitorProductById } from "@/lib/competitor-products/competitor-product-service";
+import type { Product, CompetitorProduct } from "@/types";
 import type { ProductCaptureValues } from "@/components/product-capture/hooks/use-product-capture-form";
 
 const RECEIPT_THUMB_SIZE = 40;
@@ -34,6 +39,9 @@ export default function ReceiptDetailPage() {
   const [showPhotos, setShowPhotos] = useState(false);
   const [captureItem, setCaptureItem] = useState<GroupedReceiptItem | null>(null);
   const [toast, setToast] = useState(false);
+  const [detailProduct, setDetailProduct] = useState<Product | null>(null);
+  const [detailCompetitor, setDetailCompetitor] = useState<CompetitorProduct | null>(null);
+  const [detailRetailer, setDetailRetailer] = useState<string | null>(null);
 
   const groupedItems = useMemo(() => groupReceiptItems(rawItems), [rawItems]);
 
@@ -76,6 +84,33 @@ export default function ReceiptDetailPage() {
     setTimeout(() => setToast(false), 2500);
     loadReceipt();
   }, [captureItem, loadReceipt]);
+
+  const handleItemClick = useCallback(async (item: GroupedReceiptItem) => {
+    if (item.competitor_product_id) {
+      const cp = await findCompetitorProductById(item.competitor_product_id);
+      if (cp) {
+        setDetailCompetitor(cp);
+        setDetailRetailer(receipt?.retailer ?? null);
+        return;
+      }
+    }
+    if (item.product_id) {
+      const fromDb = await db.products
+        .where("product_id").equals(item.product_id).first();
+      if (fromDb) {
+        setDetailProduct(fromDb as Product);
+        return;
+      }
+      const supabase = createClientIfConfigured();
+      if (supabase) {
+        const { data } = await supabase
+          .from("products").select("*")
+          .eq("product_id", item.product_id).maybeSingle();
+        if (data) { setDetailProduct(data as Product); return; }
+      }
+    }
+    setCaptureItem(item);
+  }, [receipt?.retailer]);
 
   const captureInitialValues: Partial<ProductCaptureValues> | undefined = captureItem
     ? {
@@ -263,16 +298,46 @@ export default function ReceiptDetailPage() {
                   key={item.receipt_item_id}
                   className="flex items-center gap-3 px-5 py-3"
                 >
-                  <span className="w-5 shrink-0 text-right text-xs text-aldi-muted">
-                    {item.position}
-                  </span>
-                  <div className="flex min-w-0 flex-1 flex-col">
+                  {item.thumbnail_url ? (
+                    <div
+                      className="h-10 w-10 shrink-0 cursor-pointer overflow-hidden rounded-lg bg-white"
+                      onClick={() => handleItemClick(item)}
+                    >
+                      <Image
+                        src={item.thumbnail_url}
+                        alt=""
+                        role="presentation"
+                        width={RECEIPT_THUMB_SIZE}
+                        height={RECEIPT_THUMB_SIZE}
+                        className="h-full w-full object-contain object-center"
+                        unoptimized
+                      />
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setCaptureItem(item)}
+                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-dashed border-aldi-muted-light text-aldi-muted transition-colors hover:border-aldi-blue hover:text-aldi-blue"
+                      title={t("addPhoto")}
+                    >
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" aria-hidden>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z" />
+                      </svg>
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    className="flex min-h-touch min-w-0 flex-1 flex-col py-1 text-left"
+                    onClick={() => handleItemClick(item)}
+                  >
                     <span className="flex items-center gap-1.5">
                       <span
                         className={`truncate text-sm ${
                           isLinked
-                            ? "font-medium text-aldi-text"
-                            : "text-aldi-text-secondary"
+                            ? "font-medium text-aldi-text hover:underline"
+                            : "text-aldi-text-secondary hover:underline"
                         }`}
                       >
                         {displayName}
@@ -308,33 +373,7 @@ export default function ReceiptDetailPage() {
                         </span>
                       )}
                     </span>
-                  </div>
-
-                  {item.thumbnail_url ? (
-                    <div className="h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-white">
-                      <Image
-                        src={item.thumbnail_url}
-                        alt=""
-                        role="presentation"
-                        width={RECEIPT_THUMB_SIZE}
-                        height={RECEIPT_THUMB_SIZE}
-                        className="h-full w-full object-contain object-center"
-                        unoptimized
-                      />
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => setCaptureItem(item)}
-                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-dashed border-aldi-muted-light text-aldi-muted transition-colors hover:border-aldi-blue hover:text-aldi-blue"
-                      title={t("addPhoto")}
-                    >
-                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" aria-hidden>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z" />
-                      </svg>
-                    </button>
-                  )}
+                  </button>
 
                   <span className="shrink-0 text-sm font-medium tabular-nums text-aldi-text">
                     {typeof price === "number"
@@ -369,6 +408,18 @@ export default function ReceiptDetailPage() {
         onSaved={handlePhotoSaved}
         initialValues={captureInitialValues}
         lockedFields={["name", "articleNumber", "price"]}
+      />
+
+      <ProductDetailModal
+        product={detailProduct}
+        onClose={() => setDetailProduct(null)}
+      />
+
+      <CompetitorProductDetailModal
+        product={detailCompetitor}
+        onClose={() => setDetailCompetitor(null)}
+        onEdit={() => setDetailCompetitor(null)}
+        retailer={detailRetailer}
       />
 
       {toast && (
