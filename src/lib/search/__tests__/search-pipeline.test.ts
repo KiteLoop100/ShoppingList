@@ -12,7 +12,7 @@ const testProducts: Product[] = [
     assortment_type: "daily_range", availability: "national", region: null,
     country: "DE", special_start_date: null, special_end_date: null,
     status: "active", source: "admin", created_at: "", updated_at: "",
-    demand_group: "03-Wein", popularity_score: 0.7,
+    demand_group_code: "03", popularity_score: 0.7,
   },
   {
     product_id: "2", name: "Weintrauben kernlos 500g", name_normalized: "weintrauben kernlos 500g",
@@ -20,7 +20,7 @@ const testProducts: Product[] = [
     assortment_type: "daily_range", availability: "national", region: null,
     country: "DE", special_start_date: null, special_end_date: null,
     status: "active", source: "admin", created_at: "", updated_at: "",
-    demand_group: "58-Obst", popularity_score: 0.6,
+    demand_group_code: "58", popularity_score: 0.6,
   },
   {
     product_id: "3", name: "Weißwein Chardonnay 1l", name_normalized: "weisswein chardonnay 1l",
@@ -28,7 +28,7 @@ const testProducts: Product[] = [
     assortment_type: "daily_range", availability: "national", region: null,
     country: "DE", special_start_date: null, special_end_date: null,
     status: "active", source: "admin", created_at: "", updated_at: "",
-    demand_group: "03-Wein", popularity_score: 0.65,
+    demand_group_code: "03", popularity_score: 0.65,
   },
   {
     product_id: "4", name: "Mineralwasser Classic 1,5l", name_normalized: "mineralwasser classic 1,5l",
@@ -36,7 +36,7 @@ const testProducts: Product[] = [
     assortment_type: "daily_range", availability: "national", region: null,
     country: "DE", special_start_date: null, special_end_date: null,
     status: "active", source: "admin", created_at: "", updated_at: "",
-    demand_group: "05-Wasser", popularity_score: 0.9,
+    demand_group_code: "05", popularity_score: 0.9,
   },
   {
     product_id: "5", name: "Thunfisch in Wasser 195g", name_normalized: "thunfisch in wasser 195g",
@@ -44,7 +44,7 @@ const testProducts: Product[] = [
     assortment_type: "daily_range", availability: "national", region: null,
     country: "DE", special_start_date: null, special_end_date: null,
     status: "active", source: "admin", created_at: "", updated_at: "",
-    demand_group: "82-Wurst-/Fleisch-/Fischkonserven", popularity_score: 0.5,
+    demand_group_code: "82", popularity_score: 0.5,
   },
   {
     product_id: "6", name: "KA: Batterien AA 8 Stk.", name_normalized: "ka: batterien aa 8 stk.",
@@ -52,7 +52,7 @@ const testProducts: Product[] = [
     assortment_type: "daily_range", availability: "national", region: null,
     country: "DE", special_start_date: null, special_end_date: null,
     status: "active", source: "admin", created_at: "", updated_at: "",
-    demand_group: "12-Audio/Video/Batterien", popularity_score: 0.3,
+    demand_group_code: "12", popularity_score: 0.3,
   },
 ] satisfies Product[];
 
@@ -81,6 +81,22 @@ describe("Search Pipeline", () => {
     expect(weintraubenIdx).toBeGreaterThanOrEqual(0);
     expect(rotweinIdx).toBeLessThan(weintraubenIdx);
     expect(weissweinIdx).toBeLessThan(weintraubenIdx);
+  });
+
+  test("'weisswein' does NOT find Rotwein (no cross-contamination)", () => {
+    const candidates = findCandidates("weisswein", indexed);
+    const ids = candidates.map((c) => c.product.product_id);
+
+    expect(ids).toContain("3"); // Weißwein Chardonnay
+    expect(ids).not.toContain("1"); // Rotwein Merlot should NOT appear
+  });
+
+  test("'rotwein' does NOT find Weißwein (no cross-contamination)", () => {
+    const candidates = findCandidates("rotwein", indexed);
+    const ids = candidates.map((c) => c.product.product_id);
+
+    expect(ids).toContain("1"); // Rotwein Merlot
+    expect(ids).not.toContain("3"); // Weißwein Chardonnay should NOT appear
   });
 
   test("'wasser' ranks Mineralwasser above Thunfisch in Wasser", () => {
@@ -183,5 +199,143 @@ describe("Search Pipeline", () => {
     expect(maeuseIdx).toBeGreaterThanOrEqual(0);
     expect(hMilchIdx).toBeLessThan(maeuseIdx);
     expect(fettarmeIdx).toBeLessThan(maeuseIdx);
+  });
+});
+
+// ──── Alias expansion integration tests ────
+
+const aliasProducts: Product[] = [
+  {
+    product_id: "h1", name: "Haferdrink Natur 1L", name_normalized: "haferdrink natur 1l",
+    brand: "MILSA", price: 1.29, price_updated_at: null,
+    assortment_type: "daily_range", availability: "national", region: null,
+    country: "DE", special_start_date: null, special_end_date: null,
+    status: "active", source: "admin", created_at: "", updated_at: "",
+    demand_group_code: "50", popularity_score: 0.6,
+  },
+  {
+    product_id: "h2", name: "Bio Haferdrink Barista 1L", name_normalized: "bio haferdrink barista 1l",
+    brand: "MILSA", price: 1.69, price_updated_at: null,
+    assortment_type: "daily_range", availability: "national", region: null,
+    country: "DE", special_start_date: null, special_end_date: null,
+    status: "active", source: "admin", created_at: "", updated_at: "",
+    demand_group_code: "50", popularity_score: 0.5,
+  },
+  {
+    product_id: "h3", name: "Geriebener Käse Gouda 250g", name_normalized: "geriebener kase gouda 250g",
+    brand: null, price: 1.99, price_updated_at: null,
+    assortment_type: "daily_range", availability: "national", region: null,
+    country: "DE", special_start_date: null, special_end_date: null,
+    status: "active", source: "admin", created_at: "", updated_at: "",
+    demand_group_code: "84", popularity_score: 0.7,
+  },
+  {
+    product_id: "h4", name: "Toilettenpapier 3-lagig 10 Rollen", name_normalized: "toilettenpapier 3 lagig 10 rollen",
+    brand: "KOKETT", price: 3.45, price_updated_at: null,
+    assortment_type: "daily_range", availability: "national", region: null,
+    country: "DE", special_start_date: null, special_end_date: null,
+    status: "active", source: "admin", created_at: "", updated_at: "",
+    demand_group_code: "10", popularity_score: 0.8,
+  },
+  {
+    product_id: "h5", name: "Rinderhackfleisch 500g", name_normalized: "rinderhackfleisch 500g",
+    brand: null, price: 3.99, price_updated_at: null,
+    assortment_type: "daily_range", availability: "national", region: null,
+    country: "DE", special_start_date: null, special_end_date: null,
+    status: "active", source: "admin", created_at: "", updated_at: "",
+    demand_group_code: "62", popularity_score: 0.65,
+  },
+  {
+    product_id: "h6", name: "Speisekartoffeln festkochend 2,5kg", name_normalized: "speisekartoffeln festkochend 2,5kg",
+    brand: null, price: 2.49, price_updated_at: null,
+    assortment_type: "daily_range", availability: "national", region: null,
+    country: "DE", special_start_date: null, special_end_date: null,
+    status: "active", source: "admin", created_at: "", updated_at: "",
+    demand_group_code: "38", popularity_score: 0.85,
+  },
+  {
+    product_id: "h7", name: "Buttertoast 500g", name_normalized: "buttertoast 500g",
+    brand: "GOLDÄHREN", price: 0.99, price_updated_at: null,
+    assortment_type: "daily_range", availability: "national", region: null,
+    country: "DE", special_start_date: null, special_end_date: null,
+    status: "active", source: "admin", created_at: "", updated_at: "",
+    demand_group_code: "57", popularity_score: 0.7,
+  },
+  {
+    product_id: "h8", name: "Delikatess Mayonnaise 500ml", name_normalized: "delikatess mayonnaise 500ml",
+    brand: null, price: 1.49, price_updated_at: null,
+    assortment_type: "daily_range", availability: "national", region: null,
+    country: "DE", special_start_date: null, special_end_date: null,
+    status: "active", source: "admin", created_at: "", updated_at: "",
+    demand_group_code: "52", popularity_score: 0.5,
+  },
+] satisfies Product[];
+
+describe("Search Pipeline — Alias Expansion", () => {
+  const indexed = indexProducts(aliasProducts);
+
+  test("'hafermilch' finds all Haferdrink products through full pipeline", () => {
+    const candidates = findCandidates("hafermilch", indexed);
+    const scored = scoreAndRank(candidates, 1, defaultPrefs, new Map());
+    const result = postProcess(scored, defaultPrefs);
+    const ids = result.map((r) => r.product.product_id);
+
+    expect(ids).toContain("h1");
+    expect(ids).toContain("h2");
+  });
+
+  test("'reibekäse' finds 'Geriebener Käse' through full pipeline", () => {
+    const candidates = findCandidates("reibekäse", indexed);
+    const scored = scoreAndRank(candidates, 1, defaultPrefs, new Map());
+    const result = postProcess(scored, defaultPrefs);
+    const ids = result.map((r) => r.product.product_id);
+
+    expect(ids).toContain("h3");
+  });
+
+  test("'klopapier' finds Toilettenpapier through full pipeline", () => {
+    const candidates = findCandidates("klopapier", indexed);
+    const scored = scoreAndRank(candidates, 1, defaultPrefs, new Map());
+    const result = postProcess(scored, defaultPrefs);
+    const ids = result.map((r) => r.product.product_id);
+
+    expect(ids).toContain("h4");
+  });
+
+  test("'hackfleisch' finds Rinderhackfleisch through full pipeline", () => {
+    const candidates = findCandidates("hackfleisch", indexed);
+    const scored = scoreAndRank(candidates, 1, defaultPrefs, new Map());
+    const result = postProcess(scored, defaultPrefs);
+    const ids = result.map((r) => r.product.product_id);
+
+    expect(ids).toContain("h5");
+  });
+
+  test("direct search still works — 'haferdrink' returns Haferdrink products", () => {
+    const candidates = findCandidates("haferdrink", indexed);
+    const scored = scoreAndRank(candidates, 1, defaultPrefs, new Map());
+    const result = postProcess(scored, defaultPrefs);
+    const ids = result.map((r) => r.product.product_id);
+
+    expect(ids).toContain("h1");
+    expect(ids).toContain("h2");
+  });
+
+  test("'kartoffeln' finds Speisekartoffeln via alias", () => {
+    const candidates = findCandidates("kartoffeln", indexed);
+    const ids = candidates.map((c) => c.product.product_id);
+    expect(ids).toContain("h6");
+  });
+
+  test("'toastbrot' finds Buttertoast via alias", () => {
+    const candidates = findCandidates("toastbrot", indexed);
+    const ids = candidates.map((c) => c.product.product_id);
+    expect(ids).toContain("h7");
+  });
+
+  test("'mayo' finds Delikatess Mayonnaise via alias", () => {
+    const candidates = findCandidates("mayo", indexed);
+    const ids = candidates.map((c) => c.product.product_id);
+    expect(ids).toContain("h8");
   });
 });

@@ -20,8 +20,6 @@ export interface SearchableProduct extends Product {
   search_name_words: string[];
   /** Brand normalized, or null */
   search_brand_normalized: string | null;
-  /** demand_group normalized, or null */
-  demand_group_normalized: string | null;
 }
 
 /**
@@ -37,9 +35,6 @@ export function indexProduct(product: Product): SearchableProduct {
     search_name_normalized: searchNameNormalized,
     search_name_words: searchNameNormalized.split(" ").filter(Boolean),
     search_brand_normalized: product.brand ? normalize(product.brand) : null,
-    demand_group_normalized: product.demand_group
-      ? normalize(product.demand_group)
-      : null,
   };
 }
 

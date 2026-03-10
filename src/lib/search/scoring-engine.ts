@@ -24,6 +24,7 @@ import type { SearchableProduct } from "./search-indexer";
 import type { ProductPreferences } from "@/lib/settings/product-preferences";
 import { findSynonym, matchesDemandGroupPrefixes } from "./synonym-map";
 import { preprocessQuery } from "./query-preprocessor";
+import { expandQuery } from "./product-aliases";
 
 /** Stored per-user product preference (from user_product_preferences table) */
 export interface UserProductPreference {
@@ -100,20 +101,25 @@ function computeMatchScore(candidate: SearchCandidate, rawQuery?: string): numbe
 
   // Category affinity boost: if the product belongs to the synonym-mapped
   // category AND has a name-based match, add bonus points.
-  // This ensures "Vollmilch 1L" (dairy) ranks above "Bärenmarke H-Milch" (also dairy)
-  // and both rank well above "Milch Maeuse" (chocolate).
+  // Also checks alias-expanded terms so that e.g. "hafermilch" → "haferdrink"
+  // products get the dairy affinity boost when "hafermilch" maps to dairy.
   if (rawQuery) {
     const { normalized } = preprocessQuery(rawQuery);
-    const synonym = findSynonym(normalized);
-    if (
-      synonym &&
-      candidate.product.demand_group_normalized &&
-      matchesDemandGroupPrefixes(
-        candidate.product.demand_group_normalized,
-        synonym.demand_group_prefixes
-      )
-    ) {
-      score += CATEGORY_AFFINITY_BOOST;
+    const termsToCheck = [normalized, ...expandQuery(normalized)];
+
+    for (const term of termsToCheck) {
+      const synonym = findSynonym(term);
+      if (
+        synonym &&
+        candidate.product.demand_group_code &&
+        matchesDemandGroupPrefixes(
+          candidate.product.demand_group_code,
+          synonym.demand_group_prefixes
+        )
+      ) {
+        score += CATEGORY_AFFINITY_BOOST;
+        break;
+      }
     }
   }
 

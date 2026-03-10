@@ -10,6 +10,7 @@ import type { SubstringPosition } from "./word-boundary";
 import { classifySubstringMatch } from "./word-boundary";
 import { preprocessQuery } from "./query-preprocessor";
 import { findSynonym, matchesDemandGroupPrefixes } from "./synonym-map";
+import { expandQuery } from "./product-aliases";
 
 export interface SearchCandidate {
   product: SearchableProduct;
@@ -20,6 +21,9 @@ export interface SearchCandidate {
 /**
  * Find all candidate products for a given query.
  * Each candidate gets the best (lowest enum value) MatchType it qualifies for.
+ *
+ * Also runs alias-expanded queries (e.g. "hafermilch" → "haferdrink")
+ * and merges results, keeping the best match type per product.
  */
 export function findCandidates(
   query: string,
@@ -31,6 +35,36 @@ export function findCandidates(
 
   const candidates = new Map<string, SearchCandidate>();
 
+  // Primary query matching
+  matchProducts(normalized, words, wordVariants, products, candidates);
+
+  // Alias-expanded query matching
+  const aliasTerms = expandQuery(normalized);
+  for (const aliasTerm of aliasTerms) {
+    const alias = preprocessQuery(aliasTerm);
+    matchProducts(
+      alias.normalized,
+      alias.words,
+      alias.wordVariants,
+      products,
+      candidates
+    );
+  }
+
+  return Array.from(candidates.values());
+}
+
+/**
+ * Match products against a single query and merge into the candidates map.
+ * Keeps the best (lowest enum value) MatchType per product.
+ */
+function matchProducts(
+  normalized: string,
+  words: string[],
+  wordVariants: string[][],
+  products: SearchableProduct[],
+  candidates: Map<string, SearchCandidate>
+): void {
   for (const product of products) {
     const matchType = determineMatchType(
       normalized,
@@ -40,6 +74,9 @@ export function findCandidates(
     );
 
     if (matchType === null) continue;
+
+    const existing = candidates.get(product.product_id);
+    if (existing && existing.matchType <= matchType) continue;
 
     const substringPosition =
       matchType === MatchType.NAME_CONTAINS_STANDALONE ||
@@ -54,8 +91,6 @@ export function findCandidates(
       substringPosition,
     });
   }
-
-  return Array.from(candidates.values());
 }
 
 /**
@@ -168,7 +203,7 @@ function determineMatchType(
   if (synonym) {
     if (
       matchesDemandGroupPrefixes(
-        product.demand_group_normalized,
+        product.demand_group_code,
         synonym.demand_group_prefixes
       )
     ) {
@@ -183,7 +218,7 @@ function determineMatchType(
       if (
         variantSynonym &&
         matchesDemandGroupPrefixes(
-          product.demand_group_normalized,
+          product.demand_group_code,
           variantSynonym.demand_group_prefixes
         )
       ) {
@@ -203,8 +238,8 @@ function determineMatchType(
   }
 
   // 8. DEMAND_GROUP (direct substring match)
-  if (product.demand_group_normalized) {
-    if (product.demand_group_normalized.includes(queryNorm)) {
+  if (product.demand_group_code) {
+    if (product.demand_group_code.includes(queryNorm)) {
       return MatchType.DEMAND_GROUP;
     }
   }
@@ -235,7 +270,7 @@ function isDominantMatchValid(
   if (synonym) {
     // Query has a synonym mapping → product must belong to that category
     return matchesDemandGroupPrefixes(
-      product.demand_group_normalized,
+      product.demand_group_code,
       synonym.demand_group_prefixes
     );
   }
@@ -271,7 +306,7 @@ function isNameMatchValidForCategory(
 
   // Synonym exists → product must belong to mapped category
   return matchesDemandGroupPrefixes(
-    product.demand_group_normalized,
+    product.demand_group_code,
     synonym.demand_group_prefixes
   );
 }

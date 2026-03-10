@@ -22,10 +22,10 @@ interface SynonymEntry {
 const SYNONYM_MAP: Record<string, SynonymEntry> = {
 
   // ──── Alcoholic Beverages ────
+  // Only generic terms map to categories. Specific terms like "rotwein",
+  // "weisswein", "rose" are NOT here — they match by name and mapping them
+  // to "03 wein" would return ALL wines (e.g. Rotwein when searching Weißwein).
   "wein":         { demand_group_prefixes: ["03 wein"] },
-  "rotwein":      { demand_group_prefixes: ["03 wein"] },
-  "weisswein":    { demand_group_prefixes: ["03 wein"] },
-  "rose":         { demand_group_prefixes: ["03 wein"] },
   "sekt":         { demand_group_prefixes: ["02 sekt"] },
   "prosecco":     { demand_group_prefixes: ["02 sekt"] },
   "champagner":   { demand_group_prefixes: ["02 sekt"] },
@@ -41,11 +41,8 @@ const SYNONYM_MAP: Record<string, SynonymEntry> = {
 
   // ──── Non-Alcoholic Beverages ────
   "wasser":       { demand_group_prefixes: ["05 wasser"] },
-  "mineralwasser": { demand_group_prefixes: ["05 wasser"] },
   "sprudel":      { demand_group_prefixes: ["05 wasser"] },
   "saft":         { demand_group_prefixes: ["81 fruchtsaefte"] },
-  "orangensaft":  { demand_group_prefixes: ["81 fruchtsaefte"] },
-  "apfelsaft":    { demand_group_prefixes: ["81 fruchtsaefte"] },
   "sirup":        { demand_group_prefixes: ["81 fruchtsaefte"] },
   "limo":         { demand_group_prefixes: ["80 co2 erfrischungsgetraenke"] },
   "limonade":     { demand_group_prefixes: ["80 co2 erfrischungsgetraenke"] },
@@ -81,7 +78,6 @@ const SYNONYM_MAP: Record<string, SynonymEntry> = {
   "aufschnitt":   { demand_group_prefixes: ["69 gekuehlte wurstwaren"] },
   "schinken":     { demand_group_prefixes: ["69 gekuehlte wurstwaren", "49 dauerwurst"] },
   "fisch":        { demand_group_prefixes: ["64 fisch", "71 gekuehlter verzehrfertiger fisch"] },
-  "lachs":        { demand_group_prefixes: ["64 fisch", "71 gekuehlter verzehrfertiger fisch"] },
 
   // ──── Fruits & Vegetables ────
   "obst":         { demand_group_prefixes: ["58 obst"] },
@@ -98,7 +94,6 @@ const SYNONYM_MAP: Record<string, SynonymEntry> = {
   // ──── Pantry / Dry Goods ────
   "nudeln":       { demand_group_prefixes: ["54 naehrmittel"] },
   "pasta":        { demand_group_prefixes: ["54 naehrmittel"] },
-  "spaghetti":    { demand_group_prefixes: ["54 naehrmittel"] },
   "reis":         { demand_group_prefixes: ["54 naehrmittel"] },
   "mehl":         { demand_group_prefixes: ["89 backartikel"] },
   "zucker":       { demand_group_prefixes: ["89 backartikel"] },
@@ -121,7 +116,6 @@ const SYNONYM_MAP: Record<string, SynonymEntry> = {
   "muesliriegel": { demand_group_prefixes: ["90 cerealien"] },
   "muesli":       { demand_group_prefixes: ["90 cerealien"] },
   "cerealien":    { demand_group_prefixes: ["90 cerealien"] },
-  "cornflakes":   { demand_group_prefixes: ["90 cerealien"] },
   "haferflocken": { demand_group_prefixes: ["90 cerealien"] },
 
   // ──── Coffee & Tea ────
@@ -180,12 +174,18 @@ export function findSynonym(normalizedQuery: string): SynonymEntry | null {
 }
 
 /**
- * Check if a product's normalized demand_group matches any of the given prefixes.
+ * Check if a product's demand_group_code matches any of the given prefixes.
+ * Prefixes are in format "NN descriptive-name" (e.g. "05 wasser");
+ * we extract the leading numeric code and compare against the product's code.
  */
 export function matchesDemandGroupPrefixes(
-  demandGroupNormalized: string | null,
+  demandGroupCode: string | null,
   prefixes: string[]
 ): boolean {
-  if (!demandGroupNormalized) return false;
-  return prefixes.some((prefix) => demandGroupNormalized.startsWith(prefix));
+  if (!demandGroupCode) return false;
+  const code = demandGroupCode.trim().toUpperCase();
+  return prefixes.some((prefix) => {
+    const prefixCode = prefix.split(" ")[0].toUpperCase();
+    return code === prefixCode;
+  });
 }
