@@ -28,6 +28,11 @@ export function extractDemandGroupCode(raw: string | null | undefined): string |
   return match ? match[1] : null;
 }
 
+export interface CategorizeResult {
+  demand_group_code: string;
+  demand_sub_group?: string | null;
+}
+
 export interface CategorizeOptions {
   /** Pre-computed demand group from an AI caller (e.g. receipt OCR). */
   demandGroupFromAI?: string | null;
@@ -47,6 +52,7 @@ export async function categorizeCompetitorProduct(
   const { demandGroupFromAI, skipAICall = false } = options;
 
   let resolvedCode: string | null = null;
+  let resolvedSubGroup: string | null = null;
 
   // Stage 1: Use AI hint from caller (receipt OCR / photo extraction)
   if (demandGroupFromAI) {
@@ -67,7 +73,7 @@ export async function categorizeCompetitorProduct(
     }
   }
 
-  // Stage 3: AI classification via /api/assign-category
+  // Stage 3: AI classification via /api/assign-category (now returns sub-group too)
   if (!resolvedCode && !skipAICall) {
     try {
       const res = await fetch("/api/assign-category", {
@@ -76,10 +82,18 @@ export async function categorizeCompetitorProduct(
         body: JSON.stringify({ productName }),
       });
       if (res.ok) {
-        const data = await res.json() as { demand_group_code?: string };
+        const data = await res.json() as {
+          demand_group_code?: string;
+          demand_sub_group?: string | null;
+          action?: "matched" | "created";
+        };
         if (data.demand_group_code) {
           resolvedCode = data.demand_group_code;
-          log.info(`[categorize] Stage 3 (AI): "${productName}" → ${resolvedCode}`);
+          resolvedSubGroup = data.demand_sub_group ?? null;
+          log.info(
+            `[categorize] Stage 3 (AI/${data.action ?? "unknown"}): "${productName}" → ${resolvedCode}` +
+            (resolvedSubGroup ? ` / ${resolvedSubGroup}` : "")
+          );
         }
       }
     } catch (err) {
@@ -90,7 +104,9 @@ export async function categorizeCompetitorProduct(
   // Persist if we resolved a code
   if (resolvedCode) {
     try {
-      await updateCompetitorProduct(productId, { demand_group_code: resolvedCode });
+      const update: Record<string, unknown> = { demand_group_code: resolvedCode };
+      if (resolvedSubGroup) update.demand_sub_group = resolvedSubGroup;
+      await updateCompetitorProduct(productId, update);
     } catch (err) {
       log.warn("[categorize] Failed to save demand_group_code:", err);
     }
@@ -117,6 +133,7 @@ export async function categorizeCompetitorProductServer(
   const { demandGroupFromAI } = options;
 
   let resolvedCode: string | null = null;
+  let resolvedSubGroup: string | null = null;
 
   // Stage 1: Use AI hint from caller
   if (demandGroupFromAI) {
@@ -137,35 +154,51 @@ export async function categorizeCompetitorProductServer(
     }
   }
 
-  // Stage 3: Inline AI classification (server-side, no HTTP round-trip)
+  // Stage 3: Inline AI classification with sub-groups
   if (!resolvedCode) {
     try {
-      const { loadDemandGroups, buildDemandGroupListPrompt } = await import("@/lib/categories/constants");
-      const { callClaude } = await import("@/lib/api/claude-client");
+      const {
+        loadDemandGroups,
+        loadDemandSubGroups,
+        buildDemandGroupsAndSubGroupsPrompt,
+      } = await import("@/lib/categories/constants");
+      const { callClaudeJSON } = await import("@/lib/api/claude-client");
       const { CLAUDE_MODEL_HAIKU } = await import("@/lib/api/config");
 
       const groups = await loadDemandGroups(supabase);
-      const groupList = buildDemandGroupListPrompt(groups);
+      const subGroups = await loadDemandSubGroups(supabase);
+      const groupsPrompt = buildDemandGroupsAndSubGroupsPrompt(groups, subGroups);
 
-      const prompt = `Du bist ein Supermarkt-Kategorie-Zuordner. Ordne das folgende Produkt genau EINER Warengruppe (Demand Group) zu.
-
-Produkt: "${productName}"
-
-Verfügbare Warengruppen (Code: Name):
-${groupList}
-
-Antworte NUR mit dem Code (z.B. "83"), nichts anderes. Keine Erklärung, kein Text drumherum.`;
-
-      const text = (await callClaude({
+      const result = await callClaudeJSON<{
+        demand_group_code: string | null;
+        demand_sub_group?: string;
+        confidence: string;
+      }>({
         model: CLAUDE_MODEL_HAIKU,
-        messages: [{ role: "user", content: prompt }],
-        max_tokens: 100,
-      })).trim();
+        system: `Du bist ein Supermarkt-Kategorie-Zuordner.
+Ordne das Produkt einer bestehenden Demand Group und Sub-Group zu.
+Antworte als JSON: {"demand_group_code": "83", "demand_sub_group": "83-02", "confidence": "high"|"medium"|"low"}
+Wenn KEINE passende Gruppe existiert, antworte: {"demand_group_code": null, "confidence": "none"}`,
+        messages: [{
+          role: "user",
+          content: `Produkt: "${productName}"\n\n${groupsPrompt}`,
+        }],
+        max_tokens: 200,
+      });
 
-      const matched = groups.find((g) => text.includes(g.code));
-      if (matched) {
-        resolvedCode = matched.code;
-        log.info(`[categorize-server] Stage 3 (AI): "${productName}" → ${resolvedCode}`);
+      if (result.demand_group_code && result.confidence !== "none") {
+        const matched = groups.find((g) => g.code === result.demand_group_code);
+        if (matched) {
+          resolvedCode = matched.code;
+          if (result.demand_sub_group) {
+            const sub = subGroups.find((s) => s.code === result.demand_sub_group);
+            if (sub) resolvedSubGroup = sub.code;
+          }
+          log.info(
+            `[categorize-server] Stage 3 (AI): "${productName}" → ${resolvedCode}` +
+            (resolvedSubGroup ? ` / ${resolvedSubGroup}` : "")
+          );
+        }
       }
     } catch (err) {
       log.warn("[categorize-server] AI classification failed (non-blocking):", err);
@@ -174,12 +207,15 @@ Antworte NUR mit dem Code (z.B. "83"), nichts anderes. Keine Erklärung, kein Te
 
   // Persist if we resolved a code
   if (resolvedCode) {
+    const updateData: Record<string, unknown> = {
+      demand_group_code: resolvedCode,
+      updated_at: new Date().toISOString(),
+    };
+    if (resolvedSubGroup) updateData.demand_sub_group = resolvedSubGroup;
+
     const { error } = await supabase
       .from("competitor_products")
-      .update({
-        demand_group_code: resolvedCode,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updateData)
       .eq("product_id", productId);
 
     if (error) {

@@ -23,6 +23,20 @@ describe("getMetaCategories", () => {
     expect(metas[1].code).toBe("M02");
   });
 
+  test("filters by is_meta field, not by code prefix", () => {
+    const rowsWithTrickyCode: DemandGroupRow[] = [
+      ...mockRows,
+      { code: "M99", name: "Not Meta", name_en: "Not Meta", icon: null, color: null, sort_position: 50, parent_group: "M01", is_meta: false, source: "curated" },
+      { code: "99", name: "Actually Meta", name_en: "Actually Meta", icon: null, color: null, sort_position: 51, parent_group: null, is_meta: true, source: "curated" },
+    ];
+    const metas = getMetaCategories(rowsWithTrickyCode);
+    expect(metas).toHaveLength(3);
+    expect(metas.map((m) => m.code)).toContain("M01");
+    expect(metas.map((m) => m.code)).toContain("M02");
+    expect(metas.map((m) => m.code)).toContain("99");
+    expect(metas.map((m) => m.code)).not.toContain("M99");
+  });
+
   test("returns empty array for empty input", () => {
     expect(getMetaCategories([])).toHaveLength(0);
   });
