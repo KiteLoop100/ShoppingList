@@ -9,6 +9,16 @@ vi.mock("@/lib/barcode-from-image", () => ({
   decodeEanFromImageBuffer: vi.fn(),
 }));
 
+vi.mock("@/lib/supabase/admin", () => ({
+  createAdminClient: vi.fn().mockReturnValue({}),
+}));
+
+vi.mock("@/lib/categories/constants", () => ({
+  loadDemandGroups: vi.fn().mockResolvedValue([]),
+  loadDemandSubGroups: vi.fn().mockResolvedValue([]),
+  buildDemandGroupsAndSubGroupsPrompt: vi.fn().mockReturnValue("mock prompt"),
+}));
+
 import { callClaudeJSON } from "@/lib/api/claude-client";
 import { decodeEanFromImageBuffer } from "@/lib/barcode-from-image";
 import { extractProductInfo, scanBarcodesFromAll } from "../extract-product-info";
