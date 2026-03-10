@@ -180,10 +180,18 @@ export function useProductCaptureForm(config: ProductCaptureConfig) {
     }
 
     setValues({ ...EMPTY_VALUES, ...init });
-    setPhotoFiles([]); setPhotoPreviews([]);
+    setPhotoFiles([]);
+    setPhotoPreviews((prev) => {
+      prev.forEach((url) => URL.revokeObjectURL(url));
+      return [];
+    });
     setProcessedThumbnail(null); setThumbnailType(null);
     setExtractedDetails(null);
     setReviewStatus(null); setError(null); setAnalyzing(false);
+
+    return () => {
+      abortControllerRef.current?.abort();
+    };
   }, [open, editAldiProduct, editCompetitorProduct, initialValues]);
 
   const filteredSubGroups = allSubGroups.filter(
@@ -207,7 +215,10 @@ export function useProductCaptureForm(config: ProductCaptureConfig) {
     abortControllerRef.current = controller;
 
     setPhotoFiles(files);
-    setPhotoPreviews(files.map((f) => URL.createObjectURL(f)));
+    setPhotoPreviews((prev) => {
+      prev.forEach((url) => URL.revokeObjectURL(url));
+      return files.map((f) => URL.createObjectURL(f));
+    });
     setAnalyzing(true); setError(null); setReviewStatus(null);
     try {
       const images = await Promise.all(
