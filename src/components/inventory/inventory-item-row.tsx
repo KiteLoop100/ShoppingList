@@ -4,6 +4,9 @@ import { useState, useCallback, useRef } from "react";
 import { useTranslations } from "next-intl";
 import type { InventoryItem } from "@/lib/inventory/inventory-types";
 
+const SWIPE_THRESHOLD = 60;
+const MAX_SWIPE = 100;
+
 interface InventoryItemRowProps {
   item: InventoryItem;
   onConsume: (id: string) => void;
@@ -22,27 +25,52 @@ export function InventoryItemRow({
   const t = useTranslations("inventory");
   const [showActions, setShowActions] = useState(false);
   const [showQuantityPicker, setShowQuantityPicker] = useState(false);
+  const [swipeX, setSwipeX] = useState(0);
+  const [swiping, setSwiping] = useState(false);
   const touchStartXRef = useRef(0);
-  const touchDeltaRef = useRef(0);
+  const touchStartYRef = useRef(0);
+  const isHorizontalRef = useRef<boolean | null>(null);
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     touchStartXRef.current = e.touches[0].clientX;
-    touchDeltaRef.current = 0;
+    touchStartYRef.current = e.touches[0].clientY;
+    isHorizontalRef.current = null;
+    setSwiping(true);
   }, []);
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    touchDeltaRef.current = e.touches[0].clientX - touchStartXRef.current;
-  }, []);
+    const dx = e.touches[0].clientX - touchStartXRef.current;
+    const dy = e.touches[0].clientY - touchStartYRef.current;
+
+    if (isHorizontalRef.current === null) {
+      if (Math.abs(dx) > 8 || Math.abs(dy) > 8) {
+        isHorizontalRef.current = Math.abs(dx) > Math.abs(dy);
+      }
+      return;
+    }
+
+    if (!isHorizontalRef.current) return;
+
+    const canSwipeRight = item.status === "sealed";
+    let clamped = Math.max(-MAX_SWIPE, Math.min(MAX_SWIPE, dx));
+    if (!canSwipeRight && clamped > 0) clamped = 0;
+    setSwipeX(clamped);
+  }, [item.status]);
 
   const handleTouchEnd = useCallback(() => {
-    const delta = touchDeltaRef.current;
-    if (delta < -60) {
+    if (swipeX < -SWIPE_THRESHOLD) {
       onConsume(item.id);
-    } else if (delta > 60 && item.status === "sealed") {
+    } else if (swipeX > SWIPE_THRESHOLD && item.status === "sealed") {
       onOpen(item.id);
     }
-    touchDeltaRef.current = 0;
-  }, [item.id, item.status, onConsume, onOpen]);
+    setSwipeX(0);
+    setSwiping(false);
+    isHorizontalRef.current = null;
+  }, [swipeX, item.id, item.status, onConsume, onOpen]);
+
+  const pastThreshold = Math.abs(swipeX) >= SWIPE_THRESHOLD;
+  const swipingLeft = swipeX < 0;
+  const swipingRight = swipeX > 0;
 
   const statusBadge = item.status === "opened" ? (
     <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700">
@@ -58,55 +86,87 @@ export function InventoryItemRow({
 
   return (
     <>
-      <div
-        className="group flex items-center gap-3 rounded-xl bg-white px-3 py-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.06)] transition-all active:bg-gray-50"
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-        onContextMenu={(e) => {
-          e.preventDefault();
-          setShowActions(true);
-        }}
-      >
-        {item.thumbnail_url ? (
-          <img
-            src={item.thumbnail_url}
-            alt=""
-            className="h-10 w-10 shrink-0 rounded-lg object-cover"
-          />
-        ) : (
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-aldi-muted-light text-aldi-muted">
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="m20.25 7.5-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z" />
-            </svg>
+      <div className="relative overflow-hidden rounded-xl">
+        {/* Swipe action indicators behind the row */}
+        {swiping && swipingRight && (
+          <div className={`absolute inset-0 flex items-center justify-start rounded-xl px-4 transition-colors ${
+            pastThreshold ? "bg-amber-500" : "bg-amber-100"
+          }`}>
+            <span className={`text-xs font-semibold ${pastThreshold ? "text-white" : "text-amber-700"}`}>
+              {t("swipeOpened")}
+            </span>
+          </div>
+        )}
+        {swiping && swipingLeft && (
+          <div className={`absolute inset-0 flex items-center justify-end rounded-xl px-4 transition-colors ${
+            pastThreshold ? "bg-red-500" : "bg-red-100"
+          }`}>
+            <span className={`text-xs font-semibold ${pastThreshold ? "text-white" : "text-red-700"}`}>
+              {t("swipeConsumed")}
+            </span>
           </div>
         )}
 
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-[14px] font-medium text-aldi-text">
-            {item.display_name}
-          </p>
-          <div className="flex items-center gap-2">
-            {statusBadge}
+        {/* Foreground row */}
+        <div
+          className="relative flex items-center gap-3 rounded-xl bg-white px-3 py-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.06)] active:bg-gray-50"
+          style={{
+            transform: `translateX(${swipeX}px)`,
+            transition: swiping ? "none" : "transform 0.25s ease-out",
+          }}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            setShowActions(true);
+          }}
+        >
+          {item.thumbnail_url ? (
+            <img
+              src={item.thumbnail_url}
+              alt=""
+              className="h-10 w-10 shrink-0 rounded-lg object-cover"
+            />
+          ) : (
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-aldi-muted-light text-aldi-muted">
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="m20.25 7.5-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z" />
+              </svg>
+            </div>
+          )}
+
+          <div className="min-w-0 flex-1">
+            <span className="flex items-center gap-1.5">
+              <span className="truncate text-[14px] font-medium text-aldi-text">
+                {item.display_name}
+              </span>
+              {item.quantity > 1 && (
+                <button
+                  type="button"
+                  onClick={() => setShowQuantityPicker(true)}
+                  className="shrink-0 rounded-full bg-aldi-blue-light px-1.5 py-0.5 text-[11px] font-semibold leading-none text-aldi-blue"
+                >
+                  {item.quantity}×
+                </button>
+              )}
+            </span>
+            <div className="flex items-center gap-2">
+              {statusBadge}
+            </div>
           </div>
+
+          <button
+            type="button"
+            onClick={() => onConsume(item.id)}
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-red-50 text-red-500 transition-colors hover:bg-red-100"
+            aria-label={t("swipeConsumed")}
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+            </svg>
+          </button>
         </div>
-
-        <button
-          type="button"
-          onClick={() => setShowQuantityPicker(true)}
-          className="shrink-0 rounded-lg border border-aldi-muted-light px-2.5 py-1 text-sm font-medium text-aldi-text transition-colors hover:border-aldi-blue hover:text-aldi-blue"
-        >
-          {item.quantity}x
-        </button>
-
-        <button
-          type="button"
-          onClick={() => onConsume(item.id)}
-          className="shrink-0 rounded-lg bg-red-50 px-2.5 py-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-100"
-          aria-label={t("swipeConsumed")}
-        >
-          {t("swipeConsumed")}
-        </button>
       </div>
 
       {showQuantityPicker && (
@@ -136,7 +196,7 @@ export function InventoryItemRow({
               onClick={() => setShowQuantityPicker(false)}
               className="mt-3 w-full rounded-xl bg-aldi-blue px-4 py-2.5 text-sm font-medium text-white"
             >
-              {t("statusSealed") /* reuse as "done" */}
+              OK
             </button>
           </div>
         </div>
@@ -157,6 +217,13 @@ export function InventoryItemRow({
                 {t("swipeOpened")}
               </button>
             )}
+            <button
+              type="button"
+              onClick={() => { setShowActions(false); setShowQuantityPicker(true); }}
+              className="w-full px-4 py-3 text-left text-sm text-aldi-text transition-colors hover:bg-gray-50"
+            >
+              {t("changeQuantity")}
+            </button>
             <button
               type="button"
               onClick={() => { onConsume(item.id); setShowActions(false); }}

@@ -160,7 +160,8 @@ Interface: CategoryAssigner
 
 Implementation: 3-stage fallback chain
   1. AI hint (from caller context, e.g. receipt OCR or photo extraction)
-  2. Keyword-based fallback (getDemandGroupFallback — ~40 patterns)
+  2. Keyword-based fallback (getDemandGroupFallback — ~40 patterns
+     mapped to demand group codes, src/lib/products/demand-group-fallback.ts)
   3. Gemini API (/api/assign-category — ~90% accuracy)
 
 Used for both ALDI products and competitor products.
@@ -416,5 +417,5 @@ Developer (Cursor) → Git Push → GitHub → Vercel (auto-deploy)
 
 ---
 
-*Last updated: 2026-03-07*
+*Last updated: 2026-03-10*
 *See also: SEARCH-ARCHITECTURE.md, FEATURES-ACCOUNT.md, LAUNCH-READINESS.md, SECURITY-BACKLOG.md*

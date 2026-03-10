@@ -1,6 +1,6 @@
 # FEATURES-INVENTORY.md — Household Inventory (Haushaltsinventar)
 
-> **Status:** In Progress
+> **Status:** Mostly Complete (manual-add pending)
 > **Feature-ID:** F42
 > **Phase:** Phase 2
 > **Default:** Deaktiviert (opt-in via Settings Toggle)
@@ -83,9 +83,22 @@ Barcode scan ──────┘     (sealed/opened)
 2. **Magic keyword**: type "aufgebraucht" in search field
 3. **PurchaseHistoryMenu**: "Aufgebraucht melden" entry
 
-## Affected Files
+## Implementation Status
 
-See plan document for full list of new and modified files.
+| Component | Status | Files |
+|-----------|--------|-------|
+| Database migration | Done | `supabase/migrations/20260311200000_inventory_items.sql` |
+| Service layer | Done | `src/lib/inventory/inventory-service.ts`, `inventory-types.ts`, `inventory-receipt.ts` |
+| Unit tests | Done | `src/lib/inventory/__tests__/inventory-service.test.ts` |
+| Feature toggle | Done | `src/lib/settings/settings-sync.ts`, settings UI |
+| Receipt integration | Done | `src/lib/receipts/parse-receipt.ts`, `merge-receipt.ts` |
+| Tab switcher + inventory list | Done | `src/app/[locale]/receipts/receipts-client.tsx`, `src/components/inventory/` |
+| Consumed flow (3 paths) | Done | `src/lib/search/commands.ts`, `consumed-panel.tsx`, `purchase-history-menu.tsx` |
+| Barcode scanner (inventory context) | Done | `src/components/search/barcode-scanner-modal.tsx` (`onProductConsumed` prop) |
+| Translations (DE + EN) | Done | `src/messages/de.json`, `en.json` |
+| Navigation updates | Done | `src/components/layout/app-shell.tsx`, `src/app/[locale]/page.tsx` |
+| Type exports | Done | `src/types/index.ts` |
+| **Manual add** (product search + barcode button in inventory tab) | **Pending** | — |
 
 ## Robustness Notes
 

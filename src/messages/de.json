@@ -814,6 +814,11 @@
     "consumedTitle": "Aufgebraucht melden",
     "consumedEmpty": "Dein Vorrat ist noch leer. Scanne einen Kassenzettel oder füge Produkte manuell hinzu.",
     "consumedAddToList": "Zur Einkaufsliste hinzufügen",
-    "purchaseMenuConsumed": "Aufgebraucht melden"
+    "purchaseMenuConsumed": "Aufgebraucht melden",
+    "sectionProduce": "Obst & Gemüse",
+    "sectionChilled": "Kühlartikel",
+    "sectionFrozen": "Tiefkühlartikel",
+    "sectionDry": "Trockensortiment",
+    "changeQuantity": "Menge ändern"
   }
 }

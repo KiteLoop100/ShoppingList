@@ -1,14 +1,22 @@
 "use client";
 
 import { useTranslations } from "next-intl";
+import { SECTION_ICONS, type CategoryGroupKey } from "@/lib/list/recent-purchase-categories";
 
-export type InventoryFilter = "all" | "opened" | string;
+export type InventoryFilter = "all" | "opened" | CategoryGroupKey;
+
+const SECTION_LABEL_KEYS: Record<CategoryGroupKey, string> = {
+  produce: "sectionProduce",
+  chilled: "sectionChilled",
+  frozen: "sectionFrozen",
+  dry: "sectionDry",
+};
 
 interface InventoryFiltersProps {
   active: InventoryFilter;
   onChange: (filter: InventoryFilter) => void;
   openedCount: number;
-  categoryChips: { code: string; name: string; count: number }[];
+  categoryChips: { code: CategoryGroupKey; count: number }[];
 }
 
 export function InventoryFilters({
@@ -57,7 +65,8 @@ export function InventoryFilters({
               : "bg-white text-aldi-text shadow-[0_1px_2px_rgba(0,0,0,0.06)]"
           }`}
         >
-          {chip.name}
+          <span className="mr-1">{SECTION_ICONS[chip.code]}</span>
+          {t(SECTION_LABEL_KEYS[chip.code])}
           <span className="ml-1 opacity-60">{chip.count}</span>
         </button>
       ))}

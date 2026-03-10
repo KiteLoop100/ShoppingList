@@ -13,9 +13,18 @@ import {
   unconsume,
 } from "@/lib/inventory/inventory-service";
 import type { InventoryItem } from "@/lib/inventory/inventory-types";
+import { getCategoryGroup, SECTION_ICONS, type CategoryGroupKey } from "@/lib/list/recent-purchase-categories";
 import { InventoryItemRow } from "./inventory-item-row";
 import { InventoryFilters, type InventoryFilter } from "./inventory-filters";
 import { CardSkeleton } from "@/components/ui/skeleton";
+
+const GROUP_SORT: Record<CategoryGroupKey, number> = { produce: 0, chilled: 1, frozen: 2, dry: 3 };
+const SECTION_LABEL_KEYS: Record<CategoryGroupKey, string> = {
+  produce: "sectionProduce",
+  chilled: "sectionChilled",
+  frozen: "sectionFrozen",
+  dry: "sectionDry",
+};
 
 export function InventoryList() {
   const t = useTranslations("inventory");
@@ -110,37 +119,32 @@ export function InventoryList() {
   );
 
   const categoryChips = useMemo(() => {
-    const counts = new Map<string, { name: string; count: number }>();
+    const counts = new Map<CategoryGroupKey, number>();
     for (const item of items) {
-      const code = item.demand_group_code || "other";
-      const existing = counts.get(code);
-      if (existing) {
-        existing.count++;
-      } else {
-        counts.set(code, { name: code, count: 1 });
-      }
+      const group = getCategoryGroup(item.demand_group_code);
+      counts.set(group, (counts.get(group) ?? 0) + 1);
     }
     return Array.from(counts.entries())
-      .map(([code, { name, count }]) => ({ code, name, count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 6);
+      .map(([code, count]) => ({ code, count }))
+      .sort((a, b) => GROUP_SORT[a.code] - GROUP_SORT[b.code]);
   }, [items]);
 
   const filteredItems = useMemo(() => {
     if (filter === "all") return items;
     if (filter === "opened") return items.filter((i) => i.status === "opened");
-    return items.filter((i) => (i.demand_group_code || "other") === filter);
+    return items.filter((i) => getCategoryGroup(i.demand_group_code) === filter);
   }, [items, filter]);
 
   const grouped = useMemo(() => {
-    const groups = new Map<string, InventoryItem[]>();
+    const groups = new Map<CategoryGroupKey, InventoryItem[]>();
     for (const item of filteredItems) {
-      const key = item.demand_group_code || "other";
+      const key = getCategoryGroup(item.demand_group_code);
       const arr = groups.get(key) ?? [];
       arr.push(item);
       groups.set(key, arr);
     }
-    return Array.from(groups.entries());
+    return Array.from(groups.entries())
+      .sort(([a], [b]) => GROUP_SORT[a] - GROUP_SORT[b]);
   }, [filteredItems]);
 
   if (loading) {
@@ -178,11 +182,14 @@ export function InventoryList() {
         />
       )}
 
-      {grouped.map(([groupCode, groupItems]) => (
-        <div key={groupCode}>
-          <p className="mb-1 text-[11px] font-bold uppercase tracking-wider text-aldi-muted">
-            {groupCode}
-          </p>
+      {grouped.map(([groupKey, groupItems]) => (
+        <div key={groupKey}>
+          <div className="sticky top-0 z-[2] -mx-4 mb-1.5 flex items-center gap-2 border-b border-aldi-muted-light bg-gray-100 px-4 py-1.5">
+            <span aria-hidden>{SECTION_ICONS[groupKey]}</span>
+            <span className="text-xs font-semibold uppercase tracking-wide text-aldi-muted">
+              {t(SECTION_LABEL_KEYS[groupKey])}
+            </span>
+          </div>
           <div className="flex flex-col gap-1.5">
             {groupItems.map((item) => (
               <InventoryItemRow

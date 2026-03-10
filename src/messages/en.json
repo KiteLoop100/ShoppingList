@@ -814,6 +814,11 @@
     "consumedTitle": "Mark as consumed",
     "consumedEmpty": "Your inventory is empty. Scan a receipt or add products manually.",
     "consumedAddToList": "Add to shopping list",
-    "purchaseMenuConsumed": "Mark as consumed"
+    "purchaseMenuConsumed": "Mark as consumed",
+    "sectionProduce": "Fruit & Vegetables",
+    "sectionChilled": "Chilled Products",
+    "sectionFrozen": "Frozen Goods",
+    "sectionDry": "Dry Goods",
+    "changeQuantity": "Change quantity"
   }
 }

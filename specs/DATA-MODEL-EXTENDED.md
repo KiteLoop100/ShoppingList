@@ -38,7 +38,6 @@ A product from a competing retailer (LIDL, REWE, EDEKA, etc.). Completely separa
 | demand_group_code | FK to demand_groups(code). Auto-assigned via categorization pipeline (AI hint → keyword fallback → Haiku). |
 | demand_sub_group | FK to demand_sub_groups(code). Currently not auto-assigned (manual only). |
 | assortment_type | "daily_range" (default), "special_food", or "special_nonfood" |
-| category_id | **DEPRECATED** — orphaned after categories table was dropped. Always NULL. Scheduled for removal in Phase 4. |
 | status | "active" or "inactive" |
 | is_bio, is_vegan, is_gluten_free, is_lactose_free | Dietary boolean flags |
 | animal_welfare_level | 1–4 (Haltungsform), null if unknown |
@@ -90,7 +89,7 @@ Purchase frequency tracking for competitor products. Used to rank retailer produ
 PK: (competitor_product_id, retailer, user_id). Upserted when an elsewhere item with `competitor_product_id` is checked off (fire-and-forget).
 
 **RPC: `search_retailer_products(p_retailer, p_country, p_user_id, p_query, p_limit)`**
-Returns competitor products for a retailer, ranked by user purchase count DESC, global count DESC, name ASC. Joins `competitor_products` with `competitor_product_stats` and `competitor_product_prices`. Optional text filter on `name_normalized` and `brand`. Returns `demand_group_code` (not the deprecated `category_id`).
+Returns competitor products for a retailer, ranked by user purchase count DESC, global count DESC, name ASC. Joins `competitor_products` with `competitor_product_stats` and `competitor_product_prices`. Optional text filter on `name_normalized` and `brand`. Returns `demand_group_code`.
 
 ---
 
@@ -278,7 +277,7 @@ User adds product
     │
     ▼
 ListItem created
-    │ (generic: demand_group assigned via Claude API)
+    │ (generic: demand_group_code assigned via keyword fallback or Gemini API)
     │ (specific: demand_group_code from Product DB)
     │
     ▼

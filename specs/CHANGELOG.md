@@ -5,6 +5,41 @@
 
 ---
 
+## 2026-03-10 – BL-62 Phase 4 + BL-63 Data Cleanup
+
+Completed the demand group migration by dropping all legacy columns and tables, and cleaning up data inconsistencies.
+
+### DB Migrations
+- **`20260310100000_bl63_data_cleanup.sql`** — Migrated 4,702 products from legacy `demand_sub_group` strings to FK codes. Set 5,266 unmapped values to NULL. Migrated pairwise_comparisons scopes from names to codes (4,218 rows). Fixed demand_groups.name truncation for code '70'.
+- **`20260310200000_bl62_phase4_cleanup.sql`** — Dropped `products.category_id`, `products.demand_group`, `competitor_products.category_id` columns. Dropped `category_aliases` table.
+
+### Modified Files
+- **`src/lib/products/demand-group-fallback.ts`** — KEYWORD_MAP converted from `"XX-Name"` strings to pure `"XX"` codes.
+- **`src/lib/list/pairwise-extract.ts`** — All three pairwise levels use `demand_group_code` for scope construction.
+- **`src/lib/list/save-checkoff-and-pairwise.ts`** — Group identifier changed to `demand_group_code`.
+- **`src/lib/list/list-helpers.ts`** — `ProductMetaForSort` uses `demand_group_code`. Sort logic uses code-based scopes.
+- **`src/components/list/hooks/use-list-sort.ts`** — Pairwise scope and default group order use `.code`.
+- **`src/components/list/hooks/list-data-helpers.ts`** — Product maps use `demand_group_code`.
+- **`src/components/list/list-section.tsx`** — Category label uses `item.category_name` (demand group name) instead of `item.demand_group` (which now contains only a code).
+- **`src/types/index.ts`** — Removed `Category`, `CategoryAlias` interfaces. Removed `demand_group` from `Product`, `category_id` from `CompetitorProduct`.
+- **`src/lib/db/indexed-db.ts`** — Dexie v15: dropped `category_aliases` table.
+- **`src/app/[locale]/admin/admin-client.tsx`** — Removed CategoryAliasPanel.
+- **`next.config.js`** — Removed `categories` URL pattern from PWA precache.
+- ~15 additional files: removed `demand_group` and `category_id` references from API routes, services, and scripts.
+
+### Deleted Files
+- **`src/app/[locale]/admin/category-alias-panel.tsx`** — Legacy category alias management UI.
+
+### Specs Updated
+- `BACKLOG.md` — BL-62, BL-63 marked completed with resolution notes.
+- `FEATURES-CORE.md` — Category label and assignment descriptions updated.
+- `DATA-MODEL.md` — Legacy sections 6/6b removed. Phase 4 marked complete. `demand_group` and `category_id` columns removed from schema.
+- `DATA-MODEL-EXTENDED.md` — Removed deprecated `category_id` from competitor_products schema.
+- `ARCHITECTURE.md` — Category assignment module updated (keyword fallback description).
+- `README.md` — Added FEATURES-INVENTORY.md, PHOTO-PIPELINE.md, BACKLOG.md. Updated line counts.
+
+---
+
 ## 2026-03-07 – Competitor Product Categorization
 
 Adds automatic `demand_group_code` assignment to competitor products via a 3-stage fallback chain (AI hint → keyword fallback → Claude Haiku). Enables future catalog view for competitor products.

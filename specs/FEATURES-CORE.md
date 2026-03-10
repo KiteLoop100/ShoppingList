@@ -104,7 +104,7 @@ Camera icon next to search field. EAN scan → product added instantly. Not foun
 - Grouped by Customer Demand Group
 - Compact rows: product name, thumbnail (if available), quantity, price
 - Estimated total at bottom
-- **Category labels:** Both sort modes show the ALDI demand-group name as label below each product name (e.g. "Milch/Sahne/Butter", "Joghurts/Quark"). For items without a linked product (generic free-text entries), the app-category name is shown as fallback (e.g. "Milchprodukte"). Demand-group codes are converted to user-friendly labels by stripping the numeric prefix; manual overrides exist for truncated codes. See `src/lib/i18n/category-translations.ts`.
+- **Category labels:** Both sort modes show the ALDI demand-group name as label below each product name (e.g. "Milch/Sahne/Butter", "Joghurts/Quark"). The label is sourced from `demand_groups.name` via the resolved `DemandGroup` object (field `category_name` on `ListItemWithMeta`). For items without a linked product (generic free-text entries), the demand group assigned by the keyword fallback or AI is used. Six demand groups with truncated DB names have manual display overrides in `DEMAND_GROUP_ALIASES_DE` (`src/lib/i18n/category-translations.ts`).
 - **Category colour bar (Shopping Order only):** A continuous 4px vertical bar on the left side groups consecutive items of the same demand group. When the demand group changes, a 12px gap separates the groups visually. This provides immediate orientation -- same-group items form a connected colour block, transitions are obvious at a glance. Colours are bold, ALDI-inspired tones (~61 demand-group-specific colours, keyed by demand group code in `src/lib/categories/category-colors.ts`). Applied only to active (unchecked, non-deferred) items.
 
 ### Two Sort Modes
@@ -347,9 +347,9 @@ A single `ProductCaptureModal` component is used across the entire app for creat
 - `src/components/product-capture/extracted-info-cards.tsx` -- display extracted nutrition/ingredients
 
 ### Automatic Category Assignment (3 Layers)
-1. Product database -> category from DB
-2. Alias table -> brand names/terms mapped to categories
-3. AI fallback -> Claude API assigns, result saved to alias table
+1. **Product database** → `demand_group_code` from the `products` table
+2. **Keyword fallback** → `getDemandGroupFallback()` in `src/lib/products/demand-group-fallback.ts` (~40 keyword patterns mapped to demand group codes)
+3. **AI fallback** → Gemini API via `POST /api/assign-category` assigns a demand group code (~90% accuracy)
 
 ---
 
@@ -537,5 +537,5 @@ No `matchScore` signal (no search query involved).
 
 ---
 
-*Last updated: 2026-03-08*
+*Last updated: 2026-03-10*
 *See also: [FEATURES-PLANNED.md](FEATURES-PLANNED.md) (prioritized feature backlog, F02-SS through F41), [FEATURES-ACCOUNT.md](FEATURES-ACCOUNT.md) (F17), [LAUNCH-READINESS.md](LAUNCH-READINESS.md)*
