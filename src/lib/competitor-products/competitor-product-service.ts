@@ -401,7 +401,6 @@ export async function searchRetailerProducts(
     p_query: normalizedQuery ?? undefined,
     p_limit: limit,
   });
-
   if (error) {
     log.error("[competitor-product-service] searchRetailerProducts failed:", error.message);
     return [];

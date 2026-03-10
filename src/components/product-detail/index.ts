@@ -1,0 +1,11 @@
+export { ProductDetailView } from "./product-detail-view";
+export type { ProductDetailViewProps } from "./product-detail-view";
+export { AutoReorderSection } from "./auto-reorder-section";
+export { EanCrossReferenceSection } from "./ean-cross-reference-section";
+export { CategorySection } from "./category-section";
+export { PriceSection } from "./price-section";
+export { NutritionSection } from "./nutrition-section";
+export { MetadataSection } from "./metadata-section";
+export { ProductHeaderSection } from "./product-header-section";
+export type { AnyProduct } from "./types";
+export { isAldiProduct, isCompetitorProduct } from "./types";

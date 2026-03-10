@@ -184,7 +184,11 @@
     "nutriScore": "Nutri-Score",
     "countryOfOrigin": "Country of origin",
     "editProduct": "Edit product",
-    "noPrices": "No prices recorded yet"
+    "noPrices": "No prices recorded yet",
+    "demandGroup": "Category",
+    "demandSubGroup": "Subcategory",
+    "eanCrossRef": "Also available at ALDI",
+    "eanCrossRefPrice": "ALDI price"
   },
   "capture": {
     "title": "Capture products & receipts",
@@ -381,7 +385,9 @@
     "comment": "Comment",
     "commentPlaceholder": "Note about this product\u2026",
     "commentCharCount": "{count}/500",
-    "commentSaving": "Saving\u2026"
+    "commentSaving": "Saving\u2026",
+    "eanCrossRef": "Also available at other retailers",
+    "eanCrossRefRetailer": "Retailer"
   },
   "productCapture": {
     "createTitle": "Create product",

@@ -184,7 +184,11 @@
     "nutriScore": "Nutri-Score",
     "countryOfOrigin": "Herkunftsland",
     "editProduct": "Produkt bearbeiten",
-    "noPrices": "Noch keine Preise erfasst"
+    "noPrices": "Noch keine Preise erfasst",
+    "demandGroup": "Kategorie",
+    "demandSubGroup": "Unterkategorie",
+    "eanCrossRef": "Auch bei ALDI erhältlich",
+    "eanCrossRefPrice": "ALDI-Preis"
   },
   "capture": {
     "title": "Produkte & Kassenzettel erfassen",
@@ -381,7 +385,9 @@
     "comment": "Kommentar",
     "commentPlaceholder": "Notiz zu diesem Produkt\u2026",
     "commentCharCount": "{count}/500",
-    "commentSaving": "Speichert\u2026"
+    "commentSaving": "Speichert\u2026",
+    "eanCrossRef": "Auch bei anderen Händlern erhältlich",
+    "eanCrossRefRetailer": "Händler"
   },
   "productCapture": {
     "createTitle": "Produkt anlegen",
