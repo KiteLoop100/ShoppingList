@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import type { AnyProduct } from "./types";
 import { isAldiProduct, isCompetitorProduct } from "./types";
@@ -10,6 +10,8 @@ import { NutritionSection } from "./nutrition-section";
 import { MetadataSection } from "./metadata-section";
 import { CategorySection } from "./category-section";
 import { EanCrossReferenceSection } from "./ean-cross-reference-section";
+import { getProductPhotos } from "@/lib/product-photos/product-photo-service";
+import type { ProductPhoto } from "@/lib/product-photos/types";
 import type { CompetitorProductPrice } from "@/types";
 
 export interface ProductDetailViewProps {
@@ -27,13 +29,24 @@ export function ProductDetailView({
 }: ProductDetailViewProps) {
   const t = useTranslations("productDetail");
   const tComp = useTranslations("competitorDetail");
+  const [productPhotos, setProductPhotos] = useState<ProductPhoto[]>([]);
 
   const isAldi = isAldiProduct(product);
   const isCompetitor = isCompetitorProduct(product);
+  const productType = isAldi ? "aldi" : "competitor";
 
-  const imageLabels: Record<string, string> = isAldi
-    ? { front: t("frontSide"), back: t("backSide") }
-    : { front: tComp("frontPhoto"), other: tComp("otherPhoto") };
+  useEffect(() => {
+    getProductPhotos(product.product_id, productType).then(setProductPhotos);
+  }, [product.product_id, productType]);
+
+  const imageLabels: Record<string, string> = {
+    mainPhoto: t("mainPhoto"),
+    productPhoto: t("productPhoto"),
+    priceTag: t("priceTag"),
+    front: isAldi ? t("frontSide") : tComp("frontPhoto"),
+    back: t("backSide"),
+    other: isCompetitor ? tComp("otherPhoto") : "",
+  };
 
   const assortmentLabel = isAldi
     ? getAssortmentLabel(product.assortment_type, t)
@@ -45,6 +58,8 @@ export function ProductDetailView({
         product={product}
         imageLabels={imageLabels}
         retailerNames={retailerNames}
+        productPhotos={productPhotos}
+        offlineHint={t("offlinePhotosHint")}
       />
 
       {isAldi && (

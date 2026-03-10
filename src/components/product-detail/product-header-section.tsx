@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import type { ProductPhoto } from "@/lib/product-photos/types";
 import type { AnyProduct, ProductImage } from "./types";
 import { getProductImages } from "./types";
 
@@ -8,18 +9,27 @@ interface ProductHeaderSectionProps {
   product: AnyProduct;
   imageLabels: Record<string, string>;
   retailerNames?: string[];
+  productPhotos?: ProductPhoto[];
+  offlineHint?: string;
 }
 
-export function ProductHeaderSection({ product, imageLabels, retailerNames }: ProductHeaderSectionProps) {
-  const images: ProductImage[] = getProductImages(product);
+export function ProductHeaderSection({
+  product,
+  imageLabels,
+  retailerNames,
+  productPhotos,
+  offlineHint,
+}: ProductHeaderSectionProps) {
+  const images: ProductImage[] = getProductImages(product, productPhotos);
   const hasBrand = product.brand != null && product.brand !== "";
+  const hasExtraPhotos = productPhotos && productPhotos.length > 1;
 
   return (
     <div className="mb-4 flex flex-col items-start gap-3">
       {images.length > 0 && (
         <div className="flex flex-wrap items-start gap-3">
           {images.map((img) => (
-            <div key={img.label} className="flex flex-col gap-1">
+            <div key={img.url} className="flex flex-col gap-1">
               <span className="text-xs font-medium uppercase tracking-wider text-aldi-muted">
                 {imageLabels[img.label] ?? img.label}
               </span>
@@ -34,6 +44,9 @@ export function ProductHeaderSection({ product, imageLabels, retailerNames }: Pr
             </div>
           ))}
         </div>
+      )}
+      {offlineHint && !hasExtraPhotos && (
+        <p className="text-[11px] italic text-aldi-muted">{offlineHint}</p>
       )}
       <div className="min-w-0">
         <p className="text-base font-medium text-aldi-text">{product.name}</p>

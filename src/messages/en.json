@@ -395,7 +395,11 @@
     "commentCharCount": "{count}/500",
     "commentSaving": "Saving\u2026",
     "eanCrossRef": "Also available at other retailers",
-    "eanCrossRefRetailer": "Retailer"
+    "eanCrossRefRetailer": "Retailer",
+    "mainPhoto": "Main photo",
+    "productPhoto": "Product",
+    "priceTag": "Price tag",
+    "offlinePhotosHint": "Additional photos only available online."
   },
   "productCapture": {
     "createTitle": "Create product",

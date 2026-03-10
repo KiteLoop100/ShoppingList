@@ -395,7 +395,11 @@
     "commentCharCount": "{count}/500",
     "commentSaving": "Speichert\u2026",
     "eanCrossRef": "Auch bei anderen Händlern erhältlich",
-    "eanCrossRefRetailer": "Händler"
+    "eanCrossRefRetailer": "Händler",
+    "mainPhoto": "Hauptbild",
+    "productPhoto": "Produkt",
+    "priceTag": "Preisschild",
+    "offlinePhotosHint": "Weitere Fotos nur online verfügbar."
   },
   "productCapture": {
     "createTitle": "Produkt anlegen",
