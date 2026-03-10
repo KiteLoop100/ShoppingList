@@ -12,5 +12,6 @@ export type { SearchResult };
 export {
   isLastTripCommand, isAktionsartikelCommand, detectRetailerPrefix,
   parseReceiptCommand, buildReceiptCommand, detectReceiptPhrase,
+  isConsumedCommand, CONSUMED_COMMAND,
   type RetailerPrefixResult, type ReceiptCommandResult,
 } from "./commands";

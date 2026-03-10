@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useTranslations } from "next-intl";
+import { useSearchParams } from "next/navigation";
 import { Link } from "@/lib/i18n/navigation";
 import { getCurrentUserId } from "@/lib/auth/auth-context";
 import { createClientIfConfigured } from "@/lib/supabase/client";
@@ -9,6 +10,8 @@ import { formatDateCompact } from "@/lib/utils/format-date";
 import { ReceiptScanner } from "@/app/[locale]/capture/receipt-scanner";
 import { CardSkeleton } from "@/components/ui/skeleton";
 import { getRetailerByName } from "@/lib/retailers/retailers";
+import { isInventoryEnabled } from "@/lib/settings/settings-sync";
+import { InventoryList } from "@/components/inventory/inventory-list";
 
 const POLL_INTERVAL_MS = 8_000;
 const MAX_POLL_COUNT = 30;
@@ -24,15 +27,21 @@ interface ReceiptSummary {
   created_at: string;
 }
 
+type ActiveTab = "receipts" | "inventory";
+
 export function ReceiptsClientPage() {
   const t = useTranslations("receipts");
   const tCommon = useTranslations("common");
   const tReceipt = useTranslations("receipt");
+  const searchParams = useSearchParams();
   const [receipts, setReceipts] = useState<ReceiptSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
   const [pendingReceipt, setPendingReceipt] = useState(false);
+  const inventoryActive = isInventoryEnabled();
+  const initialTab = searchParams.get("tab") === "inventory" && inventoryActive ? "inventory" : "receipts";
+  const [activeTab, setActiveTab] = useState<ActiveTab>(initialTab);
   const receiptCountBeforeSubmit = useRef(0);
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollCountRef = useRef(0);
@@ -133,52 +142,85 @@ export function ReceiptsClientPage() {
 
   return (
     <main className="mx-auto flex h-dvh max-w-lg flex-col overflow-hidden bg-aldi-bg md:max-w-2xl lg:max-w-4xl">
-      <header className="sticky top-0 z-10 flex shrink-0 items-center gap-3 bg-white px-5 py-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)] md:px-6 lg:px-8">
-        <Link
-          href="/"
-          className="touch-target -ml-2 flex items-center justify-center rounded-xl text-aldi-blue transition-colors hover:bg-aldi-blue-light"
-          aria-label={tCommon("back")}
-        >
-          <svg
-            className="h-5 w-5"
-            fill="none"
-            viewBox="0 0 24 24"
-            strokeWidth={2.5}
-            stroke="currentColor"
-            aria-hidden
+      <header className="sticky top-0 z-10 shrink-0 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+        <div className="flex items-center gap-3 px-5 py-4 md:px-6 lg:px-8">
+          <Link
+            href="/"
+            className="touch-target -ml-2 flex items-center justify-center rounded-xl text-aldi-blue transition-colors hover:bg-aldi-blue-light"
+            aria-label={tCommon("back")}
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M15.75 19.5L8.25 12l7.5-7.5"
-            />
-          </svg>
-        </Link>
-        <h1 className="flex-1 text-[17px] font-semibold tracking-tight text-aldi-text">
-          {t("title")}
-        </h1>
-        <button
-          type="button"
-          onClick={() => setScannerOpen(true)}
-          className="touch-target flex items-center justify-center rounded-xl text-aldi-blue transition-colors hover:bg-aldi-blue-light"
-          aria-label={t("scanNew")}
-        >
-          <svg
-            className="h-5 w-5"
-            fill="none"
-            viewBox="0 0 24 24"
-            strokeWidth={2}
-            stroke="currentColor"
+            <svg
+              className="h-5 w-5"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={2.5}
+              stroke="currentColor"
+              aria-hidden
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M15.75 19.5L8.25 12l7.5-7.5"
+              />
+            </svg>
+          </Link>
+          <h1 className="flex-1 text-[17px] font-semibold tracking-tight text-aldi-text">
+            {inventoryActive ? t("householdTitle") : t("title")}
+          </h1>
+          <button
+            type="button"
+            onClick={() => setScannerOpen(true)}
+            className="touch-target flex items-center justify-center rounded-xl text-aldi-blue transition-colors hover:bg-aldi-blue-light"
+            aria-label={t("scanNew")}
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M12 4.5v15m7.5-7.5h-15"
-            />
-          </svg>
-        </button>
+            <svg
+              className="h-5 w-5"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={2}
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M12 4.5v15m7.5-7.5h-15"
+              />
+            </svg>
+          </button>
+        </div>
+        {inventoryActive && (
+          <div className="flex border-t border-aldi-muted-light">
+            <button
+              type="button"
+              onClick={() => setActiveTab("receipts")}
+              className={`flex-1 py-2.5 text-center text-sm font-medium transition-colors ${
+                activeTab === "receipts"
+                  ? "border-b-2 border-aldi-blue text-aldi-blue"
+                  : "text-aldi-muted hover:text-aldi-text"
+              }`}
+            >
+              {t("tabReceipts")}
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("inventory")}
+              className={`flex-1 py-2.5 text-center text-sm font-medium transition-colors ${
+                activeTab === "inventory"
+                  ? "border-b-2 border-aldi-blue text-aldi-blue"
+                  : "text-aldi-muted hover:text-aldi-text"
+              }`}
+            >
+              {t("tabInventory")}
+            </button>
+          </div>
+        )}
       </header>
 
+      {inventoryActive && activeTab === "inventory" ? (
+        <div className="flex min-h-0 flex-1 flex-col overflow-auto">
+          <InventoryList />
+        </div>
+      ) : (
       <div className="flex min-h-0 flex-1 flex-col overflow-auto p-4 md:p-6 lg:p-8">
         {loading ? (
           <div className="flex flex-col gap-2">
@@ -354,6 +396,7 @@ export function ReceiptsClientPage() {
           </>
         )}
       </div>
+      )}
 
       <ReceiptScanner
         open={scannerOpen}

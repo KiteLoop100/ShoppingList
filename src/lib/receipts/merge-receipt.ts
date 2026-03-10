@@ -11,6 +11,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { NON_PRODUCT_PATTERN } from "./receipt-prompt";
 import type { ReceiptOcrResult, ProcessReceiptResult } from "./parse-receipt";
 import { findOrCreateCompetitorProductServer } from "./parse-receipt";
+import { upsertInventoryFromReceipt } from "@/lib/inventory/inventory-service";
 
 interface MergeItemInsert {
   receipt_id: string;
@@ -185,6 +186,10 @@ export async function mergeIntoExistingReceipt(
       .from("receipts")
       .update({ items_count: updatedCount })
       .eq("receipt_id", existingReceiptId);
+
+    upsertInventoryFromReceipt(supabase, userId, existingReceiptId, newItems).catch((err) => {
+      log.warn("[merge-receipt] Inventory upsert failed (non-blocking):", err);
+    });
   }
 
   if (competitorProductIds.length > 0 && retailerNormalized) {

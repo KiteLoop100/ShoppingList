@@ -5,6 +5,7 @@ import { log } from "@/lib/utils/logger";
 import {
   searchModule, isLastTripCommand, isAktionsartikelCommand,
   detectRetailerPrefix, parseReceiptCommand, detectReceiptPhrase,
+  isConsumedCommand, CONSUMED_COMMAND,
   type RetailerPrefixResult, type ReceiptCommandResult,
 } from "@/lib/search";
 import {
@@ -63,6 +64,12 @@ export function useSearchExecution({ query, products, country }: UseSearchExecut
       trimmedQuery.length >= MIN_QUERY_LENGTH
         ? (parseReceiptCommand(trimmedQuery) ?? detectReceiptPhrase(trimmedQuery))
         : null,
+    [trimmedQuery],
+  );
+  const isConsumedCmd = useMemo(
+    () =>
+      trimmedQuery.length >= MIN_QUERY_LENGTH &&
+      (isConsumedCommand(trimmedQuery) || trimmedQuery === CONSUMED_COMMAND),
     [trimmedQuery],
   );
 
@@ -188,7 +195,9 @@ export function useSearchExecution({ query, products, country }: UseSearchExecut
     const id = ++searchIdRef.current;
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
-      if (receiptCommand) {
+      if (isConsumedCmd) {
+        setResults([]); setRecentListProducts(null); setSpecialsProducts(null); setRetailerProducts([]); setReceiptProducts(null); setReceiptTitle(null);
+      } else if (receiptCommand) {
         setResults([]); setRecentListProducts(null); setSpecialsProducts(null); setRetailerProducts([]);
         setReceiptTitle(`${receiptCommand.retailer}:${receiptCommand.mode}:${receiptCommand.n}`);
         fetchReceiptProducts(receiptCommand);
@@ -208,12 +217,12 @@ export function useSearchExecution({ query, products, country }: UseSearchExecut
       debounceRef.current = null;
     }, SEARCH_DEBOUNCE_MS);
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
-  }, [query, receiptCommand, isRecentCommand, isSpecialsCommand, retailerPrefix, runSearch, runRetailerSearch, fetchRecentPurchases, fetchReceiptProducts, fetchSpecials]);
+  }, [query, receiptCommand, isRecentCommand, isSpecialsCommand, isConsumedCmd, retailerPrefix, runSearch, runRetailerSearch, fetchRecentPurchases, fetchReceiptProducts, fetchSpecials]);
 
   return {
     results, recentListProducts, specialsProducts, retailerProducts,
     receiptProducts, receiptTitle,
-    isSearching, isRecentCommand, isSpecialsCommand, retailerPrefix,
-    receiptCommand, trimmedQuery, resetResults,
+    isSearching, isRecentCommand, isSpecialsCommand, isConsumedCmd,
+    retailerPrefix, receiptCommand, trimmedQuery, resetResults,
   };
 }

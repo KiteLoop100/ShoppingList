@@ -293,6 +293,14 @@ export interface CompetitorProductPrice {
   observed_at: string;
 }
 
+/** Re-export inventory types for convenience. */
+export type {
+  InventoryItem,
+  InventoryStatus,
+  InventorySource,
+  InventoryUpsertInput,
+} from "@/lib/inventory/inventory-types";
+
 /** Search module output (F02). */
 export type SearchResultSource = "favorite" | "popular" | "other";
 

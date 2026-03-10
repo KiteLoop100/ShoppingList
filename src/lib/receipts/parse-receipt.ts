@@ -26,6 +26,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { buildReceiptPrompt, NON_PRODUCT_PATTERN } from "./receipt-prompt";
 import { loadDemandGroups, loadDemandSubGroups, buildDemandGroupsAndSubGroupsPrompt } from "@/lib/categories/constants";
 import { mergeIntoExistingReceipt } from "./merge-receipt";
+import { upsertInventoryFromReceipt } from "@/lib/inventory/inventory-service";
 
 export interface ReceiptProduct {
   position: number;
@@ -354,6 +355,10 @@ export async function processValidReceipt(
     if (itemsErr) {
       log.error("[process-receipt] Receipt items insert error:", itemsErr);
     }
+
+    upsertInventoryFromReceipt(supabase, userId, receiptId, receiptItems).catch((err) => {
+      log.warn("[process-receipt] Inventory upsert failed (non-blocking):", err);
+    });
   }
 
   if (competitorProductIds.length > 0 && retailerNormalized) {

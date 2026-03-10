@@ -321,7 +321,15 @@
     "feedback": "Feedback",
     "feedbackHint": "Wir freuen uns über dein Feedback!",
     "feedbackButton": "Allgemeines Feedback senden",
-    "privacyPolicy": "Datenschutzerklärung"
+    "privacyPolicy": "Datenschutzerklärung",
+    "inventoryTitle": "Vorratsverwaltung",
+    "inventoryHint": "Behalte den Überblick über Produkte, die du zu Hause hast. Kassenzettel füllen deinen digitalen Vorratsschrank automatisch.",
+    "inventoryEnabled": "Vorratsverwaltung aktiviert",
+    "inventoryBackfilling": "Vorrat wird aus Kassenzetteln aufgebaut…",
+    "backfillTitle": "Vorrat aus Kassenzetteln aufbauen?",
+    "backfillMessage": "Du hast bereits {count} Kassenzettel. Sollen die Produkte der letzten 4 Wochen als Vorrat übernommen werden?",
+    "backfillYes": "Ja, übernehmen",
+    "backfillNo": "Nein, leer starten"
   },
   "createStore": {
     "title": "Neuen Laden anlegen",
@@ -758,7 +766,11 @@
     "allRetailers": "Alle",
     "noReceiptsForRetailer": "Noch keine {retailer}-Einkäufe erfasst.",
     "addPhoto": "Produktfoto",
-    "photoSaved": "Foto gespeichert"
+    "photoSaved": "Foto gespeichert",
+    "householdTitle": "Mein Haushalt",
+    "tabReceipts": "Kassenzettel",
+    "tabInventory": "Vorrat",
+    "inventoryCount": "{count} Produkte"
   },
   "catalog": {
     "navLabel": "Katalog",
@@ -776,5 +788,32 @@
     "notAvailableMessage": "Für den gewählten Standardladen ({country}) sind keine Katalogdaten vorhanden.",
     "notAvailableHint": "Wähle einen ALDI-Laden in Deutschland oder Österreich, um den Produktkatalog zu nutzen.",
     "goToSettings": "Laden wechseln"
+  },
+  "inventory": {
+    "title": "Vorrat",
+    "empty": "Dein Vorrat ist noch leer.",
+    "emptyHint": "Scanne einen Kassenzettel oder füge Produkte manuell hinzu.",
+    "addProduct": "Produkt hinzufügen",
+    "scanBarcode": "Barcode scannen",
+    "filterAll": "Alle",
+    "filterOpened": "Geöffnet",
+    "statusSealed": "Vorrätig",
+    "statusOpened": "Geöffnet",
+    "statusConsumed": "Aufgebraucht",
+    "swipeConsumed": "Aufgebraucht",
+    "swipeOpened": "Geöffnet",
+    "consumedToast": "{name} als aufgebraucht markiert.",
+    "consumedUndo": "Rückgängig",
+    "openedToast": "{name} als geöffnet markiert.",
+    "restockedToast": "{name} nachgefüllt (jetzt {count}x)",
+    "addToList": "Zur Einkaufsliste",
+    "edit": "Bearbeiten",
+    "delete": "Löschen",
+    "deleteConfirm": "Produkt aus dem Vorrat entfernen?",
+    "quantityUpdated": "Menge aktualisiert",
+    "consumedTitle": "Aufgebraucht melden",
+    "consumedEmpty": "Dein Vorrat ist noch leer. Scanne einen Kassenzettel oder füge Produkte manuell hinzu.",
+    "consumedAddToList": "Zur Einkaufsliste hinzufügen",
+    "purchaseMenuConsumed": "Aufgebraucht melden"
   }
 }

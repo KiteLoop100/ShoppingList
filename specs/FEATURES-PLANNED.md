@@ -43,6 +43,8 @@
 
 **Quick wins in [BACKLOG.md](BACKLOG.md)** (not ranked here, all < half day): BL-69 PWA App Shortcuts, BL-70 Produktfotos in Einkaufsliste, BL-71 Einkaufsnotizen pro Trip, BL-72 Retailer Memory.
 
+**Implemented:** F42 Haushaltsinventar — see [FEATURES-INVENTORY.md](FEATURES-INVENTORY.md).
+
 ---
 
 ## Kassenzettel-Flywheel
@@ -463,5 +465,5 @@ Aktueller Warenkorb: ~EUR 34
 
 ---
 
-*Last updated: 2026-03-08*
-*See also: [FEATURES-CORE.md](FEATURES-CORE.md) (implemented features), [FEATURES-INSIGHTS.md](FEATURES-INSIGHTS.md) (F24), [FEATURES-NOTIFICATIONS.md](FEATURES-NOTIFICATIONS.md) (Smart Savings Notifications)*
+*Last updated: 2026-03-10*
+*See also: [FEATURES-CORE.md](FEATURES-CORE.md) (implemented features), [FEATURES-INVENTORY.md](FEATURES-INVENTORY.md) (F42 Haushaltsinventar), [FEATURES-INSIGHTS.md](FEATURES-INSIGHTS.md) (F24), [FEATURES-NOTIFICATIONS.md](FEATURES-NOTIFICATIONS.md) (Smart Savings Notifications)*

@@ -321,7 +321,15 @@
     "feedback": "Feedback",
     "feedbackHint": "We appreciate your feedback!",
     "feedbackButton": "Send general feedback",
-    "privacyPolicy": "Privacy Policy"
+    "privacyPolicy": "Privacy Policy",
+    "inventoryTitle": "Inventory Management",
+    "inventoryHint": "Keep track of products you have at home. Receipts automatically fill your digital pantry.",
+    "inventoryEnabled": "Inventory management enabled",
+    "inventoryBackfilling": "Building inventory from receipts…",
+    "backfillTitle": "Build inventory from receipts?",
+    "backfillMessage": "You already have {count} receipts. Import products from the last 4 weeks into your inventory?",
+    "backfillYes": "Yes, import",
+    "backfillNo": "No, start empty"
   },
   "createStore": {
     "title": "Add new store",
@@ -758,7 +766,11 @@
     "allRetailers": "All",
     "noReceiptsForRetailer": "No {retailer} purchases recorded yet.",
     "addPhoto": "Add photo",
-    "photoSaved": "Photo saved"
+    "photoSaved": "Photo saved",
+    "householdTitle": "My Household",
+    "tabReceipts": "Receipts",
+    "tabInventory": "Inventory",
+    "inventoryCount": "{count} products"
   },
   "catalog": {
     "navLabel": "Catalog",
@@ -776,5 +788,32 @@
     "notAvailableMessage": "No catalog data is available for your selected store ({country}).",
     "notAvailableHint": "Please select an ALDI store in Germany or Austria to use the product catalog.",
     "goToSettings": "Change store"
+  },
+  "inventory": {
+    "title": "Inventory",
+    "empty": "Your inventory is empty.",
+    "emptyHint": "Scan a receipt or add products manually.",
+    "addProduct": "Add product",
+    "scanBarcode": "Scan barcode",
+    "filterAll": "All",
+    "filterOpened": "Opened",
+    "statusSealed": "Sealed",
+    "statusOpened": "Opened",
+    "statusConsumed": "Consumed",
+    "swipeConsumed": "Consumed",
+    "swipeOpened": "Opened",
+    "consumedToast": "{name} marked as consumed.",
+    "consumedUndo": "Undo",
+    "openedToast": "{name} marked as opened.",
+    "restockedToast": "{name} restocked (now {count}x)",
+    "addToList": "Add to shopping list",
+    "edit": "Edit",
+    "delete": "Delete",
+    "deleteConfirm": "Remove product from inventory?",
+    "quantityUpdated": "Quantity updated",
+    "consumedTitle": "Mark as consumed",
+    "consumedEmpty": "Your inventory is empty. Scan a receipt or add products manually.",
+    "consumedAddToList": "Add to shopping list",
+    "purchaseMenuConsumed": "Mark as consumed"
   }
 }

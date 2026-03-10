@@ -13,7 +13,9 @@ import {
 } from "@/lib/settings/product-preferences";
 import { APP_VERSION } from "@/lib/app-config";
 import { useAuth } from "@/lib/auth/auth-context";
-import { loadSettings, saveSettings } from "@/lib/settings/settings-sync";
+import { loadSettings, saveSettings, isInventoryEnabled } from "@/lib/settings/settings-sync";
+import { backfillFromReceipts } from "@/lib/inventory/inventory-service";
+import { log } from "@/lib/utils/logger";
 import { queryGeolocationPermission } from "@/lib/geo/gps-permission";
 import { createClientIfConfigured } from "@/lib/supabase/client";
 import type { LocalStore } from "@/lib/db";
@@ -40,6 +42,10 @@ export function SettingsClient() {
   const [loading, setLoading] = useState(true);
   const [storeSearchQuery, setStoreSearchQuery] = useState("");
   const [prefs, setPrefs] = useState<ProductPreferences>(getProductPreferences);
+  const [inventoryEnabled, setInventoryEnabled] = useState(false);
+  const [showBackfillDialog, setShowBackfillDialog] = useState(false);
+  const [backfilling, setBackfilling] = useState(false);
+  const [receiptCountForBackfill, setReceiptCountForBackfill] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -86,6 +92,7 @@ export function SettingsClient() {
         prefer_vegan: s.prefer_vegan,
         prefer_animal_welfare: s.prefer_animal_welfare,
       });
+      setInventoryEnabled(s.enable_inventory);
       setLoading(false);
     });
 
@@ -129,6 +136,9 @@ export function SettingsClient() {
           };
           setPrefs(nextPrefs);
           setProductPreferences(nextPrefs);
+          if (s.enable_inventory !== undefined) {
+            setInventoryEnabled(Boolean(s.enable_inventory));
+          }
         }
       )
       .subscribe();
@@ -181,6 +191,42 @@ export function SettingsClient() {
     }
     setGpsEnabled(enabled);
     saveSettings({ gps_enabled: enabled }, user?.id).catch(() => {});
+  }, [user?.id]);
+
+  const handleInventoryToggle = useCallback(async (enabled: boolean) => {
+    setInventoryEnabled(enabled);
+    saveSettings({ enable_inventory: enabled }, user?.id).catch(() => {});
+
+    if (enabled && !inventoryEnabled) {
+      const supabase = createClientIfConfigured();
+      if (supabase && user?.id) {
+        const { count } = await supabase
+          .from("receipts")
+          .select("receipt_id", { count: "exact", head: true })
+          .eq("user_id", user.id);
+        if (count && count > 0) {
+          setReceiptCountForBackfill(count);
+          setShowBackfillDialog(true);
+        }
+      }
+    }
+  }, [inventoryEnabled, user?.id]);
+
+  const handleBackfill = useCallback(async (doBackfill: boolean) => {
+    setShowBackfillDialog(false);
+    if (!doBackfill) return;
+
+    const supabase = createClientIfConfigured();
+    if (!supabase || !user?.id) return;
+
+    setBackfilling(true);
+    try {
+      await backfillFromReceipts(supabase, user.id, 4);
+    } catch (e) {
+      log.warn("[settings] backfill failed:", e);
+    } finally {
+      setBackfilling(false);
+    }
   }, [user?.id]);
 
   const saveSettingsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -510,6 +556,65 @@ export function SettingsClient() {
             ))}
           </div>
         </div>
+
+        <hr className="border-aldi-muted-light" />
+
+        {/* Inventory toggle (F42) */}
+        <div>
+          <label className="mb-1 block text-sm font-semibold uppercase tracking-wide text-aldi-muted">
+            {t("inventoryTitle")}
+          </label>
+          <p className="mb-3 text-xs text-aldi-muted">{t("inventoryHint")}</p>
+          <label className="flex cursor-pointer items-center gap-3 rounded-xl border-2 border-aldi-muted-light bg-white px-4 py-3 transition-colors hover:border-aldi-blue/30">
+            <div className="relative inline-flex h-6 w-11 shrink-0 items-center">
+              <input
+                type="checkbox"
+                className="peer sr-only"
+                checked={inventoryEnabled}
+                onChange={(e) => void handleInventoryToggle(e.target.checked)}
+              />
+              <div className="h-6 w-11 rounded-full bg-gray-200 transition-colors peer-checked:bg-aldi-blue peer-focus-visible:ring-2 peer-focus-visible:ring-aldi-blue/50" />
+              <div className="absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform peer-checked:translate-x-5" />
+            </div>
+            <span className="text-sm font-medium text-aldi-text">{t("inventoryEnabled")}</span>
+          </label>
+          {backfilling && (
+            <div className="mt-2 flex items-center gap-2 rounded-lg bg-aldi-blue/5 px-3 py-2">
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-aldi-blue border-t-transparent" />
+              <span className="text-sm text-aldi-blue">{t("inventoryBackfilling")}</span>
+            </div>
+          )}
+        </div>
+
+        {/* Backfill dialog */}
+        {showBackfillDialog && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
+              <h3 className="mb-2 text-lg font-semibold text-aldi-text">
+                {t("backfillTitle")}
+              </h3>
+              <p className="mb-4 text-sm text-aldi-muted">
+                {t("backfillMessage", { count: receiptCountForBackfill })}
+              </p>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => void handleBackfill(true)}
+                  className="min-h-touch flex-1 rounded-xl bg-aldi-blue px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-aldi-blue/90"
+                >
+                  {t("backfillYes")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleBackfill(false)}
+                  className="min-h-touch flex-1 rounded-xl border-2 border-aldi-muted-light bg-white px-4 py-3 text-sm font-medium text-aldi-text transition-colors hover:border-aldi-blue/30"
+                >
+                  {t("backfillNo")}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         <hr className="border-aldi-muted-light" />
 

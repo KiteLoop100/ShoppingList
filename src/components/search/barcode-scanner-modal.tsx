@@ -17,6 +17,8 @@ export interface BarcodeScannerModalProps {
   onProductNotFound: (ean: string) => void;
   onCompetitorProductFound?: (product: CompetitorProduct, ean: string) => void;
   onOpenFoodFactsResult?: (data: { name?: string; brand?: string; ean: string }) => void;
+  /** When set (inventory context), this callback is used instead of onProductAdded. */
+  onProductConsumed?: (product: Product) => void;
 }
 
 type LookupPhase = "idle" | "looking-up" | "found" | "not-found" | "error";
@@ -28,6 +30,7 @@ export function BarcodeScannerModal({
   onProductNotFound,
   onCompetitorProductFound,
   onOpenFoodFactsResult,
+  onProductConsumed,
 }: BarcodeScannerModalProps) {
   const t = useTranslations("search");
   const { products } = useProducts();
@@ -56,7 +59,8 @@ export function BarcodeScannerModal({
         const product = await findProductByEan(ean, products);
         if (!mountedRef.current) return;
         if (product) {
-          await Promise.resolve(onProductAdded(product));
+          const handler = onProductConsumed ?? onProductAdded;
+          await Promise.resolve(handler(product));
           if (!mountedRef.current) return;
           setLookupPhase("found");
           setTimeout(() => {
@@ -95,7 +99,7 @@ export function BarcodeScannerModal({
         setLookupError(e instanceof Error ? e.message : t("addError"));
       }
     },
-    [products, competitorProducts, onProductAdded, onProductNotFound, onCompetitorProductFound, onOpenFoodFactsResult, onClose, t],
+    [products, competitorProducts, onProductAdded, onProductNotFound, onCompetitorProductFound, onOpenFoodFactsResult, onProductConsumed, onClose, t],
   );
 
   const {

@@ -20,6 +20,7 @@ export interface UserSettings {
   prefer_bio: boolean;
   prefer_vegan: boolean;
   prefer_animal_welfare: boolean;
+  enable_inventory: boolean;
 }
 
 const LOCAL_CACHE_KEY = "user-settings-cache";
@@ -36,6 +37,7 @@ const DEFAULTS: UserSettings = {
   prefer_bio: false,
   prefer_vegan: false,
   prefer_animal_welfare: false,
+  enable_inventory: false,
 };
 
 function getLocalCache(): UserSettings {
@@ -90,6 +92,7 @@ export async function loadSettings(forceUserId?: string): Promise<UserSettings> 
         prefer_bio: data.prefer_bio ?? DEFAULTS.prefer_bio,
         prefer_vegan: data.prefer_vegan ?? DEFAULTS.prefer_vegan,
         prefer_animal_welfare: data.prefer_animal_welfare ?? DEFAULTS.prefer_animal_welfare,
+        enable_inventory: data.enable_inventory ?? DEFAULTS.enable_inventory,
       };
       setLocalCache(settings);
       return settings;
@@ -137,6 +140,7 @@ export async function saveSettings(
         prefer_bio: merged.prefer_bio,
         prefer_vegan: merged.prefer_vegan,
         prefer_animal_welfare: merged.prefer_animal_welfare,
+        enable_inventory: merged.enable_inventory,
         updated_at: new Date().toISOString(),
       },
       { onConflict: "user_id" }
@@ -147,6 +151,13 @@ export async function saveSettings(
   } catch (err) {
     log.warn("[SettingsSync] save failed:", err);
   }
+}
+
+/**
+ * Synchronously check if inventory feature is enabled (reads from localStorage cache).
+ */
+export function isInventoryEnabled(): boolean {
+  return getLocalCache().enable_inventory;
 }
 
 /**

@@ -34,6 +34,25 @@ export function isLastTripCommand(query: string): boolean {
   });
 }
 
+const PHRASES_CONSUMED = [
+  "aufgebraucht",
+  "verbraucht",
+  "leer",
+  "consumed",
+  "used up",
+];
+
+export function isConsumedCommand(query: string): boolean {
+  const q = normalizeName(query);
+  if (!q) return false;
+  return PHRASES_CONSUMED.some((phrase) => {
+    const p = normalizeName(phrase);
+    return q === p || q.startsWith(p) || p.startsWith(q);
+  });
+}
+
+export const CONSUMED_COMMAND = "__consumed";
+
 export function isAktionsartikelCommand(query: string): boolean {
   const q = normalizeName(query);
   if (!q) return false;

@@ -15,6 +15,7 @@ import { RecentPurchasesPanel } from "./recent-purchases-panel";
 import { SpecialsPanel } from "./specials-panel";
 import { RetailerProductsPanel } from "./retailer-products-panel";
 import { PurchaseHistoryMenu, type MenuSelection } from "./purchase-history-menu";
+import { ConsumedPanel } from "./consumed-panel";
 
 export type { SortMode } from "@/types";
 
@@ -52,7 +53,7 @@ export function ProductSearch({
   const {
     results, recentListProducts, specialsProducts, retailerProducts,
     receiptProducts, receiptTitle,
-    isSearching: loading, isRecentCommand, isSpecialsCommand,
+    isSearching: loading, isRecentCommand, isSpecialsCommand, isConsumedCmd,
     retailerPrefix, receiptCommand, trimmedQuery, resetResults,
   } = useSearchExecution({ query, products, country });
 
@@ -135,7 +136,9 @@ export function ProductSearch({
   );
 
   const resultsContent = showResults && (
-    receiptCommand ? (
+    isConsumedCmd ? (
+      <ConsumedPanel onCancel={clearSearch} />
+    ) : receiptCommand ? (
       <RecentPurchasesPanel
         recentProducts={receiptRecentProducts} products={products} loading={loading}
         onConfirm={confirmRecentPurchases} onCancel={clearSearch}
