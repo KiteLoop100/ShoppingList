@@ -42,6 +42,8 @@ export default function ReceiptDetailPage() {
   const [detailProduct, setDetailProduct] = useState<Product | null>(null);
   const [detailCompetitor, setDetailCompetitor] = useState<CompetitorProduct | null>(null);
   const [detailRetailer, setDetailRetailer] = useState<string | null>(null);
+  const [editAldiProduct, setEditAldiProduct] = useState<Product | null>(null);
+  const [editCompetitorProduct, setEditCompetitorProduct] = useState<CompetitorProduct | null>(null);
 
   const groupedItems = useMemo(() => groupReceiptItems(rawItems), [rawItems]);
 
@@ -402,23 +404,36 @@ export default function ReceiptDetailPage() {
       </div>
 
       <ProductCaptureModal
-        open={!!captureItem}
-        mode="create"
-        onClose={() => setCaptureItem(null)}
-        onSaved={handlePhotoSaved}
+        open={!!captureItem || !!editAldiProduct || !!editCompetitorProduct}
+        mode={editAldiProduct || editCompetitorProduct ? "edit" : "create"}
+        onClose={() => { setCaptureItem(null); setEditAldiProduct(null); setEditCompetitorProduct(null); }}
+        onSaved={(productId) => {
+          setEditAldiProduct(null);
+          setEditCompetitorProduct(null);
+          handlePhotoSaved(productId);
+        }}
         initialValues={captureInitialValues}
-        lockedFields={["name", "articleNumber", "price"]}
+        lockedFields={captureItem ? ["name", "articleNumber", "price"] : undefined}
+        editAldiProduct={editAldiProduct}
+        editCompetitorProduct={editCompetitorProduct}
       />
 
       <ProductDetailModal
         product={detailProduct}
         onClose={() => setDetailProduct(null)}
+        onEdit={(p) => {
+          setDetailProduct(null);
+          setEditAldiProduct(p);
+        }}
       />
 
       <CompetitorProductDetailModal
         product={detailCompetitor}
         onClose={() => setDetailCompetitor(null)}
-        onEdit={() => setDetailCompetitor(null)}
+        onEdit={(cp) => {
+          setDetailCompetitor(null);
+          setEditCompetitorProduct(cp);
+        }}
         retailer={detailRetailer}
       />
 
