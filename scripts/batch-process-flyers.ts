@@ -37,8 +37,9 @@ import {
   processPageProducts,
   deleteExistingFlyers,
   filterNewFiles,
-  FIRST_PAGE_PROMPT,
-  PAGE_PROMPT,
+  initDemandGroupsBlock,
+  buildFirstPagePrompt,
+  buildPagePrompt,
   type FirstPageResult,
   type PageResult,
   type ProcessedEntry,
@@ -136,6 +137,7 @@ async function main() {
   }
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+  await initDemandGroupsBlock(supabase);
 
   console.log(`\n=== Batch-Handzettelverarbeitung (${opts.country}) ===\n`);
   console.log(`Ordner:       ${flyersDir}`);
@@ -152,14 +154,6 @@ async function main() {
     console.log(`\nLoesche bestehende ${opts.country}-Handzettel...`);
     const deleted = await deleteExistingFlyers(supabase, opts.country);
     console.log(`  ${deleted} Handzettel geloescht.\n`);
-  }
-
-  let defaultCategoryId = "00000000-0000-0000-0000-000000000000";
-  if (!opts.dryRun) {
-    const { data: catRow } = await supabase
-      .from("products").select("category_id")
-      .eq("demand_group_code", "AK").limit(1).single();
-    if (catRow?.category_id) defaultCategoryId = catRow.category_id;
   }
 
   let totalCreated = 0, totalUpdated = 0, totalPages = 0, totalErrors = 0;
@@ -214,7 +208,7 @@ async function main() {
       const pageBase64 = Buffer.from(pagePdfBytes).toString("base64");
 
       const isFirstPage = pageNum === 1;
-      const prompt = isFirstPage ? FIRST_PAGE_PROMPT : PAGE_PROMPT;
+      const prompt = isFirstPage ? buildFirstPagePrompt() : buildPagePrompt();
 
       try {
         const [claudeResult, geminiBoxes] = await Promise.all([
@@ -244,7 +238,7 @@ async function main() {
 
         if (!opts.dryRun) {
           const { created, updated } = await processPageProducts(
-            supabase, products, flyerId, pageNum, bboxMap, flyerCountry, validFrom, validTo, defaultCategoryId,
+            supabase, products, flyerId, pageNum, bboxMap, flyerCountry, validFrom, validTo,
           );
           totalCreated += created;
           totalUpdated += updated;

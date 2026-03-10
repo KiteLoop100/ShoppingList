@@ -1,14 +1,17 @@
 "use client";
 
-import { DEMAND_GROUPS_LIST } from "@/lib/products/demand-groups-list";
 import { formatDemandGroupLabel } from "@/lib/i18n/category-translations";
 import type { ProductFormFields } from "./use-product-creation";
+
+interface DgOption { code: string; name: string }
+interface SgOption { code: string; name: string; demand_group_code: string }
 
 interface ProductFieldsSectionProps {
   t: (key: string) => string;
   tReview: (key: string) => string;
   fields: ProductFormFields;
-  subGroupOptions: string[];
+  demandGroupOptions: DgOption[];
+  subGroupOptions: SgOption[];
   setters: {
     setName: (v: string) => void;
     setBrand: (v: string) => void;
@@ -27,7 +30,7 @@ interface ProductFieldsSectionProps {
 const INPUT_CLASS =
   "rounded-xl border border-aldi-muted-light bg-aldi-bg px-3.5 py-2.5 text-[15px] text-aldi-text transition-colors focus:border-aldi-blue focus:bg-white focus:outline-none focus:ring-1 focus:ring-aldi-blue/20";
 
-export function ProductFieldsSection({ t, tReview, fields, subGroupOptions, setters }: ProductFieldsSectionProps) {
+export function ProductFieldsSection({ t, tReview, fields, demandGroupOptions, subGroupOptions, setters }: ProductFieldsSectionProps) {
   return (
     <div className="rounded-2xl bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
       <section className="grid gap-3.5">
@@ -59,9 +62,9 @@ export function ProductFieldsSection({ t, tReview, fields, subGroupOptions, sett
           <span className="text-xs font-semibold uppercase tracking-wider text-aldi-muted">{t("demandGroup")}</span>
           <select value={fields.demandGroup} onChange={(e) => setters.setDemandGroup(e.target.value)} className={INPUT_CLASS}>
             <option value="">—</option>
-            {DEMAND_GROUPS_LIST.map((g) => (
-              <option key={g.group} value={g.group}>
-                {formatDemandGroupLabel(g.group)}
+            {demandGroupOptions.map((g) => (
+              <option key={g.code} value={g.code}>
+                {formatDemandGroupLabel(g.code)} — {g.name}
               </option>
             ))}
           </select>
@@ -72,8 +75,8 @@ export function ProductFieldsSection({ t, tReview, fields, subGroupOptions, sett
             <select value={fields.demandSubGroup} onChange={(e) => setters.setDemandSubGroup(e.target.value)} className={INPUT_CLASS}>
               <option value="">—</option>
               {subGroupOptions.map((sg) => (
-                <option key={sg} value={sg}>
-                  {formatDemandGroupLabel(sg)}
+                <option key={sg.code} value={sg.code}>
+                  {sg.code} — {sg.name}
                 </option>
               ))}
             </select>

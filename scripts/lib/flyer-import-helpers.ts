@@ -5,7 +5,6 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { GoogleGenAI } from "@google/genai";
-import { DEMAND_GROUPS_LIST } from "../../src/lib/products/demand-groups-list";
 import { normalizeName } from "../../src/lib/products/normalize";
 import { getDemandGroupFallback } from "../../src/lib/products/demand-group-fallback";
 import { findExistingProduct } from "../../src/lib/products/find-existing";
@@ -25,7 +24,6 @@ export interface ExtractedProduct {
   ean_barcode?: string | null;
   price?: number | null;
   weight_or_quantity?: string | null;
-  demand_group?: string | null;
   demand_sub_group?: string | null;
   special_start_date?: string | null;
   special_end_date?: string | null;
@@ -51,12 +49,31 @@ export interface PageResult {
   products: ExtractedProduct[];
 }
 
-// ── Prompts ─────────────────────────────────────────────────────
+// ── Demand Groups (loaded at runtime) ───────────────────────────
 
-const DEMAND_GROUPS_INSTRUCTION =
-  "Ordne jedes Produkt einer demand_group und demand_sub_group zu. Verwende die OFFIZIELLEN ALDI Warengruppen-Codes (Format: '##-Name'). Wähle AUS DIESER LISTE – erfinde keine neuen Werte:\n\n" +
-  "Demand Groups und ihre Sub-Groups:\n" +
-  DEMAND_GROUPS_LIST.map((g) => `- ${g.group}: ${g.subGroups.join(", ")}`).join("\n");
+import {
+  loadDemandGroups,
+  loadDemandSubGroups,
+  buildDemandGroupsAndSubGroupsPrompt,
+} from "../../src/lib/categories/constants";
+
+let _demandGroupsBlock: string | null = null;
+
+export async function initDemandGroupsBlock(supabase: SupabaseClient): Promise<string> {
+  if (_demandGroupsBlock) return _demandGroupsBlock;
+  const [groups, subGroups] = await Promise.all([
+    loadDemandGroups(supabase),
+    loadDemandSubGroups(supabase),
+  ]);
+  _demandGroupsBlock = buildDemandGroupsAndSubGroupsPrompt(groups, subGroups);
+  return _demandGroupsBlock;
+}
+
+function getDemandGroupsBlock(): string {
+  return _demandGroupsBlock ?? "Demand groups not loaded — call initDemandGroupsBlock() first.";
+}
+
+// ── Prompts ─────────────────────────────────────────────────────
 
 const YEAR = new Date().getFullYear();
 
@@ -71,7 +88,8 @@ is_seasonal: true = jährlich wiederkehrendes Saisonprodukt (Spargel, Erdbeeren,
 
 const PRODUCT_FIELDS = `{ "article_number": "string or null", "name": "string", "price": number or null, "weight_or_quantity": "string or null", "brand": "string or null", "special_start_date": "YYYY-MM-DD or null", "special_end_date": "YYYY-MM-DD or null", "demand_group": "string or null", "demand_sub_group": "string or null", "assortment_type": "daily_range or special_food or special_nonfood", "is_private_label": true or false or null, "is_seasonal": true or false }`;
 
-export const FIRST_PAGE_PROMPT = `Dies ist die ERSTE Seite eines Supermarkt-Handzettels. Extrahiere: (1) Handzettel-Titel (flyer_title), (2) Gültigkeitszeitraum (special_valid_from, special_valid_to, YYYY-MM-DD), (3) JEDES Produkt auf dieser Seite, (4) das Land anhand des Logos/Brandings.
+export function buildFirstPagePrompt(): string {
+  return `Dies ist die ERSTE Seite eines Supermarkt-Handzettels. Extrahiere: (1) Handzettel-Titel (flyer_title), (2) Gültigkeitszeitraum (special_valid_from, special_valid_to, YYYY-MM-DD), (3) JEDES Produkt auf dieser Seite, (4) das Land anhand des Logos/Brandings.
 Das aktuelle Jahr ist ${YEAR}. Wenn kein Jahr angegeben ist, verwende ${YEAR}.
 
 LAND-ERKENNUNG (detected_country):
@@ -83,21 +101,24 @@ Pro Produkt: article_number, name, price, weight_or_quantity, brand, special_sta
 
 ${ASSORTMENT_RULES}
 ${LABEL_RULES}
-${DEMAND_GROUPS_INSTRUCTION}
+${getDemandGroupsBlock()}
 
 Antworte ausschließlich mit validem JSON. Kein Markdown, keine Backticks.
 { "photo_type": "flyer_pdf", "detected_country": "DE or AT or unknown", "flyer_title": "string", "special_valid_from": "YYYY-MM-DD or null", "special_valid_to": "YYYY-MM-DD or null", "products": [ ${PRODUCT_FIELDS} ] }`;
+}
 
-export const PAGE_PROMPT = `Dies ist eine Seite eines Supermarkt-Handzettels (nicht die erste). Extrahiere JEDES Produkt auf dieser Seite.
+export function buildPagePrompt(): string {
+  return `Dies ist eine Seite eines Supermarkt-Handzettels (nicht die erste). Extrahiere JEDES Produkt auf dieser Seite.
 Das aktuelle Jahr ist ${YEAR}. Wenn kein Jahr angegeben ist, verwende ${YEAR}.
 Pro Produkt: article_number, name, price, weight_or_quantity, brand, special_start_date, special_end_date, demand_group, demand_sub_group, assortment_type, is_private_label, is_seasonal.
 
 ${ASSORTMENT_RULES}
 ${LABEL_RULES}
-${DEMAND_GROUPS_INSTRUCTION}
+${getDemandGroupsBlock()}
 
 Antworte ausschließlich mit validem JSON. Kein Markdown, keine Backticks.
 { "photo_type": "flyer_pdf", "products": [ ${PRODUCT_FIELDS} ] }`;
+}
 
 const GEMINI_DETECT_PROMPT = `Du siehst eine Seite eines Supermarkt-Handzettels (Werbebeilage).
 Finde JEDEN einzelnen Produktbereich auf dieser Seite.
@@ -259,7 +280,6 @@ export async function processPageProducts(
   flyerCountry: string,
   validFrom: string,
   validTo: string,
-  defaultCategoryId: string,
 ): Promise<{ created: number; updated: number }> {
   let created = 0;
   let updated = 0;
@@ -284,7 +304,6 @@ export async function processPageProducts(
     const brand = (p.brand ?? offData?.brand ?? null)?.trim() || null;
     const displayName = (offData?.name ?? name).trim();
     const fallback = getDemandGroupFallback(displayName);
-    const demandGroup = (p.demand_group?.trim() || null) ?? fallback?.demand_group ?? null;
     const demandSubGroup = (p.demand_sub_group?.trim() || null) ?? fallback?.demand_sub_group ?? null;
     const nameNormalized = normalizeName(displayName);
     const specialStart = p.special_start_date ?? validFrom;
@@ -301,7 +320,7 @@ export async function processPageProducts(
         name: displayName, name_normalized: nameNormalized,
         article_number: articleNumber, brand, price,
         ...(price != null ? { price_updated_at: now } : {}),
-        ean_barcode: ean, demand_group: demandGroup, demand_sub_group: demandSubGroup,
+        ean_barcode: ean, demand_sub_group: demandSubGroup,
         ...(p.is_private_label != null ? { is_private_label: p.is_private_label } : {}),
         ...(p.is_seasonal === true ? { is_seasonal: true } : {}),
         special_start_date: specialStart, special_end_date: specialEnd,
@@ -312,12 +331,11 @@ export async function processPageProducts(
       const assortmentType = p.assortment_type === "special_nonfood" ? "special_nonfood" : "special_food";
       const insertData = {
         name: displayName, name_normalized: nameNormalized,
-        category_id: defaultCategoryId,
         demand_group_code: aktionCode ?? defaultCode,
         article_number: articleNumber, brand, price,
         price_updated_at: price != null ? now : null,
         assortment_type: assortmentType, source: "import" as const,
-        ean_barcode: ean, demand_group: demandGroup, demand_sub_group: demandSubGroup,
+        ean_barcode: ean, demand_sub_group: demandSubGroup,
         special_start_date: specialStart, special_end_date: specialEnd,
         country: flyerCountry, is_private_label: p.is_private_label ?? null,
         is_seasonal: p.is_seasonal === true,

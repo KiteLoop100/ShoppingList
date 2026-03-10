@@ -7,10 +7,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { PDFDocument } from "pdf-lib";
 import { callClaudeJSON } from "@/lib/api/claude-client";
 import { CLAUDE_MODEL_SONNET } from "@/lib/api/config";
+import { loadDemandGroups, loadDemandSubGroups, buildDemandGroupsAndSubGroupsPrompt } from "@/lib/categories/constants";
 import {
   PDF_PAGES_INITIAL_MAX,
-  FLYER_PDF_FIRST_PAGE_PROMPT,
-  FLYER_PDF_PAGE_PROMPT,
+  buildFlyerPdfFirstPagePrompt,
+  buildFlyerPdfPagePrompt,
   type ClaudeResponse,
   type ExtractedProductWithPage,
 } from "./prompts";
@@ -56,7 +57,15 @@ export async function processFlyer(
 ): Promise<NextResponse> {
   try {
     const pdfBytes = new Uint8Array(pdfBuf);
-    const sourceDoc = await PDFDocument.load(pdfBytes);
+    const [sourceDoc, groups, subGroups] = await Promise.all([
+      PDFDocument.load(pdfBytes),
+      loadDemandGroups(supabase),
+      loadDemandSubGroups(supabase),
+    ]);
+    const demandGroupsBlock = buildDemandGroupsAndSubGroupsPrompt(groups, subGroups);
+    const FLYER_PDF_FIRST_PAGE_PROMPT = buildFlyerPdfFirstPagePrompt(demandGroupsBlock);
+    const FLYER_PDF_PAGE_PROMPT = buildFlyerPdfPagePrompt(demandGroupsBlock);
+
     const totalPages = sourceDoc.getPageCount();
     log.debug("[process-photo] Flyer PDF: total pages:", totalPages);
 

@@ -10,7 +10,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { callClaude, parseClaudeJsonResponse } from "@/lib/api/claude-client";
 import { CLAUDE_MODEL_SONNET } from "@/lib/api/config";
 import { decodeEanFromImageBuffer } from "@/lib/barcode-from-image";
-import { VISION_PROMPT, type ClaudeResponse } from "./prompts";
+import { loadDemandGroups, loadDemandSubGroups, buildDemandGroupsAndSubGroupsPrompt } from "@/lib/categories/constants";
+import { buildVisionPrompt, type ClaudeResponse } from "./prompts";
 import {
   processImageToThumbnail,
   enhanceProduct,
@@ -32,6 +33,13 @@ export async function processVisionPhoto(
   let visionScannedEan: string | null = null;
 
   try {
+    const [groups, subGroups] = await Promise.all([
+      loadDemandGroups(supabase),
+      loadDemandSubGroups(supabase),
+    ]);
+    const demandGroupsBlock = buildDemandGroupsAndSubGroupsPrompt(groups, subGroups);
+    const VISION_PROMPT = buildVisionPrompt(demandGroupsBlock);
+
     visionScannedEan =
       imageBuffer != null
         ? await decodeEanFromImageBuffer(imageBuffer)

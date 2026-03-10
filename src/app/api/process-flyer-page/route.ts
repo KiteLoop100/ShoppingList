@@ -11,8 +11,9 @@ import { generalRateLimit, checkRateLimit, getIdentifier } from "@/lib/api/rate-
 import { CLAUDE_MODEL_SONNET } from "@/lib/api/config";
 import { requireApiKey, requireSupabaseAdmin } from "@/lib/api/guards";
 import { callClaudeJSON } from "@/lib/api/claude-client";
+import { loadDemandGroups, loadDemandSubGroups, buildDemandGroupsAndSubGroupsPrompt } from "@/lib/categories/constants";
 import {
-  FLYER_PDF_PAGE_PROMPT,
+  buildFlyerPdfPagePrompt,
   type ExtractedProduct,
 } from "@/lib/api/photo-processing/prompts";
 import {
@@ -136,6 +137,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: msg }, { status: 502 });
   }
 
+  const [groups, subGroups] = await Promise.all([
+    loadDemandGroups(supabase),
+    loadDemandSubGroups(supabase),
+  ]);
+  const demandGroupsBlock = buildDemandGroupsAndSubGroupsPrompt(groups, subGroups);
+  const flyerPagePrompt = buildFlyerPdfPagePrompt(demandGroupsBlock);
+
   const [geminiBoxes, claudeResult] = await Promise.allSettled([
     detectProductBoxes(pdfBase64),
     callClaudeJSON<{ products?: ExtractedProduct[] }>({
@@ -153,7 +161,7 @@ export async function POST(request: Request) {
                 data: pdfBase64,
               },
             },
-            { type: "text", text: FLYER_PDF_PAGE_PROMPT },
+            { type: "text", text: flyerPagePrompt },
           ],
         },
       ],
@@ -207,7 +215,7 @@ export async function POST(request: Request) {
     const brand = (p.brand ?? offData?.brand ?? null)?.trim() || null;
     const displayName = (offData?.name ?? name).trim();
     const fallbackDemand = getDemandGroupFallback(displayName);
-    const demandGroup = (p.demand_group?.trim() || null) ?? fallbackDemand?.demand_group ?? null;
+    const demandGroupCode = (p.demand_group_code?.trim() || null) ?? fallbackDemand?.demand_group ?? null;
     const demandSubGroup = (p.demand_sub_group?.trim() || null) ?? fallbackDemand?.demand_sub_group ?? null;
     const nameNormalized = normalizeName(displayName);
     const specialStart = p.special_start_date ?? validFrom;
@@ -233,7 +241,7 @@ export async function POST(request: Request) {
         price,
         ...(price != null ? { price_updated_at: now } : {}),
         ean_barcode: ean,
-        demand_group: demandGroup,
+        ...(demandGroupCode != null ? { demand_group_code: demandGroupCode } : {}),
         demand_sub_group: demandSubGroup,
         ...(p.is_private_label != null ? { is_private_label: p.is_private_label } : {}),
         ...(p.is_seasonal === true ? { is_seasonal: true } : {}),
@@ -251,7 +259,7 @@ export async function POST(request: Request) {
       const result = await upsertProduct(supabase, {
         name: displayName,
         name_normalized: nameNormalized,
-        demand_group_code: aktionDemandGroupCode ?? defaultDemandGroupCode,
+        demand_group_code: demandGroupCode ?? aktionDemandGroupCode ?? defaultDemandGroupCode,
         article_number: articleNumber,
         brand,
         price,
@@ -259,7 +267,6 @@ export async function POST(request: Request) {
         assortment_type: assortmentType,
         source: "import",
         ean_barcode: ean,
-        demand_group: demandGroup,
         demand_sub_group: demandSubGroup,
         special_start_date: specialStart,
         special_end_date: specialEnd,

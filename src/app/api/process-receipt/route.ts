@@ -5,6 +5,7 @@ import path from "path";
 import { claudeRateLimit, checkRateLimit } from "@/lib/api/rate-limit";
 import { requireAuth, requireApiKey, requireSupabaseAdmin } from "@/lib/api/guards";
 import { log } from "@/lib/utils/logger";
+import { loadDemandGroups, loadDemandSubGroups, buildDemandGroupsAndSubGroupsPrompt } from "@/lib/categories/constants";
 import {
   callReceiptOcr,
   cleanupPhotos,
@@ -80,9 +81,15 @@ export async function POST(request: Request) {
     dbgLog("H-1C", "calling callReceiptOcr", { photoCount: photo_urls.length });
     // #endregion
 
+    const [groups, subGroups] = await Promise.all([
+      loadDemandGroups(supabase),
+      loadDemandSubGroups(supabase),
+    ]);
+    const demandGroupsBlock = buildDemandGroupsAndSubGroupsPrompt(groups, subGroups);
+
     let ocrResult;
     try {
-      ocrResult = await callReceiptOcr(photo_urls);
+      ocrResult = await callReceiptOcr(photo_urls, demandGroupsBlock);
       // #region agent log
       dbgLog("H-1C,H-2B", "callReceiptOcr returned", { durationMs: Date.now() - ocrStart, status: ocrResult.status, retailer: ocrResult.retailer });
       // #endregion

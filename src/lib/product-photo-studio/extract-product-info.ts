@@ -11,6 +11,8 @@ import { extractCompetitorProductPrompt } from "./prompts";
 import { buildImageContent } from "./build-image-content";
 import type { PhotoInput, ExtractedCompetitorProductInfo, NutritionInfo } from "./types";
 import { log } from "@/lib/utils/logger";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { loadDemandGroups, loadDemandSubGroups, buildDemandGroupsAndSubGroupsPrompt } from "@/lib/categories/constants";
 
 const NUTRI_SCORE_VALUES = new Set(["A", "B", "C", "D", "E"]);
 
@@ -66,7 +68,6 @@ function sanitizeExtracted(
       raw.retailer_from_price_tag != null ? String(raw.retailer_from_price_tag) : null,
     unit_price: raw.unit_price != null ? String(raw.unit_price) : null,
     weight_or_quantity: raw.weight_or_quantity != null ? String(raw.weight_or_quantity) : null,
-    demand_group: raw.demand_group != null ? String(raw.demand_group) : null,
     ingredients: raw.ingredients != null ? String(raw.ingredients) : null,
     nutrition_info: sanitizeNutrition(raw.nutrition_info),
     allergens: raw.allergens != null ? String(raw.allergens) : null,
@@ -87,7 +88,14 @@ export async function extractProductInfo(
   scannedEan: string | null,
 ): Promise<ExtractedCompetitorProductInfo> {
   try {
-    const prompt = extractCompetitorProductPrompt(images.length, scannedEan);
+    const supabase = createAdminClient();
+    if (!supabase) throw new Error("Supabase admin client not configured");
+    const [groups, subGroups] = await Promise.all([
+      loadDemandGroups(supabase),
+      loadDemandSubGroups(supabase),
+    ]);
+    const demandGroupsBlock = buildDemandGroupsAndSubGroupsPrompt(groups, subGroups);
+    const prompt = extractCompetitorProductPrompt(images.length, scannedEan, demandGroupsBlock);
     const result = await callClaudeJSON<Record<string, unknown>>({
       model: CLAUDE_MODEL_SONNET,
       max_tokens: 4096,

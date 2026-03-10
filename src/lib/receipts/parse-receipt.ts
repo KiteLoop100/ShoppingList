@@ -23,7 +23,8 @@ import { callClaude, parseClaudeJsonResponse } from "@/lib/api/claude-client";
 import { log } from "@/lib/utils/logger";
 import { isHomeRetailer, normalizeRetailerName } from "@/lib/retailers/retailers";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { RECEIPT_PROMPT, NON_PRODUCT_PATTERN } from "./receipt-prompt";
+import { buildReceiptPrompt, NON_PRODUCT_PATTERN } from "./receipt-prompt";
+import { loadDemandGroups, loadDemandSubGroups, buildDemandGroupsAndSubGroupsPrompt } from "@/lib/categories/constants";
 import { mergeIntoExistingReceipt } from "./merge-receipt";
 
 export interface ReceiptProduct {
@@ -97,7 +98,11 @@ export function cleanupPhotos(supabase: SupabaseClient, photoPaths: string[]) {
 }
 
 /** Call Claude with receipt images and return the parsed OCR result. */
-export async function callReceiptOcr(photoUrls: string[]): Promise<ReceiptOcrResult> {
+export async function callReceiptOcr(
+  photoUrls: string[],
+  demandGroupsBlock: string,
+): Promise<ReceiptOcrResult> {
+  const receiptPrompt = buildReceiptPrompt(demandGroupsBlock);
   const imageContent = photoUrls.map((url) => ({
     type: "image" as const,
     source: { type: "url" as const, url },
@@ -110,7 +115,7 @@ export async function callReceiptOcr(photoUrls: string[]): Promise<ReceiptOcrRes
         role: "user",
         content: [
           ...imageContent,
-          { type: "text", text: RECEIPT_PROMPT },
+          { type: "text", text: receiptPrompt },
         ],
       },
     ],

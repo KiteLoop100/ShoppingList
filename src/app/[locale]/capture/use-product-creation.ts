@@ -2,7 +2,8 @@
 
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { createClientIfConfigured } from "@/lib/supabase/client";
-import { DEMAND_GROUPS_LIST } from "@/lib/products/demand-groups-list";
+import { db } from "@/lib/db";
+import { fetchDemandGroupsFromSupabase, fetchDemandSubGroupsFromSupabase } from "@/lib/categories/category-service";
 import { getCurrentUserId } from "@/lib/auth/auth-context";
 import { generateId } from "@/lib/utils/generate-id";
 
@@ -100,15 +101,55 @@ export function useProductCreation(options: {
     if (open) resetForm();
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  interface DgOption { code: string; name: string }
+  interface SgOption { code: string; name: string; demand_group_code: string }
+
+  const [demandGroupOptions, setDemandGroupOptions] = useState<DgOption[]>([]);
+  const [allSubGroups, setAllSubGroups] = useState<SgOption[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const dsgTable = "demand_sub_groups" in db ? (db as unknown as Record<string, { toArray: () => Promise<SgOption[]> }>).demand_sub_groups : null;
+      const [idbGroups, sbGroups, idbSubs, sbSubs] = await Promise.all([
+        db.demand_groups.toArray(),
+        fetchDemandGroupsFromSupabase(),
+        dsgTable ? dsgTable.toArray().catch(() => [] as SgOption[]) : Promise.resolve([] as SgOption[]),
+        fetchDemandSubGroupsFromSupabase(),
+      ]);
+      if (cancelled) return;
+      const groups: DgOption[] = idbGroups.map((dg) => ({ code: dg.code, name: dg.name }));
+      if (sbGroups) {
+        const codes = new Set(groups.map((g) => g.code));
+        for (const r of sbGroups) {
+          if (!codes.has(r.code)) groups.push({ code: r.code, name: r.name });
+        }
+      }
+      setDemandGroupOptions(groups);
+
+      const subs: SgOption[] = (idbSubs ?? []).map((s: { code: string; name: string; demand_group_code: string }) => ({
+        code: s.code, name: s.name, demand_group_code: s.demand_group_code,
+      }));
+      if (sbSubs) {
+        const codes = new Set(subs.map((s) => s.code));
+        for (const r of sbSubs) {
+          if (!codes.has(r.code)) subs.push({ code: r.code, name: r.name, demand_group_code: r.demand_group_code });
+        }
+      }
+      setAllSubGroups(subs);
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
   const subGroupOptions = useMemo(
     () => demandGroup
-      ? DEMAND_GROUPS_LIST.find((g) => g.group === demandGroup)?.subGroups ?? []
+      ? allSubGroups.filter((sg) => sg.demand_group_code === demandGroup)
       : [],
-    [demandGroup],
+    [demandGroup, allSubGroups],
   );
 
   useEffect(() => {
-    if (!demandGroup || !subGroupOptions.includes(demandSubGroup)) {
+    if (!demandGroup || !subGroupOptions.some((sg) => sg.code === demandSubGroup)) {
       setDemandSubGroup("");
     }
   }, [demandGroup, demandSubGroup, subGroupOptions]);
@@ -145,7 +186,7 @@ export function useProductCreation(options: {
           case "weight_or_quantity":
             if (!weightOrQuantity.trim()) setWeightOrQuantity(str);
             break;
-          case "demand_group":
+          case "demand_group_code":
             if (!demandGroup.trim()) setDemandGroup(str);
             break;
           case "demand_sub_group":
@@ -407,7 +448,7 @@ export function useProductCreation(options: {
       ean_barcode: ean.trim() || null,
       article_number: articleNumber.trim() || null,
       weight_or_quantity: weightOrQuantity.trim() || null,
-      demand_group: demandGroup.trim() || null,
+      demand_group_code: demandGroup.trim() || null,
       demand_sub_group: demandSubGroup.trim() || null,
       ingredients: ingredients.trim() || null,
       allergens: allergens.trim() || null,
@@ -468,6 +509,7 @@ export function useProductCreation(options: {
   return {
     fields,
     setters,
+    demandGroupOptions,
     subGroupOptions,
     thumbnailPreview,
     extraBlobs,

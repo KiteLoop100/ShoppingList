@@ -9,7 +9,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { callClaudeJSON } from "@/lib/api/claude-client";
 import { CLAUDE_MODEL_SONNET } from "@/lib/api/config";
 import { decodeEanFromImageBuffer } from "@/lib/barcode-from-image";
-import { DATA_EXTRACTION_PROMPT } from "./prompts";
+import { loadDemandGroups, loadDemandSubGroups, buildDemandGroupsAndSubGroupsPrompt } from "@/lib/categories/constants";
+import { buildDataExtractionPrompt } from "./prompts";
 import { log } from "@/lib/utils/logger";
 
 export async function processDataExtraction(
@@ -21,16 +22,21 @@ export async function processDataExtraction(
   now: string,
 ): Promise<NextResponse> {
   try {
-    const scannedEan =
-      imageBuffer != null ? await decodeEanFromImageBuffer(imageBuffer) : null;
+    const [groups, subGroups, scannedEan] = await Promise.all([
+      loadDemandGroups(supabase),
+      loadDemandSubGroups(supabase),
+      imageBuffer != null ? decodeEanFromImageBuffer(imageBuffer) : Promise.resolve(null),
+    ]);
     if (scannedEan) {
       log.debug("[process-photo] Data extraction: EAN from barcode scan:", scannedEan);
     }
 
+    const demandGroupsBlock = buildDemandGroupsAndSubGroupsPrompt(groups, subGroups);
+    const basePrompt = buildDataExtractionPrompt(demandGroupsBlock);
     const dataExtractionPrompt =
       scannedEan != null
-        ? `${DATA_EXTRACTION_PROMPT}\n\nWICHTIG: Der EAN-Code wurde bereits per Barcode-Scanner aus dem Bild erkannt: ${scannedEan}. Setze im JSON "ean_barcode" auf genau diesen Wert (nur diese Zahl). Lies den EAN nicht aus dem Bild ab.`
-        : DATA_EXTRACTION_PROMPT;
+        ? `${basePrompt}\n\nWICHTIG: Der EAN-Code wurde bereits per Barcode-Scanner aus dem Bild erkannt: ${scannedEan}. Setze im JSON "ean_barcode" auf genau diesen Wert (nur diese Zahl). Lies den EAN nicht aus dem Bild ab.`
+        : basePrompt;
 
     const content = [
       {
@@ -65,7 +71,6 @@ export async function processDataExtraction(
       nutrition_info:
         (parsed.nutrition_info as Record<string, unknown>) ?? null,
       allergens: parsed.allergens ?? null,
-      demand_group: parsed.demand_group ?? null,
       demand_sub_group: parsed.demand_sub_group ?? null,
     };
 

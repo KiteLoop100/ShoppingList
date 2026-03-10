@@ -3,8 +3,6 @@
  * extraction, and thumbnail quality verification.
  */
 
-import { DEMAND_GROUPS_INSTRUCTION } from "@/lib/products/demand-groups-prompt";
-
 export function classifyPhotosPrompt(photoCount: number): string {
   return `Du bist ein Content-Moderator fuer eine Produkt-Datenbank. Dir werden ${photoCount} Fotos uebergeben, die angeblich verschiedene Ansichten EINES Produkts zeigen (Vorderseite, Rueckseite, Seite, Preisschild, Barcode usw.).
 
@@ -57,6 +55,7 @@ Antworte ausschliesslich mit validem JSON. Kein Markdown, keine Backticks.
 export function extractCompetitorProductPrompt(
   photoCount: number,
   scannedEan: string | null,
+  demandGroupsBlock: string,
 ): string {
   const eanHint =
     scannedEan != null
@@ -92,7 +91,7 @@ PREISSCHILD-ANALYSE (falls Preisschild-Foto vorhanden):
 
 WARENGRUPPEN-ZUORDNUNG:
 - demand_group: Ordne das Produkt anhand von Name, Verpackung und Kategorie einer Warengruppe zu.
-${DEMAND_GROUPS_INSTRUCTION}
+${demandGroupsBlock}
 
 Antworte ausschliesslich mit validem JSON. Kein Markdown, keine Backticks.
 Fehlende/nicht sichtbare Werte als null. Boolesche Flags als false wenn nicht erkennbar.

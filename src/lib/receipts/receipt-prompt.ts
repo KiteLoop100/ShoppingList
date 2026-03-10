@@ -3,13 +3,14 @@
  */
 
 import { SUPPORTED_RETAILER_NAMES } from "@/lib/retailers/retailers";
-import { DEMAND_GROUPS_INSTRUCTION } from "@/lib/products/demand-groups-prompt";
 
 const SUPPORTED_LIST = SUPPORTED_RETAILER_NAMES.join(", ");
 
 export const NON_PRODUCT_PATTERN = /^(PFAND|LEERGUT|EINWEG|MEHRWEG|EC-ZAHLUNG|SUMME|ZWISCHENSUMME|RABATT|NACHLASS|TREUEPUNKTE|PAYBACK)/i;
 
-export const RECEIPT_PROMPT = `Du analysierst Fotos und prüfst ob es sich um einen Kassenzettel eines unterstützten Händlers handelt.
+export function buildReceiptPrompt(demandGroupsBlock: string): string {
+  const year = new Date().getFullYear();
+  return `Du analysierst Fotos und prüfst ob es sich um einen Kassenzettel eines unterstützten Händlers handelt.
 
 UNTERSTÜTZTE HÄNDLER: ${SUPPORTED_LIST}
 Varianten wie "ALDI SÜD", "ALDI Nord", "Hofer" gelten als ALDI.
@@ -51,7 +52,7 @@ SCHRITT 2 – NUR bei status "valid", extrahiere ALLE folgenden Informationen:
 - demand_group: Warengruppe im Format "##-Name" (z.B. "83-Milch/Sahne/Butter"). Auch bei abgekürzten Kassenzettelnamen anhand des Kontexts (Händler, Steuerklasse, andere Produkte) zuordnen. null nur wenn wirklich unklar.
 
 WARENGRUPPEN-ZUORDNUNG:
-${DEMAND_GROUPS_INSTRUCTION}
+${demandGroupsBlock}
 
 3. FUSS:
 - subtotal: Zwischensumme
@@ -66,7 +67,7 @@ WICHTIG:
 - Unterscheide Produktzeilen von Summenzeilen, Steuerzeilen und Zahlungszeilen.
 - Wenn ein Produkt mit Rabatt erscheint, extrahiere den Endpreis.
 - Pfand-Positionen (PFAND, LEERGUT) auch als Produkt extrahieren.
-- Das aktuelle Jahr ist ${new Date().getFullYear()}. Falls kein Jahr auf dem Bon steht, verwende ${new Date().getFullYear()}.
+- Das aktuelle Jahr ist ${year}. Falls kein Jahr auf dem Bon steht, verwende ${year}.
 
 Antworte ausschließlich mit validem JSON. Kein Markdown, keine Backticks.
 
@@ -99,3 +100,4 @@ Antworte ausschließlich mit validem JSON. Kein Markdown, keine Backticks.
   "tax_details": [{"category": "A", "rate": "19%", "net": 0.00, "tax": 0.00, "gross": 0.00}],
   "extra_info": {}
 }`;
+}

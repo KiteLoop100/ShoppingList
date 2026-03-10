@@ -19,6 +19,7 @@ export function CreateProductModal({ open, onClose, onSaved }: CreateProductModa
   const {
     fields,
     setters,
+    demandGroupOptions,
     subGroupOptions,
     thumbnailPreview,
     extraBlobs,
@@ -75,6 +76,7 @@ export function CreateProductModal({ open, onClose, onSaved }: CreateProductModa
             t={t}
             tReview={tReview}
             fields={fields}
+            demandGroupOptions={demandGroupOptions}
             subGroupOptions={subGroupOptions}
             setters={setters}
           />

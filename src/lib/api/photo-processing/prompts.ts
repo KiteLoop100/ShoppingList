@@ -1,13 +1,15 @@
 /**
  * Claude prompt templates and shared types for photo processing (BL-31).
+ * All prompt functions receive a demandGroupsBlock parameter built at
+ * runtime from the demand_groups + demand_sub_groups tables.
  */
-
-import { DEMAND_GROUPS_INSTRUCTION } from "@/lib/products/demand-groups-prompt";
 
 export const PDF_PAGES_INITIAL_MAX = 5;
 
-export const FLYER_PDF_FIRST_PAGE_PROMPT = `Dies ist die ERSTE Seite eines Supermarkt-Handzettels. Extrahiere: (1) Handzettel-Titel (flyer_title, z.B. "KW 09 – Angebote ab 24.02."), (2) Gültigkeitszeitraum (special_valid_from, special_valid_to, YYYY-MM-DD), (3) JEDES Produkt auf dieser Seite, (4) das Land anhand des Logos/Brandings.
-Das aktuelle Jahr ist ${new Date().getFullYear()}. Wenn auf dem Handzettel kein Jahr angegeben ist, verwende ${new Date().getFullYear()} für alle Datumsangaben.
+export function buildFlyerPdfFirstPagePrompt(demandGroupsBlock: string): string {
+  const year = new Date().getFullYear();
+  return `Dies ist die ERSTE Seite eines Supermarkt-Handzettels. Extrahiere: (1) Handzettel-Titel (flyer_title, z.B. "KW 09 – Angebote ab 24.02."), (2) Gültigkeitszeitraum (special_valid_from, special_valid_to, YYYY-MM-DD), (3) JEDES Produkt auf dieser Seite, (4) das Land anhand des Logos/Brandings.
+Das aktuelle Jahr ist ${year}. Wenn auf dem Handzettel kein Jahr angegeben ist, verwende ${year} für alle Datumsangaben.
 
 LAND-ERKENNUNG (detected_country):
 Erkenne anhand des Logos und Brandings ob es sich um einen ALDI SÜD (Deutschland) oder Hofer (Österreich) Handzettel handelt.
@@ -34,7 +36,7 @@ is_seasonal (boolean):
 - false = kein Saisonprodukt
 HINWEIS: is_seasonal ist NICHT dasselbe wie assortment_type "special". Aktionsartikel kommen einmal; Saisonprodukte kehren jährlich wieder und können Dauersortiment sein.
 
-${DEMAND_GROUPS_INSTRUCTION}
+${demandGroupsBlock}
 
 Antworte ausschließlich mit validem JSON. Kein Markdown, keine Backticks.
 
@@ -48,9 +50,12 @@ Antworte ausschließlich mit validem JSON. Kein Markdown, keine Backticks.
     { "article_number": "string or null", "name": "string", "price": number or null, "weight_or_quantity": "string or null", "brand": "string or null", "special_start_date": "YYYY-MM-DD or null", "special_end_date": "YYYY-MM-DD or null", "demand_group": "string or null", "demand_sub_group": "string or null", "assortment_type": "daily_range or special_food or special_nonfood", "is_private_label": true or false or null, "is_seasonal": true or false }
   ]
 }`;
+}
 
-export const FLYER_PDF_PAGE_PROMPT = `Dies ist eine Seite eines Supermarkt-Handzettels (nicht die erste). Extrahiere JEDES Produkt auf dieser Seite.
-Das aktuelle Jahr ist ${new Date().getFullYear()}. Wenn auf dem Handzettel kein Jahr angegeben ist, verwende ${new Date().getFullYear()} für alle Datumsangaben.
+export function buildFlyerPdfPagePrompt(demandGroupsBlock: string): string {
+  const year = new Date().getFullYear();
+  return `Dies ist eine Seite eines Supermarkt-Handzettels (nicht die erste). Extrahiere JEDES Produkt auf dieser Seite.
+Das aktuelle Jahr ist ${year}. Wenn auf dem Handzettel kein Jahr angegeben ist, verwende ${year} für alle Datumsangaben.
 Pro Produkt: article_number (falls sichtbar), name (vollständiger Produktname), price (Preis), weight_or_quantity (Gewicht/Menge falls angegeben), brand (Marke falls sichtbar), special_start_date, special_end_date (YYYY-MM-DD), demand_group, demand_sub_group, assortment_type, is_private_label, is_seasonal.
 
 WICHTIG für assortment_type – es gibt genau 3 Werte:
@@ -63,7 +68,7 @@ Die MEISTEN Lebensmittel im Handzettel sind "daily_range"!
 is_private_label: true = Eigenmarke (Milsani, Lacura, Tandil, GUT bio, MAMIA, Moser Roth, etc.), false = Fremdmarke (Nivea, Coca-Cola, etc.), null = unklar.
 is_seasonal: true = jährlich wiederkehrendes Saisonprodukt (Spargel, Erdbeeren, Lebkuchen, Glühwein), false = kein Saisonprodukt.
 
-${DEMAND_GROUPS_INSTRUCTION}
+${demandGroupsBlock}
 
 Antworte ausschließlich mit validem JSON. Kein Markdown, keine Backticks.
 
@@ -73,10 +78,12 @@ Antworte ausschließlich mit validem JSON. Kein Markdown, keine Backticks.
     { "article_number": "string or null", "name": "string", "price": number or null, "weight_or_quantity": "string or null", "brand": "string or null", "special_start_date": "YYYY-MM-DD or null", "special_end_date": "YYYY-MM-DD or null", "demand_group": "string or null", "demand_sub_group": "string or null", "assortment_type": "daily_range or special_food or special_nonfood", "is_private_label": true or false or null, "is_seasonal": true or false }
   ]
 }`;
+}
 
-export const VISION_PROMPT = `You are analyzing a photo from a grocery shopping context. Classify the photo type and extract structured data.
+export function buildVisionPrompt(demandGroupsBlock: string): string {
+  return `You are analyzing a photo from a grocery shopping context. Classify the photo type and extract structured data.
 
-${DEMAND_GROUPS_INSTRUCTION}
+${demandGroupsBlock}
 
 Antworte ausschließlich mit validem JSON. Kein Markdown, keine Backticks, kein zusätzlicher Text. Jedes Produkt MUSS demand_group und demand_sub_group haben (string oder null; null nur wenn wirklich unklar).
 
@@ -103,10 +110,12 @@ Respond with a single JSON object, no markdown:
 }
 
 For receipts each product has article_number, name, price, demand_group, demand_sub_group. For other photo types add brand, ean_barcode, is_private_label, is_seasonal etc. Keep JSON compact.`;
+}
 
-export const DATA_EXTRACTION_PROMPT = `Extrahiere aus diesem Produktfoto alle sichtbaren Daten für ein Lebensmittel/Produkt. Das Foto kann Strichcode, Rückseite mit Inhaltsstoffen, Nährwerttabelle, Nutri-Score, Preisschild o. ä. zeigen.
+export function buildDataExtractionPrompt(demandGroupsBlock: string): string {
+  return `Extrahiere aus diesem Produktfoto alle sichtbaren Daten für ein Lebensmittel/Produkt. Das Foto kann Strichcode, Rückseite mit Inhaltsstoffen, Nährwerttabelle, Nutri-Score, Preisschild o. ä. zeigen.
 
-${DEMAND_GROUPS_INSTRUCTION}
+${demandGroupsBlock}
 
 Antworte ausschließlich mit validem JSON. Kein Markdown, keine Backticks.
 Gib nur Felder an, die du auf dem Foto erkennst. Fehlende Werte als null.
@@ -127,6 +136,7 @@ is_bio: true wenn EU-Bio-Logo (grünes Blatt), deutsches Bio-Siegel (Sechseck), 
   "demand_sub_group": "string or null",
   "is_bio": true or false
 }`;
+}
 
 export const CROP_PROMPT = `Identify the main product in this image. Return the bounding box that contains the COMPLETE product — include the entire object from top to bottom and side to side (e.g. for a bottle: cap, neck, body, and base; for a box: all four corners). Exclude background, shelves, hands, and unrelated objects, but do NOT cut off any part of the product itself.
 
@@ -167,6 +177,7 @@ export interface ExtractedProduct {
   ingredients?: string | null;
   allergens?: string | null;
   demand_group?: string | null;
+  demand_group_code?: string | null;
   demand_sub_group?: string | null;
   special_start_date?: string | null;
   special_end_date?: string | null;
