@@ -30,6 +30,8 @@ export interface ListItemRowProps {
   onBuyElsewhere?: (itemId: string) => void;
   /** Called when user long-presses a generic product name to rename it. */
   onRenameItem?: (itemId: string, newName: string) => void;
+  /** When true the row plays a fade-out/collapse animation before removal. */
+  isExiting?: boolean;
 }
 
 export const ListItemRow = memo(function ListItemRow({
@@ -44,6 +46,7 @@ export const ListItemRow = memo(function ListItemRow({
   onUndefer,
   onBuyElsewhere,
   onRenameItem,
+  isExiting,
 }: ListItemRowProps) {
   const t = useTranslations("list");
 
@@ -129,8 +132,8 @@ export const ListItemRow = memo(function ListItemRow({
 
   return (
     <div
-      className="group relative min-w-0 w-full overflow-hidden rounded-xl focus-within:ring-2 focus-within:ring-aldi-blue/30 focus-within:ring-offset-1"
-      tabIndex={0}
+      className={`group relative min-w-0 w-full overflow-hidden rounded-xl focus-within:ring-2 focus-within:ring-aldi-blue/30 focus-within:ring-offset-1${isExiting ? " animate-check-exit" : ""}`}
+      tabIndex={isExiting ? -1 : 0}
       onKeyDown={handleRowKeyDown}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}

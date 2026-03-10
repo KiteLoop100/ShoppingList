@@ -172,8 +172,8 @@ describe("useListMutations", () => {
     // Before timer fires, item is still in unchecked but marked checked
     expect(deps.setUnchecked).toHaveBeenCalled();
 
-    // Advance past CHECK_FEEDBACK_MS (600ms)
-    vi.advanceTimersByTime(600);
+    // Advance past CHECK_FEEDBACK_MS (350ms)
+    vi.advanceTimersByTime(350);
 
     expect(deps.uncheckedRef.current.find(i => i.item_id === "c1")).toBeUndefined();
     expect(deps.checkedRef.current.find(i => i.item_id === "c1")).toBeDefined();

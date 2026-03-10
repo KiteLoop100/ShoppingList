@@ -50,7 +50,7 @@ export async function sortListItems(
         const isSpecialActive = meta?.is_special && !(item as ListItemWithMeta).is_deferred;
         const group = isSpecialActive
           ? VIRTUAL_GROUP_AKTIONSARTIKEL
-          : (meta?.demand_group ?? dg?.name ?? "");
+          : (meta?.demand_group_code ?? item.demand_group_code ?? "");
         const subgroup = isSpecialActive ? "" : (meta?.demand_sub_group ?? "");
         if (group) groups.add(group);
         if (group && subgroup) {
@@ -63,7 +63,7 @@ export async function sortListItems(
       }
       const defaultGroupOrder = [...demandGroups]
         .sort((a, b) => (a.sort_position ?? 999) - (b.sort_position ?? 999))
-        .map((dg) => dg.name);
+        .map((dg) => dg.code);
       if (effectiveStoreId && !syncedStoreIds.current.has(effectiveStoreId)) {
         await syncPairwiseFromSupabase(effectiveStoreId);
         syncedStoreIds.current.add(effectiveStoreId);

@@ -46,7 +46,6 @@ async function buildSequenceItems(
     return {
       item_id: item.item_id,
       demand_group_code: dgCode,
-      demand_group: product?.demand_group ?? dg?.name ?? null,
       demand_sub_group: product?.demand_sub_group ?? null,
       product_id: item.product_id ?? null,
       checked_at: item.checked_at ?? new Date().toISOString(),
@@ -59,7 +58,6 @@ function toCheckoffSequenceItems(seq: EnrichedSequenceItem[]): CheckoffSequenceI
     item_id: s.item_id,
     demand_group_code: s.demand_group_code,
     checked_at: s.checked_at,
-    demand_group: s.demand_group,
     demand_sub_group: s.demand_sub_group,
     product_id: s.product_id,
   }));

@@ -116,13 +116,13 @@ describe("sortListItems", () => {
       makeItem({ item_id: "s-milch", demand_group_code: "02-Milch", product_id: "p2" }),
     ];
     const productMetaMap = new Map<string, ProductMetaForSort>([
-      ["p1", { demand_group: "Obst & Gemüse", demand_sub_group: null, popularity_score: 0.5 }],
-      ["p2", { demand_group: "Milchprodukte", demand_sub_group: null, popularity_score: 0.5 }],
-      ["p3", { demand_group: "Brot & Backwaren", demand_sub_group: null, popularity_score: 0.5 }],
+      ["p1", { demand_group_code: "01-Obst", demand_sub_group: null, popularity_score: 0.5 }],
+      ["p2", { demand_group_code: "02-Milch", demand_sub_group: null, popularity_score: 0.5 }],
+      ["p3", { demand_group_code: "03-Brot", demand_sub_group: null, popularity_score: 0.5 }],
     ]);
 
     mockGetHierarchicalOrder.mockResolvedValue({
-      groupOrder: ["Milchprodukte", "Obst & Gemüse", "Brot & Backwaren"],
+      groupOrder: ["02-Milch", "01-Obst", "03-Brot"],
       subgroupOrder: new Map(),
       productOrder: new Map(),
     });
@@ -145,12 +145,12 @@ describe("sortListItems", () => {
       makeItem({ item_id: "special", demand_group_code: "02-Milch", product_id: "p-special" }),
     ];
     const productMetaMap = new Map<string, ProductMetaForSort>([
-      ["p-reg", { demand_group: "Obst & Gemüse", demand_sub_group: null, popularity_score: 0.5 }],
-      ["p-special", { demand_group: "Milchprodukte", demand_sub_group: null, popularity_score: 0.5, is_special: true }],
+      ["p-reg", { demand_group_code: "01-Obst", demand_sub_group: null, popularity_score: 0.5 }],
+      ["p-special", { demand_group_code: "02-Milch", demand_sub_group: null, popularity_score: 0.5, is_special: true }],
     ]);
 
     mockGetHierarchicalOrder.mockResolvedValue({
-      groupOrder: ["Obst & Gemüse", "Milchprodukte", "AK"],
+      groupOrder: ["01-Obst", "02-Milch", "AK"],
       subgroupOrder: new Map(),
       productOrder: new Map(),
     });

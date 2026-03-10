@@ -54,7 +54,7 @@ const syncedStoreIds = { current: new Set<string>() };
 describe("sortListItems with shopping-order-tiles", () => {
   test("shopping-order-tiles sorts items the same as shopping-order", async () => {
     mockGetHierarchicalOrder.mockResolvedValue({
-      groupOrder: ["Obst & Gemüse", "Milchprodukte"],
+      groupOrder: ["01-Obst", "02-Milch"],
       subgroupOrder: new Map(),
       productOrder: new Map(),
     });
@@ -78,7 +78,7 @@ describe("sortListItems with shopping-order-tiles", () => {
 
   test("shopping-order-tiles uses hierarchical order, not sort_position", async () => {
     mockGetHierarchicalOrder.mockResolvedValue({
-      groupOrder: ["Milchprodukte", "Obst & Gemüse"],
+      groupOrder: ["02-Milch", "01-Obst"],
       subgroupOrder: new Map(),
       productOrder: new Map(),
     });

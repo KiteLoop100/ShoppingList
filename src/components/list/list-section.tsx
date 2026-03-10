@@ -3,7 +3,6 @@
 import { memo } from "react";
 import { ListItemRow } from "./list-item-row";
 import { getCategoryColor } from "@/lib/categories/category-colors";
-import { formatDemandGroupLabel } from "@/lib/i18n/category-translations";
 import { getRetailerByName } from "@/lib/retailers/retailers";
 import type { ListItemWithMeta } from "@/lib/list/list-helpers";
 
@@ -52,7 +51,7 @@ export const ListSection = memo(function ListSection({ items, grouped, ...cbs }:
             style={{ borderColor: getCategoryColor(group.demandGroupCode) }}>
             {group.items.map((item) => (
               <ListItemRow key={item.item_id} item={item} {...cbs}
-                categoryLabel={formatDemandGroupLabel(item.demand_group || item.category_name)} />
+                categoryLabel={item.category_name} isExiting={item.is_checked} />
             ))}
           </div>
         ))}
@@ -65,7 +64,7 @@ export const ListSection = memo(function ListSection({ items, grouped, ...cbs }:
       {items.map((item) => (
         <li key={item.item_id}>
           <ListItemRow item={item} {...cbs}
-            categoryLabel={formatDemandGroupLabel(item.demand_group || item.category_name)} />
+            categoryLabel={item.category_name} isExiting={item.is_checked} />
         </li>
       ))}
     </ul>

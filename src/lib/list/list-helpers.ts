@@ -64,7 +64,7 @@ export interface SortResult {
 export const VIRTUAL_GROUP_AKTIONSARTIKEL = "AK";
 
 export interface ProductMetaForSort {
-  demand_group: string | null;
+  demand_group_code: string | null;
   demand_sub_group: string | null;
   popularity_score: number | null;
   /** True if product is a special/promotional item. */
@@ -112,7 +112,7 @@ function buildItemMeta(
     category_name: dg.name,
     category_icon: dg.icon ?? "📦",
     category_sort_position: sortPos,
-    demand_group: meta?.demand_group ?? undefined,
+    demand_group: meta?.demand_group_code ?? undefined,
     price: null,
   };
 }
@@ -179,16 +179,19 @@ function sortHierarchical(
     const dgCode = item.demand_group_code;
     const dg = demandGroupMap.get(dgCode) ?? FALLBACK_DG;
     const meta = item.product_id ? productMetaMap.get(item.product_id) : null;
-    const group = meta?.demand_group ?? null;
+    const metaDgCode = meta?.demand_group_code ?? null;
     const subgroup = meta?.demand_sub_group ?? null;
     const isSpecialActive = meta?.is_special && !(item as ListItemWithMeta).is_deferred;
+    const scopeGroup = isSpecialActive
+      ? VIRTUAL_GROUP_AKTIONSARTIKEL
+      : (metaDgCode ?? dgCode);
     const demand_group = isSpecialActive
       ? VIRTUAL_GROUP_AKTIONSARTIKEL
-      : (group ?? dg.name);
+      : (dg.name);
     const demand_sub_group = isSpecialActive ? "" : (subgroup ?? "");
-    const scope = demand_sub_group ? `${demand_group}|${demand_sub_group}` : demand_group;
-    const gr = groupRank.get(demand_group) ?? 999;
-    const sr = subgroupRank.get(`${demand_group}\t${demand_sub_group}`) ?? 999;
+    const scope = demand_sub_group ? `${scopeGroup}|${demand_sub_group}` : scopeGroup;
+    const gr = groupRank.get(scopeGroup) ?? 999;
+    const sr = subgroupRank.get(`${scopeGroup}\t${demand_sub_group}`) ?? 999;
     const pr = item.product_id
       ? productRank.get(`${scope}\t${item.product_id}`) ?? 999
       : item.sort_position;

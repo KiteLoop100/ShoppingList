@@ -6,7 +6,7 @@
 import type { PairwiseLevel } from "@/types";
 
 export interface SequenceItemForPairwise {
-  demand_group: string | null;
+  demand_group_code: string | null;
   demand_sub_group: string | null;
   product_id: string | null;
   checked_at: string;
@@ -69,7 +69,7 @@ export function extractAllPairwise(
   );
 
   // Level 1: demand groups in order of first appearance
-  const groupOrder = orderedKeys(sorted, (it) => it.demand_group ?? "");
+  const groupOrder = orderedKeys(sorted, (it) => it.demand_group_code ?? "");
   for (let i = 0; i < groupOrder.length; i++) {
     for (let j = i + 1; j < groupOrder.length; j++) {
       const [item_a, item_b] = normalizeKey(groupOrder[i], groupOrder[j]);
@@ -84,10 +84,10 @@ export function extractAllPairwise(
     }
   }
 
-  // Level 2: within each demand_group, sub-groups in order of first appearance
+  // Level 2: within each demand_group_code, sub-groups in order of first appearance
   const byGroup = new Map<string, SequenceItemForPairwise[]>();
   for (const it of sorted) {
-    const g = it.demand_group ?? "";
+    const g = it.demand_group_code ?? "";
     if (!g) continue;
     if (!byGroup.has(g)) byGroup.set(g, []);
     byGroup.get(g)!.push(it);
@@ -112,7 +112,7 @@ export function extractAllPairwise(
   // Level 3: within each (group, subgroup), products in order of first appearance
   const byScope = new Map<string, SequenceItemForPairwise[]>();
   for (const it of sorted) {
-    const g = it.demand_group ?? "";
+    const g = it.demand_group_code ?? "";
     const sg = it.demand_sub_group ?? "";
     if (!g || !sg) continue;
     const scope = `${g}|${sg}`;

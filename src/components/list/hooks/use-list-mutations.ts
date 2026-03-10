@@ -7,7 +7,7 @@ import { recordCompetitorPurchase } from "@/lib/competitor-products/competitor-p
 import { touchAutoReorderOnCheckoff, type AutoReorderSetting } from "@/lib/list/auto-reorder-service";
 import type { ListItemWithMeta } from "@/lib/list/list-helpers";
 
-const CHECK_FEEDBACK_MS = 600;
+const CHECK_FEEDBACK_MS = 350;
 
 type Ref<T> = React.MutableRefObject<T>;
 type SetState<T> = React.Dispatch<React.SetStateAction<T>>;
