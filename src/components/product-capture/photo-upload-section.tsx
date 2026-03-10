@@ -1,6 +1,69 @@
 "use client";
 
 import type { RefObject } from "react";
+import type { ProductPhoto } from "@/lib/product-photos/types";
+import type { PhotoCategory } from "@/lib/product-photos/classify-photo-category";
+
+const MAX_PHOTOS = 5;
+
+interface PhotoItem {
+  type: "existing";
+  photo: ProductPhoto;
+}
+
+interface PreviewItem {
+  type: "preview";
+  url: string;
+  index: number;
+  category?: PhotoCategory | null;
+}
+
+type GalleryItem = PhotoItem | PreviewItem;
+
+export interface PhotoUploadSectionProps {
+  fileInputRef: RefObject<HTMLInputElement>;
+  photoPreviews: string[];
+  processedThumbnail: string | null;
+  thumbnailType?: "background_removed" | "soft_fallback" | null;
+  analyzing: boolean;
+  reviewStatus: string | null;
+  existingPhotos?: ProductPhoto[];
+  onPhotosSelected: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onRemovePhoto: (index: number) => void;
+  onDeleteExistingPhoto?: (photoId: string) => void;
+  onSetAsThumbnail?: (photoId: string) => void;
+  labels: {
+    photo: string;
+    upload: string;
+    hint: string;
+    analyzing: string;
+    reviewRequired: string;
+    softFallback?: string;
+    photosCount?: string;
+    mainPhoto?: string;
+    productPhoto?: string;
+    priceTag?: string;
+    unclassified?: string;
+    maxPhotosReached?: string;
+  };
+}
+
+function categoryIcon(category: PhotoCategory | null | undefined) {
+  if (category === "thumbnail") return "★";
+  if (category === "price_tag") return "🏷";
+  if (category === "product") return "📷";
+  return "❓";
+}
+
+function categoryLabel(
+  category: PhotoCategory | null | undefined,
+  labels: PhotoUploadSectionProps["labels"],
+): string {
+  if (category === "thumbnail") return labels.mainPhoto ?? "Main";
+  if (category === "price_tag") return labels.priceTag ?? "Price tag";
+  if (category === "product") return labels.productPhoto ?? "Product";
+  return labels.unclassified ?? "Unclassified";
+}
 
 export function PhotoUploadSection({
   fileInputRef,
@@ -9,27 +72,22 @@ export function PhotoUploadSection({
   thumbnailType,
   analyzing,
   reviewStatus,
+  existingPhotos = [],
   onPhotosSelected,
   onRemovePhoto,
+  onDeleteExistingPhoto,
+  onSetAsThumbnail,
   labels,
-}: {
-  fileInputRef: RefObject<HTMLInputElement>;
-  photoPreviews: string[];
-  processedThumbnail: string | null;
-  thumbnailType?: "background_removed" | "soft_fallback" | null;
-  analyzing: boolean;
-  reviewStatus: string | null;
-  onPhotosSelected: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  onRemovePhoto: (index: number) => void;
-  labels: {
-    photo: string;
-    upload: string;
-    hint: string;
-    analyzing: string;
-    reviewRequired: string;
-    softFallback?: string;
-  };
-}) {
+}: PhotoUploadSectionProps) {
+  const totalCount = existingPhotos.length + photoPreviews.length;
+  const canAddMore = totalCount < MAX_PHOTOS;
+  const remaining = MAX_PHOTOS - existingPhotos.length;
+
+  const gallery: GalleryItem[] = [
+    ...existingPhotos.map((photo): PhotoItem => ({ type: "existing", photo })),
+    ...photoPreviews.map((url, i): PreviewItem => ({ type: "preview", url, index: i })),
+  ];
+
   return (
     <div>
       <label className="mb-1 block text-xs font-medium text-aldi-muted">
@@ -42,10 +100,11 @@ export function PhotoUploadSection({
         multiple
         onChange={onPhotosSelected}
         className="hidden"
+        {...(remaining > 0 ? {} : { disabled: true })}
       />
       <button
         type="button"
-        disabled={analyzing}
+        disabled={analyzing || !canAddMore}
         onClick={() => fileInputRef.current?.click()}
         className="flex w-full items-center justify-center gap-1.5 rounded-xl border-2 border-dashed border-aldi-blue/40 bg-aldi-blue/5 px-3 py-3 text-sm font-medium text-aldi-blue transition-colors hover:border-aldi-blue hover:bg-aldi-blue/10 disabled:opacity-50"
       >
@@ -55,33 +114,89 @@ export function PhotoUploadSection({
         </svg>
         {labels.upload}
       </button>
-      <p className="mt-1 text-[11px] text-aldi-muted">{labels.hint}</p>
 
-      {photoPreviews.length > 0 && (
-        <div className="mt-2 flex flex-wrap gap-2">
+      <div className="mt-1 flex items-center justify-between">
+        <p className="text-[11px] text-aldi-muted">{labels.hint}</p>
+        {labels.photosCount && (
+          <span className="text-[11px] font-medium text-aldi-muted">
+            {labels.photosCount.replace("{count}", String(totalCount))}
+          </span>
+        )}
+      </div>
+
+      {gallery.length > 0 && (
+        <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
           {processedThumbnail && (
-            <div className="relative">
+            <div className="relative flex-shrink-0">
               <img src={processedThumbnail} alt="" className="h-16 w-16 rounded-lg border-2 border-green-400 object-cover" />
+              <span className="absolute -left-1 -top-1 text-xs text-yellow-500">★</span>
               {thumbnailType === "soft_fallback" ? (
                 <span className="absolute -right-1 -top-1 rounded-full bg-blue-500 px-1 text-[9px] text-white" title={labels.softFallback}>&#8505;</span>
               ) : (
                 <span className="absolute -right-1 -top-1 rounded-full bg-green-500 px-1 text-[9px] text-white">&#10003;</span>
               )}
+              <span className="mt-0.5 block text-center text-[9px] text-aldi-muted">
+                {labels.mainPhoto ?? "Main"}
+              </span>
             </div>
           )}
-          {photoPreviews.map((url, i) => (
-            <div key={i} className="relative">
-              <img src={url} alt="" className="h-16 w-16 rounded-lg object-cover" />
-              <button
-                type="button"
-                onClick={() => onRemovePhoto(i)}
-                className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] text-white"
-              >
-                &#10005;
-              </button>
-            </div>
-          ))}
+
+          {gallery.map((item) => {
+            if (item.type === "existing") {
+              const { photo } = item;
+              return (
+                <div key={photo.id} className="relative flex-shrink-0">
+                  <img src={photo.photo_url} alt="" className="h-16 w-16 rounded-lg object-cover" />
+                  {photo.category === "thumbnail" && (
+                    <span className="absolute -left-1 -top-1 text-xs text-yellow-500">★</span>
+                  )}
+                  {onDeleteExistingPhoto && (
+                    <button
+                      type="button"
+                      onClick={() => onDeleteExistingPhoto(photo.id)}
+                      className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] text-white"
+                    >
+                      &#10005;
+                    </button>
+                  )}
+                  {onSetAsThumbnail && photo.category !== "thumbnail" && photo.category !== "price_tag" && (
+                    <button
+                      type="button"
+                      onClick={() => onSetAsThumbnail(photo.id)}
+                      className="absolute -left-1 bottom-0 flex h-4 w-4 items-center justify-center rounded-full bg-yellow-400 text-[9px]"
+                      title={labels.mainPhoto}
+                    >
+                      ★
+                    </button>
+                  )}
+                  <span className="mt-0.5 flex items-center justify-center gap-0.5 text-[9px] text-aldi-muted">
+                    <span>{categoryIcon(photo.category)}</span>
+                    {categoryLabel(photo.category, labels)}
+                  </span>
+                </div>
+              );
+            }
+
+            return (
+              <div key={`preview-${item.index}`} className="relative flex-shrink-0">
+                <img src={item.url} alt="" className="h-16 w-16 rounded-lg object-cover" />
+                <button
+                  type="button"
+                  onClick={() => onRemovePhoto(item.index)}
+                  className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] text-white"
+                >
+                  &#10005;
+                </button>
+              </div>
+            );
+          })}
         </div>
+      )}
+
+      {!canAddMore && (
+        <p className="mt-1 text-[11px] text-amber-600">
+          {labels.maxPhotosReached ?? "Maximum photos reached"}
+        </p>
       )}
 
       {analyzing && (

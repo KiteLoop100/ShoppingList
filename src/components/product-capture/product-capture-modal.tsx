@@ -59,6 +59,12 @@ export function ProductCaptureModal(props: ProductCaptureConfig) {
               analyzing: t("photoAnalyzing"),
               reviewRequired: t("photoReviewRequired"),
               softFallback: t("photoSoftFallback"),
+              photosCount: t("photosCount"),
+              mainPhoto: t("mainPhoto"),
+              productPhoto: t("productPhoto"),
+              priceTag: t("priceTag"),
+              unclassified: t("unclassified"),
+              maxPhotosReached: t("maxPhotosReached"),
             }}
           />
           <ProductCaptureFields
