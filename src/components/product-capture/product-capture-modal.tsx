@@ -17,11 +17,13 @@ export function ProductCaptureModal(props: ProductCaptureConfig) {
     values, setField,
     saving, analyzing, error,
     photoPreviews, processedThumbnail, thumbnailType,
+    existingPhotos,
     extractedDetails, reviewStatus,
     fileInputRef,
     retailers, demandGroups, filteredSubGroups,
     isEditMode, canSubmit, locked,
     handlePhotosSelected, removePhoto, handleSubmit,
+    handleDeleteExistingPhoto, handleSetAsThumbnail,
   } = useProductCaptureForm(props);
 
   if (!open) return null;
@@ -50,8 +52,11 @@ export function ProductCaptureModal(props: ProductCaptureConfig) {
             thumbnailType={thumbnailType}
             analyzing={analyzing}
             reviewStatus={reviewStatus}
+            existingPhotos={existingPhotos}
             onPhotosSelected={handlePhotosSelected}
             onRemovePhoto={removePhoto}
+            onDeleteExistingPhoto={handleDeleteExistingPhoto}
+            onSetAsThumbnail={handleSetAsThumbnail}
             labels={{
               photo: t("photo"),
               upload: t("photosUpload"),

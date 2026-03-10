@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { log } from "@/lib/utils/logger";
 
 export interface ReceiptData {
   receipt_id: string;
@@ -197,15 +198,18 @@ export async function linkReceiptItemToProduct(
   receiptItemIds: string | string[],
   productId: string,
   supabase: SupabaseClient,
+  productType: "aldi" | "competitor" = "aldi",
 ): Promise<void> {
   const ids = Array.isArray(receiptItemIds) ? receiptItemIds : [receiptItemIds];
+  const setColumn = productType === "competitor" ? "competitor_product_id" : "product_id";
+  const clearColumn = productType === "competitor" ? "product_id" : "competitor_product_id";
   const { error } = await supabase
     .from("receipt_items")
-    .update({ product_id: productId })
+    .update({ [setColumn]: productId, [clearColumn]: null })
     .in("receipt_item_id", ids);
 
   if (error) {
-    console.warn("[receipts] Failed to link receipt item(s) to product:", error);
+    log.warn("[receipts] Failed to link receipt item(s) to product:", error);
     throw error;
   }
 }

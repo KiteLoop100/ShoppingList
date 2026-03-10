@@ -10,9 +10,12 @@ import {
   type DemandSubGroupRow,
 } from "@/lib/categories/category-service";
 import { log } from "@/lib/utils/logger";
+import { compressImage, titleCase } from "@/lib/utils/image-utils";
 import type { Product, CompetitorProduct, DemandGroup } from "@/types";
 import type { ExtractedProductInfo } from "@/lib/product-photo-studio/types";
 import { extractDemandGroupCode } from "@/lib/competitor-products/categorize-competitor-product";
+import { getProductPhotos, deleteProductPhoto, setAsThumbnail } from "@/lib/product-photos/product-photo-service";
+import { sortPhotos, type ProductPhoto } from "@/lib/product-photos/types";
 import { saveProduct, type SaveResult } from "../product-capture-save";
 
 export interface ProductCaptureValues {
@@ -46,38 +49,7 @@ export interface ProductCaptureConfig {
   editCompetitorProduct?: CompetitorProduct | null;
 }
 
-export function compressImage(
-  file: File,
-  maxDimension = 1600,
-  quality = 0.82,
-): Promise<{ base64: string; mediaType: string }> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    const objectUrl = URL.createObjectURL(file);
-    img.onload = () => {
-      URL.revokeObjectURL(objectUrl);
-      const scale = Math.min(1, maxDimension / Math.max(img.width, img.height));
-      const canvas = document.createElement("canvas");
-      canvas.width = Math.round(img.width * scale);
-      canvas.height = Math.round(img.height * scale);
-      const ctx = canvas.getContext("2d");
-      if (!ctx) { reject(new Error("Canvas not available")); return; }
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      const dataUrl = canvas.toDataURL("image/jpeg", quality);
-      const [header, base64] = dataUrl.split(",");
-      const mediaType = header.match(/data:(.*?);/)?.[1] ?? "image/jpeg";
-      resolve({ base64, mediaType });
-    };
-    img.onerror = reject;
-    img.src = objectUrl;
-  });
-}
-
-export function titleCase(s: string): string {
-  return s.replace(/[a-zA-ZäöüÄÖÜßàáâãèéêìíîòóôùúûñç]+/g, (w) =>
-    w.charAt(0).toUpperCase() + w.slice(1).toLowerCase(),
-  );
-}
+export { compressImage, titleCase } from "@/lib/utils/image-utils";
 
 function initFromAldiProduct(p: Product): Partial<ProductCaptureValues> {
   return {
@@ -144,6 +116,7 @@ export function useProductCaptureForm(config: ProductCaptureConfig) {
   const [thumbnailType, setThumbnailType] = useState<"background_removed" | "soft_fallback" | null>(null);
   const [extractedDetails, setExtractedDetails] = useState<ExtractedProductInfo | null>(null);
   const [reviewStatus, setReviewStatus] = useState<string | null>(null);
+  const [existingPhotos, setExistingPhotos] = useState<ProductPhoto[]>([]);
   const [demandGroups, setDemandGroups] = useState<DemandGroup[]>([]);
   const [allSubGroups, setAllSubGroups] = useState<DemandSubGroupRow[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null!);
@@ -166,6 +139,7 @@ export function useProductCaptureForm(config: ProductCaptureConfig) {
 
   useEffect(() => {
     if (!open) return;
+    let cancelled = false;
 
     let init: Partial<ProductCaptureValues> = {};
     if (editAldiProduct) {
@@ -188,8 +162,18 @@ export function useProductCaptureForm(config: ProductCaptureConfig) {
     setProcessedThumbnail(null); setThumbnailType(null);
     setExtractedDetails(null);
     setReviewStatus(null); setError(null); setAnalyzing(false);
+    setExistingPhotos([]);
+
+    const editProductId = editAldiProduct?.product_id ?? editCompetitorProduct?.product_id;
+    const editProductType = editAldiProduct ? "aldi" as const : editCompetitorProduct ? "competitor" as const : null;
+    if (editProductId && editProductType) {
+      getProductPhotos(editProductId, editProductType).then((photos) => {
+        if (!cancelled) setExistingPhotos(photos);
+      });
+    }
 
     return () => {
+      cancelled = true;
       abortControllerRef.current?.abort();
     };
   }, [open, editAldiProduct, editCompetitorProduct, initialValues]);
@@ -250,6 +234,21 @@ export function useProductCaptureForm(config: ProductCaptureConfig) {
         const fmt = data.thumbnail_format ?? "image/webp";
         setProcessedThumbnail(`data:${fmt};base64,${data.thumbnail_base64}`);
         setThumbnailType(data.thumbnail_type ?? null);
+
+        const thumbIdx: number | null = data.suggested_thumbnail_index ?? null;
+        if (thumbIdx != null) {
+          setPhotoPreviews((prev) => {
+            if (thumbIdx < 0 || thumbIdx >= prev.length) return prev;
+            if (prev[thumbIdx]) URL.revokeObjectURL(prev[thumbIdx]);
+            return prev.filter((_, i) => i !== thumbIdx);
+          });
+          setPhotoFiles((prev) => {
+            if (thumbIdx < 0 || thumbIdx >= prev.length) return prev;
+            return prev.filter((_, i) => i !== thumbIdx);
+          });
+        }
+
+        setExistingPhotos((prev) => prev.filter((p) => p.category !== "thumbnail"));
       }
       if (data.status === "review_required" && !data.thumbnail_base64) {
         setReviewStatus(data.review_reason ?? "review_required");
@@ -307,6 +306,31 @@ export function useProductCaptureForm(config: ProductCaptureConfig) {
     });
   }, []);
 
+  const handleDeleteExistingPhoto = useCallback(async (photoId: string) => {
+    const success = await deleteProductPhoto(photoId);
+    if (success) {
+      setExistingPhotos((prev) => prev.filter((p) => p.id !== photoId));
+    }
+  }, []);
+
+  const handleSetAsThumbnail = useCallback(async (photoId: string) => {
+    const success = await setAsThumbnail(photoId);
+    if (success) {
+      setExistingPhotos((prev) =>
+        sortPhotos(
+          prev.map((p) => ({
+            ...p,
+            category: p.id === photoId
+              ? "thumbnail" as const
+              : p.category === "thumbnail"
+                ? "product" as const
+                : p.category,
+          })),
+        ),
+      );
+    }
+  }, []);
+
   const effectiveRetailer = values.retailer === "__custom__" ? values.customRetailer.trim() : values.retailer;
 
   const canSubmit = values.name.trim().length > 0
@@ -339,10 +363,12 @@ export function useProductCaptureForm(config: ProductCaptureConfig) {
     values, setField, setValues,
     saving, analyzing, error,
     photoFiles, photoPreviews, processedThumbnail, thumbnailType,
+    existingPhotos,
     extractedDetails, reviewStatus,
     fileInputRef,
     retailers, demandGroups, filteredSubGroups,
     isEditMode, canSubmit, locked,
     handlePhotosSelected, removePhoto, handleSubmit,
+    handleDeleteExistingPhoto, handleSetAsThumbnail,
   };
 }

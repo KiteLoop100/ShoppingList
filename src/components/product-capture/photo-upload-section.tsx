@@ -83,8 +83,12 @@ export function PhotoUploadSection({
   const canAddMore = totalCount < MAX_PHOTOS;
   const remaining = MAX_PHOTOS - existingPhotos.length;
 
+  const displayPhotos = processedThumbnail
+    ? existingPhotos.filter((p) => p.category !== "thumbnail")
+    : existingPhotos;
+
   const gallery: GalleryItem[] = [
-    ...existingPhotos.map((photo): PhotoItem => ({ type: "existing", photo })),
+    ...displayPhotos.map((photo): PhotoItem => ({ type: "existing", photo })),
     ...photoPreviews.map((url, i): PreviewItem => ({ type: "preview", url, index: i })),
   ];
 
@@ -124,7 +128,7 @@ export function PhotoUploadSection({
         )}
       </div>
 
-      {gallery.length > 0 && (
+      {(gallery.length > 0 || processedThumbnail) && (
         <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
           {processedThumbnail && (
             <div className="relative flex-shrink-0">

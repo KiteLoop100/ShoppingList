@@ -21,6 +21,7 @@ import { ProductDetailModal } from "@/components/list/product-detail-modal";
 import { CompetitorProductDetailModal } from "@/components/list/competitor-product-detail-modal";
 import { db } from "@/lib/db";
 import { findCompetitorProductById } from "@/lib/competitor-products/competitor-product-service";
+import { log } from "@/lib/utils/logger";
 import type { Product, CompetitorProduct } from "@/types";
 import type { ProductCaptureValues } from "@/components/product-capture/hooks/use-product-capture-form";
 
@@ -67,24 +68,25 @@ export default function ReceiptDetailPage() {
     loadReceipt();
   }, [loadReceipt]);
 
-  const handlePhotoSaved = useCallback(async (productId: string) => {
-    if (!captureItem) return;
-
-    const itemIds = captureItem.original_item_ids ?? [captureItem.receipt_item_id];
-
-    const supabase = createClientIfConfigured();
-    if (supabase) {
-      try {
-        await linkReceiptItemToProduct(itemIds, productId, supabase);
-      } catch (e) {
-        console.warn("[receipts] Failed to link receipt item(s) after product creation:", e);
+  const handlePhotoSaved = useCallback(async (productId: string, productType: "aldi" | "competitor") => {
+    if (captureItem) {
+      const itemIds = captureItem.original_item_ids ?? [captureItem.receipt_item_id];
+      const supabase = createClientIfConfigured();
+      if (supabase) {
+        try {
+          await linkReceiptItemToProduct(itemIds, productId, supabase, productType);
+        } catch (e) {
+          log.warn("[receipts] Failed to link receipt item(s) after product creation:", e);
+        }
       }
     }
 
     setCaptureItem(null);
+    setEditAldiProduct(null);
+    setEditCompetitorProduct(null);
     setToast(true);
     setTimeout(() => setToast(false), 2500);
-    loadReceipt();
+    await loadReceipt();
   }, [captureItem, loadReceipt]);
 
   const handleItemClick = useCallback(async (item: GroupedReceiptItem) => {
@@ -119,7 +121,11 @@ export default function ReceiptDetailPage() {
         name: captureItem.receipt_name,
         articleNumber: captureItem.article_number ?? "",
         retailer: receipt?.retailer ?? "ALDI",
-        price: captureItem.unit_price != null ? String(captureItem.unit_price) : "",
+        price: captureItem.unit_price != null
+          ? String(captureItem.unit_price).replace(".", ",")
+          : captureItem.total_price != null
+            ? String(captureItem.total_price).replace(".", ",")
+            : "",
       }
     : undefined;
 
@@ -407,10 +413,8 @@ export default function ReceiptDetailPage() {
         open={!!captureItem || !!editAldiProduct || !!editCompetitorProduct}
         mode={editAldiProduct || editCompetitorProduct ? "edit" : "create"}
         onClose={() => { setCaptureItem(null); setEditAldiProduct(null); setEditCompetitorProduct(null); }}
-        onSaved={(productId) => {
-          setEditAldiProduct(null);
-          setEditCompetitorProduct(null);
-          handlePhotoSaved(productId);
+        onSaved={(productId, productType) => {
+          handlePhotoSaved(productId, productType);
         }}
         initialValues={captureInitialValues}
         lockedFields={captureItem ? ["name", "articleNumber", "price"] : undefined}
