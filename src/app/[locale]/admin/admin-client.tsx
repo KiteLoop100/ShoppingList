@@ -1,14 +1,11 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/lib/i18n/navigation";
-import { db, type LocalCategoryAlias } from "@/lib/db";
 import { useProducts } from "@/lib/products-context";
-import type { DemandGroup } from "@/types";
 
 import { AdminAuthGuard } from "./admin-auth-guard";
-import { CategoryAliasPanel } from "./category-alias-panel";
 import { GalleryUploadPanel } from "./gallery-upload-panel";
 import { FeedbackPanel } from "./feedback-panel";
 import { useGalleryUpload } from "./use-gallery-upload";
@@ -16,7 +13,7 @@ import { CreateProductModal } from "@/app/[locale]/capture/create-product-modal"
 import { CreateStoreDialog } from "@/components/store/create-store-dialog";
 import type { GeoPosition } from "@/lib/store/store-service";
 
-type Section = "products" | "aliases" | "feedback" | "stores";
+type Section = "products" | "feedback" | "stores";
 
 export function AdminClient() {
   const t = useTranslations("admin");
@@ -29,23 +26,7 @@ export function AdminClient() {
   const [storePosition, setStorePosition] = useState<GeoPosition | null>(null);
   const [gpsLoading, setGpsLoading] = useState(false);
 
-  const [demandGroups, setDemandGroups] = useState<DemandGroup[]>([]);
-  const [aliases, setAliases] = useState<LocalCategoryAlias[]>([]);
-
   const gallery = useGalleryUpload();
-
-  const loadData = useCallback(async () => {
-    const [dgs, al] = await Promise.all([
-      db.demand_groups.toArray(),
-      db.category_aliases.toArray(),
-    ]);
-    setDemandGroups(dgs.map(dg => ({ code: dg.code, name: dg.name, name_en: dg.name_en, icon: dg.icon, color: dg.color, sort_position: dg.sort_position })));
-    setAliases(al as LocalCategoryAlias[]);
-  }, []);
-
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
 
   const handleOpenCreateStore = useCallback(() => {
     setGpsLoading(true);
@@ -73,7 +54,7 @@ export function AdminClient() {
         </header>
 
         <nav className="mb-6 flex gap-2 border-b border-aldi-muted-light pb-2">
-          {(["products", "aliases", "feedback", "stores"] as Section[]).map((s) => (
+          {(["products", "feedback", "stores"] as Section[]).map((s) => (
             <button
               key={s}
               type="button"
@@ -106,10 +87,6 @@ export function AdminClient() {
           </section>
         )}
 
-        {section === "aliases" && (
-          <CategoryAliasPanel aliases={aliases} demandGroups={demandGroups} onDataChanged={loadData} />
-        )}
-
         {section === "feedback" && (
           <FeedbackPanel />
         )}
@@ -138,10 +115,7 @@ export function AdminClient() {
         <CreateProductModal
           open={createProductOpen}
           onClose={() => setCreateProductOpen(false)}
-          onSaved={() => {
-            refetchProducts();
-            loadData();
-          }}
+          onSaved={() => refetchProducts()}
         />
 
         {createStoreOpen && (
