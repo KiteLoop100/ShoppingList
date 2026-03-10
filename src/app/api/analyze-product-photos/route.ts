@@ -17,6 +17,7 @@ import {
 } from "@/lib/api/rate-limit";
 import { analyzeRequestSchema } from "@/lib/product-photo-studio/types";
 import { processProductPhotos } from "@/lib/product-photo-studio/pipeline";
+import { toPhotoCategory, selectThumbnailIndex } from "@/lib/product-photos/classify-photo-category";
 import { log } from "@/lib/utils/logger";
 
 export const maxDuration = 120;
@@ -54,6 +55,21 @@ export async function POST(request: Request) {
 
     const result = await processProductPhotos({ images });
 
+    const classifiedPhotos = result.classification.photos.map((p) => ({
+      index: p.photo_index,
+      category: toPhotoCategory(p.photo_type),
+      photo_type: p.photo_type,
+      quality_score: p.quality_score,
+      is_product_photo: p.is_product_photo,
+    }));
+
+    const suggestedThumbnailIndex = selectThumbnailIndex(
+      result.classification.photos.map((p) => ({
+        photoType: p.photo_type,
+        qualityScore: p.quality_score,
+      })),
+    );
+
     return NextResponse.json({
       ok: true,
       status: result.status,
@@ -72,6 +88,8 @@ export async function POST(request: Request) {
       background_removal_failed: result.backgroundRemovalFailed ?? false,
       background_provider: result.backgroundProvider ?? null,
       processing_time_ms: result.processingTimeMs,
+      classified_photos: classifiedPhotos,
+      suggested_thumbnail_index: suggestedThumbnailIndex,
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Analysis failed";
