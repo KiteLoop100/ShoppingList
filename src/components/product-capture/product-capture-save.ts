@@ -12,6 +12,7 @@ import {
 } from "@/lib/competitor-products/competitor-product-service";
 import { categorizeCompetitorProduct } from "@/lib/competitor-products/categorize-competitor-product";
 import { uploadCompetitorPhoto } from "@/lib/competitor-products/upload-competitor-photo";
+import { addProductPhoto } from "@/lib/product-photos/product-photo-service";
 import { isHomeRetailer } from "@/lib/retailers/retailers";
 import { log } from "@/lib/utils/logger";
 import type { Product, CompetitorProduct } from "@/types";
@@ -179,7 +180,11 @@ async function saveCompetitorProduct(
       const mime = isWebp ? "image/webp" : "image/jpeg";
       const thumbFile = new File([thumbBlob], `thumbnail.${ext}`, { type: mime });
       const url = await uploadCompetitorPhoto(productId, thumbFile, "front");
-      if (url) await updateCompetitorProduct(productId, { thumbnail_url: url });
+      if (url) {
+        await updateCompetitorProduct(productId, { thumbnail_url: url });
+        await addProductPhoto(productId, "competitor", thumbFile, "thumbnail")
+          .catch((err) => { log.warn("[saveCompetitorProduct] product_photos insert failed:", err); });
+      }
     } catch (err) {
       log.warn("[saveCompetitorProduct] thumbnail upload failed:", err);
     }

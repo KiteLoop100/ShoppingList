@@ -23,6 +23,35 @@ import { getDefaultDemandGroupCode } from "@/lib/products/default-category";
 const THUMB_SIZE = 150;
 const JPEG_QUALITY = 85;
 
+async function insertProductPhoto(
+  supabase: SupabaseClient,
+  productId: string,
+  photoUrl: string,
+  bucket: string,
+  storagePath: string,
+  category: "thumbnail" | "product" | "price_tag",
+  sortOrder = 0,
+): Promise<void> {
+  const { error } = await supabase.from("product_photos").insert({
+    product_id: productId,
+    photo_url: photoUrl,
+    storage_bucket: bucket,
+    storage_path: storagePath,
+    category,
+    sort_order: sortOrder,
+  });
+  if (error) {
+    log.warn("[create-manual] product_photos insert failed:", error.message);
+  }
+}
+
+function extractStoragePath(url: string, bucket: string): string {
+  const marker = `/${bucket}/`;
+  const idx = url.indexOf(marker);
+  if (idx >= 0) return url.substring(idx + marker.length);
+  return url.split("/").pop() ?? "";
+}
+
 /**
  * Process a thumbnail from base64 (pipeline-processed) or external URL,
  * upload to Supabase Storage, and return the public URL.
@@ -177,9 +206,12 @@ export async function POST(request: Request) {
 
     if (thumbnailUrl || thumbnailBase64) {
       try {
-        const path = `manual/${productId}.jpg`;
-        const publicUrl = await processThumbnail(supabase, thumbnailBase64, thumbnailUrl, path);
-        if (publicUrl) updates.thumbnail_url = publicUrl;
+        const thumbStoragePath = `manual/${productId}.jpg`;
+        const publicUrl = await processThumbnail(supabase, thumbnailBase64, thumbnailUrl, thumbStoragePath);
+        if (publicUrl) {
+          updates.thumbnail_url = publicUrl;
+          await insertProductPhoto(supabase, productId, publicUrl, "product-thumbnails", thumbStoragePath, "thumbnail");
+        }
       } catch (e) {
         log.warn("[create-manual] Thumbnail resize/upload failed:", e);
       }
@@ -194,11 +226,12 @@ export async function POST(request: Request) {
     }
   } else if (!productId) {
     let finalThumbnailUrl: string | null = null;
+    let thumbStoragePath: string | null = null;
     if (thumbnailUrl || thumbnailBase64) {
       try {
         const tempId = crypto.randomUUID();
-        const path = `manual/${tempId}.jpg`;
-        finalThumbnailUrl = await processThumbnail(supabase, thumbnailBase64, thumbnailUrl, path);
+        thumbStoragePath = `manual/${tempId}.jpg`;
+        finalThumbnailUrl = await processThumbnail(supabase, thumbnailBase64, thumbnailUrl, thumbStoragePath);
       } catch (e) {
         log.warn("[create-manual] Thumbnail resize/upload failed:", e);
       }
@@ -242,6 +275,10 @@ export async function POST(request: Request) {
         .update({ thumbnail_url: thumbnailUrl, updated_at: now })
         .eq("product_id", productId);
     }
+
+    if (finalThumbnailUrl && thumbStoragePath) {
+      await insertProductPhoto(supabase, productId, finalThumbnailUrl, "product-thumbnails", thumbStoragePath, "thumbnail");
+    }
   }
 
   if (productId && dataUploadIds.length > 0) {
@@ -252,7 +289,8 @@ export async function POST(request: Request) {
   }
 
   if (productId && userId && extraPhotoUrls.length > 0) {
-    for (const url of extraPhotoUrls) {
+    for (let i = 0; i < extraPhotoUrls.length; i++) {
+      const url = extraPhotoUrls[i];
       await supabase.from("photo_uploads").insert({
         user_id: userId,
         photo_url: url,
@@ -263,6 +301,7 @@ export async function POST(request: Request) {
         products_updated: 0,
         created_at: now,
       });
+      await insertProductPhoto(supabase, productId, url, "product-thumbnails", extractStoragePath(url, "product-thumbnails"), "product", i + 1);
     }
   }
 

@@ -72,6 +72,7 @@ export async function upsertProduct(
   supabase: SupabaseClient,
   data: ProductData,
   existingProductId?: string | null,
+  forceOverwrite?: Set<string>,
 ): Promise<UpsertResult | null> {
   const now = new Date().toISOString();
 
@@ -87,7 +88,9 @@ export async function upsertProduct(
     for (const [key, value] of Object.entries(data)) {
       if (value === undefined) continue;
 
-      if (FILL_EMPTY_FIELDS.has(key)) {
+      if (forceOverwrite?.has(key)) {
+        if (value != null) updates[key] = value;
+      } else if (FILL_EMPTY_FIELDS.has(key)) {
         const existing = current?.[key];
         if ((existing == null || existing === "") && value != null && value !== "") {
           updates[key] = value;
