@@ -42,7 +42,6 @@ export async function findProductByEan(
         name: String(data.name),
         name_normalized: String(data.name_normalized),
         brand: data.brand != null ? String(data.brand) : null,
-        demand_group: data.demand_group != null ? String(data.demand_group) : null,
         demand_sub_group: data.demand_sub_group != null ? String(data.demand_sub_group) : null,
         demand_group_code: data.demand_group_code != null ? String(data.demand_group_code) : "AK",
         price: data.price != null ? Number(data.price) : null,

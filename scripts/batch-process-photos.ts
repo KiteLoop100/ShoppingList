@@ -149,7 +149,6 @@ Antworte ausschließlich mit validem JSON. Kein Markdown, keine Backticks.
       "article_number": "string or null",
       "ean_barcode": "string or null",
       "weight_or_quantity": "string or null",
-      "demand_group": "string or null",
       "demand_sub_group": "string or null"
     }
   ]
@@ -164,7 +163,6 @@ interface ExtractedProduct {
   article_number?: string | null;
   ean_barcode?: string | null;
   weight_or_quantity?: string | null;
-  demand_group?: string | null;
   demand_sub_group?: string | null;
 }
 
@@ -452,7 +450,6 @@ async function main() {
           if (articleNumber) updates.article_number = articleNumber;
           if (brand) updates.brand = brand;
           if (ean) updates.ean_barcode = ean;
-          if (p.demand_group) updates.demand_group = p.demand_group;
           if (p.demand_sub_group) updates.demand_sub_group = p.demand_sub_group;
           if (p.weight_or_quantity) updates.weight_or_quantity = p.weight_or_quantity;
           if (offData?.nutrition_info) updates.nutrition_info = offData.nutrition_info;
@@ -503,7 +500,6 @@ async function main() {
           const { error: insErr } = await supabase.from("products").insert({
             name: displayName,
             name_normalized: finalNameNorm,
-            category_id: null,
             article_number: articleNumber,
             brand: brand ?? offData?.brand ?? null,
             price,
@@ -513,7 +509,6 @@ async function main() {
             status: "active",
             source: "import",
             ean_barcode: ean,
-            demand_group: p.demand_group ?? null,
             demand_sub_group: p.demand_sub_group ?? null,
             weight_or_quantity: p.weight_or_quantity ?? null,
             nutrition_info: offData?.nutrition_info ?? null,

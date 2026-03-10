@@ -47,6 +47,17 @@ body {
   animation: check-pop 0.18s ease-out;
 }
 
+/* Row exit after checkoff — fade + collapse (matches CHECK_FEEDBACK_MS) */
+@keyframes check-exit {
+  0%   { opacity: 1; transform: scaleY(1); max-height: 100px; }
+  100% { opacity: 0; transform: scaleY(0.8); max-height: 0; }
+}
+.animate-check-exit {
+  animation: check-exit 0.35s ease-in forwards;
+  overflow: hidden;
+  pointer-events: none;
+}
+
 /* Focus-visible ring for keyboard navigation (RESP-030) */
 @media (pointer: fine) {
   :focus-visible {

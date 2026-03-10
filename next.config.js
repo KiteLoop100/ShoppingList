@@ -42,14 +42,6 @@ const withPWA = require("next-pwa")({
       },
     },
     {
-      urlPattern: /^https:\/\/.*\.supabase\.co\/rest\/v1\/categories/,
-      handler: "StaleWhileRevalidate",
-      options: {
-        cacheName: "category-api-cache",
-        expiration: { maxEntries: 5, maxAgeSeconds: 60 * 60 * 24 },
-      },
-    },
-    {
       urlPattern: /\/_next\/static\/.*/,
       handler: "CacheFirst",
       options: {

@@ -45,7 +45,6 @@ interface ProductUpdate {
   brand: string | null;
   is_private_label: boolean;
   demand_group_code: string | null;
-  demand_group: string | null;
   demand_sub_group: string | null;
   assortment_type: string;
   special_start_date: string | null;
@@ -124,7 +123,6 @@ function processSheet(
       brand: (row['Brand'] as string) || null,
       is_private_label: row['Brand type'] === 'Private Label',
       demand_group_code: extractDemandGroupCode(commodityGroup),
-      demand_group: commodityGroup || null,
       demand_sub_group: subGroup || null,
       assortment_type: (row['Assortment type'] as string) || 'daily_range',
       special_start_date: specialDate,
@@ -193,7 +191,6 @@ async function parallelUpdate(products: ProductUpdate[]): Promise<number> {
 
 async function batchInsert(
   products: ProductUpdate[],
-  defaultCategoryId: string,
 ): Promise<number> {
   let inserted = 0;
   const batchSize = 50;
@@ -201,7 +198,6 @@ async function batchInsert(
     const batch = products.slice(i, i + batchSize).map(p => ({
       product_id: randomUUID(),
       ...p,
-      category_id: defaultCategoryId,
       source: 'import',
       status: 'active',
     }));
@@ -263,15 +259,8 @@ async function main() {
 
   let insertedCount = 0;
   if (toInsert.length > 0) {
-    const { data: catRow } = await supabase
-      .from('products')
-      .select('category_id')
-      .eq('source', 'import')
-      .limit(1)
-      .single();
-    const defaultCatId = catRow?.category_id || '00000000-0000-0000-0000-000000000000';
     console.log('Inserting new products...');
-    insertedCount = await batchInsert(toInsert, defaultCatId);
+    insertedCount = await batchInsert(toInsert);
   }
 
   console.log('\n========== Summary ==========');
