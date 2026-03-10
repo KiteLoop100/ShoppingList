@@ -66,7 +66,7 @@ export async function POST(request: Request) {
       ean_barcode?: string | null;
       article_number?: string | null;
       weight_or_quantity?: string | null;
-      demand_group?: string | null;
+      demand_group_code?: string | null;
       demand_sub_group?: string | null;
       nutrition_info?: Record<string, unknown> | null;
       ingredients?: string | null;
@@ -109,11 +109,11 @@ export async function POST(request: Request) {
     : productBody?.weight_or_quantity !== undefined
       ? (String(productBody.weight_or_quantity).trim() || null)
       : (firstExtracted?.weight_or_quantity?.trim() || null);
-  const demandGroup = isBackPhoto
+  const demandGroupCode = isBackPhoto
     ? null
-    : productBody?.demand_group !== undefined
-      ? (String(productBody.demand_group).trim() || null)
-      : (firstExtracted?.demand_group?.trim() || null);
+    : productBody?.demand_group_code !== undefined
+      ? (String(productBody.demand_group_code).trim() || null)
+      : (firstExtracted?.demand_group_code?.trim() || null);
   const demandSubGroup = isBackPhoto
     ? null
     : productBody?.demand_sub_group !== undefined
@@ -181,7 +181,7 @@ export async function POST(request: Request) {
       ingredients,
       allergens,
       ean_barcode: ean,
-      demand_group: demandGroup,
+      ...(demandGroupCode != null ? { demand_group_code: demandGroupCode } : {}),
       demand_sub_group: demandSubGroup,
       weight_or_quantity: weightOrQuantity,
       ...(isPrivateLabel != null ? { is_private_label: isPrivateLabel } : {}),
@@ -194,7 +194,7 @@ export async function POST(request: Request) {
     const result = await upsertProduct(supabase, {
       name,
       name_normalized: nameNormalized,
-      demand_group_code: defaultDemandGroupCode,
+      demand_group_code: demandGroupCode ?? defaultDemandGroupCode,
       article_number: articleNumber,
       brand,
       price,
@@ -205,7 +205,6 @@ export async function POST(request: Request) {
       nutrition_info: nutritionInfo,
       ingredients,
       allergens,
-      demand_group: demandGroup,
       demand_sub_group: demandSubGroup,
       weight_or_quantity: weightOrQuantity,
       special_start_date: null,

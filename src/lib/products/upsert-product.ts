@@ -18,7 +18,6 @@ import { log } from "@/lib/utils/logger";
 export interface ProductData {
   name?: string | null;
   name_normalized?: string | null;
-  category_id?: string;
   demand_group_code?: string;
   article_number?: string | null;
   brand?: string | null;
@@ -33,7 +32,6 @@ export interface ProductData {
   nutrition_info?: Record<string, unknown> | null;
   ingredients?: string | null;
   allergens?: string | null;
-  demand_group?: string | null;
   demand_sub_group?: string | null;
   special_start_date?: string | null;
   special_end_date?: string | null;
@@ -59,7 +57,6 @@ const FILL_EMPTY_FIELDS: ReadonlySet<string> = new Set([
   "nutrition_info",
   "ingredients",
   "allergens",
-  "demand_group",
   "demand_sub_group",
   "weight_or_quantity",
   "is_private_label",

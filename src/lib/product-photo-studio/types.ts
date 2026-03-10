@@ -90,8 +90,6 @@ export interface ExtractedProductInfo {
   retailer_from_price_tag: string | null;
   unit_price: string | null;
   weight_or_quantity: string | null;
-  /** AI-inferred demand group in "##-Name" format (e.g. "83-Milch/Sahne/Butter"). */
-  demand_group: string | null;
   ingredients: string | null;
   nutrition_info: NutritionInfo | null;
   allergens: string | null;
@@ -102,6 +100,10 @@ export interface ExtractedProductInfo {
   is_lactose_free: boolean;
   animal_welfare_level: number | null;
   country_of_origin: string | null;
+  /** Demand group code from AI (e.g. "83" for dairy). Prefer demand_group_code over demand_group. */
+  demand_group_code?: string | null;
+  /** @deprecated Use demand_group_code. Kept for backward compat with AI responses. */
+  demand_group?: string | null;
 }
 
 // ── Stage 3: Thumbnail ──

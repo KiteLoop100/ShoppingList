@@ -117,10 +117,6 @@ export async function upsertExtractedProducts(
     const brand = (p.brand ?? offData?.brand ?? null)?.trim() || null;
     const displayName = (offData?.name ?? name).trim();
     const fallbackDemand = getDemandGroupFallback(displayName);
-    const demandGroup =
-      (p.demand_group?.trim() || null) ??
-      fallbackDemand?.demand_group ??
-      null;
     const demandSubGroup =
       (p.demand_sub_group?.trim() || null) ??
       fallbackDemand?.demand_sub_group ??
@@ -192,7 +188,6 @@ export async function upsertExtractedProducts(
           ingredients,
           allergens,
           ean_barcode: ean,
-          demand_group: demandGroup,
           demand_sub_group: demandSubGroup,
           ...(p.is_private_label != null
             ? { is_private_label: p.is_private_label }
@@ -241,7 +236,6 @@ export async function upsertExtractedProducts(
         nutrition_info: nutritionInfo,
         ingredients,
         allergens,
-        demand_group: demandGroup,
         demand_sub_group: demandSubGroup,
         special_start_date:
           assortmentType !== "daily_range" ? specialStart : null,

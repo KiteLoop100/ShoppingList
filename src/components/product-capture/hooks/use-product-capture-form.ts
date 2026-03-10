@@ -246,7 +246,7 @@ export function useProductCaptureForm(config: ProductCaptureConfig) {
       const extracted = data.extracted_data as ExtractedProductInfo | null;
       if (extracted) {
         setExtractedDetails(extracted);
-        const aiDemandGroupCode = extractDemandGroupCode(extracted.demand_group);
+        const aiDemandGroupCode = extractDemandGroupCode(extracted.demand_group_code ?? extracted.demand_group);
         setValues((prev) => ({
           ...prev,
           name: locked.has("name") ? prev.name

@@ -26,7 +26,7 @@ export interface PhotoUploadReviewRow {
       ean_barcode?: string | null;
       article_number?: string | null;
       weight_or_quantity?: string | null;
-      demand_group?: string | null;
+      demand_group_code?: string | null;
     }>;
     /** F14: flyer PDF multi-page progress */
     flyer_id?: string;
@@ -61,7 +61,7 @@ export function ReviewCard({ upload, userId, onConfirmed, onDiscarded }: ReviewC
     first?.article_number != null ? String(first.article_number) : ""
   );
   const [weightOrQuantity, setWeightOrQuantity] = useState(first?.weight_or_quantity ?? "");
-  const [demandGroup, setDemandGroup] = useState(first?.demand_group ?? "");
+  const [demandGroup, setDemandGroup] = useState(first?.demand_group_code ?? "");
   const [linkedProductId, setLinkedProductId] = useState<string | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -84,7 +84,7 @@ export function ReviewCard({ upload, userId, onConfirmed, onDiscarded }: ReviewC
       setPrice(first.price != null ? String(first.price) : "");
       setArticleNumber(first.article_number != null ? String(first.article_number) : "");
       setWeightOrQuantity(first.weight_or_quantity ?? "");
-      setDemandGroup(first.demand_group ?? "");
+      setDemandGroup(first.demand_group_code ?? "");
     }
     setEan(first.ean_barcode ?? "");
   }, [upload.upload_id, first, isBackPhoto]);
@@ -124,7 +124,7 @@ export function ReviewCard({ upload, userId, onConfirmed, onDiscarded }: ReviewC
     setSearching(true);
     const { data } = await supabase
       .from("products")
-      .select("product_id, name, name_normalized, article_number, ean_barcode, brand, price, thumbnail_url, thumbnail_back_url, category_id, demand_group_code, demand_group, demand_sub_group, assortment_type, availability, region, country, special_start_date, special_end_date, status, source, created_at, updated_at, photo_source_id, nutrition_info, ingredients, allergens, weight_or_quantity, price_updated_at, popularity_score")
+      .select("product_id, name, name_normalized, article_number, ean_barcode, brand, price, thumbnail_url, thumbnail_back_url, demand_group_code, demand_sub_group, assortment_type, availability, region, country, special_start_date, special_end_date, status, source, created_at, updated_at, photo_source_id, nutrition_info, ingredients, allergens, weight_or_quantity, price_updated_at, popularity_score")
       .eq("status", "active")
       .ilike("name", `%${q.trim()}%`)
       .limit(20);
@@ -203,7 +203,7 @@ export function ReviewCard({ upload, userId, onConfirmed, onDiscarded }: ReviewC
                 ean_barcode: ean.trim() || undefined,
                 article_number: articleNumber.trim() || undefined,
                 weight_or_quantity: weightOrQuantity.trim() || undefined,
-                demand_group: demandGroup.trim() || undefined,
+                demand_group_code: demandGroup.trim() || undefined,
               },
           linked_product_id: matchedProduct?.product_id ?? undefined,
         }),
@@ -256,7 +256,6 @@ export function ReviewCard({ upload, userId, onConfirmed, onDiscarded }: ReviewC
     if (p.ean_barcode) setEan(p.ean_barcode);
     if (p.article_number) setArticleNumber(String(p.article_number));
     if (p.weight_or_quantity) setWeightOrQuantity(p.weight_or_quantity);
-    if (p.demand_group) setDemandGroup(p.demand_group);
     setSearchOpen(false);
   };
 
@@ -343,15 +342,6 @@ export function ReviewCard({ upload, userId, onConfirmed, onDiscarded }: ReviewC
                 type="text"
                 value={weightOrQuantity}
                 onChange={(e) => setWeightOrQuantity(e.target.value)}
-                className="rounded-lg border border-aldi-muted-light px-3 py-2 text-aldi-text"
-              />
-            </label>
-            <label className="grid gap-1">
-              <span className="text-xs font-medium text-aldi-muted">{t("demandGroup")}</span>
-              <input
-                type="text"
-                value={demandGroup}
-                onChange={(e) => setDemandGroup(e.target.value)}
                 className="rounded-lg border border-aldi-muted-light px-3 py-2 text-aldi-text"
               />
             </label>

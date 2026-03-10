@@ -166,7 +166,7 @@ async function saveCompetitorProduct(
     if (!values.demandGroupCode) {
       categorizeCompetitorProduct(
         productId, values.name.trim(),
-        { demandGroupFromAI: extractedDetails?.demand_group },
+        { demandGroupFromAI: extractedDetails?.demand_group_code ?? extractedDetails?.demand_group },
       ).catch((err) => { log.warn("[saveCompetitorProduct] categorization failed:", err); });
     }
   }

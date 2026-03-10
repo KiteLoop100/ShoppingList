@@ -91,8 +91,6 @@ export async function POST(request: Request) {
   const price = validated.price ?? null;
   const weightOrQuantity =
     validated.weight_or_quantity != null ? String(validated.weight_or_quantity).trim() || null : null;
-  const demandGroup =
-    validated.demand_group != null ? String(validated.demand_group).trim() || null : null;
   const demandSubGroup =
     validated.demand_sub_group != null ? String(validated.demand_sub_group).trim() || null : null;
   const ingredients = validated.ingredients != null ? String(validated.ingredients).trim() || null : null;
@@ -163,7 +161,6 @@ export async function POST(request: Request) {
       article_number: articleNumber ?? undefined,
       ean_barcode: ean ?? undefined,
       weight_or_quantity: weightOrQuantity ?? undefined,
-      demand_group: demandGroup ?? undefined,
       demand_sub_group: demandSubGroup ?? undefined,
       ingredients: ingredients ?? undefined,
       allergens: allergens ?? undefined,
@@ -221,7 +218,6 @@ export async function POST(request: Request) {
       nutrition_info: nutritionInfo,
       ingredients,
       allergens,
-      demand_group: demandGroup,
       demand_sub_group: demandSubGroup,
       weight_or_quantity: weightOrQuantity,
       special_start_date: null,
