@@ -76,6 +76,7 @@
     "purchaseMenuThirdLast": "Third-to-last purchase",
     "purchaseMenuLastN": "Last {count} purchases",
     "purchaseMenuNotRecently": "Not bought recently",
+    "purchaseMenuConsumed": "Mark as consumed",
     "receiptTitleSingle0": "{retailer} — Last purchase",
     "receiptTitleSingle1": "{retailer} — Second-to-last purchase",
     "receiptTitleSingle2": "{retailer} — Third-to-last purchase",
@@ -188,7 +189,8 @@
     "demandGroup": "Category",
     "demandSubGroup": "Subcategory",
     "eanCrossRef": "Also available at ALDI",
-    "eanCrossRefPrice": "ALDI price"
+    "eanCrossRefPrice": "ALDI price",
+    "aliases": "Also known as"
   },
   "capture": {
     "title": "Capture products & receipts",
@@ -399,7 +401,8 @@
     "mainPhoto": "Main photo",
     "productPhoto": "Product",
     "priceTag": "Price tag",
-    "offlinePhotosHint": "Additional photos only available online."
+    "offlinePhotosHint": "Additional photos only available online.",
+    "aliases": "Also known as"
   },
   "productCapture": {
     "createTitle": "Create product",
@@ -455,7 +458,9 @@
     "saving": "Saving…",
     "update": "Update",
     "updating": "Updating…",
-    "createProduct": "Create product"
+    "createProduct": "Create product",
+    "aliases": "Aliases (alternative names)",
+    "aliasPlaceholder": "Enter alias…"
   },
   "editProduct": {
     "title": "Edit product",

@@ -76,6 +76,7 @@
     "purchaseMenuThirdLast": "Vorvorletzter Einkauf",
     "purchaseMenuLastN": "Letzten {count} Einkäufe",
     "purchaseMenuNotRecently": "Länger nicht gekauft",
+    "purchaseMenuConsumed": "Aufgebraucht melden",
     "receiptTitleSingle0": "{retailer} — Letzter Einkauf",
     "receiptTitleSingle1": "{retailer} — Vorletzter Einkauf",
     "receiptTitleSingle2": "{retailer} — Vorvorletzter Einkauf",
@@ -188,7 +189,8 @@
     "demandGroup": "Kategorie",
     "demandSubGroup": "Unterkategorie",
     "eanCrossRef": "Auch bei ALDI erhältlich",
-    "eanCrossRefPrice": "ALDI-Preis"
+    "eanCrossRefPrice": "ALDI-Preis",
+    "aliases": "Auch bekannt als"
   },
   "capture": {
     "title": "Produkte & Kassenzettel erfassen",
@@ -399,7 +401,8 @@
     "mainPhoto": "Hauptbild",
     "productPhoto": "Produkt",
     "priceTag": "Preisschild",
-    "offlinePhotosHint": "Weitere Fotos nur online verfügbar."
+    "offlinePhotosHint": "Weitere Fotos nur online verfügbar.",
+    "aliases": "Auch bekannt als"
   },
   "productCapture": {
     "createTitle": "Produkt anlegen",
@@ -455,7 +458,9 @@
     "saving": "Speichern…",
     "update": "Aktualisieren",
     "updating": "Aktualisieren…",
-    "createProduct": "Produkt anlegen"
+    "createProduct": "Produkt anlegen",
+    "aliases": "Aliase (alternative Bezeichnungen)",
+    "aliasPlaceholder": "Alias eingeben…"
   },
   "editProduct": {
     "title": "Produkt bearbeiten",

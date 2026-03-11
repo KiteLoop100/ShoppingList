@@ -47,6 +47,7 @@ function rowToCompetitorProduct(row: Record<string, unknown>): CompetitorProduct
     allergens: row.allergens != null ? String(row.allergens) : null,
     nutri_score: (row.nutri_score as CompetitorProduct["nutri_score"]) ?? null,
     country_of_origin: row.country_of_origin != null ? String(row.country_of_origin) : null,
+    aliases: Array.isArray(row.aliases) ? (row.aliases as string[]) : null,
     created_at: String(row.created_at),
     updated_at: String(row.updated_at),
     latest_prices: latest_prices.length > 0 ? latest_prices : undefined,
@@ -124,7 +125,8 @@ type UpdatableFields =
   | "retailer" | "thumbnail_url" | "other_photo_url"
   | "demand_group_code" | "demand_sub_group" | "assortment_type"
   | "is_bio" | "is_vegan" | "is_gluten_free" | "is_lactose_free" | "animal_welfare_level"
-  | "ingredients" | "nutrition_info" | "allergens" | "nutri_score" | "country_of_origin";
+  | "ingredients" | "nutrition_info" | "allergens" | "nutri_score" | "country_of_origin"
+  | "aliases";
 
 export async function updateCompetitorProduct(
   productId: string,
@@ -158,6 +160,7 @@ export async function updateCompetitorProduct(
   if (updates.allergens !== undefined) payload.allergens = updates.allergens;
   if (updates.nutri_score !== undefined) payload.nutri_score = updates.nutri_score;
   if (updates.country_of_origin !== undefined) payload.country_of_origin = updates.country_of_origin;
+  if (updates.aliases !== undefined) payload.aliases = updates.aliases;
 
   const { error } = await supabase
     .from("competitor_products")

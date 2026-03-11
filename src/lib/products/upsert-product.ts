@@ -43,6 +43,7 @@ export interface ProductData {
   photo_source_id?: string | null;
   flyer_id?: string | null;
   flyer_page?: number | null;
+  aliases?: string[] | null;
 }
 
 /**

@@ -4,6 +4,7 @@ import { useTranslations } from "next-intl";
 import { PhotoUploadSection } from "./photo-upload-section";
 import { ExtractedInfoCards } from "./extracted-info-cards";
 import { ProductCaptureFields } from "./product-capture-fields";
+import { AliasTagInput } from "./alias-tag-input";
 import { useProductCaptureForm, type ProductCaptureConfig } from "./hooks/use-product-capture-form";
 
 export type { ProductCaptureConfig } from "./hooks/use-product-capture-form";
@@ -108,6 +109,14 @@ export function ProductCaptureModal(props: ProductCaptureConfig) {
               },
             }}
           />
+          {isEditMode && (
+            <AliasTagInput
+              aliases={values.aliases}
+              onChange={(a) => setField("aliases", a)}
+              label={t("aliases")}
+              placeholder={t("aliasPlaceholder")}
+            />
+          )}
           {extractedDetails && <ExtractedInfoCards details={extractedDetails} />}
           {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
         </div>

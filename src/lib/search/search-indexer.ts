@@ -20,6 +20,8 @@ export interface SearchableProduct extends Product {
   search_name_words: string[];
   /** Brand normalized, or null */
   search_brand_normalized: string | null;
+  /** Normalized alias strings for alias-based search matching */
+  search_aliases_normalized: string[];
 }
 
 /**
@@ -35,6 +37,9 @@ export function indexProduct(product: Product): SearchableProduct {
     search_name_normalized: searchNameNormalized,
     search_name_words: searchNameNormalized.split(" ").filter(Boolean),
     search_brand_normalized: product.brand ? normalize(product.brand) : null,
+    search_aliases_normalized: (product.aliases ?? [])
+      .map((a) => normalize(a))
+      .filter(Boolean),
   };
 }
 

@@ -120,6 +120,8 @@ export async function POST(request: Request) {
   const price = validated.price ?? null;
   const weightOrQuantity =
     validated.weight_or_quantity != null ? String(validated.weight_or_quantity).trim() || null : null;
+  const demandGroupCode =
+    validated.demand_group_code != null ? String(validated.demand_group_code).trim() || null : null;
   const demandSubGroup =
     validated.demand_sub_group != null ? String(validated.demand_sub_group).trim() || null : null;
   const ingredients = validated.ingredients != null ? String(validated.ingredients).trim() || null : null;
@@ -135,6 +137,9 @@ export async function POST(request: Request) {
   const animalWelfareLevel = validated.animal_welfare_level ?? null;
   const thumbnailUrl = validated.thumbnail_url ?? null;
   const thumbnailBase64 = validated.thumbnail_base64 ?? null;
+  const aliases = [...new Set(
+    (validated.aliases ?? []).map((a) => a.trim()).filter(Boolean),
+  )];
   const extraPhotoUrls = validated.extra_photo_urls;
   const dataUploadIds = validated.data_upload_ids;
   const userId = auth.user.id;
@@ -190,7 +195,8 @@ export async function POST(request: Request) {
       article_number: articleNumber ?? undefined,
       ean_barcode: ean ?? undefined,
       weight_or_quantity: weightOrQuantity ?? undefined,
-      demand_sub_group: demandSubGroup ?? undefined,
+      demand_group_code: demandGroupCode ?? undefined,
+      demand_sub_group: demandGroupCode && !demandSubGroup ? null : (demandSubGroup ?? undefined),
       ingredients: ingredients ?? undefined,
       allergens: allergens ?? undefined,
       nutrition_info: nutritionInfo ?? undefined,
@@ -202,6 +208,7 @@ export async function POST(request: Request) {
       is_gluten_free: isGlutenFree,
       is_lactose_free: isLactoseFree,
       animal_welfare_level: animalWelfareLevel,
+      aliases,
     };
 
     if (thumbnailUrl || thumbnailBase64) {
@@ -240,7 +247,7 @@ export async function POST(request: Request) {
     const result = await upsertProduct(supabase, {
       name,
       name_normalized: nameNormalized,
-      demand_group_code: defaultDemandGroupCode,
+      demand_group_code: demandGroupCode || defaultDemandGroupCode,
       article_number: articleNumber,
       brand,
       price,
@@ -261,6 +268,7 @@ export async function POST(request: Request) {
       thumbnail_url: finalThumbnailUrl,
       thumbnail_back_url: null,
       photo_source_id: null,
+      aliases: aliases.length > 0 ? aliases : undefined,
     });
 
     if (!result) {

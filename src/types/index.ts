@@ -72,6 +72,8 @@ export interface Product {
   is_lactose_free?: boolean | null;
   /** German "Haltungsform" level: 1=Stall, 2=StallPlus, 3=Außenklima, 4=Premium/Bio; null=unknown or N/A */
   animal_welfare_level?: number | null;
+  /** Alternative names / search terms for this product */
+  aliases?: string[] | null;
 }
 
 export interface Store {
@@ -278,6 +280,8 @@ export interface CompetitorProduct {
   allergens: string | null;
   nutri_score: "A" | "B" | "C" | "D" | "E" | null;
   country_of_origin: string | null;
+  /** Alternative names / search terms for this product */
+  aliases?: string[] | null;
   created_at: string;
   updated_at: string;
   /** Latest known price per retailer (populated when fetched with prices joined). */

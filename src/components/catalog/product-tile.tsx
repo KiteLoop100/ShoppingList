@@ -24,9 +24,10 @@ export interface ShoppingListTileMode {
 interface ProductTileProps {
   product: Product;
   shoppingListMode?: ShoppingListTileMode;
+  onProductUpdated?: () => void;
 }
 
-export function ProductTile({ product, shoppingListMode }: ProductTileProps) {
+export function ProductTile({ product, shoppingListMode, onProductUpdated }: ProductTileProps) {
   const t = useTranslations("catalog");
   const [showDetail, setShowDetail] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
@@ -188,7 +189,7 @@ export function ProductTile({ product, shoppingListMode }: ProductTileProps) {
           mode="edit"
           editAldiProduct={product}
           onClose={() => setShowEdit(false)}
-          onSaved={() => setShowEdit(false)}
+          onSaved={() => { setShowEdit(false); onProductUpdated?.(); }}
         />
       )}
     </>

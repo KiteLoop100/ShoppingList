@@ -70,6 +70,7 @@ async function saveAldiProduct(
     is_gluten_free: values.isGlutenFree || null,
     is_lactose_free: values.isLactoseFree || null,
     animal_welfare_level: values.animalWelfareLevel,
+    aliases: values.aliases.length > 0 ? values.aliases : [],
     ingredients: extractedDetails?.ingredients ?? null,
     allergens: extractedDetails?.allergens ?? null,
     nutrition_info: extractedDetails?.nutrition_info ?? null,
@@ -127,6 +128,7 @@ async function saveCompetitorProduct(
       is_gluten_free: values.isGlutenFree,
       is_lactose_free: values.isLactoseFree,
       animal_welfare_level: values.animalWelfareLevel,
+      aliases: values.aliases.length > 0 ? values.aliases : [],
     };
     applyExtractedUpdates(updates, extractedDetails, true);
     await updateCompetitorProduct(productId, updates);

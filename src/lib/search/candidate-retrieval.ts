@@ -237,6 +237,12 @@ function determineMatchType(
     }
   }
 
+  // 7b. Per-product alias match
+  for (const alias of product.search_aliases_normalized) {
+    if (alias === queryNorm) return MatchType.BRAND_MATCH;
+    if (alias.includes(queryNorm)) return MatchType.NAME_CONTAINS_STANDALONE;
+  }
+
   // 8. DEMAND_GROUP (direct substring match)
   if (product.demand_group_code) {
     if (product.demand_group_code.includes(queryNorm)) {

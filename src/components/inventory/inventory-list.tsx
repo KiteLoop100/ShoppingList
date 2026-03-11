@@ -23,6 +23,7 @@ import { getCategoryGroup, SECTION_ICONS, type CategoryGroupKey } from "@/lib/li
 import { InventoryItemRow } from "./inventory-item-row";
 import { InventoryFilters, type InventoryFilter } from "./inventory-filters";
 import { InventoryAddModal } from "./inventory-add-modal";
+import { filterExpiredPerishables } from "./inventory-perishable-filter";
 import { CardSkeleton } from "@/components/ui/skeleton";
 
 const BarcodeScannerModal = dynamic(
@@ -37,6 +38,7 @@ const SECTION_LABEL_KEYS: Record<CategoryGroupKey, string> = {
   frozen: "sectionFrozen",
   dry: "sectionDry",
 };
+
 
 export function InventoryList() {
   const t = useTranslations("inventory");
@@ -155,27 +157,29 @@ export function InventoryList() {
     [showToast, tSearch],
   );
 
+  const activeItems = useMemo(() => filterExpiredPerishables(items), [items]);
+
   const openedCount = useMemo(
-    () => items.filter((i) => i.status === "opened").length,
-    [items],
+    () => activeItems.filter((i) => i.status === "opened").length,
+    [activeItems],
   );
 
   const categoryChips = useMemo(() => {
     const counts = new Map<CategoryGroupKey, number>();
-    for (const item of items) {
+    for (const item of activeItems) {
       const group = getCategoryGroup(item.demand_group_code);
       counts.set(group, (counts.get(group) ?? 0) + 1);
     }
     return Array.from(counts.entries())
       .map(([code, count]) => ({ code, count }))
       .sort((a, b) => GROUP_SORT[a.code] - GROUP_SORT[b.code]);
-  }, [items]);
+  }, [activeItems]);
 
   const filteredItems = useMemo(() => {
-    if (filter === "all") return items;
-    if (filter === "opened") return items.filter((i) => i.status === "opened");
-    return items.filter((i) => getCategoryGroup(i.demand_group_code) === filter);
-  }, [items, filter]);
+    if (filter === "all") return activeItems;
+    if (filter === "opened") return activeItems.filter((i) => i.status === "opened");
+    return activeItems.filter((i) => getCategoryGroup(i.demand_group_code) === filter);
+  }, [activeItems, filter]);
 
   const grouped = useMemo(() => {
     const groups = new Map<CategoryGroupKey, InventoryItem[]>();

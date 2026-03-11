@@ -6,9 +6,10 @@ import { ProductTile } from "./product-tile";
 
 interface ProductGridProps {
   products: CatalogScoredProduct[];
+  onProductUpdated?: () => void;
 }
 
-export function ProductGrid({ products }: ProductGridProps) {
+export function ProductGrid({ products, onProductUpdated }: ProductGridProps) {
   const t = useTranslations("catalog");
 
   if (products.length === 0) {
@@ -25,6 +26,7 @@ export function ProductGrid({ products }: ProductGridProps) {
         <ProductTile
           key={scored.product.product_id}
           product={scored.product}
+          onProductUpdated={onProductUpdated}
         />
       ))}
     </div>

@@ -54,7 +54,7 @@ export function CatalogClient() {
   const t = useTranslations("catalog");
   const tCommon = useTranslations("common");
   const bp = useBreakpoint();
-  const { products, loading: productsLoading } = useProducts();
+  const { products, loading: productsLoading, refetch: refetchProducts } = useProducts();
   const { country } = useCurrentCountry();
 
   const [allGroups, setAllGroups] = useState<DemandGroupRow[]>([]);
@@ -239,7 +239,7 @@ export function CatalogClient() {
             />
           )}
 
-          <ProductGrid products={displayProducts} />
+          <ProductGrid products={displayProducts} onProductUpdated={refetchProducts} />
         </div>
       </div>
     </main>

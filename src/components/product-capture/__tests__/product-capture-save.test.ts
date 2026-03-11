@@ -52,6 +52,7 @@ function makeValues(overrides: Partial<ProductCaptureValues> = {}): ProductCaptu
     isGlutenFree: false,
     isLactoseFree: false,
     animalWelfareLevel: null,
+    aliases: [],
     ...overrides,
   };
 }

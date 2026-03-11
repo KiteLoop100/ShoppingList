@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import type { AnyProduct } from "./types";
 import { isAldiProduct, isCompetitorProduct } from "./types";
 import { ProductHeaderSection } from "./product-header-section";
+import { AliasSection } from "./alias-section";
 import { PriceSection } from "./price-section";
 import { NutritionSection } from "./nutrition-section";
 import { MetadataSection } from "./metadata-section";
@@ -109,6 +110,11 @@ export function ProductDetailView({
           demandGroup: isAldi ? t("demandGroup") : tComp("demandGroup"),
           demandSubGroup: isAldi ? t("demandSubGroup") : tComp("demandSubGroup"),
         }}
+      />
+
+      <AliasSection
+        aliases={product.aliases}
+        label={isAldi ? t("aliases") : tComp("aliases")}
       />
 
       <EanCrossReferenceSection

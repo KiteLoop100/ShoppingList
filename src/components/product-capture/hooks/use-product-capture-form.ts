@@ -35,6 +35,7 @@ export interface ProductCaptureValues {
   isGlutenFree: boolean;
   isLactoseFree: boolean;
   animalWelfareLevel: number | null;
+  aliases: string[];
 }
 
 export interface ProductCaptureConfig {
@@ -68,6 +69,7 @@ function initFromAldiProduct(p: Product): Partial<ProductCaptureValues> {
     isGlutenFree: p.is_gluten_free ?? false,
     isLactoseFree: p.is_lactose_free ?? false,
     animalWelfareLevel: p.animal_welfare_level ?? null,
+    aliases: p.aliases ?? [],
   };
 }
 
@@ -87,6 +89,7 @@ function initFromCompetitorProduct(p: CompetitorProduct): Partial<ProductCapture
     isGlutenFree: p.is_gluten_free ?? false,
     isLactoseFree: p.is_lactose_free ?? false,
     animalWelfareLevel: p.animal_welfare_level ?? null,
+    aliases: p.aliases ?? [],
   };
 }
 
@@ -95,7 +98,7 @@ const EMPTY_VALUES: ProductCaptureValues = {
   demandGroupCode: "", demandSubGroup: "", ean: "", articleNumber: "",
   price: "", weightOrQuantity: "", assortmentType: "daily_range",
   isBio: false, isVegan: false, isGlutenFree: false, isLactoseFree: false,
-  animalWelfareLevel: null,
+  animalWelfareLevel: null, aliases: [],
 };
 
 const MAX_TOTAL_BASE64_BYTES = 15_000_000;
