@@ -29,7 +29,6 @@ export function ProductDetailView({
   children,
 }: ProductDetailViewProps) {
   const t = useTranslations("productDetail");
-  const tComp = useTranslations("competitorDetail");
   const [productPhotos, setProductPhotos] = useState<ProductPhoto[]>([]);
 
   const isAldi = isAldiProduct(product);
@@ -44,9 +43,9 @@ export function ProductDetailView({
     mainPhoto: t("mainPhoto"),
     productPhoto: t("productPhoto"),
     priceTag: t("priceTag"),
-    front: isAldi ? t("frontSide") : tComp("frontPhoto"),
+    front: isAldi ? t("frontSide") : t("frontPhoto"),
     back: t("backSide"),
-    other: isCompetitor ? tComp("otherPhoto") : "",
+    other: isCompetitor ? t("otherPhoto") : "",
   };
 
   const assortmentLabel = isAldi
@@ -76,17 +75,17 @@ export function ProductDetailView({
           kind="competitor"
           prices={competitorPrices}
           locale="de"
-          labels={{ latestPrice: tComp("latestPrice"), noPrices: tComp("noPrices") }}
+          labels={{ latestPrice: t("latestPrice"), noPrices: t("noPrices") }}
         />
       )}
 
       <NutritionSection
         product={product}
         labels={{
-          nutritionInfo: isAldi ? t("nutritionInfo") : tComp("nutrition"),
-          ingredients: isAldi ? t("ingredients") : tComp("ingredients"),
-          allergens: isAldi ? t("allergens") : tComp("allergens"),
-          nutriScore: isCompetitor ? tComp("nutriScore") : undefined,
+          nutritionInfo: isAldi ? t("nutritionInfo") : t("nutrition"),
+          ingredients: t("ingredients"),
+          allergens: t("allergens"),
+          nutriScore: isCompetitor ? t("nutriScore") : undefined,
         }}
       />
 
@@ -94,11 +93,11 @@ export function ProductDetailView({
         product={product}
         labels={{
           articleNumber: isAldi ? t("articleNumber") : "",
-          eanBarcode: isAldi ? t("eanBarcode") : tComp("eanBarcode"),
+          eanBarcode: t("eanBarcode"),
           assortmentType: isAldi ? t("assortmentType") : undefined,
           specialPeriod: isAldi ? t("specialPeriod") : undefined,
-          weightQuantity: isCompetitor ? tComp("weightQuantity") : undefined,
-          countryOfOrigin: isCompetitor ? tComp("countryOfOrigin") : undefined,
+          weightQuantity: isCompetitor ? t("weightQuantity") : undefined,
+          countryOfOrigin: isCompetitor ? t("countryOfOrigin") : undefined,
         }}
         assortmentLabel={assortmentLabel}
       />
@@ -107,21 +106,21 @@ export function ProductDetailView({
         demandGroupCode={product.demand_group_code}
         demandSubGroup={product.demand_sub_group}
         labels={{
-          demandGroup: isAldi ? t("demandGroup") : tComp("demandGroup"),
-          demandSubGroup: isAldi ? t("demandSubGroup") : tComp("demandSubGroup"),
+          demandGroup: t("demandGroup"),
+          demandSubGroup: t("demandSubGroup"),
         }}
       />
 
       <AliasSection
         aliases={product.aliases}
-        label={isAldi ? t("aliases") : tComp("aliases")}
+        label={t("aliases")}
       />
 
       <EanCrossReferenceSection
         product={product}
         labels={{
-          title: isAldi ? t("eanCrossRef") : tComp("eanCrossRef"),
-          priceOrRetailer: isAldi ? t("eanCrossRefRetailer") : tComp("eanCrossRefPrice"),
+          title: isAldi ? t("eanCrossRef") : t("eanCrossRefAldi"),
+          priceOrRetailer: isAldi ? t("eanCrossRefRetailer") : t("eanCrossRefPrice"),
         }}
       />
 

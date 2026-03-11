@@ -7,7 +7,7 @@ export function MultiDeviceScreen() {
   const t = useTranslations("onboarding.screens.multi-device");
 
   const illustration = (
-    <div className="w-full max-w-[280px]">
+    <div className="w-full max-w-[280px] md:max-w-sm">
       {/* Devices side by side */}
       <div className="flex items-end justify-center gap-5">
         {/* Phone */}

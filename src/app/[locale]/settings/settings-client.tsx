@@ -277,7 +277,7 @@ export function SettingsClient() {
   );
 
   return (
-    <main className="mx-auto min-h-screen max-w-lg bg-aldi-bg p-4 md:max-w-2xl md:p-6 lg:p-8">
+    <main className="mx-auto min-h-screen max-w-lg bg-aldi-bg p-4 md:max-w-2xl md:p-6 lg:max-w-4xl lg:p-8">
       <header className="sticky top-0 z-10 -mx-4 flex items-center gap-3 bg-aldi-bg px-4 py-3">
         <Link
           href="/"

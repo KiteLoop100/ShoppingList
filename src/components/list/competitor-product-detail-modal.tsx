@@ -20,7 +20,7 @@ export function CompetitorProductDetailModal({
   onEdit,
   retailer: retailerProp,
 }: CompetitorProductDetailModalProps) {
-  const t = useTranslations("competitorDetail");
+  const t = useTranslations("productDetail");
   const [prices, setPrices] = useState<CompetitorProductPrice[]>([]);
 
   const productId = product?.product_id ?? null;

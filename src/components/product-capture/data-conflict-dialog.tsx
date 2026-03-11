@@ -57,9 +57,9 @@ export function DataConflictDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-end justify-center">
+    <div className="fixed inset-0 z-[60] flex items-end justify-center sm:items-center">
       <div className="absolute inset-0 bg-black/30" onClick={onDismiss} />
-      <div className="relative w-full max-w-lg rounded-t-2xl bg-white p-4 shadow-xl">
+      <div className="relative w-full max-w-lg rounded-t-2xl bg-white p-4 shadow-xl sm:rounded-2xl">
         <h3 className="text-base font-semibold text-aldi-text">
           {labels.title}
         </h3>
