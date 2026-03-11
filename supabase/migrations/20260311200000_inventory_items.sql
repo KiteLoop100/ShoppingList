@@ -35,15 +35,9 @@ CREATE TABLE IF NOT EXISTS inventory_items (
 
 -- 3. Partial unique constraints (named, for ON CONFLICT usage)
 --    Only active (non-consumed) items must be unique per user+product
-ALTER TABLE inventory_items
-  ADD CONSTRAINT uq_inventory_user_product
-  UNIQUE (user_id, product_id)
-  -- PostgreSQL doesn't support WHERE on ALTER TABLE ADD CONSTRAINT UNIQUE.
-  -- We use a partial unique index instead but name it for ON CONFLICT reference.
-  ;
-
--- Drop the table-level constraint (can't have WHERE clause) and use index instead
 ALTER TABLE inventory_items DROP CONSTRAINT IF EXISTS uq_inventory_user_product;
+DROP INDEX IF EXISTS uq_inventory_user_product;
+DROP INDEX IF EXISTS uq_inventory_user_competitor;
 
 CREATE UNIQUE INDEX uq_inventory_user_product
   ON inventory_items (user_id, product_id)
@@ -54,20 +48,32 @@ CREATE UNIQUE INDEX uq_inventory_user_competitor
   WHERE competitor_product_id IS NOT NULL AND status != 'consumed';
 
 -- 4. Performance indexes
-CREATE INDEX idx_inventory_user_status
+CREATE INDEX IF NOT EXISTS idx_inventory_user_status
   ON inventory_items (user_id, status)
   WHERE status != 'consumed';
 
-CREATE INDEX idx_inventory_user_added
+CREATE INDEX IF NOT EXISTS idx_inventory_user_added
   ON inventory_items (user_id, added_at DESC);
 
 -- 5. Row Level Security
 ALTER TABLE inventory_items ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Users manage own inventory"
-  ON inventory_items FOR ALL
-  USING (auth.uid()::text = user_id)
-  WITH CHECK (auth.uid()::text = user_id);
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE tablename = 'inventory_items' AND policyname = 'Users manage own inventory'
+  ) THEN
+    CREATE POLICY "Users manage own inventory"
+      ON inventory_items FOR ALL
+      USING (auth.uid()::text = user_id)
+      WITH CHECK (auth.uid()::text = user_id);
+  END IF;
+END $$;
 
 -- 6. Enable realtime for inventory_items
-ALTER PUBLICATION supabase_realtime ADD TABLE inventory_items;
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND tablename = 'inventory_items'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE inventory_items;
+  END IF;
+END $$;

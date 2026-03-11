@@ -64,7 +64,7 @@ export function ProductCaptureModal(props: ProductCaptureConfig) {
               analyzing: t("photoAnalyzing"),
               reviewRequired: t("photoReviewRequired"),
               softFallback: t("photoSoftFallback"),
-              photosCount: t("photosCount"),
+              photosCount: t("photosCount", { count: "PLACEHOLDER" }),
               mainPhoto: t("mainPhoto"),
               productPhoto: t("productPhoto"),
               priceTag: t("priceTag"),

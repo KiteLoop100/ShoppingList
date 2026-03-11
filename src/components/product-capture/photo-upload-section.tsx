@@ -123,7 +123,7 @@ export function PhotoUploadSection({
         <p className="text-[11px] text-aldi-muted">{labels.hint}</p>
         {labels.photosCount && (
           <span className="text-[11px] font-medium text-aldi-muted">
-            {labels.photosCount.replace("{count}", String(totalCount))}
+            {labels.photosCount.replace("PLACEHOLDER", String(totalCount))}
           </span>
         )}
       </div>
