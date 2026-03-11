@@ -13,6 +13,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
+  themeColor: "#00205C",
 };
 
 export const metadata: Metadata = {
@@ -24,7 +25,12 @@ export const metadata: Metadata = {
       { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
       { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
     ],
-    apple: "/icons/icon-192.png",
+    apple: [
+      { url: "/icons/icon-120.png", sizes: "120x120" },
+      { url: "/icons/icon-152.png", sizes: "152x152" },
+      { url: "/icons/icon-167.png", sizes: "167x167" },
+      { url: "/icons/icon-180.png", sizes: "180x180" },
+    ],
   },
   appleWebApp: {
     capable: true,
