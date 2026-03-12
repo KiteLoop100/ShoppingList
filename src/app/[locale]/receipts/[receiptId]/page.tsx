@@ -45,6 +45,7 @@ export default function ReceiptDetailPage() {
   const [detailRetailer, setDetailRetailer] = useState<string | null>(null);
   const [editAldiProduct, setEditAldiProduct] = useState<Product | null>(null);
   const [editCompetitorProduct, setEditCompetitorProduct] = useState<CompetitorProduct | null>(null);
+  const [detailReceiptItem, setDetailReceiptItem] = useState<GroupedReceiptItem | null>(null);
 
   const groupedItems = useMemo(() => groupReceiptItems(rawItems), [rawItems]);
 
@@ -84,17 +85,22 @@ export default function ReceiptDetailPage() {
     setCaptureItem(null);
     setEditAldiProduct(null);
     setEditCompetitorProduct(null);
+    setDetailReceiptItem(null);
     setToast(true);
     setTimeout(() => setToast(false), 2500);
     await loadReceipt();
   }, [captureItem, loadReceipt]);
 
   const handleItemClick = useCallback(async (item: GroupedReceiptItem) => {
+    // #region agent log
+    console.log('[DEBUG-1d250e] handleItemClick',{receipt_name:item.receipt_name,competitor_product_id:item.competitor_product_id,unit_price:item.unit_price,total_price:item.total_price});
+    // #endregion
     if (item.competitor_product_id) {
       const cp = await findCompetitorProductById(item.competitor_product_id);
       if (cp) {
         setDetailCompetitor(cp);
         setDetailRetailer(receipt?.retailer ?? null);
+        setDetailReceiptItem(item);
         return;
       }
     }
@@ -116,15 +122,16 @@ export default function ReceiptDetailPage() {
     setCaptureItem(item);
   }, [receipt?.retailer]);
 
-  const captureInitialValues: Partial<ProductCaptureValues> | undefined = captureItem
+  const receiptPriceSource = captureItem ?? (editCompetitorProduct ? detailReceiptItem : null);
+  const captureInitialValues: Partial<ProductCaptureValues> | undefined = receiptPriceSource
     ? {
-        name: captureItem.receipt_name,
-        articleNumber: captureItem.article_number ?? "",
+        name: receiptPriceSource.receipt_name,
+        articleNumber: receiptPriceSource.article_number ?? "",
         retailer: receipt?.retailer ?? "ALDI",
-        price: captureItem.unit_price != null
-          ? String(captureItem.unit_price).replace(".", ",")
-          : captureItem.total_price != null
-            ? String(captureItem.total_price).replace(".", ",")
+        price: receiptPriceSource.unit_price != null
+          ? String(receiptPriceSource.unit_price).replace(".", ",")
+          : receiptPriceSource.total_price != null
+            ? String(receiptPriceSource.total_price).replace(".", ",")
             : "",
       }
     : undefined;
@@ -412,7 +419,7 @@ export default function ReceiptDetailPage() {
       <ProductCaptureModal
         open={!!captureItem || !!editAldiProduct || !!editCompetitorProduct}
         mode={editAldiProduct || editCompetitorProduct ? "edit" : "create"}
-        onClose={() => { setCaptureItem(null); setEditAldiProduct(null); setEditCompetitorProduct(null); }}
+        onClose={() => { setCaptureItem(null); setEditAldiProduct(null); setEditCompetitorProduct(null); setDetailReceiptItem(null); }}
         onSaved={(productId, productType) => {
           handlePhotoSaved(productId, productType);
         }}
@@ -433,8 +440,11 @@ export default function ReceiptDetailPage() {
 
       <CompetitorProductDetailModal
         product={detailCompetitor}
-        onClose={() => setDetailCompetitor(null)}
+        onClose={() => { setDetailCompetitor(null); setDetailReceiptItem(null); }}
         onEdit={(cp) => {
+          // #region agent log
+          console.log('[DEBUG-1d250e] onEdit competitor',{cp_name:cp.name,detailReceiptItem_price:detailReceiptItem?.unit_price??detailReceiptItem?.total_price??'NO_ITEM',captureInitialValues_price:captureInitialValues?.price??'N/A'});
+          // #endregion
           setDetailCompetitor(null);
           setEditCompetitorProduct(cp);
         }}

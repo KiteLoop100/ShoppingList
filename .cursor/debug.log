@@ -3,3 +3,4 @@
 {"test":true}
 {"test":true,"message":"connectivity test"}
 {"sessionId":"b6b7a6","location":"test","message":"shell-test","data":{},"timestamp":0}
+{"test":true}

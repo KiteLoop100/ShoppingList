@@ -858,6 +858,7 @@
     "searchInventory": "Vorrat durchsuchen…",
     "searchInventoryHint": "Tippe den Produktnamen ein, um im Vorrat zu suchen.",
     "searchNoResults": "Kein Produkt im Vorrat gefunden.",
-    "notInInventory": "Produkt nicht im Vorrat."
+    "notInInventory": "Produkt nicht im Vorrat.",
+    "moreActions": "Weitere Aktionen"
   }
 }

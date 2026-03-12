@@ -7,6 +7,7 @@ import { getExpiryColor, formatBestBefore } from "@/lib/inventory/expiry-color";
 
 const SWIPE_THRESHOLD = 60;
 const MAX_SWIPE = 100;
+const LONG_PRESS_MS = 500;
 
 interface InventoryItemRowProps {
   item: InventoryItem;
@@ -41,17 +42,38 @@ export function InventoryItemRow({
   const touchStartXRef = useRef(0);
   const touchStartYRef = useRef(0);
   const isHorizontalRef = useRef<boolean | null>(null);
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressFiredRef = useRef(false);
+
+  const cancelLongPress = useCallback(() => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  }, []);
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     touchStartXRef.current = e.touches[0].clientX;
     touchStartYRef.current = e.touches[0].clientY;
     isHorizontalRef.current = null;
+    longPressFiredRef.current = false;
     setSwiping(true);
+
+    longPressTimerRef.current = setTimeout(() => {
+      longPressFiredRef.current = true;
+      setShowActions(true);
+      setSwipeX(0);
+      setSwiping(false);
+    }, LONG_PRESS_MS);
   }, []);
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
     const dx = e.touches[0].clientX - touchStartXRef.current;
     const dy = e.touches[0].clientY - touchStartYRef.current;
+
+    if (Math.abs(dx) > 8 || Math.abs(dy) > 8) {
+      cancelLongPress();
+    }
 
     if (isHorizontalRef.current === null) {
       if (Math.abs(dx) > 8 || Math.abs(dy) > 8) {
@@ -66,9 +88,19 @@ export function InventoryItemRow({
     let clamped = Math.max(-MAX_SWIPE, Math.min(MAX_SWIPE, dx));
     if (!canSwipeRight && clamped > 0) clamped = 0;
     setSwipeX(clamped);
-  }, [item.status]);
+  }, [item.status, cancelLongPress]);
 
   const handleTouchEnd = useCallback(() => {
+    cancelLongPress();
+
+    if (longPressFiredRef.current) {
+      longPressFiredRef.current = false;
+      setSwipeX(0);
+      setSwiping(false);
+      isHorizontalRef.current = null;
+      return;
+    }
+
     if (swipeX < -SWIPE_THRESHOLD) {
       onConsume(item.id);
     } else if (swipeX > SWIPE_THRESHOLD) {
@@ -81,7 +113,7 @@ export function InventoryItemRow({
     setSwipeX(0);
     setSwiping(false);
     isHorizontalRef.current = null;
-  }, [swipeX, item.id, item.status, onConsume, onOpen, onSeal]);
+  }, [swipeX, item.id, item.status, onConsume, onOpen, onSeal, cancelLongPress]);
 
   const pastThreshold = Math.abs(swipeX) >= SWIPE_THRESHOLD;
   const swipingLeft = swipeX < 0;
@@ -200,6 +232,19 @@ export function InventoryItemRow({
               )}
             </div>
           </div>
+
+          <button
+            type="button"
+            onClick={() => setShowActions(true)}
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-aldi-muted transition-colors hover:bg-gray-100"
+            aria-label={t("moreActions")}
+          >
+            <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
+              <circle cx="12" cy="5" r="2" />
+              <circle cx="12" cy="12" r="2" />
+              <circle cx="12" cy="19" r="2" />
+            </svg>
+          </button>
 
           <button
             type="button"

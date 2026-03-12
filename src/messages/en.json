@@ -858,6 +858,7 @@
     "searchInventory": "Search inventory…",
     "searchInventoryHint": "Type a product name to search your inventory.",
     "searchNoResults": "No product found in inventory.",
-    "notInInventory": "Product not in inventory."
+    "notInInventory": "Product not in inventory.",
+    "moreActions": "More actions"
   }
 }

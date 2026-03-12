@@ -174,6 +174,9 @@ async function saveCompetitorProduct(
     }
   }
 
+  // #region agent log
+  console.log('[DEBUG-1d250e] saveCompetitor photos',{has_processedThumbnail:!!processedThumbnail,photoFiles_count:photoFiles.length,photoFiles_names:photoFiles.map(f=>f.name)});
+  // #endregion
   if (processedThumbnail && photoFiles.length > 0) {
     try {
       const thumbBlob = await fetch(processedThumbnail).then((r) => r.blob());
