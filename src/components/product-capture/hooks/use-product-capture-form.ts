@@ -159,9 +159,6 @@ export function useProductCaptureForm(config: ProductCaptureConfig) {
       if (initialValues.name && !init.name) init.name = titleCase(initialValues.name);
     }
 
-    // #region agent log
-    console.log('[DEBUG-1d250e] form init',{mode,has_editCompetitor:!!editCompetitorProduct,has_initialValues:!!initialValues,init_price:init.price??'MISSING',init_name:init.name??'MISSING'});
-    // #endregion
     setValues({ ...EMPTY_VALUES, ...init });
     setPhotoFiles([]);
     setPhotoPreviews((prev) => {
@@ -245,22 +242,13 @@ export function useProductCaptureForm(config: ProductCaptureConfig) {
         setThumbnailType(data.thumbnail_type ?? null);
 
         const thumbIdx: number | null = data.suggested_thumbnail_index ?? null;
-        // #region agent log
-        console.log('[DEBUG-1d250e] thumbnail',{thumbIdx,total_files:files.length,classified_photos:data.classified_photos?.map((p:{index:number,category:string|null,photo_type:string})=>({idx:p.index,cat:p.category,type:p.photo_type}))});
-        // #endregion
         if (thumbIdx != null) {
           setPhotoPreviews((prev) => {
-            // #region agent log
-            console.log('[DEBUG-1d250e] removeThumbPreview',{thumbIdx,prevLength:prev.length,remainingAfter:prev.length-1});
-            // #endregion
             if (thumbIdx < 0 || thumbIdx >= prev.length) return prev;
             if (prev[thumbIdx]) URL.revokeObjectURL(prev[thumbIdx]);
             return prev.filter((_, i) => i !== thumbIdx);
           });
           setPhotoFiles((prev) => {
-            // #region agent log
-            console.log('[DEBUG-1d250e] removeThumbFile',{thumbIdx,prevLength:prev.length,remainingAfter:prev.length-1});
-            // #endregion
             if (thumbIdx < 0 || thumbIdx >= prev.length) return prev;
             return prev.filter((_, i) => i !== thumbIdx);
           });

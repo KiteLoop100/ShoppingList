@@ -92,9 +92,6 @@ export default function ReceiptDetailPage() {
   }, [captureItem, loadReceipt]);
 
   const handleItemClick = useCallback(async (item: GroupedReceiptItem) => {
-    // #region agent log
-    console.log('[DEBUG-1d250e] handleItemClick',{receipt_name:item.receipt_name,competitor_product_id:item.competitor_product_id,unit_price:item.unit_price,total_price:item.total_price});
-    // #endregion
     if (item.competitor_product_id) {
       const cp = await findCompetitorProductById(item.competitor_product_id);
       if (cp) {
@@ -442,9 +439,6 @@ export default function ReceiptDetailPage() {
         product={detailCompetitor}
         onClose={() => { setDetailCompetitor(null); setDetailReceiptItem(null); }}
         onEdit={(cp) => {
-          // #region agent log
-          console.log('[DEBUG-1d250e] onEdit competitor',{cp_name:cp.name,detailReceiptItem_price:detailReceiptItem?.unit_price??detailReceiptItem?.total_price??'NO_ITEM',captureInitialValues_price:captureInitialValues?.price??'N/A'});
-          // #endregion
           setDetailCompetitor(null);
           setEditCompetitorProduct(cp);
         }}
