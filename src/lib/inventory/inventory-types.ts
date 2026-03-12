@@ -16,6 +16,11 @@ export interface InventoryItem {
   added_at: string;
   opened_at: string | null;
   consumed_at: string | null;
+  best_before: string | null;
+  purchase_date: string | null;
+  is_frozen: boolean;
+  frozen_at: string | null;
+  thawed_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -29,4 +34,8 @@ export interface InventoryUpsertInput {
   quantity: number;
   source: InventorySource;
   source_receipt_id?: string | null;
+  best_before?: string | null;
+  purchase_date?: string | null;
+  is_frozen?: boolean;
+  frozen_at?: string | null;
 }

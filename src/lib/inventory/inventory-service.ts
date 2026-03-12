@@ -92,19 +92,27 @@ export async function upsertInventoryItem(
     return updated as InventoryItem;
   }
 
+  const insertPayload: Record<string, unknown> = {
+    user_id: userId,
+    product_id: input.product_id,
+    competitor_product_id: input.competitor_product_id,
+    display_name: input.display_name,
+    demand_group_code: input.demand_group_code,
+    thumbnail_url: input.thumbnail_url ?? null,
+    quantity: input.quantity,
+    source: input.source,
+    source_receipt_id: input.source_receipt_id ?? null,
+  };
+  if (input.purchase_date) insertPayload.purchase_date = input.purchase_date;
+  if (input.best_before) insertPayload.best_before = input.best_before;
+  if (input.is_frozen) {
+    insertPayload.is_frozen = true;
+    insertPayload.frozen_at = input.frozen_at ?? new Date().toISOString();
+  }
+
   const { data: inserted, error } = await supabase
     .from("inventory_items")
-    .insert({
-      user_id: userId,
-      product_id: input.product_id,
-      competitor_product_id: input.competitor_product_id,
-      display_name: input.display_name,
-      demand_group_code: input.demand_group_code,
-      thumbnail_url: input.thumbnail_url ?? null,
-      quantity: input.quantity,
-      source: input.source,
-      source_receipt_id: input.source_receipt_id ?? null,
-    })
+    .insert(insertPayload)
     .select("*")
     .single();
 
@@ -291,3 +299,12 @@ export function competitorProductToInventoryInput(
 // to stay under the 300-line limit.
 export type { ReceiptItemForInventory } from "./inventory-receipt";
 export { upsertInventoryFromReceipt, backfillFromReceipts, enrichMissingDemandGroupCodes } from "./inventory-receipt";
+
+// Freeze/thaw/seal operations are in ./inventory-freeze.ts
+export {
+  freezeInventoryItem,
+  thawInventoryItem,
+  sealInventoryItem,
+  updateBestBefore,
+  findInventoryItemByProductId,
+} from "./inventory-freeze";

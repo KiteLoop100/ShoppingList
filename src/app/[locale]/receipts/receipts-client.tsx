@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useTranslations } from "next-intl";
 import { useSearchParams } from "next/navigation";
-import { Link } from "@/lib/i18n/navigation";
+import { Link, useRouter } from "@/lib/i18n/navigation";
 import { getCurrentUserId } from "@/lib/auth/auth-context";
 import { createClientIfConfigured } from "@/lib/supabase/client";
 import { formatDateCompact } from "@/lib/utils/format-date";
@@ -34,14 +34,15 @@ export function ReceiptsClientPage() {
   const tCommon = useTranslations("common");
   const tReceipt = useTranslations("receipt");
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [receipts, setReceipts] = useState<ReceiptSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
   const [pendingReceipt, setPendingReceipt] = useState(false);
   const [inventoryActive, setInventoryActive] = useState(false);
-  const initialTab = searchParams.get("tab") === "inventory" && inventoryActive ? "inventory" : "receipts";
-  const [activeTab, setActiveTab] = useState<ActiveTab>(initialTab);
+  const tabParam = searchParams.get("tab");
+  const [activeTab, setActiveTab] = useState<ActiveTab>(tabParam === "inventory" ? "inventory" : "receipts");
   const receiptCountBeforeSubmit = useRef(0);
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollCountRef = useRef(0);
@@ -173,26 +174,28 @@ export function ReceiptsClientPage() {
           <h1 className="flex-1 text-[17px] font-semibold tracking-tight text-aldi-text">
             {inventoryActive ? t("householdTitle") : t("title")}
           </h1>
-          <button
-            type="button"
-            onClick={() => setScannerOpen(true)}
-            className="touch-target flex items-center justify-center rounded-xl text-aldi-blue transition-colors hover:bg-aldi-blue-light"
-            aria-label={t("scanNew")}
-          >
-            <svg
-              className="h-5 w-5"
-              fill="none"
-              viewBox="0 0 24 24"
-              strokeWidth={2}
-              stroke="currentColor"
+          {!(inventoryActive && activeTab === "inventory") && (
+            <button
+              type="button"
+              onClick={() => setScannerOpen(true)}
+              className="touch-target flex items-center justify-center rounded-xl text-aldi-blue transition-colors hover:bg-aldi-blue-light"
+              aria-label={t("scanNew")}
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M12 4.5v15m7.5-7.5h-15"
-              />
-            </svg>
-          </button>
+              <svg
+                className="h-5 w-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={2}
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M12 4.5v15m7.5-7.5h-15"
+                />
+              </svg>
+            </button>
+          )}
         </div>
         {inventoryActive && (
           <div className="flex border-t border-aldi-muted-light">

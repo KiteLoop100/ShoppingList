@@ -44,6 +44,11 @@ Barcode scan ──────┘     (sealed/opened)
 | added_at | TIMESTAMPTZ | when first added |
 | opened_at | TIMESTAMPTZ nullable | when marked opened |
 | consumed_at | TIMESTAMPTZ nullable | when marked consumed |
+| best_before | DATE nullable | Mindesthaltbarkeitsdatum (MHD) |
+| purchase_date | DATE nullable | explicit purchase date (from receipt or manual) |
+| is_frozen | BOOLEAN NOT NULL DEFAULT false | whether item is in freezer |
+| frozen_at | TIMESTAMPTZ nullable | when frozen |
+| thawed_at | TIMESTAMPTZ nullable | when thawed |
 | created_at | TIMESTAMPTZ | row creation |
 | updated_at | TIMESTAMPTZ | last modification |
 
@@ -87,9 +92,10 @@ Barcode scan ──────┘     (sealed/opened)
 
 | Component | Status | Files |
 |-----------|--------|-------|
-| Database migration | Done | `supabase/migrations/20260311200000_inventory_items.sql` |
-| Service layer | Done | `src/lib/inventory/inventory-service.ts`, `inventory-types.ts`, `inventory-receipt.ts` |
-| Unit tests | Done | `src/lib/inventory/__tests__/inventory-service.test.ts` |
+| Database migration | Done | `supabase/migrations/20260311200000_inventory_items.sql`, `20260312200000_inventory_mhd_frozen.sql` |
+| Service layer | Done | `src/lib/inventory/inventory-service.ts`, `inventory-types.ts`, `inventory-receipt.ts`, `inventory-freeze.ts` |
+| MHD + Freezer logic | Done | `src/lib/inventory/expiry-color.ts`, `thaw-shelf-life.ts` |
+| Unit tests | Done | `src/lib/inventory/__tests__/inventory-service.test.ts`, `expiry-color.test.ts`, `thaw-shelf-life.test.ts` |
 | Feature toggle | Done | `src/lib/settings/settings-sync.ts`, settings UI |
 | Receipt integration | Done | `src/lib/receipts/parse-receipt.ts`, `merge-receipt.ts` |
 | Tab switcher + inventory list | Done | `src/app/[locale]/receipts/receipts-client.tsx`, `src/components/inventory/` |

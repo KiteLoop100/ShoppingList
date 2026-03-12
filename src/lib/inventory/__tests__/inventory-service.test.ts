@@ -197,6 +197,41 @@ describe("inventory-service", () => {
       expect(result!.quantity).toBe(3);
     });
 
+    test("inserts new item with is_frozen and frozen_at when provided", async () => {
+      const newItem = {
+        id: "frozen-1",
+        display_name: "Eis",
+        quantity: 1,
+        status: "sealed",
+        is_frozen: true,
+        frozen_at: "2026-03-12T10:00:00.000Z",
+      };
+      const sb = createSequentialMockSupabase([
+        { data: null },
+        { data: newItem },
+      ]);
+
+      const result = await upsertInventoryItem(sb as never, "user-1", {
+        product_id: "prod-ice",
+        competitor_product_id: null,
+        display_name: "Eis",
+        demand_group_code: "TK",
+        quantity: 1,
+        source: "manual",
+        is_frozen: true,
+        frozen_at: "2026-03-12T10:00:00.000Z",
+      });
+
+      expect(result).toBeTruthy();
+      expect(result!.is_frozen).toBe(true);
+      expect(result!.frozen_at).toBeTruthy();
+
+      const insertCall = sb.from.mock.results[1].value;
+      const insertPayload = insertCall.insert.mock.calls[0][0];
+      expect(insertPayload.is_frozen).toBe(true);
+      expect(insertPayload.frozen_at).toBe("2026-03-12T10:00:00.000Z");
+    });
+
     test("returns null when no product_id or competitor_product_id", async () => {
       const sb = createMockSupabase();
       const result = await upsertInventoryItem(sb as never, "user-1", {

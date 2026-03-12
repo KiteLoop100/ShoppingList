@@ -618,54 +618,69 @@ export type Database = {
       inventory_items: {
         Row: {
           added_at: string
+          best_before: string | null
           competitor_product_id: string | null
           consumed_at: string | null
           created_at: string
           demand_group_code: string | null
           display_name: string
+          frozen_at: string | null
           id: string
+          is_frozen: boolean
           opened_at: string | null
           product_id: string | null
+          purchase_date: string | null
           quantity: number
           source: string
           source_receipt_id: string | null
           status: string
+          thawed_at: string | null
           thumbnail_url: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
           added_at?: string
+          best_before?: string | null
           competitor_product_id?: string | null
           consumed_at?: string | null
           created_at?: string
           demand_group_code?: string | null
           display_name: string
+          frozen_at?: string | null
           id?: string
+          is_frozen?: boolean
           opened_at?: string | null
           product_id?: string | null
+          purchase_date?: string | null
           quantity?: number
           source?: string
           source_receipt_id?: string | null
           status?: string
+          thawed_at?: string | null
           thumbnail_url?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
           added_at?: string
+          best_before?: string | null
           competitor_product_id?: string | null
           consumed_at?: string | null
           created_at?: string
           demand_group_code?: string | null
           display_name?: string
+          frozen_at?: string | null
           id?: string
+          is_frozen?: boolean
           opened_at?: string | null
           product_id?: string | null
+          purchase_date?: string | null
           quantity?: number
           source?: string
           source_receipt_id?: string | null
           status?: string
+          thawed_at?: string | null
           thumbnail_url?: string | null
           updated_at?: string
           user_id?: string

@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useMemo } from "react";
 import { useTranslations } from "next-intl";
 import type { InventoryItem } from "@/lib/inventory/inventory-types";
+import { getExpiryColor, formatBestBefore } from "@/lib/inventory/expiry-color";
 
 const SWIPE_THRESHOLD = 60;
 const MAX_SWIPE = 100;
@@ -11,16 +12,26 @@ interface InventoryItemRowProps {
   item: InventoryItem;
   onConsume: (id: string) => void;
   onOpen: (id: string) => void;
+  onSeal: (id: string) => void;
+  onFreeze: (id: string) => void;
+  onThaw: (id: string) => void;
   onQuantityChange: (id: string, quantity: number) => void;
   onDelete: (id: string) => void;
+  onItemClick?: (item: InventoryItem) => void;
+  onEditBestBefore?: (item: InventoryItem) => void;
 }
 
 export function InventoryItemRow({
   item,
   onConsume,
   onOpen,
+  onSeal,
+  onFreeze,
+  onThaw,
   onQuantityChange,
   onDelete,
+  onItemClick,
+  onEditBestBefore,
 }: InventoryItemRowProps) {
   const t = useTranslations("inventory");
   const [showActions, setShowActions] = useState(false);
@@ -51,7 +62,7 @@ export function InventoryItemRow({
 
     if (!isHorizontalRef.current) return;
 
-    const canSwipeRight = item.status === "sealed";
+    const canSwipeRight = item.status === "sealed" || item.status === "opened";
     let clamped = Math.max(-MAX_SWIPE, Math.min(MAX_SWIPE, dx));
     if (!canSwipeRight && clamped > 0) clamped = 0;
     setSwipeX(clamped);
@@ -60,17 +71,33 @@ export function InventoryItemRow({
   const handleTouchEnd = useCallback(() => {
     if (swipeX < -SWIPE_THRESHOLD) {
       onConsume(item.id);
-    } else if (swipeX > SWIPE_THRESHOLD && item.status === "sealed") {
-      onOpen(item.id);
+    } else if (swipeX > SWIPE_THRESHOLD) {
+      if (item.status === "sealed") {
+        onOpen(item.id);
+      } else if (item.status === "opened") {
+        onSeal(item.id);
+      }
     }
     setSwipeX(0);
     setSwiping(false);
     isHorizontalRef.current = null;
-  }, [swipeX, item.id, item.status, onConsume, onOpen]);
+  }, [swipeX, item.id, item.status, onConsume, onOpen, onSeal]);
 
   const pastThreshold = Math.abs(swipeX) >= SWIPE_THRESHOLD;
   const swipingLeft = swipeX < 0;
   const swipingRight = swipeX > 0;
+
+  const expiryColor = useMemo(
+    () => getExpiryColor(item.best_before, item.purchase_date ?? item.added_at.split("T")[0]),
+    [item.best_before, item.purchase_date, item.added_at],
+  );
+  const formattedMhd = useMemo(() => formatBestBefore(item.best_before), [item.best_before]);
+
+  const EXPIRY_STYLES: Record<string, string> = {
+    default: "text-aldi-muted",
+    warning: "text-amber-600 font-medium",
+    danger: "text-red-600 font-semibold",
+  };
 
   const statusBadge = item.status === "opened" ? (
     <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700">
@@ -90,10 +117,14 @@ export function InventoryItemRow({
         {/* Swipe action indicators behind the row */}
         {swiping && swipingRight && (
           <div className={`absolute inset-0 flex items-center justify-start rounded-xl px-4 transition-colors ${
-            pastThreshold ? "bg-amber-500" : "bg-amber-100"
+            pastThreshold
+              ? (item.status === "opened" ? "bg-green-500" : "bg-amber-500")
+              : (item.status === "opened" ? "bg-green-100" : "bg-amber-100")
           }`}>
-            <span className={`text-xs font-semibold ${pastThreshold ? "text-white" : "text-amber-700"}`}>
-              {t("swipeOpened")}
+            <span className={`text-xs font-semibold ${
+              pastThreshold ? "text-white" : (item.status === "opened" ? "text-green-700" : "text-amber-700")
+            }`}>
+              {t(item.status === "opened" ? "swipeSealed" : "swipeOpened")}
             </span>
           </div>
         )}
@@ -138,9 +169,13 @@ export function InventoryItemRow({
 
           <div className="min-w-0 flex-1">
             <span className="flex items-center gap-1.5">
-              <span className="truncate text-[14px] font-medium text-aldi-text">
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onItemClick?.(item); }}
+                className="truncate text-left text-[14px] font-medium text-aldi-text underline-offset-2 hover:underline"
+              >
                 {item.display_name}
-              </span>
+              </button>
               {item.quantity > 1 && (
                 <button
                   type="button"
@@ -153,6 +188,16 @@ export function InventoryItemRow({
             </span>
             <div className="flex items-center gap-2">
               {statusBadge}
+              {item.is_frozen && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-medium text-blue-700">
+                  {t("frozenBadge")}
+                </span>
+              )}
+              {formattedMhd && (
+                <span className={`text-[10px] ${EXPIRY_STYLES[expiryColor]}`}>
+                  MHD {formattedMhd}
+                </span>
+              )}
             </div>
           </div>
 
@@ -215,6 +260,44 @@ export function InventoryItemRow({
                 className="w-full px-4 py-3 text-left text-sm text-aldi-text transition-colors hover:bg-gray-50"
               >
                 {t("swipeOpened")}
+              </button>
+            )}
+            {item.status === "opened" && (
+              <button
+                type="button"
+                onClick={() => { onSeal(item.id); setShowActions(false); }}
+                className="w-full px-4 py-3 text-left text-sm text-aldi-text transition-colors hover:bg-gray-50"
+              >
+                {t("swipeSealed")}
+              </button>
+            )}
+            {!item.is_frozen ? (
+              <button
+                type="button"
+                onClick={() => { onFreeze(item.id); setShowActions(false); }}
+                className="w-full px-4 py-3 text-left text-sm text-aldi-text transition-colors hover:bg-gray-50"
+              >
+                {t("freezeAction")}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => { onThaw(item.id); setShowActions(false); }}
+                className="w-full px-4 py-3 text-left text-sm text-aldi-text transition-colors hover:bg-gray-50"
+              >
+                {t("thawAction")}
+              </button>
+            )}
+            {onEditBestBefore && (
+              <button
+                type="button"
+                onClick={() => { setShowActions(false); onEditBestBefore(item); }}
+                className="flex w-full items-center justify-between px-4 py-3 text-left text-sm text-aldi-text transition-colors hover:bg-gray-50"
+              >
+                <span>{t("editBestBefore")}</span>
+                {item.best_before && (
+                  <span className="text-xs text-aldi-muted">{new Date(item.best_before).toLocaleDateString("de-DE")}</span>
+                )}
               </button>
             )}
             <button

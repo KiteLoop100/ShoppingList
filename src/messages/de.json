@@ -87,7 +87,8 @@
     "retailerNoItems": "Keine {retailer}-Produkte auf der Liste.",
     "retailerNoProducts": "Noch keine {retailer}-Produkte erfasst. Tippe einen Produktnamen ein.",
     "retailerMyPurchases": "Meine Einkäufe",
-    "retailerOtherProducts": "Weitere Produkte"
+    "retailerOtherProducts": "Weitere Produkte",
+    "searchHint": "Tippe einen Produktnamen ein, um zu suchen."
   },
   "list": {
     "title": "Einkaufsliste",
@@ -294,7 +295,7 @@
     "feedbackButton": "Allgemeines Feedback senden",
     "privacyPolicy": "Datenschutzerklärung",
     "inventoryTitle": "Nerd-Modus",
-    "inventoryHint": "Für alle, die gerne wissen, was noch im Schrank ist. Aktiviert die Vorratsverwaltung – dein digitaler Kühlschrank-Zwilling.",
+    "inventoryHint": "Für alle, die gerne wissen, was noch im Schrank ist. Aktiviert die Vorratsverwaltung – dein digitaler Vorrats-Zwilling.",
     "inventoryEnabled": "Nerd-Modus aktiv – Vorrat wird getrackt",
     "inventoryBackfilling": "Vorrat wird aus Kassenzetteln aufgebaut…",
     "backfillTitle": "Vorrat aus Kassenzetteln aufbauen?",
@@ -784,7 +785,8 @@
     "householdTitle": "Mein Haushalt",
     "tabReceipts": "Kassenzettel",
     "tabInventory": "Vorrat",
-    "inventoryCount": "{count} Produkte"
+    "inventoryCount": "{count} Produkte",
+    "addInventory": "Produkt zum Vorrat hinzufügen"
   },
   "catalog": {
     "navLabel": "Katalog",
@@ -833,6 +835,29 @@
     "sectionChilled": "Kühlartikel",
     "sectionFrozen": "Tiefkühlartikel",
     "sectionDry": "Trockensortiment",
-    "changeQuantity": "Menge ändern"
+    "changeQuantity": "Menge ändern",
+    "frozenBadge": "Eingefroren",
+    "undoFailed": "Rückgängig machen fehlgeschlagen.",
+    "freezeAction": "Einfrieren",
+    "thawAction": "Auftauen",
+    "sealedToast": "{name} als verschlossen markiert.",
+    "frozenToast": "{name} eingefroren.",
+    "thawedToast": "{name} aufgetaut.",
+    "freezeOnAdd": "Sofort einfrieren",
+    "bestBeforeLabel": "Mindesthaltbarkeitsdatum",
+    "bestBeforeSaved": "MHD gespeichert.",
+    "editBestBefore": "MHD ändern",
+    "editCancel": "Abbrechen",
+    "editSave": "Speichern",
+    "editSaving": "Speichern...",
+    "swipeSealed": "Verschlossen",
+    "bestBefore": "MHD",
+    "bestBeforeHint": "Mindesthaltbarkeitsdatum (optional)",
+    "consumeProduct": "Ausbuchen",
+    "openProduct": "Geöffnet",
+    "searchInventory": "Vorrat durchsuchen…",
+    "searchInventoryHint": "Tippe den Produktnamen ein, um im Vorrat zu suchen.",
+    "searchNoResults": "Kein Produkt im Vorrat gefunden.",
+    "notInInventory": "Produkt nicht im Vorrat."
   }
 }

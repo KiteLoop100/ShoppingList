@@ -29,6 +29,7 @@ export async function upsertInventoryFromReceipt(
   userId: string,
   receiptId: string,
   items: ReceiptItemForInventory[],
+  purchaseDate?: string | null,
 ): Promise<void> {
   const enabled = await isInventoryEnabledForUser(supabase, userId);
   if (!enabled) return;
@@ -36,6 +37,7 @@ export async function upsertInventoryFromReceipt(
   const relevantItems = items.filter((i) => i.product_id || i.competitor_product_id);
   if (relevantItems.length === 0) return;
 
+  const resolvedPurchaseDate = purchaseDate ?? await lookupReceiptPurchaseDate(supabase, receiptId);
   const productMeta = await batchLookupProductMeta(supabase, relevantItems);
 
   for (const item of relevantItems) {
@@ -51,8 +53,23 @@ export async function upsertInventoryFromReceipt(
       quantity: item.quantity,
       source: "receipt",
       source_receipt_id: receiptId,
+      purchase_date: resolvedPurchaseDate ?? undefined,
     });
   }
+}
+
+async function lookupReceiptPurchaseDate(
+  supabase: SupabaseClient,
+  receiptId: string,
+): Promise<string | null> {
+  const { data, error } = await supabase
+    .from("receipts")
+    .select("purchase_date")
+    .eq("receipt_id", receiptId)
+    .maybeSingle();
+
+  if (error || !data?.purchase_date) return null;
+  return data.purchase_date;
 }
 
 type ProductMeta = { demand_group_code: string | null; thumbnail_url: string | null };
@@ -103,37 +120,52 @@ export async function backfillFromReceipts(
 
   const { data: receipts, error: rError } = await supabase
     .from("receipts")
-    .select("receipt_id")
+    .select("receipt_id, purchase_date")
     .eq("user_id", userId)
     .gte("purchase_date", cutoffDate.toISOString().split("T")[0])
     .order("purchase_date", { ascending: false });
 
   if (rError || !receipts?.length) return 0;
 
+  const receiptDateMap = new Map<string, string | null>();
+  for (const r of receipts) {
+    receiptDateMap.set(r.receipt_id, r.purchase_date ?? null);
+  }
   const receiptIds = receipts.map((r: { receipt_id: string }) => r.receipt_id);
 
   const { data: items, error: iError } = await supabase
     .from("receipt_items")
-    .select("product_id, competitor_product_id, receipt_name, quantity")
+    .select("product_id, competitor_product_id, receipt_name, quantity, receipt_id")
     .in("receipt_id", receiptIds);
 
   if (iError || !items?.length) return 0;
 
-  type AggItem = { display_name: string; product_id: string | null; competitor_product_id: string | null; quantity: number };
+  type AggItem = {
+    display_name: string;
+    product_id: string | null;
+    competitor_product_id: string | null;
+    quantity: number;
+    purchase_date: string | null;
+  };
   const aggregated = new Map<string, AggItem>();
   for (const item of items) {
     const pid = item.product_id ?? item.competitor_product_id;
     if (!pid) continue;
     const key = `${item.product_id ? "p" : "c"}:${pid}`;
+    const itemPurchaseDate = receiptDateMap.get(item.receipt_id) ?? null;
     const existing = aggregated.get(key);
     if (existing) {
       existing.quantity += item.quantity || 1;
+      if (itemPurchaseDate && (!existing.purchase_date || itemPurchaseDate > existing.purchase_date)) {
+        existing.purchase_date = itemPurchaseDate;
+      }
     } else {
       aggregated.set(key, {
         display_name: item.receipt_name,
         product_id: item.product_id,
         competitor_product_id: item.competitor_product_id,
         quantity: item.quantity || 1,
+        purchase_date: itemPurchaseDate,
       });
     }
   }
@@ -169,7 +201,7 @@ export async function backfillFromReceipts(
     if (ex) {
       updates.push({ id: ex.id, quantity: ex.quantity + agg.quantity });
     } else {
-      toInsert.push({
+      const row: Record<string, unknown> = {
         user_id: userId,
         product_id: agg.product_id,
         competitor_product_id: agg.competitor_product_id,
@@ -178,7 +210,9 @@ export async function backfillFromReceipts(
         thumbnail_url: meta?.thumbnail_url ?? null,
         quantity: agg.quantity,
         source: "receipt",
-      });
+      };
+      if (agg.purchase_date) row.purchase_date = agg.purchase_date;
+      toInsert.push(row);
     }
   }
 

@@ -87,7 +87,8 @@
     "retailerNoItems": "No {retailer} products on your list.",
     "retailerNoProducts": "No {retailer} products captured yet. Type a product name.",
     "retailerMyPurchases": "My purchases",
-    "retailerOtherProducts": "Other products"
+    "retailerOtherProducts": "Other products",
+    "searchHint": "Type a product name to search."
   },
   "list": {
     "title": "Shopping list",
@@ -784,7 +785,8 @@
     "householdTitle": "My Household",
     "tabReceipts": "Receipts",
     "tabInventory": "Inventory",
-    "inventoryCount": "{count} products"
+    "inventoryCount": "{count} products",
+    "addInventory": "Add product to inventory"
   },
   "catalog": {
     "navLabel": "Catalog",
@@ -833,6 +835,29 @@
     "sectionChilled": "Chilled Products",
     "sectionFrozen": "Frozen Goods",
     "sectionDry": "Dry Goods",
-    "changeQuantity": "Change quantity"
+    "changeQuantity": "Change quantity",
+    "frozenBadge": "Frozen",
+    "undoFailed": "Undo failed.",
+    "freezeAction": "Freeze",
+    "thawAction": "Thaw",
+    "sealedToast": "{name} marked as sealed.",
+    "frozenToast": "{name} frozen.",
+    "thawedToast": "{name} thawed.",
+    "freezeOnAdd": "Freeze immediately",
+    "bestBeforeLabel": "Best before date",
+    "bestBeforeSaved": "Best before date saved.",
+    "editBestBefore": "Change best before",
+    "editCancel": "Cancel",
+    "editSave": "Save",
+    "editSaving": "Saving...",
+    "swipeSealed": "Sealed",
+    "bestBefore": "Best before",
+    "bestBeforeHint": "Best before date (optional)",
+    "consumeProduct": "Consume",
+    "openProduct": "Opened",
+    "searchInventory": "Search inventory…",
+    "searchInventoryHint": "Type a product name to search your inventory.",
+    "searchNoResults": "No product found in inventory.",
+    "notInInventory": "Product not in inventory."
   }
 }

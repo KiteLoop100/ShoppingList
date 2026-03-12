@@ -26,12 +26,12 @@
 | **ARCHITECTURE.md** | Tech stack, project structure, API design, deployment | 340 |
 | **PHOTO-PIPELINE.md** | Product photo processing: background removal, thumbnail generation | 297 |
 | **UI.md** | Screen designs, interaction patterns, design language | 537 |
-| **BACKLOG.md** | Code quality backlog, responsive design roadmap, completed items | 50 |
+| **BACKLOG.md** | Code quality backlog, responsive design roadmap, completed items | 68 |
 | **OFFLINE-STRATEGY.md** | Offline mode specification (deferred) | 90 |
 | **LAUNCH-READINESS.md** | Checkliste fuer Friendly User Test | 139 |
 | **SECURITY-BACKLOG.md** | Open security items (Storage, RLS, Auth, API) | 117 |
 | **ALDI-DATA-REQUEST.md** | Data request for ALDI: 40 fields in 3 priority tiers | 98 |
-| **CHANGELOG.md** | Spec change history | 462 |
+| **CHANGELOG.md** | Spec change history | 687 |
 
 ## How Files Relate
 

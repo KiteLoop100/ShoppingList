@@ -18,6 +18,7 @@ const MS_PER_DAY = 86_400_000;
 export function filterExpiredPerishables(items: InventoryItem[]): InventoryItem[] {
   const now = Date.now();
   return items.filter((item) => {
+    if (item.is_frozen) return true;
     const group = getCategoryGroup(item.demand_group_code);
     const maxDays = PERISHABLE_DAYS[group];
     if (!maxDays) return true;

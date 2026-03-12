@@ -42,12 +42,18 @@ const FROZEN_CODES = new Set([
 
 export function getCategoryGroup(
   demandGroupCode: string | undefined | null,
+  isFrozen?: boolean,
 ): CategoryGroupKey {
+  if (isFrozen) return "frozen";
   if (!demandGroupCode) return "dry";
   if (PRODUCE_CODES.has(demandGroupCode)) return "produce";
   if (CHILLED_CODES.has(demandGroupCode)) return "chilled";
   if (FROZEN_CODES.has(demandGroupCode)) return "frozen";
   return "dry";
+}
+
+export function isNativelyFrozen(demandGroupCode: string | null | undefined): boolean {
+  return !!demandGroupCode && FROZEN_CODES.has(demandGroupCode);
 }
 
 const GROUP_ORDER: Record<CategoryGroupKey, number> = {

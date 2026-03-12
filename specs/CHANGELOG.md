@@ -5,6 +5,33 @@
 
 ---
 
+## 2026-03-11 – Backlog Bereinigung, F28 Audit, BL-74 i18n, BL-69 PWA Shortcuts
+
+Session covering migration sync, responsive audit, i18n consolidation, and PWA shortcuts.
+
+### Migration Sync Fix
+- **Renamed: `supabase/migrations/20260312200000_product_aliases.sql`** to `20260311104429_product_aliases.sql` — local file timestamp now matches the version applied in Supabase, preventing sync drift.
+
+### F28 Responsive Audit
+- **12 of 19 F28 items** confirmed as already implemented in code. RESP-001 through RESP-007, RESP-010 through RESP-013, RESP-015 marked completed in BACKLOG.md.
+- **Modified: `src/components/product-capture/data-conflict-dialog.tsx`** — Added `sm:items-center` + `sm:rounded-2xl` for desktop modal centering (was bottom-only).
+- **Modified: `src/components/onboarding/screens/multi-device-screen.tsx`** — Added `md:max-w-sm` (was only screen without responsive max-width).
+- **Modified: `src/app/[locale]/settings/settings-client.tsx`** — Added `lg:max-w-4xl` (consistent with all other pages).
+
+### BL-74: i18n Namespace Consolidation
+- **Modified: `src/messages/de.json`** — `competitorDetail` namespace removed (29 keys). 19 competitor-only keys moved into `productDetail`. New key `eanCrossRefAldi`. 10 duplicate keys eliminated.
+- **Modified: `src/messages/en.json`** — Same changes as de.json.
+- **Modified: `src/components/product-detail/product-detail-view.tsx`** — Removed `tComp = useTranslations("competitorDetail")`. 11 ternary expressions simplified from `isAldi ? t("x") : tComp("y")` to `t("x")` for identical keys.
+- **Modified: `src/components/list/competitor-product-detail-modal.tsx`** — Changed namespace from `competitorDetail` to `productDetail`.
+
+### BL-69: PWA App Shortcuts
+- **Modified: `public/manifest.json`** — Added `shortcuts` array with 4 entries: Produkt suchen (`/de`), Kassenzettel scannen (`/de/capture`), Handzettel (`/de/flyer`), Einstellungen (`/de/settings`). Uses `icon-96.png`. Visible on Android Chrome/Edge via long-press on app icon.
+
+### Specs Updated
+- `BACKLOG.md` — BL-69, BL-70, BL-74 marked completed. F28 Phase 1+2 audit: 12 items completed, 11 open. Updated timestamp.
+
+---
+
 ## 2026-03-10 – BL-62 Phase 4 + BL-63 Data Cleanup
 
 Completed the demand group migration by dropping all legacy columns and tables, and cleaning up data inconsistencies.
