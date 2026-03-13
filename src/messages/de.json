@@ -345,7 +345,10 @@
     "processingPages": "Produkte werden erkannt… Seite {current} von {total}",
     "pdfLoadError": "PDF konnte nicht geladen werden.",
     "pageLoadError": "Seite konnte nicht geladen werden",
-    "openPdf": "PDF öffnen"
+    "openPdf": "PDF öffnen",
+    "zoomIn": "Vergrößern",
+    "zoomOut": "Verkleinern",
+    "zoomReset": "Zoom zurücksetzen"
   },
   "productDetail": {
     "title": "Produktdetails",
@@ -773,6 +776,7 @@
     "navLabel": "Einkäufe",
     "empty": "Noch keine Einkäufe erfasst.",
     "scanFirst": "Ersten Kassenzettel scannen",
+    "selectReceipt": "Kassenzettel auswählen",
     "scanNew": "Neuen Kassenzettel scannen",
     "unknownDate": "Datum unbekannt",
     "itemCount": "{count} Artikel",

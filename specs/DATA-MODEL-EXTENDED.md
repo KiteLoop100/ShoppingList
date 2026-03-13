@@ -46,6 +46,7 @@ A product from a competing retailer (LIDL, REWE, EDEKA, etc.). Completely separa
 | allergens | Comma-separated allergen list |
 | nutri_score | A–E letter grade |
 | country_of_origin | Country of origin |
+| typical_shelf_life_days | SMALLINT DEFAULT NULL – Typical number of days from purchase to best-before date. Used to auto-calculate `best_before` on inventory items during receipt processing. |
 | created_at | Creation timestamp |
 | created_by | User who created it |
 

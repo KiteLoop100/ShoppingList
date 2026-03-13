@@ -147,6 +147,7 @@ An ALDI SÜD product.
 | nutrition_info | JSON with nutritional values |
 | ingredients | Ingredients as text |
 | allergens | Allergens as text |
+| typical_shelf_life_days | SMALLINT DEFAULT NULL – Typical number of days from purchase to best-before date. Used to auto-calculate `best_before` on inventory items during receipt processing. |
 | flyer_id | Reference to flyers table (which flyer) – optional |
 | flyer_page | Page number in flyer (for product-to-page mapping) |
 | created_at | Creation date |

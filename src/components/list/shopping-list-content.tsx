@@ -21,6 +21,7 @@ import { useListModals } from "./hooks/use-list-modals";
 import { useCompetitorActions } from "./hooks/use-competitor-actions";
 import { useListDerived } from "./hooks/use-list-derived";
 import { ShoppingTileGrid } from "./shopping-tile-grid";
+import { useArrowNavigation } from "@/hooks/use-arrow-navigation";
 
 import type { UseListDataResult } from "./use-list-data";
 import type { SortMode } from "@/types";
@@ -101,6 +102,8 @@ export const ShoppingListContent = memo(function ShoppingListContent({
   const { uncheckedSorted, deferredByDate, elsewhereByRetailer, formatDeferredDate } =
     useListDerived(unchecked, deferred, competitorProducts, locale, t("deferredSectionNextTrip"));
 
+  const { containerRef: arrowNavRef, handleKeyDown: arrowNavKeyDown } = useArrowNavigation();
+
   if (loading && !ms.detailProduct && !ms.captureOpen) {
     return <div className="flex-1 px-1 pt-2"><ListSkeleton rows={8} /></div>;
   }
@@ -123,14 +126,19 @@ export const ShoppingListContent = memo(function ShoppingListContent({
 
   return (
     <>
-      <div className="min-h-0 flex-1 space-y-8 overflow-auto overscroll-contain pb-2">
+      <div ref={arrowNavRef} onKeyDown={arrowNavKeyDown} className="min-h-0 flex-1 space-y-8 overflow-auto overscroll-contain pb-2">
         {listEmpty ? (
           <div className="flex flex-col items-center py-10 space-y-6 lg:py-20">
-            <p className="max-w-sm text-center text-[15px] text-aldi-muted leading-relaxed lg:text-base">{t("emptyListHint")}</p>
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-aldi-blue-light lg:h-20 lg:w-20">
+              <svg className="h-8 w-8 text-aldi-blue lg:h-10 lg:w-10" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 0 0-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 0 0-16.536-1.84M7.5 14.25 5.106 5.272M6 20.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm12.75 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" />
+              </svg>
+            </div>
+            <p className="max-w-sm text-center text-[15px] text-aldi-muted leading-relaxed lg:max-w-md lg:text-base">{t("emptyListHint")}</p>
             {canFillTypical && (
               <div className="flex justify-center">
                 <button type="button" onClick={handleFillWithTypical} disabled={fillTypicalLoading}
-                  className="touch-target min-w-[200px] rounded-xl border-2 border-aldi-blue bg-white px-5 py-3 text-sm font-semibold text-aldi-blue transition-colors duration-200 hover:bg-aldi-blue hover:text-white disabled:opacity-50">
+                  className="touch-target min-w-[200px] rounded-xl border-2 border-aldi-blue bg-white px-5 py-3 text-sm font-semibold text-aldi-blue transition-colors duration-200 pointer-fine:hover:bg-aldi-blue pointer-fine:hover:text-white disabled:opacity-50 lg:min-w-[240px] lg:px-6 lg:py-3.5 lg:text-base">
                   {fillTypicalLoading ? tCommon("loading") : t("fillWithTypicalProducts")}
                 </button>
               </div>

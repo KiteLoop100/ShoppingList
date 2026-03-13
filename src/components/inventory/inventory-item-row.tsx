@@ -175,7 +175,7 @@ export function InventoryItemRow({
 
         {/* Foreground row */}
         <div
-          className="relative flex items-center gap-3 rounded-xl bg-white px-3 py-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.06)] active:bg-gray-50"
+          className="relative flex items-center gap-3 rounded-xl bg-white px-3 py-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.06)] active:bg-gray-50 transition-shadow pointer-fine:hover:shadow-md"
           style={{
             transform: `translateX(${swipeX}px)`,
             transition: swiping ? "none" : "transform 0.25s ease-out",

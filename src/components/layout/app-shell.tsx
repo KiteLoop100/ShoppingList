@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { Link, usePathname } from "@/lib/i18n/navigation";
 import { useBreakpoint } from "@/hooks/use-breakpoint";
 import { loadSettings } from "@/lib/settings/settings-sync";
+import { Tooltip } from "@/components/common/tooltip";
 
 interface AppShellProps {
   children: ReactNode;
@@ -40,17 +41,18 @@ export function AppShell({ children }: AppShellProps) {
         {navItems.map((item) => {
           const active = item.match(pathname);
           return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                active
-                  ? "bg-aldi-blue/10 text-aldi-blue"
-                  : "text-aldi-text hover:bg-aldi-muted-light/50 hover:text-aldi-blue"
-              }`}
-            >
-              {item.label}
-            </Link>
+            <Tooltip key={item.href} content={item.label} position="bottom">
+              <Link
+                href={item.href}
+                className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                  active
+                    ? "bg-aldi-blue/10 text-aldi-blue"
+                    : "text-aldi-text pointer-fine:hover:bg-aldi-muted-light/50 pointer-fine:hover:text-aldi-blue"
+                }`}
+              >
+                {item.label}
+              </Link>
+            </Tooltip>
           );
         })}
       </nav>

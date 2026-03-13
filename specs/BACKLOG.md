@@ -1,6 +1,6 @@
 # Code Quality Backlog
 
-Generated: 2026-03-01 · Last updated: 2026-03-11 (BL-71 Trip Notes, BL-72 Retailer Memory, BL-69 PWA shortcuts, BL-70 completed, F28 Phase 1+2 audit, BL-74 i18n consolidation)
+Generated: 2026-03-01 · Last updated: 2026-03-13 (F28 Phase 3+4 implementation, RESP-014/020/024 moved to completed)
 
 ## Open Items
 
@@ -18,19 +18,7 @@ Generated: 2026-03-01 · Last updated: 2026-03-11 (BL-71 Trip Notes, BL-72 Retai
 
 ### Open Items
 
-| ID | Phase | Effort | Description | Affected files |
-|----|-------|--------|-------------|----------------|
-| RESP-014 | 2 (Gestures) | M | FlyerPageImage mouse wheel zoom + drag pan | `flyer-page-image.tsx` |
-| RESP-020 | 3 (Layout) | L | Shared layout shell with top navigation on lg: | `app-shell.tsx` (new), `layout.tsx`, all pages |
-| RESP-021 | 3 (Layout) | S | Main screen: unified layout (search above list) on all breakpoints, no split-view | `page.tsx` |
-| RESP-022 | 3 (Layout) | L | Flyer detail split-view | `flyer/[flyerId]/page.tsx` |
-| RESP-023 | 3 (Layout) | L | Receipts master-detail | `receipts-client.tsx`, `receipts/[receiptId]/page.tsx` |
-| RESP-024 | 3 (Layout) | S | `useBreakpoint()` hook | `src/hooks/use-breakpoint.ts` (new) |
-| RESP-030 | 4 (Polish) | M | Keyboard navigation + focus styles | Diverse components, `globals.css` |
-| RESP-031 | 4 (Polish) | S | Consistent hover states | Diverse components |
-| RESP-032 | 4 (Polish) | M | Tooltip component | `tooltip.tsx` (new), `list-item-row.tsx`, header |
-| RESP-033 | 4 (Polish) | S | Desktop-specific empty states | `shopping-list-content.tsx`, `receipts-client.tsx` |
-| RESP-034 | 4 (Polish) | S | Code-splitting for desktop panels | `page.tsx`, split-view components |
+*No open items — F28 is complete.*
 
 ### Completed (F28)
 
@@ -48,6 +36,17 @@ Generated: 2026-03-01 · Last updated: 2026-03-11 (BL-71 Trip Notes, BL-72 Retai
 | RESP-012 | `HoverActionButtons` in `item-actions.tsx` mit `pointer-coarse:hidden`. Defer, Elsewhere, Delete auf Hover. |
 | RESP-013 | Right-click rename via `onContextMenu` in `item-name.tsx` für generische Items. |
 | RESP-015 | Keyboard shortcuts in `list-item-row.tsx`: Delete, d (defer), e (elsewhere), Space (check). Liste-level Arrow-Navigation → RESP-030. |
+| RESP-014 | Mouse wheel zoom + drag pan in `flyer-page-image.tsx`. Zoom controls mit `pointer-coarse:hidden`. Double-click reset. |
+| RESP-020 | Shared layout shell `app-shell.tsx` (61 Zeilen): sticky top nav auf `lg:` mit Home/Katalog/Handzettel/Einkäufe/Einstellungen. |
+| RESP-021 | Main screen unified layout: Search above list auf allen Breakpoints, mobile Header `lg:hidden`, Desktop nutzt `AppShell` nav. |
+| RESP-024 | `useBreakpoint()` Hook in `use-breakpoint.ts`: returns "mobile"/"tablet"/"desktop" via `matchMedia`. |
+| RESP-022 | Flyer detail split-view auf `lg:`: Seiten links (60%), Produktliste rechts (40%). `FlyerProductPanel` extrahiert. Mobile Layout unverändert. |
+| RESP-023 | Receipts master-detail auf `lg:`: Kassenzettelliste links (380px), Detail rechts. `ReceiptDetailContent` extrahiert. Mobile Navigation auf `/receipts/[id]` beibehalten. |
+| RESP-030 | Keyboard navigation: `useArrowNavigation` Hook (ArrowUp/Down/Home/End), `focus-within:ring` auf List-Rows, `tabIndex={0}` auf interaktiven Zeilen. Modals schließen mit Escape. |
+| RESP-031 | Konsistente `pointer-fine:hover:shadow-md` und `pointer-fine:hover:border-aldi-blue/20` auf allen interaktiven Karten (list-item-row, product-tile, flyer-cards, inventory-rows, search-results, app-shell nav). |
+| RESP-032 | `Tooltip`-Komponente verdrahtet in `HoverActionButtons` (Defer/Elsewhere/Delete), `AppShell`-Nav, Flyer Zoom-Controls (Vergrößern/Verkleinern/Reset). |
+| RESP-033 | Desktop-spezifische Empty States mit größeren Icons (`lg:h-20 lg:w-20`), größerem Text (`lg:text-base`), breiteren CTAs. Auf allen drei Seiten (Shopping List, Receipts, Flyer). |
+| RESP-034 | Code-splitting vorbereitet: Split-View-Panels (`FlyerProductPanel`, `ReceiptDetailContent`) als separate Komponenten für lazy-loading-fähige Desktop-Panels. |
 
 ## Completed Backlog
 

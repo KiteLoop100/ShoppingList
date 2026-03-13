@@ -261,4 +261,61 @@ describe("useListMutations", () => {
     expect(mockUpdateListItem).not.toHaveBeenCalled();
     expect(deps.deferredRef.current).toHaveLength(1);
   });
+
+  // ── updateItemComment ───────────────────────────────────────────────
+
+  test("updateItemComment patches comment in unchecked list", () => {
+    const item = makeItem({ item_id: "cmt1", comment: null });
+    const deps = createMockDeps([item]);
+
+    const { updateItemComment } = useListMutations(deps);
+    updateItemComment("cmt1", "new note");
+
+    expect(deps.uncheckedRef.current[0].comment).toBe("new note");
+    expect(deps.setUnchecked).toHaveBeenCalled();
+    expect(deps.setChecked).toHaveBeenCalled();
+    expect(deps.setDeferred).toHaveBeenCalled();
+  });
+
+  test("updateItemComment clears comment by setting null", () => {
+    const item = makeItem({ item_id: "cmt2", comment: "old note" });
+    const deps = createMockDeps([item]);
+
+    const { updateItemComment } = useListMutations(deps);
+    updateItemComment("cmt2", null);
+
+    expect(deps.uncheckedRef.current[0].comment).toBeNull();
+  });
+
+  test("updateItemComment patches comment in checked list", () => {
+    const item = makeItem({ item_id: "cmt3", is_checked: true, comment: null });
+    const deps = createMockDeps([], [item]);
+
+    const { updateItemComment } = useListMutations(deps);
+    updateItemComment("cmt3", "checked note");
+
+    expect(deps.checkedRef.current[0].comment).toBe("checked note");
+  });
+
+  test("updateItemComment patches comment in deferred list", () => {
+    const item = makeItem({ item_id: "cmt4", is_deferred: true, deferred_reason: "manual", comment: null });
+    const deps = createMockDeps([], [], [item]);
+
+    const { updateItemComment } = useListMutations(deps);
+    updateItemComment("cmt4", "deferred note");
+
+    expect(deps.deferredRef.current[0].comment).toBe("deferred note");
+  });
+
+  test("updateItemComment does not affect unrelated items", () => {
+    const item1 = makeItem({ item_id: "cmt5", comment: "keep me" });
+    const item2 = makeItem({ item_id: "cmt6", comment: null });
+    const deps = createMockDeps([item1, item2]);
+
+    const { updateItemComment } = useListMutations(deps);
+    updateItemComment("cmt6", "only this one");
+
+    expect(deps.uncheckedRef.current[0].comment).toBe("keep me");
+    expect(deps.uncheckedRef.current[1].comment).toBe("only this one");
+  });
 });

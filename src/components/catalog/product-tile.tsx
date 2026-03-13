@@ -86,7 +86,7 @@ export function ProductTile({ product, shoppingListMode, onProductUpdated }: Pro
   return (
     <>
       <div className="relative">
-        <div className={`group relative z-0 aspect-square overflow-hidden rounded-xl bg-gray-100 shadow-sm transition-all hover:shadow-md ${
+        <div className={`group relative z-0 aspect-square overflow-hidden rounded-xl bg-gray-100 shadow-sm transition-all pointer-fine:hover:shadow-md pointer-fine:hover:ring-1 pointer-fine:hover:ring-aldi-blue/20 ${
           isChecked ? "opacity-30 pointer-events-none" : ""
         }`}>
           <button

@@ -74,4 +74,17 @@ describe("useItemComment logic", () => {
     await updateListItem("item-1", { comment: null });
     expect(updateListItem).toHaveBeenCalledWith("item-1", { comment: null });
   });
+
+  test("empty string converts to null payload (clearing a comment)", () => {
+    expect(commentToPayload("")).toBeNull();
+    expect(commentToPayload("   ")).toBe("   ");
+  });
+
+  test("shouldPersist detects change from non-empty to empty", () => {
+    expect(shouldPersist("", "existing comment")).toBe(true);
+  });
+
+  test("shouldPersist detects change from empty to non-empty", () => {
+    expect(shouldPersist("new comment", "")).toBe(true);
+  });
 });

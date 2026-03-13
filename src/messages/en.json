@@ -345,7 +345,10 @@
     "processingPages": "Recognizing products… Page {current} of {total}",
     "pdfLoadError": "Could not load PDF.",
     "pageLoadError": "Could not load page",
-    "openPdf": "Open PDF"
+    "openPdf": "Open PDF",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "zoomReset": "Reset zoom"
   },
   "productDetail": {
     "title": "Product details",
@@ -773,6 +776,7 @@
     "navLabel": "Purchases",
     "empty": "No purchases recorded yet.",
     "scanFirst": "Scan your first receipt",
+    "selectReceipt": "Select a receipt",
     "scanNew": "Scan new receipt",
     "unknownDate": "Unknown date",
     "itemCount": "{count} items",

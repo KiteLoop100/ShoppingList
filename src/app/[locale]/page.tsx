@@ -87,6 +87,7 @@ export default function MainScreenPage() {
       deferItem: listData.deferItem,
       undeferItem: listData.undeferItem,
       setBuyElsewhere: listData.setBuyElsewhere,
+      updateItemComment: listData.updateItemComment,
     }),
     [
       listData.listId,
@@ -106,6 +107,7 @@ export default function MainScreenPage() {
       listData.deferItem,
       listData.undeferItem,
       listData.setBuyElsewhere,
+      listData.updateItemComment,
     ]
   );
 

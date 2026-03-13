@@ -13,6 +13,8 @@ import {
   type ProductRow,
 } from "@/lib/flyers/flyer-service";
 import { FlyerPageImage, type Hotspot } from "@/app/[locale]/flyer/flyer-page-image";
+import { FlyerProductPanel } from "@/app/[locale]/flyer/flyer-product-panel";
+import { useBreakpoint } from "@/hooks/use-breakpoint";
 import { log } from "@/lib/utils/logger";
 import { formatFlyerDate } from "@/lib/utils/format-date";
 
@@ -26,6 +28,8 @@ export default function FlyerDetailPage() {
   const t = useTranslations("flyer");
   const tCommon = useTranslations("common");
   const router = useRouter();
+  const bp = useBreakpoint();
+  const isDesktop = bp === "desktop";
 
   const [flyer, setFlyer] = useState<FlyerRow | null>(null);
   const [pages, setPages] = useState<FlyerPageRow[]>([]);
@@ -171,6 +175,62 @@ export default function FlyerDetailPage() {
     }
   }, []);
 
+  const flyerPages = pages.map((page) => {
+    const pageProducts = productsByPage.get(page.page_number) ?? [];
+    const hotspots: Hotspot[] = [];
+    for (const p of pageProducts) {
+      if (p.bbox && p.bbox.x_max - p.bbox.x_min >= MIN_HOTSPOT_SIZE && p.bbox.y_max - p.bbox.y_min >= MIN_HOTSPOT_SIZE) {
+        hotspots.push({ product: p, bbox: p.bbox });
+      }
+    }
+    return (
+      <section key={page.page_id} className="border-b border-aldi-muted-light">
+        {page.image_url && (
+          <FlyerPageImage
+            imageUrl={page.image_url}
+            className="h-auto w-full object-contain"
+            alt={`Seite ${page.page_number}`}
+            hotspots={hotspots}
+            onHotspotTap={handleAddProduct}
+            productIdsOnList={productIdsOnList}
+          />
+        )}
+        {!isDesktop && pageProducts.length > 0 && (
+          <div className="px-4 py-3">
+            <h2 className="mb-2 text-sm font-medium text-aldi-muted">
+              {t("productsOnPage")}
+            </h2>
+            <ul className="flex flex-col gap-1">
+              {pageProducts.map((product) => {
+                const onList = productIdsOnList.has(product.product_id);
+                const displayPrice = product.price_in_flyer ?? product.price;
+                return (
+                  <li key={product.product_id} className="flex min-h-touch items-center justify-between gap-3 rounded-lg bg-aldi-muted-light/30 px-3 py-2">
+                    <div className="min-w-0 flex-1">
+                      <span className="block truncate font-medium text-aldi-text">{product.name}</span>
+                      {displayPrice != null && (
+                        <span className="text-sm tabular-nums text-aldi-muted">{"\u20AC"}{displayPrice.toFixed(2)}</span>
+                      )}
+                    </div>
+                    {onList ? (
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-aldi-blue/10 text-aldi-blue" aria-label={t("alreadyOnList")}>
+                        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" aria-hidden><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
+                      </span>
+                    ) : (
+                      <button type="button" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 border-aldi-blue text-aldi-blue transition-colors pointer-fine:hover:bg-aldi-blue pointer-fine:hover:text-white active:bg-aldi-blue active:text-white" onClick={() => handleAddProduct(product)} aria-label={t("addToList")}>
+                        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" aria-hidden><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+                      </button>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
+      </section>
+    );
+  });
+
   // Guard: invalid flyerId in URL
   if (!flyerId) {
     return (
@@ -229,105 +289,42 @@ export default function FlyerDetailPage() {
         </div>
       )}
 
-      <div className="min-h-0 flex-1 overflow-auto overscroll-contain pb-8">
-        {loading ? (
-          <div className="flex flex-col items-center gap-3 py-16">
-            <div className="h-8 w-8 animate-spin rounded-full border-2 border-aldi-blue border-t-transparent" />
-            <p className="text-sm text-aldi-muted">{tCommon("loading")}</p>
+      {loading ? (
+        <div className="flex flex-col items-center gap-3 py-16">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-aldi-blue border-t-transparent" />
+          <p className="text-sm text-aldi-muted">{tCommon("loading")}</p>
+        </div>
+      ) : fetchError ? (
+        <div className="flex flex-col items-center gap-3 py-16 px-8 text-center">
+          <p className="font-medium text-aldi-text">{t(fetchError)}</p>
+          <button
+            type="button"
+            onClick={() => router.back()}
+            className="rounded-xl border border-aldi-blue px-4 py-2 text-aldi-blue"
+          >
+            {tCommon("back")}
+          </button>
+        </div>
+      ) : pages.length === 0 ? (
+        <p className="py-8 text-center text-sm text-aldi-muted">{t("noPages")}</p>
+      ) : isDesktop ? (
+        <div className="flex min-h-0 flex-1 overflow-hidden">
+          <div className="min-h-0 flex-[3] overflow-auto overscroll-contain border-r border-aldi-muted-light pb-8">
+            {flyerPages}
           </div>
-        ) : fetchError ? (
-          <div className="flex flex-col items-center gap-3 py-16 px-8 text-center">
-            <p className="font-medium text-aldi-text">{t(fetchError)}</p>
-            <button
-              type="button"
-              onClick={() => router.back()}
-              className="rounded-xl border border-aldi-blue px-4 py-2 text-aldi-blue"
-            >
-              {tCommon("back")}
-            </button>
+          <div className="min-h-0 flex-[2] overflow-auto overscroll-contain">
+            <FlyerProductPanel
+              productsByPage={productsByPage}
+              productIdsOnList={productIdsOnList}
+              onAddProduct={handleAddProduct}
+            />
           </div>
-        ) : pages.length === 0 ? (
-          <p className="py-8 text-center text-sm text-aldi-muted">{t("noPages")}</p>
-        ) : (
-          pages.map((page) => {
-            const pageProducts = productsByPage.get(page.page_number) ?? [];
-            const hotspots: Hotspot[] = [];
-
-            for (const p of pageProducts) {
-              if (
-                p.bbox &&
-                p.bbox.x_max - p.bbox.x_min >= MIN_HOTSPOT_SIZE &&
-                p.bbox.y_max - p.bbox.y_min >= MIN_HOTSPOT_SIZE
-              ) {
-                hotspots.push({ product: p, bbox: p.bbox });
-              }
-            }
-
-            return (
-              <section key={page.page_id} className="border-b border-aldi-muted-light">
-                {page.image_url && (
-                  <FlyerPageImage
-                    imageUrl={page.image_url}
-                    className="h-auto w-full object-contain"
-                    alt={`Seite ${page.page_number}`}
-                    hotspots={hotspots}
-                    onHotspotTap={handleAddProduct}
-                    productIdsOnList={productIdsOnList}
-                  />
-                )}
-                {pageProducts.length > 0 && (
-                  <div className="px-4 py-3">
-                    <h2 className="mb-2 text-sm font-medium text-aldi-muted">
-                      {t("productsOnPage")}
-                    </h2>
-                    <ul className="flex flex-col gap-1">
-                      {pageProducts.map((product) => {
-                        const onList = productIdsOnList.has(product.product_id);
-                        const displayPrice = product.price_in_flyer ?? product.price;
-                        return (
-                          <li
-                            key={product.product_id}
-                            className="flex min-h-touch items-center justify-between gap-3 rounded-lg bg-aldi-muted-light/30 px-3 py-2"
-                          >
-                            <div className="min-w-0 flex-1">
-                              <span className="block truncate font-medium text-aldi-text">
-                                {product.name}
-                              </span>
-                              {displayPrice != null && (
-                                <span className="text-sm tabular-nums text-aldi-muted">
-                                  {"\u20AC"}{displayPrice.toFixed(2)}
-                                </span>
-                              )}
-                            </div>
-                            {onList ? (
-                              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-aldi-blue/10 text-aldi-blue" aria-label={t("alreadyOnList")}>
-                                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" aria-hidden>
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                                </svg>
-                              </span>
-                            ) : (
-                              <button
-                                type="button"
-                                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 border-aldi-blue text-aldi-blue transition-colors hover:bg-aldi-blue hover:text-white active:bg-aldi-blue active:text-white"
-                                onClick={() => handleAddProduct(product)}
-                                aria-label={t("addToList")}
-                              >
-                                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" aria-hidden>
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                                </svg>
-                              </button>
-                            )}
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </div>
-                )}
-              </section>
-            );
-          }))
-        }
-      </div>
+        </div>
+      ) : (
+        <div className="min-h-0 flex-1 overflow-auto overscroll-contain pb-8">
+          {flyerPages}
+        </div>
+      )}
 
       {toast && (
         <div

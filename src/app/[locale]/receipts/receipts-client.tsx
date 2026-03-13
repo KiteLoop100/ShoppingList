@@ -12,6 +12,8 @@ import { CardSkeleton } from "@/components/ui/skeleton";
 import { getRetailerByName } from "@/lib/retailers/retailers";
 import { loadSettings } from "@/lib/settings/settings-sync";
 import { InventoryList } from "@/components/inventory/inventory-list";
+import { useBreakpoint } from "@/hooks/use-breakpoint";
+import { ReceiptDetailContent } from "@/app/[locale]/receipts/receipt-detail-content";
 
 const POLL_INTERVAL_MS = 8_000;
 const MAX_POLL_COUNT = 30;
@@ -46,6 +48,9 @@ export function ReceiptsClientPage() {
   const receiptCountBeforeSubmit = useRef(0);
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollCountRef = useRef(0);
+  const bp = useBreakpoint();
+  const isDesktop = bp === "desktop";
+  const [selectedReceiptId, setSelectedReceiptId] = useState<string | null>(null);
 
   const loadReceipts = useCallback(async () => {
     const supabase = createClientIfConfigured();
@@ -147,8 +152,113 @@ export function ReceiptsClientPage() {
     return timeStr.slice(0, 5);
   };
 
+  const receiptListContent = loading ? (
+    <div className="flex flex-col gap-2">
+      <CardSkeleton />
+      <CardSkeleton />
+      <CardSkeleton />
+    </div>
+  ) : receipts.length === 0 && !pendingReceipt ? (
+    <div className="flex flex-1 flex-col items-center justify-center gap-4 py-16 lg:gap-5 lg:py-24">
+      <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-aldi-blue-light lg:h-20 lg:w-20">
+        <svg className="h-8 w-8 text-aldi-blue lg:h-10 lg:w-10" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 14.25l6-6m4.5-3.493V21.75l-3.75-1.5-3.75 1.5-3.75-1.5-3.75 1.5V4.757c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0c1.1.128 1.907 1.077 1.907 2.185z" />
+        </svg>
+      </div>
+      <p className="text-sm text-aldi-muted lg:text-base">{t("empty")}</p>
+      <button type="button" onClick={() => setScannerOpen(true)} className="mt-2 rounded-xl bg-aldi-blue px-5 py-2.5 text-sm font-medium text-white transition-transform active:scale-95 lg:px-6 lg:py-3 lg:text-base">
+        {t("scanFirst")}
+      </button>
+    </div>
+  ) : (
+    <>
+      {showFilterBar && (
+        <div className="mb-3 flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+          <button type="button" onClick={() => setActiveFilter(null)} className={`shrink-0 rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors ${activeFilter === null ? "bg-aldi-blue text-white" : "bg-white text-aldi-text shadow-[0_1px_2px_rgba(0,0,0,0.06)]"}`}>
+            {t("allRetailers")}
+          </button>
+          {retailerChips.map((chip) => {
+            const cfg = getRetailerByName(chip.key);
+            const isActive = activeFilter === chip.key;
+            return (
+              <button key={chip.key} type="button" onClick={() => setActiveFilter(chip.key)} className={`shrink-0 rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors ${isActive ? (cfg ? cfg.color : "bg-aldi-blue text-white") : "bg-white text-aldi-text shadow-[0_1px_2px_rgba(0,0,0,0.06)]"}`}>
+                {chip.label}
+                <span className="ml-1 opacity-60">{chip.count}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+      {filteredReceipts.length === 0 && !pendingReceipt && activeFilter ? (
+        <div className="flex flex-1 flex-col items-center justify-center py-16">
+          <p className="text-sm text-aldi-muted">{t("noReceiptsForRetailer", { retailer: activeFilter })}</p>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-2">
+          {pendingReceipt && (
+            <div className="flex items-center gap-4 rounded-2xl border-2 border-dashed border-aldi-blue/30 bg-aldi-blue-light/50 p-4">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-aldi-blue/10">
+                <div className="h-5 w-5 animate-spin rounded-full border-2 border-aldi-blue/20 border-t-aldi-blue" />
+              </span>
+              <span className="flex min-w-0 flex-1 flex-col gap-1">
+                <span className="text-[15px] font-medium text-aldi-blue">{tReceipt("pendingTitle")}</span>
+                <span className="text-xs leading-relaxed text-aldi-muted">{tReceipt("pendingPlaceholder")}</span>
+              </span>
+            </div>
+          )}
+          {filteredReceipts.map((receipt) => {
+            const retailerCfg = receipt.retailer ? getRetailerByName(receipt.retailer) : null;
+            const isSelected = isDesktop && selectedReceiptId === receipt.receipt_id;
+            const cardContent = (
+              <>
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-aldi-blue-light text-aldi-blue">
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.75} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 14.25l6-6m4.5-3.493V21.75l-3.75-1.5-3.75 1.5-3.75-1.5-3.75 1.5V4.757c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0c1.1.128 1.907 1.077 1.907 2.185z" />
+                  </svg>
+                </span>
+                <span className="flex min-w-0 flex-1 flex-col">
+                  <span className="flex items-baseline gap-2">
+                    <span className="text-[15px] font-medium text-aldi-text">{formatDateCompact(receipt.purchase_date, "de", t("unknownDate"))}</span>
+                    {receipt.purchase_time && <span className="text-xs text-aldi-muted">{formatTime(receipt.purchase_time)}</span>}
+                  </span>
+                  <span className="flex items-center gap-2 text-xs text-aldi-muted">
+                    {retailerCfg ? (
+                      <span className={`inline-block rounded-full px-1.5 py-0.5 text-[10px] font-semibold leading-none ${retailerCfg.color}`}>{retailerCfg.name}</span>
+                    ) : receipt.store_name ? <span>{receipt.store_name}</span> : null}
+                    <span>{t("itemCount", { count: receipt.items_count })}</span>
+                  </span>
+                </span>
+                <span className="shrink-0 text-right">
+                  {typeof receipt.total_amount === "number" ? (
+                    <span className="text-[15px] font-semibold text-aldi-text">{receipt.total_amount.toFixed(2)} €</span>
+                  ) : (
+                    <span className="text-sm text-aldi-muted">—</span>
+                  )}
+                </span>
+              </>
+            );
+            if (isDesktop) {
+              return (
+                <button key={receipt.receipt_id} type="button" onClick={() => setSelectedReceiptId(receipt.receipt_id)}
+                  className={`group flex w-full items-center gap-4 rounded-2xl p-4 text-left shadow-[0_1px_3px_rgba(0,0,0,0.08)] transition-all pointer-fine:hover:shadow-md ${isSelected ? "bg-aldi-blue/5 ring-2 ring-aldi-blue/30" : "bg-white"}`}>
+                  {cardContent}
+                </button>
+              );
+            }
+            return (
+              <Link key={receipt.receipt_id} href={`/receipts/${receipt.receipt_id}` as never}
+                className="group flex items-center gap-4 rounded-2xl bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.08)] transition-all active:scale-[0.98] pointer-fine:hover:shadow-md pointer-fine:hover:border-aldi-blue/20">
+                {cardContent}
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </>
+  );
+
   return (
-    <main className="mx-auto flex h-dvh max-w-lg flex-col overflow-hidden bg-aldi-bg md:max-w-2xl lg:max-w-4xl">
+    <main className="mx-auto flex h-dvh max-w-lg flex-col overflow-hidden bg-aldi-bg md:max-w-2xl lg:h-[calc(100vh-49px)] lg:max-w-none">
       <header className="sticky top-0 z-10 shrink-0 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
         <div className="flex items-center gap-3 px-5 py-4 md:px-6 lg:px-8">
           <Link
@@ -229,181 +339,27 @@ export function ReceiptsClientPage() {
         <div className="flex min-h-0 flex-1 flex-col overflow-auto">
           <InventoryList />
         </div>
-      ) : (
-      <div className="flex min-h-0 flex-1 flex-col overflow-auto p-4 md:p-6 lg:p-8">
-        {loading ? (
-          <div className="flex flex-col gap-2">
-            <CardSkeleton />
-            <CardSkeleton />
-            <CardSkeleton />
-          </div>
-        ) : receipts.length === 0 && !pendingReceipt ? (
-          <div className="flex flex-1 flex-col items-center justify-center gap-3 py-16">
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-aldi-blue-light">
-              <svg
-                className="h-8 w-8 text-aldi-blue"
-                fill="none"
-                viewBox="0 0 24 24"
-                strokeWidth={1.5}
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M9 14.25l6-6m4.5-3.493V21.75l-3.75-1.5-3.75 1.5-3.75-1.5-3.75 1.5V4.757c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0c1.1.128 1.907 1.077 1.907 2.185z"
-                />
+      ) : isDesktop ? (
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        <div className="min-h-0 w-[380px] shrink-0 overflow-auto border-r border-aldi-muted-light p-4">
+          {receiptListContent}
+        </div>
+        <div className="min-h-0 flex-1 overflow-auto">
+          {selectedReceiptId ? (
+            <ReceiptDetailContent key={selectedReceiptId} receiptId={selectedReceiptId} showBackLink={false} />
+          ) : (
+            <div className="flex h-full flex-col items-center justify-center gap-3 text-aldi-muted">
+              <svg className="h-10 w-10 opacity-30" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 14.25l6-6m4.5-3.493V21.75l-3.75-1.5-3.75 1.5-3.75-1.5-3.75 1.5V4.757c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0c1.1.128 1.907 1.077 1.907 2.185z" />
               </svg>
+              <p className="text-sm">{t("selectReceipt")}</p>
             </div>
-            <p className="text-sm text-aldi-muted">{t("empty")}</p>
-            <button
-              type="button"
-              onClick={() => setScannerOpen(true)}
-              className="mt-2 rounded-xl bg-aldi-blue px-5 py-2.5 text-sm font-medium text-white transition-transform active:scale-95"
-            >
-              {t("scanFirst")}
-            </button>
-          </div>
-        ) : (
-          <>
-            {showFilterBar && (
-              <div className="mb-3 flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-                <button
-                  type="button"
-                  onClick={() => setActiveFilter(null)}
-                  className={`shrink-0 rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors ${
-                    activeFilter === null
-                      ? "bg-aldi-blue text-white"
-                      : "bg-white text-aldi-text shadow-[0_1px_2px_rgba(0,0,0,0.06)]"
-                  }`}
-                >
-                  {t("allRetailers")}
-                </button>
-                {retailerChips.map((chip) => {
-                  const cfg = getRetailerByName(chip.key);
-                  const isActive = activeFilter === chip.key;
-                  return (
-                    <button
-                      key={chip.key}
-                      type="button"
-                      onClick={() => setActiveFilter(chip.key)}
-                      className={`shrink-0 rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors ${
-                        isActive
-                          ? cfg
-                            ? cfg.color
-                            : "bg-aldi-blue text-white"
-                          : "bg-white text-aldi-text shadow-[0_1px_2px_rgba(0,0,0,0.06)]"
-                      }`}
-                    >
-                      {chip.label}
-                      <span className="ml-1 opacity-60">{chip.count}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-
-            {filteredReceipts.length === 0 && !pendingReceipt && activeFilter ? (
-              <div className="flex flex-1 flex-col items-center justify-center py-16">
-                <p className="text-sm text-aldi-muted">
-                  {t("noReceiptsForRetailer", { retailer: activeFilter })}
-                </p>
-              </div>
-            ) : (
-              <div className="flex flex-col gap-2">
-                {pendingReceipt && (
-                  <div className="flex items-center gap-4 rounded-2xl border-2 border-dashed border-aldi-blue/30 bg-aldi-blue-light/50 p-4">
-                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-aldi-blue/10">
-                      <div className="h-5 w-5 animate-spin rounded-full border-2 border-aldi-blue/20 border-t-aldi-blue" />
-                    </span>
-                    <span className="flex min-w-0 flex-1 flex-col gap-1">
-                      <span className="text-[15px] font-medium text-aldi-blue">
-                        {tReceipt("pendingTitle")}
-                      </span>
-                      <span className="text-xs leading-relaxed text-aldi-muted">
-                        {tReceipt("pendingPlaceholder")}
-                      </span>
-                    </span>
-                  </div>
-                )}
-                {filteredReceipts.map((receipt) => {
-                  const retailerCfg = receipt.retailer
-                    ? getRetailerByName(receipt.retailer)
-                    : null;
-
-                  return (
-                    <Link
-                      key={receipt.receipt_id}
-                      href={`/receipts/${receipt.receipt_id}` as never}
-                      className="group flex items-center gap-4 rounded-2xl bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.08)] transition-all active:scale-[0.98] pointer-fine:hover:shadow-md pointer-fine:hover:border-aldi-blue/20"
-                    >
-                      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-aldi-blue-light text-aldi-blue">
-                        <svg
-                          className="h-5 w-5"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          strokeWidth={1.75}
-                          stroke="currentColor"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            d="M9 14.25l6-6m4.5-3.493V21.75l-3.75-1.5-3.75 1.5-3.75-1.5-3.75 1.5V4.757c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0c1.1.128 1.907 1.077 1.907 2.185z"
-                          />
-                        </svg>
-                      </span>
-                      <span className="flex min-w-0 flex-1 flex-col">
-                        <span className="flex items-baseline gap-2">
-                          <span className="text-[15px] font-medium text-aldi-text">
-                            {formatDateCompact(receipt.purchase_date, "de", t("unknownDate"))}
-                          </span>
-                          {receipt.purchase_time && (
-                            <span className="text-xs text-aldi-muted">
-                              {formatTime(receipt.purchase_time)}
-                            </span>
-                          )}
-                        </span>
-                        <span className="flex items-center gap-2 text-xs text-aldi-muted">
-                          {retailerCfg ? (
-                            <span className={`inline-block rounded-full px-1.5 py-0.5 text-[10px] font-semibold leading-none ${retailerCfg.color}`}>
-                              {retailerCfg.name}
-                            </span>
-                          ) : receipt.store_name ? (
-                            <span>{receipt.store_name}</span>
-                          ) : null}
-                          <span>
-                            {t("itemCount", { count: receipt.items_count })}
-                          </span>
-                        </span>
-                      </span>
-                      <span className="shrink-0 text-right">
-                        {typeof receipt.total_amount === "number" ? (
-                          <span className="text-[15px] font-semibold text-aldi-text">
-                            {receipt.total_amount.toFixed(2)} €
-                          </span>
-                        ) : (
-                          <span className="text-sm text-aldi-muted">—</span>
-                        )}
-                      </span>
-                      <svg
-                        className="h-4 w-4 shrink-0 text-aldi-muted opacity-40 transition-opacity group-hover:opacity-70"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        strokeWidth={2.5}
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M8.25 4.5l7.5 7.5-7.5 7.5"
-                        />
-                      </svg>
-                    </Link>
-                  );
-                })}
-              </div>
-            )}
-          </>
-        )}
+          )}
+        </div>
+      </div>
+      ) : (
+      <div className="flex min-h-0 flex-1 flex-col overflow-auto p-4 md:p-6">
+        {receiptListContent}
       </div>
       )}
 

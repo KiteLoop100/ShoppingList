@@ -83,9 +83,6 @@ export function useListData(sortMode: SortMode = "my-order"): UseListDataResult 
           filter: `list_id=eq.${listId}`,
         },
         () => {
-          // #region agent log
-          console.log('[DEBUG-fceaab][G] realtime event → refetch', {animating: checkAnimatingRef.current.size});
-          // #endregion
           if (checkAnimatingRef.current.size > 0) return;
           refetchRef.current();
         }

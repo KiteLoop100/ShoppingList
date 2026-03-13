@@ -151,7 +151,7 @@ export const ListItemRow = memo(function ListItemRow({
 
       {/* Row content */}
       <div
-        className={`relative z-10 flex min-h-touch min-w-0 items-center gap-1.5 rounded-lg border border-aldi-muted-light px-2 py-2 transition-[transform,background-color,opacity] duration-200 ease-out md:gap-2 md:px-3 md:py-2.5 lg:gap-3 lg:px-4 lg:py-3 ${isDeferred ? "bg-gray-100" : "bg-white"}`}
+        className={`relative z-10 flex min-h-touch min-w-0 items-center gap-1.5 rounded-lg border border-aldi-muted-light px-2 py-2 transition-[transform,background-color,opacity,box-shadow] duration-200 ease-out md:gap-2 md:px-3 md:py-2.5 lg:gap-3 lg:px-4 lg:py-3 pointer-fine:hover:shadow-md pointer-fine:hover:border-aldi-blue/20 ${isDeferred ? "bg-gray-100" : "bg-white"}`}
         style={{ transform: `translateX(${-translateX}px)` }}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}

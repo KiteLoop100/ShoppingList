@@ -150,9 +150,6 @@ export function useCompetitorActions(args: UseCompetitorActionsArgs) {
       if (fromDb) p = fromDb as Product;
     }
     if (p && item.thumbnail_url && !p.thumbnail_url) p = { ...p, thumbnail_url: item.thumbnail_url };
-    // #region agent log
-    if (p) console.log('[DEBUG-fceaab][E] opening detail modal:', {itemId: item.item_id, itemComment: item.comment ?? null});
-    // #endregion
     if (p) openDetail(p, item.item_id, item.comment ?? null);
   }, [competitorProducts, openCompetitorDetail, openCompetitorForm, openCapture, openGenericPicker, openDetail]);
 

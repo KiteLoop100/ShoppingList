@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import Image from "next/image";
 import { useTranslations } from "next-intl";
 import type { BBox, ProductRow } from "@/lib/flyers/flyer-service";
+import { Tooltip } from "@/components/common/tooltip";
 
 export interface Hotspot {
   product: ProductRow;
@@ -406,31 +407,37 @@ export function FlyerPageImage({
       {/* Zoom controls – visible on pointer:fine devices when image is loaded */}
       {loaded && (
         <div className="pointer-coarse:hidden absolute right-2 top-2 z-20 flex flex-col gap-1 rounded-lg bg-white/90 p-1 shadow-md">
-          <button
-            type="button"
-            onClick={handleZoomIn}
-            className="flex h-8 w-8 items-center justify-center rounded text-aldi-text transition-colors hover:bg-aldi-muted-light"
-            aria-label="Zoom in"
-          >
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
-          </button>
-          <button
-            type="button"
-            onClick={handleZoomOut}
-            className="flex h-8 w-8 items-center justify-center rounded text-aldi-text transition-colors hover:bg-aldi-muted-light"
-            aria-label="Zoom out"
-          >
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14" /></svg>
-          </button>
-          {isZoomed && (
+          <Tooltip content={t("zoomIn")} position="bottom">
             <button
               type="button"
-              onClick={handleZoomReset}
-              className="flex h-8 w-8 items-center justify-center rounded text-aldi-blue transition-colors hover:bg-aldi-blue/10"
-              aria-label="Reset zoom"
+              onClick={handleZoomIn}
+              className="flex h-8 w-8 items-center justify-center rounded text-aldi-text transition-colors hover:bg-aldi-muted-light"
+              aria-label={t("zoomIn")}
             >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M9 9V4.5M9 9H4.5M9 9 3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5m0-4.5 5.25 5.25" /></svg>
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
             </button>
+          </Tooltip>
+          <Tooltip content={t("zoomOut")} position="bottom">
+            <button
+              type="button"
+              onClick={handleZoomOut}
+              className="flex h-8 w-8 items-center justify-center rounded text-aldi-text transition-colors hover:bg-aldi-muted-light"
+              aria-label={t("zoomOut")}
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14" /></svg>
+            </button>
+          </Tooltip>
+          {isZoomed && (
+            <Tooltip content={t("zoomReset")} position="bottom">
+              <button
+                type="button"
+                onClick={handleZoomReset}
+                className="flex h-8 w-8 items-center justify-center rounded text-aldi-blue transition-colors hover:bg-aldi-blue/10"
+                aria-label={t("zoomReset")}
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M9 9V4.5M9 9H4.5M9 9 3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5m0-4.5 5.25 5.25" /></svg>
+              </button>
+            </Tooltip>
           )}
         </div>
       )}

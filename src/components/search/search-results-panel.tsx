@@ -35,7 +35,7 @@ export const SearchResultsPanel = memo(function SearchResultsPanel({
         <>
           <button
             type="button"
-            className="flex min-h-touch w-full items-center gap-3 border-b border-aldi-muted-light px-4 py-3 text-left text-[15px] text-aldi-blue transition-colors hover:bg-aldi-blue/5"
+            className="flex min-h-touch w-full items-center gap-3 border-b border-aldi-muted-light px-4 py-3 text-left text-[15px] text-aldi-blue transition-colors pointer-fine:hover:bg-aldi-blue/5"
             onClick={onAddGeneric}
           >
             <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-aldi-blue text-white text-sm font-bold">+</span>
@@ -49,7 +49,7 @@ export const SearchResultsPanel = memo(function SearchResultsPanel({
                   <li key={r.product_id} role="option" aria-selected="false">
                     <button
                       type="button"
-                      className="flex min-h-touch w-full items-center gap-3 px-4 py-1.5 text-left text-[15px] text-aldi-text transition-colors hover:bg-aldi-muted-light/40 focus:bg-aldi-muted-light/40 focus:outline-none"
+                      className="flex min-h-touch w-full items-center gap-3 px-4 py-1.5 text-left text-[15px] text-aldi-text transition-colors pointer-fine:hover:bg-aldi-muted-light/40 focus:bg-aldi-muted-light/40 focus:outline-none"
                       onClick={() => onSelect(r)}
                     >
                       <span className="flex h-10 w-10 shrink-0 items-center justify-center">

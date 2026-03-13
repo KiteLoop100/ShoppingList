@@ -22,9 +22,6 @@ export function useItemComment(
   onCommentChangeRef.current = onCommentChange;
 
   useEffect(() => {
-    // #region agent log
-    console.log('[DEBUG-fceaab][A] sync effect:', {itemId, initialComment, prevCommentRef: commentRef.current, prevLastSaved: lastSavedRef.current});
-    // #endregion
     itemIdRef.current = itemId;
     setCommentRaw(initialComment ?? "");
     lastSavedRef.current = initialComment ?? "";
@@ -33,9 +30,6 @@ export function useItemComment(
 
   const persistComment = useCallback(async (value: string) => {
     const id = itemIdRef.current;
-    // #region agent log
-    console.log('[DEBUG-fceaab][B] persistComment called:', {value, len: value.length, isEmpty: value==='', id, lastSaved: lastSavedRef.current, wouldSkip: value===lastSavedRef.current});
-    // #endregion
     if (!id) return;
     if (value === lastSavedRef.current) return;
 
@@ -43,9 +37,6 @@ export function useItemComment(
     try {
       const savedValue = value || null;
       await updateListItem(id, { comment: savedValue });
-      // #region agent log
-      console.log('[DEBUG-fceaab][B] updateListItem succeeded:', {id, savedValue});
-      // #endregion
       lastSavedRef.current = value;
       onCommentChangeRef.current?.(id, savedValue);
     } catch (e) {
@@ -70,9 +61,6 @@ export function useItemComment(
   );
 
   const flush = useCallback(() => {
-    // #region agent log
-    console.log('[DEBUG-fceaab][D] flush (onBlur) called:', {commentRef: commentRef.current, lastSaved: lastSavedRef.current});
-    // #endregion
     if (debounceRef.current) {
       clearTimeout(debounceRef.current);
       debounceRef.current = null;
@@ -88,9 +76,6 @@ export function useItemComment(
       }
       const current = commentRef.current;
       const id = itemIdRef.current;
-      // #region agent log
-      console.log('[DEBUG-fceaab][C] unmount cleanup:', {current, id, lastSaved: lastSavedRef.current, willSave: !!(id && current !== lastSavedRef.current)});
-      // #endregion
       if (id && current !== lastSavedRef.current) {
         const savedValue = current || null;
         onCommentChangeRef.current?.(id, savedValue);

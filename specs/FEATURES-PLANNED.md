@@ -34,16 +34,15 @@
 | 19 | BL-67 | Auto Store via OSM | 5 | 5 | 25 | Phase 3 | [BACKLOG.md](BACKLOG.md) |
 | 20 | F22 | Promotional Price Highlighting | 6 | 4 | 24 | Phase 3 | below |
 | 21 | F10 | Offline Mode | 7 | 3 | 21 | Phase 4 | [OFFLINE-STRATEGY.md](OFFLINE-STRATEGY.md) |
-| 22 | F28 | Responsive Desktop & Tablet | 5 | 4 | 20 | Phase 3 | [BACKLOG.md](BACKLOG.md), [UI.md](UI.md) §6 |
-| 23 | F18 | Analytics Dashboard | 5 | 4 | 20 | Phase 4 | — |
-| 24 | — | Smart Savings Notifications | 8 | 2 | 16 | Phase 4 | [FEATURES-NOTIFICATIONS.md](FEATURES-NOTIFICATIONS.md) |
-| 25 | F19 | Price Comparison (multi-retailer) | 6 | 2 | 12 | Phase 5 | — |
-| 26 | F21 | External Voice Assistants | 5 | 2 | 10 | Phase 5 | — |
-| 27 | F30 | ALDI Customer Intelligence | 4 | 2 | 8 | Phase 5 | [FEATURES-ALDI-KUNDEN-UNTERSTUETZUNG.md](FEATURES-ALDI-KUNDEN-UNTERSTUETZUNG.md) |
+| 22 | F18 | Analytics Dashboard | 5 | 4 | 20 | Phase 4 | — |
+| 23 | — | Smart Savings Notifications | 8 | 2 | 16 | Phase 4 | [FEATURES-NOTIFICATIONS.md](FEATURES-NOTIFICATIONS.md) |
+| 24 | F19 | Price Comparison (multi-retailer) | 6 | 2 | 12 | Phase 5 | — |
+| 25 | F21 | External Voice Assistants | 5 | 2 | 10 | Phase 5 | — |
+| 26 | F30 | ALDI Customer Intelligence | 4 | 2 | 8 | Phase 5 | [FEATURES-ALDI-KUNDEN-UNTERSTUETZUNG.md](FEATURES-ALDI-KUNDEN-UNTERSTUETZUNG.md) |
 
 **Quick wins in [BACKLOG.md](BACKLOG.md)** (not ranked here, all < half day): BL-69 PWA App Shortcuts, BL-70 Produktfotos in Einkaufsliste, BL-71 Einkaufsnotizen pro Trip, BL-72 Retailer Memory.
 
-**Implemented:** F42 Haushaltsinventar — see [FEATURES-INVENTORY.md](FEATURES-INVENTORY.md).
+**Implemented:** F42 Haushaltsinventar — see [FEATURES-INVENTORY.md](FEATURES-INVENTORY.md). F28 Responsive Desktop & Tablet — see [BACKLOG.md](BACKLOG.md).
 
 ---
 
@@ -465,5 +464,5 @@ Aktueller Warenkorb: ~EUR 34
 
 ---
 
-*Last updated: 2026-03-10*
+*Last updated: 2026-03-13*
 *See also: [FEATURES-CORE.md](FEATURES-CORE.md) (implemented features), [FEATURES-INVENTORY.md](FEATURES-INVENTORY.md) (F42 Haushaltsinventar), [FEATURES-INSIGHTS.md](FEATURES-INSIGHTS.md) (F24), [FEATURES-NOTIFICATIONS.md](FEATURES-NOTIFICATIONS.md) (Smart Savings Notifications)*

@@ -149,9 +149,6 @@ export function useListMutations(deps: MutationDeps) {
   }, [deferredRef, setDeferred, setUnchecked]);
 
   const updateItemComment = useCallback((itemId: string, comment: string | null) => {
-    // #region agent log
-    console.log('[DEBUG-fceaab][F] updateItemComment called:', {itemId, comment});
-    // #endregion
     const patch = (list: ListItemWithMeta[]) =>
       list.map(i => i.item_id === itemId ? { ...i, comment } : i);
     setUnchecked(patch);
