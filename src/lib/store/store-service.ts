@@ -8,10 +8,20 @@ import type { LocalStore } from "@/lib/db";
 import { createClientIfConfigured } from "@/lib/supabase/client";
 import { generateId } from "@/lib/utils/generate-id";
 import { log } from "@/lib/utils/logger";
+import {
+  distanceMeters,
+  geoBoundingBox,
+} from "@/lib/geo/haversine";
 
-const GPS_RADIUS_METERS = 100;
+export { distanceMeters } from "@/lib/geo/haversine";
 
-function rowToStore(row: {
+/** Accommodates indoor GPS inaccuracy (20-65m) + OSM coordinate offsets (30-80m). */
+const GPS_RADIUS_METERS = 200;
+
+/** Bounding-box search radius for geo-bounded Supabase queries (~10 km). */
+const NEARBY_SEARCH_RADIUS_M = 10_000;
+
+interface StoreRow {
   store_id: string;
   name: string;
   address: string;
@@ -25,7 +35,25 @@ function rowToStore(row: {
   retailer?: string | null;
   created_at: string;
   updated_at: string;
-}): LocalStore {
+}
+
+function isValidCoordinate(lat: number, lon: number): boolean {
+  return (
+    Number.isFinite(lat) &&
+    Number.isFinite(lon) &&
+    !(lat === 0 && lon === 0) &&
+    Math.abs(lat) <= 90 &&
+    Math.abs(lon) <= 180
+  );
+}
+
+function rowToStore(row: StoreRow): LocalStore | null {
+  const lat = Number(row.latitude);
+  const lon = Number(row.longitude);
+  if (!isValidCoordinate(lat, lon)) {
+    log.warn(`[rowToStore] skipping store "${row.name}" (${row.store_id}): invalid coords (${lat}, ${lon})`);
+    return null;
+  }
   return {
     store_id: String(row.store_id),
     name: row.name,
@@ -33,8 +61,8 @@ function rowToStore(row: {
     city: row.city,
     postal_code: row.postal_code,
     country: row.country,
-    latitude: Number(row.latitude),
-    longitude: Number(row.longitude),
+    latitude: lat,
+    longitude: lon,
     has_sorting_data: Boolean(row.has_sorting_data),
     sorting_data_quality: Number(row.sorting_data_quality),
     retailer: row.retailer ?? "ALDI SÜD",
@@ -43,8 +71,19 @@ function rowToStore(row: {
   };
 }
 
-/** Fetch stores from Supabase (paginated); returns [] on failure or when not configured. */
-async function getStoresFromSupabase(): Promise<LocalStore[]> {
+interface GeoBounds {
+  latMin: number;
+  latMax: number;
+  lonMin: number;
+  lonMax: number;
+}
+
+/**
+ * Fetch stores from Supabase (paginated).
+ * When `bounds` is provided, only fetches stores within the bounding box.
+ * Returns partial results on pagination error instead of discarding everything.
+ */
+async function getStoresFromSupabase(bounds?: GeoBounds): Promise<LocalStore[]> {
   const supabase = createClientIfConfigured();
   if (!supabase) return [];
   const PAGE_SIZE = 1000;
@@ -52,12 +91,22 @@ async function getStoresFromSupabase(): Promise<LocalStore[]> {
   let from = 0;
   let hasMore = true;
   while (hasMore) {
-    const { data, error } = await supabase
-      .from("stores")
-      .select("*")
-      .range(from, from + PAGE_SIZE - 1);
-    if (error) return [];
-    const rows = (data ?? []).map(rowToStore);
+    let query = supabase.from("stores").select("*");
+    if (bounds) {
+      query = query
+        .gte("latitude", bounds.latMin)
+        .lte("latitude", bounds.latMax)
+        .gte("longitude", bounds.lonMin)
+        .lte("longitude", bounds.lonMax);
+    }
+    const { data, error } = await query.range(from, from + PAGE_SIZE - 1);
+    if (error) {
+      log.warn("[getStoresFromSupabase] page error, returning partial results:", error.message);
+      break;
+    }
+    const rows = (data ?? [])
+      .map((r: StoreRow) => rowToStore(r))
+      .filter((s): s is LocalStore => s !== null);
     allRows.push(...rows);
     hasMore = (data ?? []).length === PAGE_SIZE;
     from += PAGE_SIZE;
@@ -65,32 +114,18 @@ async function getStoresFromSupabase(): Promise<LocalStore[]> {
   return allRows;
 }
 
-/** Haversine distance in meters between two WGS84 points. */
-export function distanceMeters(
-  lat1: number,
-  lon1: number,
-  lat2: number,
-  lon2: number
-): number {
-  const R = 6371000;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) ** 2;
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
-}
-
 export interface GeoPosition {
   latitude: number;
   longitude: number;
 }
 
+export interface GetPositionOptions {
+  /** Max age of a cached position in ms. 0 = force fresh. Default: 60_000. */
+  maximumAge?: number;
+}
+
 /** Get current device position (asks for permission if needed). */
-export function getCurrentPosition(): Promise<GeoPosition> {
+export function getCurrentPosition(opts?: GetPositionOptions): Promise<GeoPosition> {
   return new Promise((resolve, reject) => {
     if (typeof navigator === "undefined" || !navigator.geolocation) {
       reject(new Error("Geolocation not supported"));
@@ -99,20 +134,34 @@ export function getCurrentPosition(): Promise<GeoPosition> {
     navigator.geolocation.getCurrentPosition(
       (p) => resolve({ latitude: p.coords.latitude, longitude: p.coords.longitude }),
       reject,
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+      {
+        enableHighAccuracy: true,
+        timeout: 10_000,
+        maximumAge: opts?.maximumAge ?? 60_000,
+      }
     );
   });
 }
 
-/** Find nearest store within radius, or null. Uses same store source as getStoresSorted. */
+/**
+ * Find nearest store within radius using a geo-bounded Supabase query.
+ * Falls back to IndexedDB when Supabase returns no results.
+ * Logs diagnostics when no store matches.
+ */
 export async function findNearestStore(
   lat: number,
   lon: number,
   radiusMeters: number = GPS_RADIUS_METERS
 ): Promise<LocalStore | null> {
-  const stores = await getStoresSorted({ latitude: lat, longitude: lon });
+  const bounds = geoBoundingBox(lat, lon, NEARBY_SEARCH_RADIUS_M);
+  let stores = await getStoresFromSupabase(bounds);
+  if (stores.length === 0) {
+    stores = await db.stores.toArray();
+    stores = stores.filter((s) => isValidCoordinate(s.latitude, s.longitude));
+  }
+
   let nearest: LocalStore | null = null;
-  let minDist = radiusMeters;
+  let minDist = Infinity;
   for (const s of stores) {
     const d = distanceMeters(lat, lon, s.latitude, s.longitude);
     if (d < minDist) {
@@ -120,6 +169,16 @@ export async function findNearestStore(
       nearest = s;
     }
   }
+
+  if (!nearest || minDist >= radiusMeters) {
+    log.info(
+      `[findNearestStore] no match within ${radiusMeters}m at (${lat.toFixed(5)}, ${lon.toFixed(5)}). ` +
+      `${stores.length} stores loaded` +
+      (nearest ? `, nearest "${nearest.name}" at ${Math.round(minDist)}m` : "")
+    );
+    return null;
+  }
+
   return nearest;
 }
 
@@ -140,7 +199,8 @@ export async function getStoresSorted(
 ): Promise<LocalStore[]> {
   let stores = await getStoresFromSupabase();
   if (stores.length === 0) {
-    stores = await db.stores.toArray();
+    const idbStores = await db.stores.toArray();
+    stores = idbStores.filter((s) => isValidCoordinate(s.latitude, s.longitude));
   }
   if (coords) {
     return [...stores].sort(
@@ -176,7 +236,7 @@ export async function detectAndSetStoreForList(
 ): Promise<StoreDetectionResult | null> {
   let gpsPosition: GeoPosition | undefined;
   try {
-    const pos = await getCurrentPosition();
+    const pos = await getCurrentPosition({ maximumAge: 0 });
     gpsPosition = pos;
     const store = await findNearestStore(pos.latitude, pos.longitude);
     if (store) {
@@ -189,8 +249,7 @@ export async function detectAndSetStoreForList(
   const { getDefaultStoreId } = await import("@/lib/settings/default-store");
   const defaultId = getDefaultStoreId();
   if (defaultId) {
-    const all = await getStoresSorted();
-    const store = all.find((s) => s.store_id === defaultId);
+    const store = await getStoreById(defaultId);
     if (store) {
       await setListStore(listId, store.store_id);
       return { store, detectedByGps: false, gpsPosition };
@@ -205,7 +264,7 @@ export async function detectStoreOrPosition(
 ): Promise<{ result: StoreDetectionResult | null; gpsPosition: GeoPosition | null }> {
   let gpsPosition: GeoPosition | null = null;
   try {
-    gpsPosition = await getCurrentPosition();
+    gpsPosition = await getCurrentPosition({ maximumAge: 0 });
     const store = await findNearestStore(gpsPosition.latitude, gpsPosition.longitude);
     if (store) {
       await setListStore(listId, store.store_id);
@@ -217,8 +276,7 @@ export async function detectStoreOrPosition(
   const { getDefaultStoreId } = await import("@/lib/settings/default-store");
   const defaultId = getDefaultStoreId();
   if (defaultId) {
-    const all = await getStoresSorted();
-    const store = all.find((s) => s.store_id === defaultId);
+    const store = await getStoreById(defaultId);
     if (store) {
       await setListStore(listId, store.store_id);
       return { result: { store, detectedByGps: false, gpsPosition: gpsPosition ?? undefined }, gpsPosition };

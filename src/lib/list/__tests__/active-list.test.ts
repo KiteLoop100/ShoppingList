@@ -61,6 +61,7 @@ import {
   addListItem,
   updateListItem,
   deleteListItem,
+  updateShoppingListNotes,
 } from "../active-list-write";
 
 // ── Tests ──────────────────────────────────────────────────────────────────
@@ -333,5 +334,51 @@ describe("deleteListItem", () => {
     };
 
     await expect(deleteListItem("nonexistent")).resolves.toBeUndefined();
+  });
+});
+
+describe("updateShoppingListNotes", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    fromHandler = () => createChain();
+  });
+
+  test("updates notes on shopping_lists table", async () => {
+    fromHandler = (table: string) => {
+      if (table === "shopping_lists") {
+        return awaitableChain({ error: null });
+      }
+      return createChain();
+    };
+
+    await updateShoppingListNotes("list-1", "Leergut mitbringen");
+
+    expect(mockSupabase.from).toHaveBeenCalledWith("shopping_lists");
+  });
+
+  test("clears notes by passing null", async () => {
+    fromHandler = (table: string) => {
+      if (table === "shopping_lists") {
+        return awaitableChain({ error: null });
+      }
+      return createChain();
+    };
+
+    await updateShoppingListNotes("list-1", null);
+
+    expect(mockSupabase.from).toHaveBeenCalledWith("shopping_lists");
+  });
+
+  test("throws on Supabase error", async () => {
+    fromHandler = (table: string) => {
+      if (table === "shopping_lists") {
+        return awaitableChain({ error: { message: "DB error" } });
+      }
+      return createChain();
+    };
+
+    await expect(
+      updateShoppingListNotes("list-1", "test")
+    ).rejects.toThrow("updateShoppingListNotes failed: DB error");
   });
 });

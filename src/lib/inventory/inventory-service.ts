@@ -61,16 +61,22 @@ export async function upsertInventoryItem(
     return null;
   }
 
-  const { data: existing } = await supabase
+  const { data: candidates } = await supabase
     .from("inventory_items")
-    .select("id, quantity")
+    .select("id, quantity, best_before")
     .eq("user_id", userId)
     .eq(productColumn, productValue)
     .neq("status", "consumed")
-    .maybeSingle();
+    .order("best_before", { ascending: true, nullsFirst: true })
+    .limit(10);
 
-  if (existing) {
-    const newQty = existing.quantity + input.quantity;
+  const inputBestBefore = input.best_before ?? null;
+  const mergeTarget =
+    candidates?.find((c) => c.best_before === inputBestBefore) ??
+    (!inputBestBefore && candidates?.[0] ? candidates[0] : null);
+
+  if (mergeTarget) {
+    const newQty = mergeTarget.quantity + input.quantity;
     const updatePayload: Record<string, unknown> = {
       quantity: newQty,
       updated_at: new Date().toISOString(),
@@ -81,7 +87,7 @@ export async function upsertInventoryItem(
     const { data: updated, error } = await supabase
       .from("inventory_items")
       .update(updatePayload)
-      .eq("id", existing.id)
+      .eq("id", mergeTarget.id)
       .select("*")
       .single();
 

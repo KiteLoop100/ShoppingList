@@ -74,6 +74,8 @@ export interface Product {
   animal_welfare_level?: number | null;
   /** Alternative names / search terms for this product */
   aliases?: string[] | null;
+  /** Typical number of days from purchase to best-before date */
+  typical_shelf_life_days?: number | null;
 }
 
 export interface Store {
@@ -102,6 +104,8 @@ export interface ShoppingList {
   status: ListStatus;
   created_at: string;
   completed_at: string | null;
+  /** BL-71: Free-text trip notes attached to this shopping list. */
+  notes?: string | null;
 }
 
 export interface ListItem {
@@ -282,6 +286,8 @@ export interface CompetitorProduct {
   country_of_origin: string | null;
   /** Alternative names / search terms for this product */
   aliases?: string[] | null;
+  /** Typical number of days from purchase to best-before date */
+  typical_shelf_life_days?: number | null;
   created_at: string;
   updated_at: string;
   /** Latest known price per retailer (populated when fetched with prices joined). */

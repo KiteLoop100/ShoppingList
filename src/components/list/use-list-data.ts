@@ -11,6 +11,7 @@ export type { AutoReorderSetting } from "@/lib/list/auto-reorder-service";
 
 export interface UseListDataResult {
   listId: string | null;
+  listNotes: string | null;
   store: import("@/lib/db").LocalStore | null;
   unchecked: ListItemWithMeta[];
   checked: ListItemWithMeta[];
@@ -26,12 +27,13 @@ export interface UseListDataResult {
   deferItem: (itemId: string) => Promise<void>;
   undeferItem: (itemId: string) => Promise<void>;
   setBuyElsewhere: (itemId: string, retailer: string) => Promise<void>;
+  updateItemComment: (itemId: string, comment: string | null) => void;
 }
 
 export function useListData(sortMode: SortMode = "my-order"): UseListDataResult {
   const fetch = useListFetch(sortMode);
   const {
-    listId, store, unchecked, checked, deferred, total, withoutPriceCount,
+    listId, listNotes, store, unchecked, checked, deferred, total, withoutPriceCount,
     loading, dataSortMode, setUnchecked, setChecked, setDeferred,
     uncheckedRef, checkedRef, deferredRef,
     refetch, refetchRef, autoReorderCacheRef,
@@ -46,7 +48,7 @@ export function useListData(sortMode: SortMode = "my-order"): UseListDataResult 
     }, 300);
   }, [debounceRefetchRef, refetchRef]);
 
-  const { checkAnimatingRef, setItemChecked, setItemQuantity, removeItem, deferItem, undeferItem, setBuyElsewhere } =
+  const { checkAnimatingRef, setItemChecked, setItemQuantity, removeItem, deferItem, undeferItem, setBuyElsewhere, updateItemComment } =
     useListMutations({
       uncheckedRef, checkedRef, deferredRef,
       setUnchecked, setChecked, setDeferred,
@@ -81,6 +83,9 @@ export function useListData(sortMode: SortMode = "my-order"): UseListDataResult 
           filter: `list_id=eq.${listId}`,
         },
         () => {
+          // #region agent log
+          console.log('[DEBUG-fceaab][G] realtime event → refetch', {animating: checkAnimatingRef.current.size});
+          // #endregion
           if (checkAnimatingRef.current.size > 0) return;
           refetchRef.current();
         }
@@ -93,9 +98,9 @@ export function useListData(sortMode: SortMode = "my-order"): UseListDataResult 
   }, [listId, checkAnimatingRef, refetchRef]);
 
   return {
-    listId, store, unchecked, checked, deferred,
+    listId, listNotes, store, unchecked, checked, deferred,
     total, withoutPriceCount, loading, dataSortMode,
     refetch, setItemChecked, setItemQuantity,
-    removeItem, deferItem, undeferItem, setBuyElsewhere,
+    removeItem, deferItem, undeferItem, setBuyElsewhere, updateItemComment,
   };
 }

@@ -8,11 +8,12 @@ import { getRetailersForCountry, type RetailerConfig } from "@/lib/retailers/ret
 interface RetailerPickerSheetProps {
   open: boolean;
   itemName: string;
+  suggestedRetailer?: string | null;
   onSelect: (retailerName: string) => void;
   onClose: () => void;
 }
 
-export function RetailerPickerSheet({ open, itemName, onSelect, onClose }: RetailerPickerSheetProps) {
+export function RetailerPickerSheet({ open, itemName, suggestedRetailer, onSelect, onClose }: RetailerPickerSheetProps) {
   const t = useTranslations("list");
   const { country } = useCurrentCountry();
   const retailers = getRetailersForCountry(country ?? "DE");
@@ -67,6 +68,15 @@ export function RetailerPickerSheet({ open, itemName, onSelect, onClose }: Retai
 
         {!showCustom ? (
           <>
+            {suggestedRetailer && (
+              <button
+                type="button"
+                onClick={() => handleSelect(suggestedRetailer)}
+                className="mb-3 w-full rounded-xl border-2 border-aldi-blue bg-blue-50/50 px-3 py-3 text-sm font-medium text-aldi-blue transition-transform active:scale-[0.98]"
+              >
+                {t("retailerSuggestion", { retailer: suggestedRetailer })}
+              </button>
+            )}
             <div className="grid grid-cols-3 gap-2">
               {retailers.map((r: RetailerConfig) => (
                 <button

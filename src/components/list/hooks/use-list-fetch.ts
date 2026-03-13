@@ -36,6 +36,7 @@ export { computeActivationTime } from "./list-data-helpers";
 
 export interface UseListFetchResult {
   listId: string | null;
+  listNotes: string | null;
   store: LocalStore | null;
   unchecked: ListItemWithMeta[];
   checked: ListItemWithMeta[];
@@ -64,6 +65,7 @@ export function useListFetch(sortMode: SortMode): UseListFetchResult {
   contextProductsRef.current = contextProducts;
 
   const [listId, setListId] = useState<string | null>(null);
+  const [listNotes, setListNotes] = useState<string | null>(null);
   const [store, setStore] = useState<LocalStore | null>(null);
   const [unchecked, setUnchecked] = useState<ListItemWithMeta[]>([]);
   const [checked, setChecked] = useState<ListItemWithMeta[]>([]);
@@ -141,6 +143,7 @@ export function useListFetch(sortMode: SortMode): UseListFetchResult {
       const { total: t, withoutPriceCount: w } = estimateTotal([...u, ...c]);
 
       setListId(list.list_id);
+      setListNotes(list.notes ?? null);
       setStore(storeResult ?? null);
       setUnchecked(u);
       setChecked(c);
@@ -208,7 +211,7 @@ export function useListFetch(sortMode: SortMode): UseListFetchResult {
   }, [sortMode]);
 
   return {
-    listId, store, unchecked, checked, deferred, total, withoutPriceCount, loading, dataSortMode,
+    listId, listNotes, store, unchecked, checked, deferred, total, withoutPriceCount, loading, dataSortMode,
     setUnchecked, setChecked, setDeferred,
     uncheckedRef, checkedRef, deferredRef,
     refetch, refetchRef, autoReorderCacheRef,

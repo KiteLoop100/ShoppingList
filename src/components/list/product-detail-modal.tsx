@@ -15,6 +15,7 @@ export interface ProductDetailModalProps {
   onReorderChanged?: () => void;
   itemId?: string | null;
   comment?: string | null;
+  onCommentChange?: (itemId: string, comment: string | null) => void;
 }
 
 export function ProductDetailModal({
@@ -24,6 +25,7 @@ export function ProductDetailModal({
   onReorderChanged,
   itemId,
   comment: initialComment,
+  onCommentChange,
 }: ProductDetailModalProps) {
   const t = useTranslations("productDetail");
 
@@ -40,6 +42,7 @@ export function ProductDetailModal({
         <ItemCommentSection
           itemId={itemId ?? null}
           initialComment={initialComment ?? null}
+          onCommentChange={onCommentChange}
         />
 
         <ProductFeedbackForm product={product} />

@@ -274,6 +274,7 @@ export type Database = {
           retailer: string | null
           status: string
           thumbnail_url: string | null
+          typical_shelf_life_days: number | null
           updated_at: string
           weight_or_quantity: string | null
         }
@@ -305,6 +306,7 @@ export type Database = {
           retailer?: string | null
           status?: string
           thumbnail_url?: string | null
+          typical_shelf_life_days?: number | null
           updated_at?: string
           weight_or_quantity?: string | null
         }
@@ -336,6 +338,7 @@ export type Database = {
           retailer?: string | null
           status?: string
           thumbnail_url?: string | null
+          typical_shelf_life_days?: number | null
           updated_at?: string
           weight_or_quantity?: string | null
         }
@@ -1022,6 +1025,7 @@ export type Database = {
           status: string
           thumbnail_back_url: string | null
           thumbnail_url: string | null
+          typical_shelf_life_days: number | null
           updated_at: string
           weight_or_quantity: string | null
         }
@@ -1066,6 +1070,7 @@ export type Database = {
           status?: string
           thumbnail_back_url?: string | null
           thumbnail_url?: string | null
+          typical_shelf_life_days?: number | null
           updated_at?: string
           weight_or_quantity?: string | null
         }
@@ -1110,6 +1115,7 @@ export type Database = {
           status?: string
           thumbnail_back_url?: string | null
           thumbnail_url?: string | null
+          typical_shelf_life_days?: number | null
           updated_at?: string
           weight_or_quantity?: string | null
         }
@@ -1417,6 +1423,7 @@ export type Database = {
           completed_at: string | null
           created_at: string
           list_id: string
+          notes: string | null
           status: string
           store_id: string | null
           user_id: string
@@ -1425,6 +1432,7 @@ export type Database = {
           completed_at?: string | null
           created_at?: string
           list_id?: string
+          notes?: string | null
           status?: string
           store_id?: string | null
           user_id: string
@@ -1433,6 +1441,7 @@ export type Database = {
           completed_at?: string | null
           created_at?: string
           list_id?: string
+          notes?: string | null
           status?: string
           store_id?: string | null
           user_id?: string

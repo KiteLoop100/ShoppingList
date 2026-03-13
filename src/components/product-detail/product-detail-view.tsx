@@ -98,6 +98,7 @@ export function ProductDetailView({
           specialPeriod: isAldi ? t("specialPeriod") : undefined,
           weightQuantity: isCompetitor ? t("weightQuantity") : undefined,
           countryOfOrigin: isCompetitor ? t("countryOfOrigin") : undefined,
+          typicalShelfLife: t("typicalShelfLife"),
         }}
         assortmentLabel={assortmentLabel}
       />

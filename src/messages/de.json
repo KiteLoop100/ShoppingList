@@ -160,7 +160,11 @@
     "competitorProductUpdate": "Aktualisieren",
     "competitorProductUpdating": "Aktualisieren…",
     "competitorPhotoReplace": "Ersetzen",
-    "competitorPhotoRemove": "Entfernen"
+    "competitorPhotoRemove": "Entfernen",
+    "tripNote": "Einkaufsnotiz",
+    "tripNotePlaceholder": "z. B. Leergut mitbringen, Budget: max 80 EUR…",
+    "tripNoteSaving": "Speichern…",
+    "retailerSuggestion": "Zuletzt: {retailer}"
   },
   "capture": {
     "title": "Produkte & Kassenzettel erfassen",
@@ -254,7 +258,9 @@
     "back": "Zurück",
     "inStore": "Im Laden",
     "storeDetected": "{storeName} erkannt",
-    "noStoreDetected": "Kein Laden erkannt"
+    "noStoreDetected": "Kein Laden erkannt",
+    "gpsActiveNoStore": "GPS aktiv – Laden nicht erkannt",
+    "selectStorePrompt": "Laden auswählen"
   },
   "settings": {
     "title": "Einstellungen",
@@ -391,7 +397,9 @@
     "nutritionProtein": "Eiweiß",
     "nutritionSalt": "Salz",
     "nutriScore": "Nutri-Score",
-    "countryOfOrigin": "Herkunftsland"
+    "countryOfOrigin": "Herkunftsland",
+    "typicalShelfLife": "Typische Haltbarkeit",
+    "shelfLifeDays": "{days} Tage"
   },
   "productCapture": {
     "createTitle": "Produkt anlegen",
@@ -830,6 +838,9 @@
     "consumedTitle": "Aufgebraucht melden",
     "consumedEmpty": "Dein Vorrat ist noch leer. Scanne einen Kassenzettel oder füge Produkte manuell hinzu.",
     "consumedAddToList": "Zur Einkaufsliste hinzufügen",
+    "consumeAndAddToListAction": "Ausbuchen + Einkaufsliste",
+    "consumeAndAddToListToast": "{name} ausgebucht und zur Einkaufsliste hinzugefügt.",
+    "consumeAndAddToListPartialWarn": "{name} ausgebucht, konnte aber nicht zur Einkaufsliste hinzugefügt werden.",
     "purchaseMenuConsumed": "Aufgebraucht melden",
     "sectionProduce": "Obst & Gemüse",
     "sectionChilled": "Kühlartikel",

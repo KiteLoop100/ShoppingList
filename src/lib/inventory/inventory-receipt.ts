@@ -7,6 +7,7 @@ import { log } from "@/lib/utils/logger";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { InventoryItem, InventoryUpsertInput } from "./inventory-types";
 import { upsertInventoryItem, isInventoryEnabledForUser } from "./inventory-service";
+import { calculateBestBefore } from "./shelf-life-calc";
 
 export interface ReceiptItemForInventory {
   product_id: string | null;
@@ -43,6 +44,7 @@ export async function upsertInventoryFromReceipt(
   for (const item of relevantItems) {
     const key = item.product_id ?? item.competitor_product_id ?? "";
     const meta = productMeta.get(key);
+    const bestBefore = calculateBestBefore(resolvedPurchaseDate, meta?.typical_shelf_life_days);
 
     await upsertInventoryItem(supabase, userId, {
       product_id: item.product_id,
@@ -54,6 +56,7 @@ export async function upsertInventoryFromReceipt(
       source: "receipt",
       source_receipt_id: receiptId,
       purchase_date: resolvedPurchaseDate ?? undefined,
+      best_before: bestBefore ?? undefined,
     });
   }
 }
@@ -72,7 +75,11 @@ async function lookupReceiptPurchaseDate(
   return data.purchase_date;
 }
 
-type ProductMeta = { demand_group_code: string | null; thumbnail_url: string | null };
+type ProductMeta = {
+  demand_group_code: string | null;
+  thumbnail_url: string | null;
+  typical_shelf_life_days: number | null;
+};
 
 async function batchLookupProductMeta(
   supabase: SupabaseClient,
@@ -86,20 +93,28 @@ async function batchLookupProductMeta(
   if (productIds.length > 0) {
     const { data } = await supabase
       .from("products")
-      .select("product_id, demand_group_code, thumbnail_url")
+      .select("product_id, demand_group_code, thumbnail_url, typical_shelf_life_days")
       .in("product_id", [...new Set(productIds)]);
     for (const p of data ?? []) {
-      result.set(p.product_id, { demand_group_code: p.demand_group_code, thumbnail_url: p.thumbnail_url });
+      result.set(p.product_id, {
+        demand_group_code: p.demand_group_code,
+        thumbnail_url: p.thumbnail_url,
+        typical_shelf_life_days: p.typical_shelf_life_days,
+      });
     }
   }
 
   if (competitorIds.length > 0) {
     const { data } = await supabase
       .from("competitor_products")
-      .select("product_id, demand_group_code, thumbnail_url")
+      .select("product_id, demand_group_code, thumbnail_url, typical_shelf_life_days")
       .in("product_id", [...new Set(competitorIds)]);
     for (const p of data ?? []) {
-      result.set(p.product_id, { demand_group_code: p.demand_group_code, thumbnail_url: p.thumbnail_url });
+      result.set(p.product_id, {
+        demand_group_code: p.demand_group_code,
+        thumbnail_url: p.thumbnail_url,
+        typical_shelf_life_days: p.typical_shelf_life_days,
+      });
     }
   }
 
@@ -201,6 +216,7 @@ export async function backfillFromReceipts(
     if (ex) {
       updates.push({ id: ex.id, quantity: ex.quantity + agg.quantity });
     } else {
+      const bestBefore = calculateBestBefore(agg.purchase_date, meta?.typical_shelf_life_days);
       const row: Record<string, unknown> = {
         user_id: userId,
         product_id: agg.product_id,
@@ -212,6 +228,7 @@ export async function backfillFromReceipts(
         source: "receipt",
       };
       if (agg.purchase_date) row.purchase_date = agg.purchase_date;
+      if (bestBefore) row.best_before = bestBefore;
       toInsert.push(row);
     }
   }

@@ -9,7 +9,8 @@ const DEBOUNCE_MS = 500;
 
 export function useItemComment(
   itemId: string | null,
-  initialComment: string | null
+  initialComment: string | null,
+  onCommentChange?: (itemId: string, comment: string | null) => void,
 ) {
   const [comment, setCommentRaw] = useState(initialComment ?? "");
   const [saving, setSaving] = useState(false);
@@ -17,8 +18,13 @@ export function useItemComment(
   const lastSavedRef = useRef(initialComment ?? "");
   const itemIdRef = useRef(itemId);
   const commentRef = useRef(comment);
+  const onCommentChangeRef = useRef(onCommentChange);
+  onCommentChangeRef.current = onCommentChange;
 
   useEffect(() => {
+    // #region agent log
+    console.log('[DEBUG-fceaab][A] sync effect:', {itemId, initialComment, prevCommentRef: commentRef.current, prevLastSaved: lastSavedRef.current});
+    // #endregion
     itemIdRef.current = itemId;
     setCommentRaw(initialComment ?? "");
     lastSavedRef.current = initialComment ?? "";
@@ -27,13 +33,21 @@ export function useItemComment(
 
   const persistComment = useCallback(async (value: string) => {
     const id = itemIdRef.current;
+    // #region agent log
+    console.log('[DEBUG-fceaab][B] persistComment called:', {value, len: value.length, isEmpty: value==='', id, lastSaved: lastSavedRef.current, wouldSkip: value===lastSavedRef.current});
+    // #endregion
     if (!id) return;
     if (value === lastSavedRef.current) return;
 
     setSaving(true);
     try {
-      await updateListItem(id, { comment: value || null });
+      const savedValue = value || null;
+      await updateListItem(id, { comment: savedValue });
+      // #region agent log
+      console.log('[DEBUG-fceaab][B] updateListItem succeeded:', {id, savedValue});
+      // #endregion
       lastSavedRef.current = value;
+      onCommentChangeRef.current?.(id, savedValue);
     } catch (e) {
       log.warn("[useItemComment] save failed:", e);
     } finally {
@@ -56,6 +70,9 @@ export function useItemComment(
   );
 
   const flush = useCallback(() => {
+    // #region agent log
+    console.log('[DEBUG-fceaab][D] flush (onBlur) called:', {commentRef: commentRef.current, lastSaved: lastSavedRef.current});
+    // #endregion
     if (debounceRef.current) {
       clearTimeout(debounceRef.current);
       debounceRef.current = null;
@@ -71,8 +88,13 @@ export function useItemComment(
       }
       const current = commentRef.current;
       const id = itemIdRef.current;
+      // #region agent log
+      console.log('[DEBUG-fceaab][C] unmount cleanup:', {current, id, lastSaved: lastSavedRef.current, willSave: !!(id && current !== lastSavedRef.current)});
+      // #endregion
       if (id && current !== lastSavedRef.current) {
-        updateListItem(id, { comment: current || null }).catch((e) => {
+        const savedValue = current || null;
+        onCommentChangeRef.current?.(id, savedValue);
+        updateListItem(id, { comment: savedValue }).catch((e) => {
           log.warn("[useItemComment] flush-on-unmount failed:", e);
         });
       }

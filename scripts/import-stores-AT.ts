@@ -53,6 +53,7 @@ interface StoreRow {
   longitude: number;
   has_sorting_data: boolean;
   sorting_data_quality: number;
+  retailer: string;
   created_at: string;
   updated_at: string;
 }
@@ -119,6 +120,7 @@ function elementToStore(el: OverpassElement, lat: number, lon: number): StoreRow
     longitude: lon,
     has_sorting_data: false,
     sorting_data_quality: 0,
+    retailer: "Hofer",
     created_at: now,
     updated_at: now,
   };

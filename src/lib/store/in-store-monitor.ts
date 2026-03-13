@@ -1,6 +1,6 @@
 /**
  * Periodic GPS monitor that confirms whether the user is physically near a store.
- * Uses hysteresis (100 m enter / 200 m leave) to avoid flickering at boundaries.
+ * Uses hysteresis (200 m enter / 350 m leave) to avoid flickering at boundaries.
  *
  * Encapsulated in a class to avoid module-level singletons and support clean
  * teardown on component remounts.
@@ -8,17 +8,20 @@
 
 import {
   getCurrentPosition,
-  distanceMeters,
   getStoresSorted,
   setListGpsConfirmed,
 } from "./store-service";
+import { distanceMeters } from "@/lib/geo/haversine";
 import type { LocalStore } from "@/lib/db";
 import { log } from "@/lib/utils/logger";
 
 export const POLL_INTERVAL_MS = 90_000;
-export const ENTER_RADIUS_M = 100;
-export const LEAVE_RADIUS_M = 200;
+export const ENTER_RADIUS_M = 200;
+export const LEAVE_RADIUS_M = 350;
 const MAX_CONSECUTIVE_ERRORS = 3;
+
+/** Refresh the cached store list every N polls (~7.5 min at 90s interval). */
+const STORE_REFRESH_INTERVAL = 5;
 
 export type InStoreCallback = (
   isInStore: boolean,
@@ -48,6 +51,8 @@ class InStoreMonitor implements InStoreMonitorHandle {
   private intervalId: ReturnType<typeof setInterval> | null = null;
   private currentlyInStore: boolean;
   private consecutiveErrors = 0;
+  private pollCount = 0;
+  private cachedStores: LocalStore[] | null = null;
   private readonly listId: string;
   private readonly onUpdate: InStoreCallback;
 
@@ -74,6 +79,7 @@ class InStoreMonitor implements InStoreMonitorHandle {
       clearInterval(this.intervalId);
       this.intervalId = null;
     }
+    this.cachedStores = null;
   }
 
   private async poll(): Promise<void> {
@@ -81,8 +87,14 @@ class InStoreMonitor implements InStoreMonitorHandle {
       const pos = await getCurrentPosition();
       this.consecutiveErrors = 0;
 
-      const stores = await getStoresSorted(pos);
-      const nearest = findNearest(pos.latitude, pos.longitude, stores);
+      const shouldRefreshStores =
+        !this.cachedStores || this.pollCount % STORE_REFRESH_INTERVAL === 0;
+      if (shouldRefreshStores) {
+        this.cachedStores = await getStoresSorted(pos);
+      }
+      this.pollCount += 1;
+
+      const nearest = findNearest(pos.latitude, pos.longitude, this.cachedStores!);
 
       if (!nearest) {
         if (this.currentlyInStore) {

@@ -36,7 +36,7 @@ export function InventoryList() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<InventoryFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [toast, setToast] = useState<{ message: string; undoId?: string; prevStatus?: "sealed" | "opened" } | null>(null);
+  const [toast, setToast] = useState<{ message: string; undoId?: string; prevStatus?: "sealed" | "opened"; addedListItemId?: string } | null>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [captureProduct, setCaptureProduct] = useState<Product | null>(null);
   const [captureCompetitor, setCaptureCompetitor] = useState<CompetitorProduct | null>(null);
@@ -47,8 +47,8 @@ export function InventoryList() {
     return () => { if (toastTimerRef.current) clearTimeout(toastTimerRef.current); };
   }, []);
 
-  const showToast = useCallback((message: string, undoId?: string, prevStatus?: "sealed" | "opened") => {
-    setToast({ message, undoId, prevStatus });
+  const showToast = useCallback((message: string, undoId?: string, prevStatus?: "sealed" | "opened", addedListItemId?: string) => {
+    setToast({ message, undoId, prevStatus, addedListItemId });
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     toastTimerRef.current = setTimeout(() => setToast(null), 5000);
   }, []);
@@ -193,6 +193,7 @@ export function InventoryList() {
                   key={item.id}
                   item={item}
                   onConsume={actions.handleConsume}
+                  onConsumeAndAddToList={actions.handleConsumeAndAddToList}
                   onOpen={actions.handleOpen}
                   onSeal={actions.handleSeal}
                   onFreeze={actions.handleFreeze}
@@ -212,7 +213,7 @@ export function InventoryList() {
         <div className="fixed bottom-6 left-4 right-4 z-40 mx-auto max-w-sm animate-fade-in rounded-xl bg-aldi-text px-4 py-3 text-center text-sm text-white shadow-lg">
           {toast.message}
           {toast.undoId && toast.prevStatus && (
-            <button type="button" onClick={() => { actions.handleUndo(toast.undoId!, toast.prevStatus!); setToast(null); }} className="ml-2 font-semibold text-aldi-orange underline">
+            <button type="button" onClick={() => { actions.handleUndo(toast.undoId!, toast.prevStatus!, toast.addedListItemId); setToast(null); }} className="ml-2 font-semibold text-aldi-orange underline">
               {t("consumedUndo")}
             </button>
           )}

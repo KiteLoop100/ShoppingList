@@ -27,6 +27,7 @@ function createMockSupabase(options?: {
     chain.in = vi.fn().mockReturnValue(chain);
     chain.gte = vi.fn().mockReturnValue(chain);
     chain.order = vi.fn().mockReturnValue(chain);
+    chain.limit = vi.fn().mockReturnValue(chain);
     chain.single = vi.fn().mockResolvedValue({ data: finalData, error: finalError });
     chain.maybeSingle = vi.fn().mockResolvedValue({ data: finalData, error: finalError });
 
@@ -81,6 +82,7 @@ function createSequentialMockSupabase(responses: Array<{
     chain.in = vi.fn().mockReturnValue(chain);
     chain.gte = vi.fn().mockReturnValue(chain);
     chain.order = vi.fn().mockReturnValue(chain);
+    chain.limit = vi.fn().mockReturnValue(chain);
     chain.single = vi.fn().mockResolvedValue({ data, error: error ?? null });
     chain.maybeSingle = vi.fn().mockResolvedValue({ data, error: error ?? null });
 
@@ -171,8 +173,8 @@ describe("inventory-service", () => {
       expect(result!.display_name).toBe("Bread");
     });
 
-    test("increments quantity when item exists", async () => {
-      const existing = { id: "existing-1", quantity: 2 };
+    test("increments quantity when item exists with same best_before", async () => {
+      const existing = { id: "existing-1", quantity: 2, best_before: null };
       const updated = {
         id: "existing-1",
         display_name: "Milk",
@@ -191,6 +193,61 @@ describe("inventory-service", () => {
         demand_group_code: "MP",
         quantity: 1,
         source: "receipt",
+      });
+
+      expect(result).toBeTruthy();
+      expect(result!.quantity).toBe(3);
+    });
+
+    test("inserts new row when existing item has different best_before", async () => {
+      const existing = { id: "existing-1", quantity: 1, best_before: "2026-03-15" };
+      const newItem = {
+        id: "new-2",
+        display_name: "Milk",
+        quantity: 1,
+        status: "sealed",
+        best_before: "2026-03-22",
+      };
+      const sb = createSequentialMockSupabase([
+        { data: existing },
+        { data: newItem },
+      ]);
+
+      const result = await upsertInventoryItem(sb as never, "user-1", {
+        product_id: "prod-1",
+        competitor_product_id: null,
+        display_name: "Milk",
+        demand_group_code: "MP",
+        quantity: 1,
+        source: "receipt",
+        best_before: "2026-03-22",
+      });
+
+      expect(result).toBeTruthy();
+      expect(result!.id).toBe("new-2");
+      expect(result!.best_before).toBe("2026-03-22");
+    });
+
+    test("merges into existing row when input has no best_before", async () => {
+      const existing = { id: "existing-1", quantity: 2, best_before: "2026-03-15" };
+      const updated = {
+        id: "existing-1",
+        display_name: "Milk",
+        quantity: 3,
+        status: "sealed",
+      };
+      const sb = createSequentialMockSupabase([
+        { data: existing },
+        { data: updated },
+      ]);
+
+      const result = await upsertInventoryItem(sb as never, "user-1", {
+        product_id: "prod-1",
+        competitor_product_id: null,
+        display_name: "Milk",
+        demand_group_code: "MP",
+        quantity: 1,
+        source: "manual",
       });
 
       expect(result).toBeTruthy();

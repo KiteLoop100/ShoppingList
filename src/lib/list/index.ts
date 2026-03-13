@@ -6,6 +6,7 @@ export {
   updateListItem,
   deleteListItem,
   getActiveListWithItems,
+  updateShoppingListNotes,
 } from "./active-list";
 export type { AddItemParams } from "./active-list";
 export { archiveListAsTrip } from "./archive-trip";

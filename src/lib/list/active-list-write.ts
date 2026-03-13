@@ -161,6 +161,19 @@ export async function deleteListItem(itemId: string): Promise<void> {
   await supabase.from("list_items").delete().eq("item_id", itemId);
 }
 
+export async function updateShoppingListNotes(
+  listId: string,
+  notes: string | null,
+): Promise<void> {
+  const supabase = createClientIfConfigured();
+  if (!supabase) return;
+  const { error } = await supabase
+    .from("shopping_lists")
+    .update({ notes })
+    .eq("list_id", listId);
+  if (error) throw new Error(`updateShoppingListNotes failed: ${error.message}`);
+}
+
 export async function addListItemsBatch(
   paramsList: AddItemParams[]
 ): Promise<LocalListItem[]> {

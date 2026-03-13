@@ -41,6 +41,7 @@ export async function getOrCreateActiveList(): Promise<LocalShoppingList> {
       status: existing.status as ListStatus,
       created_at: existing.created_at,
       completed_at: existing.completed_at ?? null,
+      notes: existing.notes ?? null,
     };
   }
 
@@ -70,6 +71,7 @@ export async function getOrCreateActiveList(): Promise<LocalShoppingList> {
     status: newList.status as ListStatus,
     created_at: newList.created_at,
     completed_at: newList.completed_at ?? null,
+    notes: newList.notes ?? null,
   };
 }
 
@@ -134,5 +136,6 @@ export {
   updateListItem,
   deleteListItem,
   addListItemsBatch,
+  updateShoppingListNotes,
 } from "./active-list-write";
 export type { AddItemParams } from "./active-list-write";

@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { SectionLabel } from "./section-label";
 import type { AnyProduct } from "./types";
 import { isAldiProduct, isCompetitorProduct } from "./types";
@@ -13,6 +14,7 @@ interface MetadataSectionProps {
     specialPeriod?: string;
     weightQuantity?: string;
     countryOfOrigin?: string;
+    typicalShelfLife?: string;
   };
   assortmentLabel?: string;
 }
@@ -22,6 +24,17 @@ export function MetadataSection({ product, labels, assortmentLabel }: MetadataSe
     return <AldiMetadata product={product} labels={labels} assortmentLabel={assortmentLabel} />;
   }
   return <CompetitorMetadata product={product} labels={labels} />;
+}
+
+function ShelfLifeRow({ days, label }: { days: number | null | undefined; label?: string }) {
+  const t = useTranslations("productDetail");
+  if (!days || !label) return null;
+  return (
+    <dl className="mt-4 border-t border-aldi-muted-light pt-3">
+      <SectionLabel>{label}</SectionLabel>
+      <dd className="mt-0.5 text-sm text-aldi-text">{t("shelfLifeDays", { days })}</dd>
+    </dl>
+  );
 }
 
 function AldiMetadata({
@@ -75,6 +88,7 @@ function AldiMetadata({
           )}
         </dl>
       )}
+      <ShelfLifeRow days={product.typical_shelf_life_days} label={labels.typicalShelfLife} />
     </>
   );
 }
@@ -118,6 +132,7 @@ function CompetitorMetadata({
           <dd className="mt-1 text-sm text-aldi-text">{product.country_of_origin}</dd>
         </dl>
       )}
+      <ShelfLifeRow days={product.typical_shelf_life_days} label={labels.typicalShelfLife} />
     </>
   );
 }

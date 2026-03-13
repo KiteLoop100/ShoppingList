@@ -148,6 +148,17 @@ export function useListMutations(deps: MutationDeps) {
     catch (e) { log.error("[useListData] undeferItem failed:", e); setUnchecked(exclude(itemId)); setDeferred(prev => [...prev, item]); }
   }, [deferredRef, setDeferred, setUnchecked]);
 
+  const updateItemComment = useCallback((itemId: string, comment: string | null) => {
+    // #region agent log
+    console.log('[DEBUG-fceaab][F] updateItemComment called:', {itemId, comment});
+    // #endregion
+    const patch = (list: ListItemWithMeta[]) =>
+      list.map(i => i.item_id === itemId ? { ...i, comment } : i);
+    setUnchecked(patch);
+    setChecked(patch);
+    setDeferred(patch);
+  }, [setUnchecked, setChecked, setDeferred]);
+
   const setBuyElsewhere = useCallback(async (itemId: string, retailer: string) => {
     const item = uncheckedRef.current.find(i => i.item_id === itemId);
     if (!item) return;
@@ -158,5 +169,5 @@ export function useListMutations(deps: MutationDeps) {
     catch (e) { log.error("[useListData] setBuyElsewhere failed:", e); setDeferred(exclude(itemId)); setUnchecked(prev => [...prev, item]); }
   }, [uncheckedRef, setUnchecked, setDeferred]);
 
-  return { checkAnimatingRef, setItemChecked, setItemQuantity, removeItem, deferItem, undeferItem, setBuyElsewhere };
+  return { checkAnimatingRef, setItemChecked, setItemQuantity, removeItem, deferItem, undeferItem, setBuyElsewhere, updateItemComment };
 }

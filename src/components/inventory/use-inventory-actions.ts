@@ -15,11 +15,13 @@ import {
   thawInventoryItem,
   sealInventoryItem,
 } from "@/lib/inventory/inventory-service";
+import { addListItem, deleteListItem } from "@/lib/list";
+import { getOrCreateActiveList } from "@/lib/list/active-list";
 import type { InventoryItem } from "@/lib/inventory/inventory-types";
 import type { InventoryUpsertInput } from "@/lib/inventory/inventory-types";
 
 type SetItems = React.Dispatch<React.SetStateAction<InventoryItem[]>>;
-type ShowToast = (message: string, undoId?: string, prevStatus?: "sealed" | "opened") => void;
+type ShowToast = (message: string, undoId?: string, prevStatus?: "sealed" | "opened", addedListItemId?: string) => void;
 type T = (key: string, values?: Record<string, string>) => string;
 
 interface UseInventoryActionsOptions {
@@ -47,11 +49,18 @@ export function useInventoryActions({ items, setItems, showToast, fetchItems, t 
     }
   }, [items, t, showToast, setItems]);
 
-  const handleUndo = useCallback(async (itemId: string, prevStatus: "sealed" | "opened") => {
+  const handleUndo = useCallback(async (itemId: string, prevStatus: "sealed" | "opened", addedListItemId?: string) => {
     const supabase = createClientIfConfigured();
     if (!supabase) return;
     const ok = await unconsume(supabase, itemId, prevStatus);
     if (ok) {
+      if (addedListItemId) {
+        try {
+          await deleteListItem(addedListItemId);
+        } catch (e) {
+          log.warn("[inventory] undo deleteListItem failed:", e);
+        }
+      }
       fetchItems();
     } else {
       showToast(t("undoFailed"));
@@ -148,6 +157,47 @@ export function useInventoryActions({ items, setItems, showToast, fetchItems, t 
     }
   }, [items, t, showToast, fetchItems, setItems]);
 
+  const handleConsumeAndAddToList = useCallback(async (id: string) => {
+    const item = items.find((i) => i.id === id);
+    if (!item) return;
+    const supabase = createClientIfConfigured();
+    if (!supabase) return;
+
+    const prevStatus = item.status as "sealed" | "opened";
+    setItems((prev) => prev.filter((i) => i.id !== id));
+
+    let addedItemId: string | undefined;
+    try {
+      const list = await getOrCreateActiveList();
+      const hasProductRef = item.product_id != null || item.competitor_product_id != null;
+      const result = await addListItem({
+        list_id: list.list_id,
+        product_id: item.product_id ?? null,
+        custom_name: hasProductRef ? null : item.display_name,
+        display_name: item.display_name,
+        demand_group_code: item.demand_group_code ?? "AK",
+        quantity: 1,
+        competitor_product_id: item.competitor_product_id ?? undefined,
+      });
+      addedItemId = result.item_id;
+    } catch (e) {
+      log.warn("[inventory] addListItem in consumeAndAdd failed:", e);
+    }
+
+    const ok = await consumeInventoryItem(supabase, id);
+    if (ok) {
+      const toastKey = addedItemId ? "consumeAndAddToListToast" : "consumeAndAddToListPartialWarn";
+      showToast(t(toastKey, { name: item.display_name }), id, prevStatus, addedItemId);
+    } else {
+      setItems((prev) => [...prev, item]);
+      if (addedItemId) {
+        try { await deleteListItem(addedItemId); } catch (e) {
+          log.warn("[inventory] rollback deleteListItem failed:", e);
+        }
+      }
+    }
+  }, [items, t, showToast, setItems]);
+
   const handleAddToInventory = useCallback(async (input: InventoryUpsertInput) => {
     const supabase = createClientIfConfigured();
     if (!supabase) return;
@@ -161,6 +211,7 @@ export function useInventoryActions({ items, setItems, showToast, fetchItems, t 
 
   return {
     handleConsume,
+    handleConsumeAndAddToList,
     handleUndo,
     handleOpen,
     handleSeal,

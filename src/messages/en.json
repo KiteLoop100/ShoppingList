@@ -160,7 +160,11 @@
     "competitorProductUpdate": "Update",
     "competitorProductUpdating": "Updating…",
     "competitorPhotoReplace": "Replace",
-    "competitorPhotoRemove": "Remove"
+    "competitorPhotoRemove": "Remove",
+    "tripNote": "Trip note",
+    "tripNotePlaceholder": "e.g. Return empties, budget: max 80 EUR…",
+    "tripNoteSaving": "Saving…",
+    "retailerSuggestion": "Last: {retailer}"
   },
   "capture": {
     "title": "Capture products & receipts",
@@ -254,7 +258,9 @@
     "back": "Back",
     "inStore": "In store",
     "storeDetected": "{storeName} detected",
-    "noStoreDetected": "No store detected"
+    "noStoreDetected": "No store detected",
+    "gpsActiveNoStore": "GPS active – store not detected",
+    "selectStorePrompt": "Select store"
   },
   "settings": {
     "title": "Settings",
@@ -391,7 +397,9 @@
     "nutritionProtein": "Protein",
     "nutritionSalt": "Salt",
     "nutriScore": "Nutri-Score",
-    "countryOfOrigin": "Country of origin"
+    "countryOfOrigin": "Country of origin",
+    "typicalShelfLife": "Typical shelf life",
+    "shelfLifeDays": "{days} days"
   },
   "productCapture": {
     "createTitle": "Create product",
@@ -830,6 +838,9 @@
     "consumedTitle": "Mark as consumed",
     "consumedEmpty": "Your inventory is empty. Scan a receipt or add products manually.",
     "consumedAddToList": "Add to shopping list",
+    "consumeAndAddToListAction": "Consume + Shopping list",
+    "consumeAndAddToListToast": "{name} consumed and added to shopping list.",
+    "consumeAndAddToListPartialWarn": "{name} consumed, but could not be added to shopping list.",
     "purchaseMenuConsumed": "Mark as consumed",
     "sectionProduce": "Fruit & Vegetables",
     "sectionChilled": "Chilled Products",

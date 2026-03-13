@@ -33,6 +33,23 @@ const DEFAULT_STORE: LocalStore = {
   longitude: 10.0,
 };
 
+const STORE_AT_EDGE_150M: LocalStore = {
+  ...STORE_NEARBY,
+  store_id: "store-edge-150m",
+  name: "Hofer Wien",
+  // ~150m north of STORE_NEARBY (0.00135 deg lat ≈ 150m)
+  latitude: 48.13835,
+  longitude: 11.576,
+};
+
+const STORE_INVALID_COORDS: LocalStore = {
+  ...STORE_NEARBY,
+  store_id: "store-invalid",
+  name: "Ghost Store",
+  latitude: 0,
+  longitude: 0,
+};
+
 let mockGeoResult: { latitude: number; longitude: number } | null = null;
 let mockGeoError: GeolocationPositionError | Error | null = null;
 let mockStoreList: LocalStore[] = [];
@@ -42,7 +59,19 @@ const mockListPut = vi.fn();
 
 vi.mock("@/lib/db", () => ({
   db: {
-    stores: { toArray: () => Promise.resolve(mockStoreList) },
+    stores: {
+      toArray: () => Promise.resolve(mockStoreList),
+      where: (field: string) => ({
+        equals: (val: string) => ({
+          first: () => {
+            if (field === "store_id") {
+              return Promise.resolve(mockStoreList.find((s) => s.store_id === val) ?? undefined);
+            }
+            return Promise.resolve(undefined);
+          },
+        }),
+      }),
+    },
     lists: {
       where: () => ({
         equals: () => ({
@@ -124,7 +153,7 @@ describe("findNearestStore", () => {
     mockStoreList = [STORE_NEARBY, STORE_FAR];
   });
 
-  test("finds store within radius", async () => {
+  test("finds store within default 200m radius", async () => {
     const result = await findNearestStore(48.137, 11.576);
     expect(result).not.toBeNull();
     expect(result!.store_id).toBe("store-nearby");
@@ -141,6 +170,32 @@ describe("findNearestStore", () => {
     const result = await findNearestStore(48.137, 11.576, 200_000);
     expect(result).not.toBeNull();
     expect(result!.store_id).toBe("store-far");
+  });
+
+  test("finds store at ~150m (within new 200m radius)", async () => {
+    mockStoreList = [STORE_AT_EDGE_150M];
+    const result = await findNearestStore(48.137, 11.576);
+    expect(result).not.toBeNull();
+    expect(result!.store_id).toBe("store-edge-150m");
+  });
+
+  test("returns null for empty store list (simulates Supabase error)", async () => {
+    mockStoreList = [];
+    const result = await findNearestStore(48.137, 11.576);
+    expect(result).toBeNull();
+  });
+
+  test("skips stores with invalid (0,0) coordinates", async () => {
+    mockStoreList = [STORE_INVALID_COORDS];
+    const result = await findNearestStore(48.137, 11.576);
+    expect(result).toBeNull();
+  });
+
+  test("returns valid store when list mixes valid and invalid coords", async () => {
+    mockStoreList = [STORE_INVALID_COORDS, STORE_NEARBY];
+    const result = await findNearestStore(48.137, 11.576);
+    expect(result).not.toBeNull();
+    expect(result!.store_id).toBe("store-nearby");
   });
 });
 
@@ -215,6 +270,28 @@ describe("detectStoreOrPosition", () => {
     expect(result).not.toBeNull();
     expect(result!.detectedByGps).toBe(false);
     expect(result!.store.store_id).toBe("store-default");
+    expect(gpsPosition).toEqual({ latitude: 48.137, longitude: 11.576 });
+  });
+
+  test("GPS OK, store at 150m (within 200m radius) — detects store", async () => {
+    mockGeoResult = { latitude: 48.137, longitude: 11.576 };
+    mockStoreList = [STORE_AT_EDGE_150M];
+
+    const { result } = await detectStoreOrPosition("list-1");
+
+    expect(result).not.toBeNull();
+    expect(result!.detectedByGps).toBe(true);
+    expect(result!.store.store_id).toBe("store-edge-150m");
+  });
+
+  test("GPS OK, empty store list (Supabase error) — returns gpsPosition", async () => {
+    mockGeoResult = { latitude: 48.137, longitude: 11.576 };
+    mockStoreList = [];
+    mockDefaultStoreId = null;
+
+    const { result, gpsPosition } = await detectStoreOrPosition("list-1");
+
+    expect(result).toBeNull();
     expect(gpsPosition).toEqual({ latitude: 48.137, longitude: 11.576 });
   });
 });

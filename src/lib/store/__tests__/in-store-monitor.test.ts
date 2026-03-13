@@ -23,12 +23,19 @@ const mockStores: LocalStore[] = [
 ];
 
 const mockSetListGpsConfirmed = vi.fn();
+const mockGetStoresSorted = vi.fn(async () => [...mockStores]);
 
 vi.mock("@/lib/store/store-service", () => ({
   getCurrentPosition: vi.fn(async () => {
     if (mockPositionError) throw mockPositionError;
     return mockPosition;
   }),
+  getStoresSorted: (...args: unknown[]) => mockGetStoresSorted(...args),
+  setListGpsConfirmed: (...args: unknown[]) =>
+    mockSetListGpsConfirmed(...args),
+}));
+
+vi.mock("@/lib/geo/haversine", () => ({
   distanceMeters: vi.fn(
     (lat1: number, lon1: number, lat2: number, lon2: number) => {
       const dLat = lat2 - lat1;
@@ -36,9 +43,6 @@ vi.mock("@/lib/store/store-service", () => ({
       return Math.sqrt(dLat ** 2 + dLon ** 2) * 111_320;
     }
   ),
-  getStoresSorted: vi.fn(async () => [...mockStores]),
-  setListGpsConfirmed: (...args: unknown[]) =>
-    mockSetListGpsConfirmed(...args),
 }));
 
 vi.mock("@/lib/utils/logger", () => ({
@@ -50,7 +54,6 @@ import {
   findNearest,
   ENTER_RADIUS_M,
   LEAVE_RADIUS_M,
-  type CreateInStoreMonitorOptions,
 } from "@/lib/store/in-store-monitor";
 
 describe("findNearest", () => {
@@ -66,12 +69,27 @@ describe("findNearest", () => {
   });
 });
 
+describe("radius constants", () => {
+  test("ENTER_RADIUS_M is 200", () => {
+    expect(ENTER_RADIUS_M).toBe(200);
+  });
+
+  test("LEAVE_RADIUS_M is 350", () => {
+    expect(LEAVE_RADIUS_M).toBe(350);
+  });
+
+  test("hysteresis gap exists (leave > enter)", () => {
+    expect(LEAVE_RADIUS_M).toBeGreaterThan(ENTER_RADIUS_M);
+  });
+});
+
 describe("InStoreMonitor", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     mockPosition = { latitude: 48.137, longitude: 11.576 };
     mockPositionError = null;
     mockSetListGpsConfirmed.mockReset();
+    mockGetStoresSorted.mockClear();
   });
 
   afterEach(() => {
@@ -137,16 +155,12 @@ describe("InStoreMonitor", () => {
     mockPositionError = new Error("GPS denied");
     const monitor = createInStoreMonitor("list-1", false, onUpdate);
 
-    // 1st error (immediate poll)
     await vi.advanceTimersByTimeAsync(50);
-    // 2nd error
     await vi.advanceTimersByTimeAsync(90_000);
-    // 3rd error — monitor should stop itself
     await vi.advanceTimersByTimeAsync(90_000);
 
     mockPositionError = null;
     mockPosition = { latitude: 48.137, longitude: 11.576 };
-    // 4th tick — should not fire because monitor stopped
     await vi.advanceTimersByTimeAsync(90_000);
 
     expect(onUpdate).not.toHaveBeenCalled();
@@ -170,34 +184,24 @@ describe("InStoreMonitor", () => {
     const onUpdate = vi.fn();
     const monitor = createInStoreMonitor("list-1", false, onUpdate);
 
-    // Immediate poll: error
     mockPositionError = new Error("timeout");
     await vi.advanceTimersByTimeAsync(50);
-
-    // 2nd poll: error
     await vi.advanceTimersByTimeAsync(90_000);
 
-    // 3rd poll: success — counter resets, transitions to inStore
     mockPositionError = null;
     mockPosition = { latitude: 48.137, longitude: 11.576 };
     await vi.advanceTimersByTimeAsync(90_000);
 
     expect(onUpdate).toHaveBeenCalledWith(true, expect.anything());
 
-    // Two more errors — should not stop (counter was reset at the success)
     mockPositionError = new Error("timeout");
     await vi.advanceTimersByTimeAsync(90_000);
     await vi.advanceTimersByTimeAsync(90_000);
 
-    // If monitor had stopped after those 2 errors, this would not fire.
-    // Instead it runs because counter reset means we need 3 *consecutive*.
     mockPositionError = null;
     mockPosition = { latitude: 48.137, longitude: 11.576 };
     await vi.advanceTimersByTimeAsync(90_000);
 
-    // onUpdate is only called on state *transitions*, and we're still inStore,
-    // so it should only have been called once. The key assertion is that the
-    // monitor is still alive (didn't stop after 2 errors post-reset).
     expect(onUpdate).toHaveBeenCalledTimes(1);
 
     monitor.stop();
@@ -212,6 +216,29 @@ describe("InStoreMonitor", () => {
     await vi.advanceTimersByTimeAsync(90_000);
 
     expect(onUpdate).not.toHaveBeenCalled();
+    monitor.stop();
+  });
+
+  test("caches stores and does not re-fetch on every poll", async () => {
+    const onUpdate = vi.fn();
+    const monitor = createInStoreMonitor("list-1", false, onUpdate);
+
+    // 1st poll: fetches stores
+    await vi.advanceTimersByTimeAsync(50);
+    expect(mockGetStoresSorted).toHaveBeenCalledTimes(1);
+
+    // 2nd–4th polls: uses cache (polls 1-3 after initial)
+    await vi.advanceTimersByTimeAsync(90_000);
+    await vi.advanceTimersByTimeAsync(90_000);
+    await vi.advanceTimersByTimeAsync(90_000);
+    expect(mockGetStoresSorted).toHaveBeenCalledTimes(1);
+
+    // 5th poll: refreshes cache (poll index 4, 4 % 5 === 4, still cached)
+    await vi.advanceTimersByTimeAsync(90_000);
+    // 6th poll: index 5, 5 % 5 === 0 => refreshes
+    await vi.advanceTimersByTimeAsync(90_000);
+    expect(mockGetStoresSorted).toHaveBeenCalledTimes(2);
+
     monitor.stop();
   });
 });

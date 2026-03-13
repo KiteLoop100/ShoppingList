@@ -139,6 +139,8 @@ export async function findInventoryItemByProductId(
     .eq("user_id", userId)
     .eq(column, value)
     .neq("status", "consumed")
+    .order("best_before", { ascending: true, nullsFirst: false })
+    .limit(1)
     .maybeSingle();
 
   if (error) {

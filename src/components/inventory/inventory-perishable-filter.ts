@@ -7,18 +7,31 @@ export const PERISHABLE_DAYS: Partial<Record<CategoryGroupKey, number>> = {
 };
 
 const MS_PER_DAY = 86_400_000;
+const MAX_OVERDUE_DAYS = 3;
 
 /**
- * Filters out perishable inventory items whose updated_at exceeds
- * the category-specific shelf life. Dry/frozen items are never filtered.
+ * Filters out expired perishable inventory items.
  *
- * Uses updated_at (not added_at) because it reflects the last meaningful
- * interaction: restocking via receipt, quantity change, or opening.
+ * When best_before is set: filters items whose best_before is more than
+ * MAX_OVERDUE_DAYS in the past (gives a grace period after expiry).
+ *
+ * When best_before is not set: falls back to category-based shelf life
+ * using updated_at, which reflects the last meaningful interaction.
+ *
+ * Frozen items are never filtered.
  */
 export function filterExpiredPerishables(items: InventoryItem[]): InventoryItem[] {
   const now = Date.now();
   return items.filter((item) => {
     if (item.is_frozen) return true;
+
+    if (item.best_before) {
+      const bbMs = new Date(item.best_before + "T00:00:00").getTime();
+      if (isNaN(bbMs)) return true;
+      const overdueDays = (now - bbMs) / MS_PER_DAY;
+      return overdueDays <= MAX_OVERDUE_DAYS;
+    }
+
     const group = getCategoryGroup(item.demand_group_code);
     const maxDays = PERISHABLE_DAYS[group];
     if (!maxDays) return true;

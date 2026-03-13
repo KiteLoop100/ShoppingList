@@ -9,11 +9,12 @@ const MAX_COMMENT_LENGTH = 500;
 interface ItemCommentSectionProps {
   itemId: string | null;
   initialComment: string | null;
+  onCommentChange?: (itemId: string, comment: string | null) => void;
 }
 
-export function ItemCommentSection({ itemId, initialComment }: ItemCommentSectionProps) {
+export function ItemCommentSection({ itemId, initialComment, onCommentChange }: ItemCommentSectionProps) {
   const t = useTranslations("productDetail");
-  const { comment, setComment, flush, saving } = useItemComment(itemId, initialComment);
+  const { comment, setComment, flush, saving } = useItemComment(itemId, initialComment, onCommentChange);
 
   if (!itemId) return null;
 

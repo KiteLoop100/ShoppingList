@@ -4,6 +4,7 @@ import { useState, useCallback, useRef, useMemo } from "react";
 import { useTranslations } from "next-intl";
 import type { InventoryItem } from "@/lib/inventory/inventory-types";
 import { getExpiryColor, formatBestBefore } from "@/lib/inventory/expiry-color";
+import { InventoryActionsSheet } from "./inventory-actions-sheet";
 
 const SWIPE_THRESHOLD = 60;
 const MAX_SWIPE = 100;
@@ -12,6 +13,7 @@ const LONG_PRESS_MS = 500;
 interface InventoryItemRowProps {
   item: InventoryItem;
   onConsume: (id: string) => void;
+  onConsumeAndAddToList: (id: string) => void;
   onOpen: (id: string) => void;
   onSeal: (id: string) => void;
   onFreeze: (id: string) => void;
@@ -25,6 +27,7 @@ interface InventoryItemRowProps {
 export function InventoryItemRow({
   item,
   onConsume,
+  onConsumeAndAddToList,
   onOpen,
   onSeal,
   onFreeze,
@@ -248,6 +251,17 @@ export function InventoryItemRow({
 
           <button
             type="button"
+            onClick={() => onConsumeAndAddToList(item.id)}
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-50 text-aldi-blue transition-colors hover:bg-blue-100"
+            aria-label={t("consumeAndAddToListAction")}
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 0 0-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 0 0-16.536-1.84M7.5 14.25 5.106 5.272M6 20.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm12.75 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" />
+            </svg>
+          </button>
+
+          <button
+            type="button"
             onClick={() => onConsume(item.id)}
             className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-red-50 text-red-500 transition-colors hover:bg-red-100"
             aria-label={t("swipeConsumed")}
@@ -293,81 +307,19 @@ export function InventoryItemRow({
       )}
 
       {showActions && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4" onClick={() => setShowActions(false)}>
-          <div className="w-full max-w-sm rounded-2xl bg-white shadow-xl" onClick={(e) => e.stopPropagation()}>
-            <div className="border-b border-aldi-muted-light px-4 py-3">
-              <p className="text-sm font-medium text-aldi-text">{item.display_name}</p>
-            </div>
-            {item.status === "sealed" && (
-              <button
-                type="button"
-                onClick={() => { onOpen(item.id); setShowActions(false); }}
-                className="w-full px-4 py-3 text-left text-sm text-aldi-text transition-colors hover:bg-gray-50"
-              >
-                {t("swipeOpened")}
-              </button>
-            )}
-            {item.status === "opened" && (
-              <button
-                type="button"
-                onClick={() => { onSeal(item.id); setShowActions(false); }}
-                className="w-full px-4 py-3 text-left text-sm text-aldi-text transition-colors hover:bg-gray-50"
-              >
-                {t("swipeSealed")}
-              </button>
-            )}
-            {!item.is_frozen ? (
-              <button
-                type="button"
-                onClick={() => { onFreeze(item.id); setShowActions(false); }}
-                className="w-full px-4 py-3 text-left text-sm text-aldi-text transition-colors hover:bg-gray-50"
-              >
-                {t("freezeAction")}
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => { onThaw(item.id); setShowActions(false); }}
-                className="w-full px-4 py-3 text-left text-sm text-aldi-text transition-colors hover:bg-gray-50"
-              >
-                {t("thawAction")}
-              </button>
-            )}
-            {onEditBestBefore && (
-              <button
-                type="button"
-                onClick={() => { setShowActions(false); onEditBestBefore(item); }}
-                className="flex w-full items-center justify-between px-4 py-3 text-left text-sm text-aldi-text transition-colors hover:bg-gray-50"
-              >
-                <span>{t("editBestBefore")}</span>
-                {item.best_before && (
-                  <span className="text-xs text-aldi-muted">{new Date(item.best_before).toLocaleDateString("de-DE")}</span>
-                )}
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={() => { setShowActions(false); setShowQuantityPicker(true); }}
-              className="w-full px-4 py-3 text-left text-sm text-aldi-text transition-colors hover:bg-gray-50"
-            >
-              {t("changeQuantity")}
-            </button>
-            <button
-              type="button"
-              onClick={() => { onConsume(item.id); setShowActions(false); }}
-              className="w-full px-4 py-3 text-left text-sm text-aldi-text transition-colors hover:bg-gray-50"
-            >
-              {t("swipeConsumed")}
-            </button>
-            <button
-              type="button"
-              onClick={() => { onDelete(item.id); setShowActions(false); }}
-              className="w-full border-t border-aldi-muted-light px-4 py-3 text-left text-sm text-red-600 transition-colors hover:bg-red-50"
-            >
-              {t("delete")}
-            </button>
-          </div>
-        </div>
+        <InventoryActionsSheet
+          item={item}
+          onClose={() => setShowActions(false)}
+          onOpen={onOpen}
+          onSeal={onSeal}
+          onFreeze={onFreeze}
+          onThaw={onThaw}
+          onConsume={onConsume}
+          onConsumeAndAddToList={onConsumeAndAddToList}
+          onDelete={onDelete}
+          onEditBestBefore={onEditBestBefore}
+          onShowQuantityPicker={() => setShowQuantityPicker(true)}
+        />
       )}
     </>
   );

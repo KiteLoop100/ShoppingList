@@ -15,6 +15,8 @@ import { CompetitorProductDetailModal } from "./competitor-product-detail-modal"
 import { ProductCaptureModal } from "@/components/product-capture/product-capture-modal";
 import { useCompetitorProducts } from "@/lib/competitor-products/competitor-products-context";
 import { updateListItem } from "@/lib/list";
+import { getRetailerForProduct } from "@/lib/settings/retailer-memory";
+import { TripNoteSection } from "./trip-note-section";
 import { useListModals } from "./hooks/use-list-modals";
 import { useCompetitorActions } from "./hooks/use-competitor-actions";
 import { useListDerived } from "./hooks/use-list-derived";
@@ -38,9 +40,9 @@ export const ShoppingListContent = memo(function ShoppingListContent({
   const { products, refetch: refetchProducts } = useProducts();
   const { products: competitorProducts, refetch: refetchCompetitorProducts } = useCompetitorProducts();
   const {
-    listId, unchecked, checked, deferred, total, withoutPriceCount,
+    listId, listNotes, unchecked, checked, deferred, total, withoutPriceCount,
     loading, dataSortMode, refetch,
-    setItemChecked, setItemQuantity, removeItem, deferItem, undeferItem, setBuyElsewhere,
+    setItemChecked, setItemQuantity, removeItem, deferItem, undeferItem, setBuyElsewhere, updateItemComment,
   } = listData;
 
   const modals = useListModals();
@@ -136,6 +138,9 @@ export const ShoppingListContent = memo(function ShoppingListContent({
           </div>
         ) : (
           <>
+            {listId && (
+              <TripNoteSection listId={listId} initialNotes={listNotes} />
+            )}
             {dataSortMode === "shopping-order-tiles" ? (
               <ShoppingTileGrid
                 items={unchecked}
@@ -180,7 +185,8 @@ export const ShoppingListContent = memo(function ShoppingListContent({
 
       <ProductDetailModal product={ms.detailProduct} onClose={modals.closeDetail}
         onEdit={(p) => modals.detailToEdit(p)} onReorderChanged={() => { refetch({ forceReorder: true }); }}
-        itemId={ms.detailListItemId} comment={ms.detailListItemComment} />
+        itemId={ms.detailListItemId} comment={ms.detailListItemComment}
+        onCommentChange={updateItemComment} />
       {ms.genericPickerItem && (
         <GenericProductPicker genericName={ms.genericPickerItem.display_name || ms.genericPickerItem.custom_name || ""}
           onSelect={actions.handleGenericProductSelected} onClose={modals.closeGenericPicker}
@@ -193,6 +199,12 @@ export const ShoppingListContent = memo(function ShoppingListContent({
       )}
       <RetailerPickerSheet open={ms.elsewherePickerItem !== null}
         itemName={ms.elsewherePickerItem?.display_name ?? ms.elsewherePickerItem?.custom_name ?? ""}
+        suggestedRetailer={ms.elsewherePickerItem
+          ? getRetailerForProduct(
+              ms.elsewherePickerItem.product_id ?? null,
+              ms.elsewherePickerItem.display_name,
+            )
+          : null}
         onSelect={actions.handleRetailerSelected} onClose={modals.closeElsewherePicker} />
       <ElsewhereCheckoffPrompt open={ms.checkoffPromptItem !== null}
         itemName={ms.checkoffPromptItem?.display_name ?? ms.checkoffPromptItem?.custom_name ?? ""}

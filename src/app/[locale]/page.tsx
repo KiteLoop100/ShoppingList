@@ -71,6 +71,7 @@ export default function MainScreenPage() {
   const stableListData = useMemo(
     () => ({
       listId: listData.listId,
+      listNotes: listData.listNotes,
       store: listData.store,
       unchecked: listData.unchecked,
       checked: listData.checked,
@@ -89,6 +90,7 @@ export default function MainScreenPage() {
     }),
     [
       listData.listId,
+      listData.listNotes,
       listData.store,
       listData.unchecked,
       listData.checked,
@@ -113,6 +115,7 @@ export default function MainScreenPage() {
   const {
     detectedStoreName,
     showSortToast,
+    unknownLocation,
     resetOnCompletion,
   } = useStoreDetection({
     listId,
@@ -197,10 +200,12 @@ export default function MainScreenPage() {
           <h1 className="text-[17px] font-semibold leading-tight tracking-tight text-aldi-text">
             {tCommon("appName")}
           </h1>
-          <p className={`text-[12px] leading-tight ${detectedStoreName ? "text-green-600" : "text-gray-400"}`}>
+          <p className={`text-[12px] leading-tight ${detectedStoreName ? "text-green-600" : unknownLocation ? "text-amber-600" : "text-gray-400"}`}>
             {detectedStoreName
               ? tStore("storeDetected", { storeName: detectedStoreName })
-              : tStore("noStoreDetected")}
+              : unknownLocation
+                ? tStore("gpsActiveNoStore")
+                : tStore("noStoreDetected")}
           </p>
         </div>
         <Link
@@ -246,11 +251,18 @@ export default function MainScreenPage() {
         </Link>
       </header>
 
-      {detectedStoreName && (
+      {detectedStoreName ? (
         <div className="hidden shrink-0 bg-green-50 px-8 py-1.5 text-center text-xs text-green-700 lg:block">
           {tStore("storeDetected", { storeName: detectedStoreName })}
         </div>
-      )}
+      ) : unknownLocation ? (
+        <div className="hidden shrink-0 bg-amber-50 px-8 py-1.5 text-center text-xs text-amber-700 lg:block">
+          {tStore("gpsActiveNoStore")}{" – "}
+          <Link href="/settings" className="underline hover:text-amber-900">
+            {tStore("selectStorePrompt")}
+          </Link>
+        </div>
+      ) : null}
 
       <div className="relative flex min-h-0 flex-1 flex-col">
         <ProductSearch
