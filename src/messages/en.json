@@ -628,7 +628,12 @@
     "mergedTitle": "Receipt recognized",
     "mergedItemsAdded": "{count} new products added",
     "mergedNoNewItems": "No new products found — everything already captured.",
-    "retailerDetected": "Retailer: {name}"
+    "retailerDetected": "Retailer: {name}",
+    "processingTimeout": "Processing took too long. Please try again.",
+    "processingFailed": "Processing failed.",
+    "ocrFailed": "The receipt could not be read. Please try again with better lighting.",
+    "retryProcessing": "Retry processing",
+    "pendingFailed": "Processing failed"
   },
   "autoReorder": {
     "title": "Reorder",

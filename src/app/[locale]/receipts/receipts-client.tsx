@@ -14,9 +14,11 @@ import { loadSettings } from "@/lib/settings/settings-sync";
 import { InventoryList } from "@/components/inventory/inventory-list";
 import { useBreakpoint } from "@/hooks/use-breakpoint";
 import { ReceiptDetailContent } from "@/app/[locale]/receipts/receipt-detail-content";
+import { log } from "@/lib/utils/logger";
 
 const POLL_INTERVAL_MS = 8_000;
-const MAX_POLL_COUNT = 30;
+const MAX_POLL_COUNT = 45;
+const STALE_THRESHOLD_MS = 6 * 60 * 1000;
 
 interface ReceiptSummary {
   receipt_id: string;
@@ -29,7 +31,28 @@ interface ReceiptSummary {
   created_at: string;
 }
 
+interface PendingScan {
+  scanId: string;
+  status: "processing" | "completed" | "failed";
+  errorCode?: string;
+  photoUrls: string[];
+  photoPaths: string[];
+}
+
 type ActiveTab = "receipts" | "inventory";
+
+function getErrorMessage(
+  tReceipt: (key: string) => string,
+  errorCode?: string,
+): string {
+  switch (errorCode) {
+    case "timeout": return tReceipt("processingTimeout");
+    case "ocr_failed": return tReceipt("ocrFailed");
+    case "not_a_receipt": return tReceipt("notAReceipt");
+    case "unsupported_retailer": return tReceipt("unsupportedRetailer");
+    default: return tReceipt("processingFailed");
+  }
+}
 
 export function ReceiptsClientPage() {
   const t = useTranslations("receipts");
@@ -41,11 +64,11 @@ export function ReceiptsClientPage() {
   const [loading, setLoading] = useState(true);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
-  const [pendingReceipt, setPendingReceipt] = useState(false);
+  const [pendingScan, setPendingScan] = useState<PendingScan | null>(null);
+  const [retrying, setRetrying] = useState(false);
   const [inventoryActive, setInventoryActive] = useState(false);
   const tabParam = searchParams.get("tab");
   const [activeTab, setActiveTab] = useState<ActiveTab>(tabParam === "inventory" ? "inventory" : "receipts");
-  const receiptCountBeforeSubmit = useRef(0);
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollCountRef = useRef(0);
   const bp = useBreakpoint();
@@ -95,27 +118,129 @@ export function ReceiptsClientPage() {
     pollCountRef.current = 0;
   }, []);
 
+  const pollScanStatus = useCallback(async () => {
+    const supabase = createClientIfConfigured();
+    if (!supabase) return;
+
+    const { data: { user } } = await supabase.auth.getUser();
+    const userId = user?.id ?? getCurrentUserId();
+
+    const { data: scans } = await supabase
+      .from("receipt_scans")
+      .select("scan_id, status, error_code, photo_urls, photo_paths, created_at")
+      .eq("user_id", userId)
+      .in("status", ["processing", "failed"])
+      .order("created_at", { ascending: false })
+      .limit(1);
+
+    if (!scans || scans.length === 0) {
+      setPendingScan(null);
+      stopPolling();
+      await loadReceipts();
+      return;
+    }
+
+    const scan = scans[0];
+    const age = Date.now() - new Date(scan.created_at).getTime();
+
+    if (scan.status === "processing" && age > STALE_THRESHOLD_MS) {
+      await supabase
+        .from("receipt_scans")
+        .update({ status: "failed", error_code: "timeout", updated_at: new Date().toISOString() })
+        .eq("scan_id", scan.scan_id);
+
+      setPendingScan({
+        scanId: scan.scan_id,
+        status: "failed",
+        errorCode: "timeout",
+        photoUrls: scan.photo_urls,
+        photoPaths: scan.photo_paths,
+      });
+      stopPolling();
+      return;
+    }
+
+    if (scan.status === "failed") {
+      setPendingScan({
+        scanId: scan.scan_id,
+        status: "failed",
+        errorCode: scan.error_code ?? undefined,
+        photoUrls: scan.photo_urls,
+        photoPaths: scan.photo_paths,
+      });
+      stopPolling();
+      return;
+    }
+
+    setPendingScan({
+      scanId: scan.scan_id,
+      status: "processing",
+      photoUrls: scan.photo_urls,
+      photoPaths: scan.photo_paths,
+    });
+  }, [loadReceipts, stopPolling]);
+
   const startPolling = useCallback(() => {
     stopPolling();
-    receiptCountBeforeSubmit.current = receipts.length;
-    setPendingReceipt(true);
+    setPendingScan({ scanId: "", status: "processing", photoUrls: [], photoPaths: [] });
 
     pollTimerRef.current = setInterval(async () => {
       pollCountRef.current++;
+      await pollScanStatus();
       await loadReceipts();
     }, POLL_INTERVAL_MS);
-  }, [receipts.length, loadReceipts, stopPolling]);
+  }, [loadReceipts, pollScanStatus, stopPolling]);
+
+  const retryProcessing = useCallback(async () => {
+    if (!pendingScan || retrying) return;
+    setRetrying(true);
+
+    const supabase = createClientIfConfigured();
+    if (supabase) {
+      await supabase
+        .from("receipt_scans")
+        .update({ status: "completed", error_code: "dismissed", updated_at: new Date().toISOString() })
+        .eq("scan_id", pendingScan.scanId);
+    }
+
+    try {
+      const res = await fetch("/api/process-receipt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          photo_urls: pendingScan.photoUrls,
+          photo_paths: pendingScan.photoPaths,
+        }),
+      });
+
+      if (!res.ok) {
+        log.warn("[receipts] retry process-receipt failed:", res.status);
+      }
+    } catch (err) {
+      log.warn("[receipts] retry fetch error:", err);
+    }
+
+    setRetrying(false);
+    startPolling();
+  }, [pendingScan, retrying, startPolling]);
+
+  const dismissScan = useCallback(async () => {
+    if (!pendingScan) return;
+
+    const supabase = createClientIfConfigured();
+    if (supabase) {
+      await supabase
+        .from("receipt_scans")
+        .update({ status: "completed", error_code: "dismissed", updated_at: new Date().toISOString() })
+        .eq("scan_id", pendingScan.scanId);
+    }
+
+    setPendingScan(null);
+  }, [pendingScan]);
 
   useEffect(() => {
-    if (!pendingReceipt) return;
-    if (receipts.length > receiptCountBeforeSubmit.current) {
-      setPendingReceipt(false);
-      stopPolling();
-    } else if (pollCountRef.current >= MAX_POLL_COUNT) {
-      setPendingReceipt(false);
-      stopPolling();
-    }
-  }, [receipts.length, pendingReceipt, stopPolling]);
+    pollScanStatus();
+  }, [pollScanStatus]);
 
   useEffect(() => {
     return () => stopPolling();
@@ -158,7 +283,7 @@ export function ReceiptsClientPage() {
       <CardSkeleton />
       <CardSkeleton />
     </div>
-  ) : receipts.length === 0 && !pendingReceipt ? (
+  ) : receipts.length === 0 && !pendingScan ? (
     <div className="flex flex-1 flex-col items-center justify-center gap-4 py-16 lg:gap-5 lg:py-24">
       <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-aldi-blue-light lg:h-20 lg:w-20">
         <svg className="h-8 w-8 text-aldi-blue lg:h-10 lg:w-10" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
@@ -189,13 +314,13 @@ export function ReceiptsClientPage() {
           })}
         </div>
       )}
-      {filteredReceipts.length === 0 && !pendingReceipt && activeFilter ? (
+      {filteredReceipts.length === 0 && !pendingScan && activeFilter ? (
         <div className="flex flex-1 flex-col items-center justify-center py-16">
           <p className="text-sm text-aldi-muted">{t("noReceiptsForRetailer", { retailer: activeFilter })}</p>
         </div>
       ) : (
         <div className="flex flex-col gap-2">
-          {pendingReceipt && (
+          {pendingScan?.status === "processing" && (
             <div className="flex items-center gap-4 rounded-2xl border-2 border-dashed border-aldi-blue/30 bg-aldi-blue-light/50 p-4">
               <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-aldi-blue/10">
                 <div className="h-5 w-5 animate-spin rounded-full border-2 border-aldi-blue/20 border-t-aldi-blue" />
@@ -203,6 +328,38 @@ export function ReceiptsClientPage() {
               <span className="flex min-w-0 flex-1 flex-col gap-1">
                 <span className="text-[15px] font-medium text-aldi-blue">{tReceipt("pendingTitle")}</span>
                 <span className="text-xs leading-relaxed text-aldi-muted">{tReceipt("pendingPlaceholder")}</span>
+              </span>
+            </div>
+          )}
+          {pendingScan?.status === "failed" && (
+            <div className="flex items-center gap-4 rounded-2xl border-2 border-dashed border-red-300 bg-red-50 p-4">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-red-100">
+                <svg className="h-5 w-5 text-red-500" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                </svg>
+              </span>
+              <span className="flex min-w-0 flex-1 flex-col gap-1.5">
+                <span className="text-[15px] font-medium text-red-700">{tReceipt("pendingFailed")}</span>
+                <span className="text-xs leading-relaxed text-red-600/70">{getErrorMessage(tReceipt, pendingScan.errorCode)}</span>
+                <span className="mt-1 flex gap-2">
+                  {pendingScan.errorCode !== "not_a_receipt" && (
+                    <button
+                      type="button"
+                      onClick={retryProcessing}
+                      disabled={retrying}
+                      className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium text-white transition-transform active:scale-95 disabled:opacity-50"
+                    >
+                      {retrying ? tReceipt("pendingTitle") : tReceipt("retryProcessing")}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={dismissScan}
+                    className="rounded-lg bg-red-100 px-3 py-1.5 text-xs font-medium text-red-700 transition-transform active:scale-95"
+                  >
+                    {tReceipt("close")}
+                  </button>
+                </span>
               </span>
             </div>
           )}

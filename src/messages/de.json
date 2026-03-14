@@ -628,7 +628,12 @@
     "mergedTitle": "Kassenzettel erkannt",
     "mergedItemsAdded": "{count} neue Produkte hinzugefügt",
     "mergedNoNewItems": "Keine neuen Produkte erkannt — alles bereits erfasst.",
-    "retailerDetected": "Händler: {name}"
+    "retailerDetected": "Händler: {name}",
+    "processingTimeout": "Die Verarbeitung hat zu lange gedauert. Bitte versuche es erneut.",
+    "processingFailed": "Fehler bei der Verarbeitung.",
+    "ocrFailed": "Der Kassenzettel konnte nicht gelesen werden. Bitte versuche es mit besserer Beleuchtung erneut.",
+    "retryProcessing": "Erneut verarbeiten",
+    "pendingFailed": "Verarbeitung fehlgeschlagen"
   },
   "autoReorder": {
     "title": "Nachkauf",

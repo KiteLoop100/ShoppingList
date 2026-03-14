@@ -115,6 +115,7 @@ function fireAndForgetAnalysis(
   photoPaths: string[],
   setResult: (r: ReceiptResult) => void,
   setPhase: (p: ScannerPhase) => void,
+  setErrorMsg: (msg: string) => void,
   t: TranslateFn,
 ) {
   (async () => {
@@ -128,6 +129,8 @@ function fireAndForgetAnalysis(
       if (!res.ok || !res.body) {
         const errData = await res.json().catch(() => ({}));
         log.warn("[receipt-scanner] process-receipt failed:", errData);
+        setErrorMsg((errData as Record<string, string>).error || t("processingError"));
+        setPhase("error");
         return;
       }
 
@@ -142,10 +145,18 @@ function fireAndForgetAnalysis(
           return;
         }
         if (errData.error === "not_a_receipt") {
+          setErrorMsg(t("notAReceipt"));
+          setPhase("error");
+          return;
+        }
+        if (errData.error === "unsupported_retailer") {
+          setErrorMsg(t("unsupportedRetailer"));
           setPhase("error");
           return;
         }
         log.warn("[receipt-scanner] process-receipt error event:", errData);
+        setErrorMsg(t("processingError"));
+        setPhase("error");
         return;
       }
 
@@ -153,7 +164,9 @@ function fireAndForgetAnalysis(
       setResult(sseResult.data as ReceiptResult);
       setPhase("done");
     } catch (err) {
-      log.warn("[receipt-scanner] background analysis failed (non-blocking):", err);
+      log.warn("[receipt-scanner] background analysis failed:", err);
+      setErrorMsg(t("processingError"));
+      setPhase("error");
     }
   })();
 }
@@ -318,7 +331,7 @@ export function useReceiptProcessing(options: { open: boolean; onClose: () => vo
       setPhase("submitted");
       onSubmitted?.();
 
-      fireAndForgetAnalysis(uploadedUrls, uploadedPaths, setResult, setPhase, t);
+      fireAndForgetAnalysis(uploadedUrls, uploadedPaths, setResult, setPhase, setErrorMsg, t);
     } catch (err) {
       log.error("[receipt-scanner] Receipt processing error:", err);
       setErrorMsg(err instanceof Error ? err.message : t("processingError"));
