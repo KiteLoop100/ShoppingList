@@ -47,18 +47,21 @@ async function processFastPath(
 ): Promise<ProductPhotoStudioResult> {
   const photoRoles = input.photoRoles!;
   const heroIndex = photoRoles.indexOf("front");
-  const effectiveHeroIndex = heroIndex >= 0 ? heroIndex : 0;
+  const hasFront = heroIndex >= 0;
+  const effectiveHeroIndex = hasFront ? heroIndex : 0;
 
-  log.debug("[photo-studio] fast path: heroIndex =", effectiveHeroIndex, "roles =", photoRoles);
+  log.debug("[photo-studio] fast path: heroIndex =", effectiveHeroIndex,
+    "hasFront =", hasFront, "roles =", photoRoles);
 
-  // Phase 1: Barcode + Thumbnail + Gallery in parallel (image processing)
-  // Extract starts after barcodes finish to (a) pass scanned EAN and (b) avoid
-  // overloading AI providers with too many concurrent calls which causes timeouts
-  // in the pre-crop step (Gemini/Claude).
+  // When no front photo is provided, skip thumbnail creation entirely and
+  // process all photos as gallery. The heroIndex sentinel null tells
+  // processGalleryPhotos to not skip any photo.
   const [barcodeResults, thumbnailResult, galleryPhotos] = await Promise.all([
     scanBarcodesFromAll(input.images),
-    createThumbnail(input.images, effectiveHeroIndex),
-    processGalleryPhotos(input.images, photoRoles, effectiveHeroIndex),
+    hasFront
+      ? createThumbnail(input.images, effectiveHeroIndex)
+      : Promise.resolve(null),
+    processGalleryPhotos(input.images, photoRoles, hasFront ? effectiveHeroIndex : null),
   ]);
 
   log.debug("[photo-studio] fast path phase 1 (images) took", elapsedMs(startMs), "ms");
@@ -83,18 +86,18 @@ async function processFastPath(
   const extractedData = extractionResult.data;
   const finalEan = scannedEan ?? extractedData.ean_barcode;
 
-  const bgFailed = thumbnailResult.backgroundRemovalFailed === true;
-  const hasThumbnail = thumbnailResult.fullSize != null;
+  const bgFailed = thumbnailResult?.backgroundRemovalFailed === true;
+  const hasThumbnail = thumbnailResult?.fullSize != null;
 
   if (bgFailed) {
-    log.warn("[photo-studio] background removal failed, provider used:", thumbnailResult.backgroundProvider);
+    log.warn("[photo-studio] background removal failed, provider used:", thumbnailResult?.backgroundProvider);
   }
 
   const thumbnailType: ThumbnailType | undefined = hasThumbnail
-    ? (thumbnailResult.backgroundRemoved ? "background_removed" : "soft_fallback")
+    ? (thumbnailResult!.backgroundRemoved ? "background_removed" : "soft_fallback")
     : undefined;
 
-  const qualityScore = bgFailed ? 0.3 : 0.6;
+  const qualityScore = bgFailed ? 0.3 : hasThumbnail ? 0.6 : 0.5;
 
   log.debug(
     "[photo-studio] fast path completed in",
@@ -106,13 +109,13 @@ async function processFastPath(
   return {
     status: "success",
     extractedData: { ...extractedData, ean_barcode: finalEan },
-    thumbnailFull: thumbnailResult.fullSize,
-    thumbnailFullFormat: thumbnailResult.fullSizeFormat,
-    thumbnailSmall: thumbnailResult.thumbnail,
+    thumbnailFull: thumbnailResult?.fullSize,
+    thumbnailFullFormat: thumbnailResult?.fullSizeFormat,
+    thumbnailSmall: thumbnailResult?.thumbnail,
     qualityScore,
-    backgroundRemoved: thumbnailResult.backgroundRemoved,
+    backgroundRemoved: thumbnailResult?.backgroundRemoved ?? false,
     backgroundRemovalFailed: bgFailed,
-    backgroundProvider: thumbnailResult.backgroundProvider,
+    backgroundProvider: thumbnailResult?.backgroundProvider,
     thumbnailType,
     galleryPhotos: galleryPhotos.length > 0 ? galleryPhotos : undefined,
     processingTimeMs: elapsedMs(startMs),

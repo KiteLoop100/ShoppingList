@@ -10,6 +10,7 @@ import { createInStoreMonitor } from "@/lib/store/in-store-monitor";
 import type { InStoreMonitorHandle } from "@/lib/store/in-store-monitor";
 import type { SortMode } from "@/components/search/product-search";
 import { checkGpsAllowed } from "@/lib/geo/gps-permission";
+import { useCurrentCountry } from "@/lib/current-country-context";
 import { log } from "@/lib/utils/logger";
 
 const SORT_TOAST_MS = 2000;
@@ -73,6 +74,7 @@ export function useStoreDetection({
   const [gpsEnabled, setGpsEnabled] = useState(false);
   const [gpsError, setGpsError] = useState(false);
   const [unknownLocation, setUnknownLocation] = useState<GeoPosition | null>(null);
+  const { setCountry } = useCurrentCountry();
   const gpsAttemptRef = useRef(0);
   const prevStoreIdRef = useRef<string | null | "__init__">("__init__");
   const manualSortRef = useRef(false);
@@ -129,6 +131,9 @@ export function useStoreDetection({
       if (result) {
         const { store: detectedStore, detectedByGps } = result;
         setDetectedStoreName(detectedStore.name);
+        if (detectedStore.country) {
+          setCountry(detectedStore.country.toUpperCase());
+        }
 
         if (detectedByGps) {
           setIsInStore(true);
@@ -179,6 +184,9 @@ export function useStoreDetection({
     setUnknownLocation(null);
     setDetectedStoreName(store.name);
     setIsInStore(true);
+    if (store.country) {
+      setCountry(store.country.toUpperCase());
+    }
 
     if (listId) {
       await setListStore(listId, store.store_id);
@@ -193,7 +201,7 @@ export function useStoreDetection({
       refetchRef.current();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [listId, startMonitor]);
+  }, [listId, startMonitor, setCountry]);
 
   const handleSkipCreateStore = useCallback(() => {
     setUnknownLocation(null);

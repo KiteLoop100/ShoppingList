@@ -11,6 +11,7 @@ import { eanVariants } from "@/lib/products/ean-utils";
 
 export type CartScanResultType =
   | "checked_off"
+  | "partial_checkoff"
   | "extra_added"
   | "duplicate_incremented"
   | "product_not_found"
@@ -21,6 +22,8 @@ export interface CartScanResult {
   itemId?: string;
   productName?: string;
   newQuantity?: number;
+  /** For partial_checkoff: the remaining quantity on the unchecked list item. */
+  remainingQuantity?: number;
   product?: Product;
   competitorProduct?: CompetitorProduct;
   ean: string;
@@ -29,6 +32,11 @@ export interface CartScanResult {
 export interface MatchResult {
   listItem: ListItem;
   isAlreadyInCart: boolean;
+}
+
+export interface FullMatchResult {
+  uncheckedItem: ListItem | null;
+  checkedItem: ListItem | null;
 }
 
 /**
@@ -42,6 +50,24 @@ export function matchProductToListItem(
   const match = activeListItems.find((item) => item.product_id === productId);
   if (!match) return null;
   return { listItem: match, isAlreadyInCart: match.is_checked };
+}
+
+/**
+ * Find both unchecked and checked items matching a product_id.
+ * Used by scan-to-cart to handle partial check-off (quantity splitting).
+ */
+export function matchProductToListItems(
+  productId: string,
+  activeListItems: ListItem[]
+): FullMatchResult {
+  let uncheckedItem: ListItem | null = null;
+  let checkedItem: ListItem | null = null;
+  for (const item of activeListItems) {
+    if (item.product_id !== productId) continue;
+    if (item.is_checked) { checkedItem ??= item; }
+    else { uncheckedItem ??= item; }
+  }
+  return { uncheckedItem, checkedItem };
 }
 
 /**
@@ -69,40 +95,71 @@ export function matchEanToListItem(
 
 /**
  * Core scan-to-cart logic. Given a scanned EAN:
- * 1. Look up the product (ALDI, competitor, OFF)
+ * 1. Look up the product (ALDI, competitor, OFF) — or use a pre-resolved product
  * 2. Match against the active shopping list
  * 3. Return the appropriate action to take
+ *
+ * When `knownProduct` is provided (e.g. from BarcodeScannerModal which already
+ * did the lookup), the EAN-based lookup is skipped for that product type.
  */
 export async function handleCartScan(
   ean: string,
   activeListItems: ListItem[],
   products: Product[],
-  competitorProducts: CompetitorProduct[]
+  competitorProducts: CompetitorProduct[],
+  knownProduct?: Product,
 ): Promise<CartScanResult> {
-  const [product, competitor] = await Promise.all([
-    findProductByEan(ean, products),
-    findCompetitorProductByEan(ean, competitorProducts),
-  ]);
+  const [product, competitor] = knownProduct
+    ? [knownProduct, null]
+    : await Promise.all([
+        findProductByEan(ean, products),
+        findCompetitorProductByEan(ean, competitorProducts),
+      ]);
 
   if (product) {
-    const match = matchProductToListItem(product.product_id, activeListItems);
+    const { uncheckedItem, checkedItem } = matchProductToListItems(
+      product.product_id,
+      activeListItems,
+    );
 
-    if (match?.isAlreadyInCart) {
+    if (uncheckedItem) {
+      if (uncheckedItem.quantity > 1) {
+        return {
+          type: "partial_checkoff",
+          itemId: uncheckedItem.item_id,
+          productName: product.name,
+          remainingQuantity: uncheckedItem.quantity - 1,
+          newQuantity: checkedItem ? checkedItem.quantity + 1 : 1,
+          product,
+          ean,
+        };
+      }
+      if (checkedItem) {
+        return {
+          type: "partial_checkoff",
+          itemId: uncheckedItem.item_id,
+          productName: product.name,
+          remainingQuantity: 0,
+          newQuantity: checkedItem.quantity + 1,
+          product,
+          ean,
+        };
+      }
       return {
-        type: "duplicate_incremented",
-        itemId: match.listItem.item_id,
+        type: "checked_off",
+        itemId: uncheckedItem.item_id,
         productName: product.name,
-        newQuantity: match.listItem.quantity + 1,
         product,
         ean,
       };
     }
 
-    if (match) {
+    if (checkedItem) {
       return {
-        type: "checked_off",
-        itemId: match.listItem.item_id,
+        type: "duplicate_incremented",
+        itemId: checkedItem.item_id,
         productName: product.name,
+        newQuantity: checkedItem.quantity + 1,
         product,
         ean,
       };

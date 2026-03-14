@@ -135,6 +135,7 @@ export {
   addListItem,
   updateListItem,
   deleteListItem,
+  splitAndCheckoff,
   addListItemsBatch,
   updateShoppingListNotes,
 } from "./active-list-write";

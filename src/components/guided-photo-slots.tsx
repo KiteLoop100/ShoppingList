@@ -130,9 +130,6 @@ export function GuidedPhotoSlots({
   const processedPriceTag = processedGalleryPhotos.find((p) => p.category === "price_tag");
   const processedExtras = processedGalleryPhotos.filter((p) => p.category === "product");
 
-  // #region agent log
-  console.log("[DEBUG-e67f2d] GuidedPhotoSlots render:", { extraCount: extraPhotos.length, processedGalleryCount: processedGalleryPhotos.length, processedExtrasCount: processedExtras.length, hasProcessedPriceTag: !!processedPriceTag, hasProcessedThumbnail: !!processedThumbnail });
-  // #endregion
   const totalCount = (frontPhoto ? 1 : 0)
     + (priceTagPhoto ? 1 : 0)
     + extraPhotos.length

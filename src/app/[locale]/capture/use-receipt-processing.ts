@@ -284,10 +284,6 @@ export function useReceiptProcessing(options: { open: boolean; onClose: () => vo
     setPhase("processing");
     setProgress(t("uploading"));
 
-    // #region agent log
-    fetch('/api/debug-log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'4c9d8e',location:'client:processReceipt-start',message:'processReceipt CALLED',data:{photoCount:photos.length,callTs:Date.now()},timestamp:Date.now(),hypothesisId:'H-1B,H-1E'})}).catch(()=>{});
-    // #endregion
-
     try {
       const uploadedUrls: string[] = [];
       const uploadedPaths: string[] = [];
@@ -306,10 +302,6 @@ export function useReceiptProcessing(options: { open: boolean; onClose: () => vo
           }),
         });
 
-        // #region agent log
-        fetch('/api/debug-log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'4c9d8e',location:`client:upload-photo-${i}`,message:`upload photo ${i}`,data:{index:i,status:uploadRes.status,ok:uploadRes.ok},timestamp:Date.now(),hypothesisId:'H-1C'})}).catch(()=>{});
-        // #endregion
-
         if (!uploadRes.ok) {
           if (uploadRes.status === 429) {
             throw new Error(t("rateLimitExceeded"));
@@ -326,15 +318,8 @@ export function useReceiptProcessing(options: { open: boolean; onClose: () => vo
       setPhase("submitted");
       onSubmitted?.();
 
-      // #region agent log
-      fetch('/api/debug-log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'4c9d8e',location:'client:submitted-phase',message:'uploads done — fire-and-forget analysis',data:{urlCount:uploadedUrls.length,ts:Date.now()},timestamp:Date.now(),hypothesisId:'H-1C'})}).catch(()=>{});
-      // #endregion
-
       fireAndForgetAnalysis(uploadedUrls, uploadedPaths, setResult, setPhase, t);
     } catch (err) {
-      // #region agent log
-      fetch('/api/debug-log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'4c9d8e',location:'client:CATCH-BLOCK',message:'CATCH BLOCK FIRED — user sees error screen',data:{errMsg:err instanceof Error?err.message:String(err),errType:(err as Error)?.constructor?.name,ts:Date.now()},timestamp:Date.now(),hypothesisId:'H-1A,H-1C,H-1E,H-1F'})}).catch(()=>{});
-      // #endregion
       log.error("[receipt-scanner] Receipt processing error:", err);
       setErrorMsg(err instanceof Error ? err.message : t("processingError"));
       setPhase("error");

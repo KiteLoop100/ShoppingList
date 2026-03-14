@@ -1,6 +1,7 @@
 import { describe, test, expect, vi } from "vitest";
 import {
   matchProductToListItem,
+  matchProductToListItems,
   matchEanToListItem,
   handleCartScan,
 } from "../scan-to-cart";
@@ -146,5 +147,81 @@ describe("handleCartScan", () => {
     const result = await handleCartScan("0000000000000", [], mockProducts, []);
     expect(result.type).toBe("product_not_found");
     expect(result.ean).toBe("0000000000000");
+  });
+
+  test("uses knownProduct directly, skipping EAN lookup", async () => {
+    const knownProduct = makeProduct({ product_id: "prod-1", ean_barcode: null });
+    const items = [makeListItem({ product_id: "prod-1", is_checked: false })];
+    const result = await handleCartScan("", items, [], [], knownProduct);
+    expect(result.type).toBe("checked_off");
+    expect(result.itemId).toBe("item-1");
+    expect(result.productName).toBe("ALDI Milch 3.5%");
+  });
+
+  test("adds knownProduct as extra when not on list", async () => {
+    const knownProduct = makeProduct({ product_id: "prod-new", ean_barcode: null });
+    const items = [makeListItem({ product_id: "prod-other" })];
+    const result = await handleCartScan("", items, [], [], knownProduct);
+    expect(result.type).toBe("extra_added");
+    expect(result.productName).toBe("ALDI Milch 3.5%");
+  });
+
+  test("returns partial_checkoff when unchecked item has quantity > 1", async () => {
+    const items = [makeListItem({ product_id: "prod-1", is_checked: false, quantity: 3 })];
+    const result = await handleCartScan("4001234567890", items, mockProducts, []);
+    expect(result.type).toBe("partial_checkoff");
+    expect(result.itemId).toBe("item-1");
+    expect(result.remainingQuantity).toBe(2);
+    expect(result.newQuantity).toBe(1);
+  });
+
+  test("returns partial_checkoff with incremented cart quantity when checked item exists", async () => {
+    const items = [
+      makeListItem({ item_id: "unchecked-1", product_id: "prod-1", is_checked: false, quantity: 2 }),
+      makeListItem({ item_id: "checked-1", product_id: "prod-1", is_checked: true, quantity: 1 }),
+    ];
+    const result = await handleCartScan("4001234567890", items, mockProducts, []);
+    expect(result.type).toBe("partial_checkoff");
+    expect(result.itemId).toBe("unchecked-1");
+    expect(result.remainingQuantity).toBe(1);
+    expect(result.newQuantity).toBe(2);
+  });
+
+  test("returns partial_checkoff with remainingQuantity 0 for last item when checked exists", async () => {
+    const items = [
+      makeListItem({ item_id: "unchecked-1", product_id: "prod-1", is_checked: false, quantity: 1 }),
+      makeListItem({ item_id: "checked-1", product_id: "prod-1", is_checked: true, quantity: 2 }),
+    ];
+    const result = await handleCartScan("4001234567890", items, mockProducts, []);
+    expect(result.type).toBe("partial_checkoff");
+    expect(result.itemId).toBe("unchecked-1");
+    expect(result.remainingQuantity).toBe(0);
+    expect(result.newQuantity).toBe(3);
+  });
+
+  test("returns checked_off for quantity 1 unchecked item with no checked counterpart", async () => {
+    const items = [makeListItem({ product_id: "prod-1", is_checked: false, quantity: 1 })];
+    const result = await handleCartScan("4001234567890", items, mockProducts, []);
+    expect(result.type).toBe("checked_off");
+    expect(result.itemId).toBe("item-1");
+  });
+});
+
+describe("matchProductToListItems", () => {
+  test("finds both unchecked and checked items for the same product", () => {
+    const items = [
+      makeListItem({ item_id: "u-1", product_id: "prod-1", is_checked: false }),
+      makeListItem({ item_id: "c-1", product_id: "prod-1", is_checked: true }),
+    ];
+    const result = matchProductToListItems("prod-1", items);
+    expect(result.uncheckedItem?.item_id).toBe("u-1");
+    expect(result.checkedItem?.item_id).toBe("c-1");
+  });
+
+  test("returns nulls when no match", () => {
+    const items = [makeListItem({ product_id: "prod-99" })];
+    const result = matchProductToListItems("prod-1", items);
+    expect(result.uncheckedItem).toBeNull();
+    expect(result.checkedItem).toBeNull();
   });
 });

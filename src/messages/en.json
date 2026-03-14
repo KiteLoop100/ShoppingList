@@ -175,6 +175,7 @@
     "retailerSuggestion": "Last: {retailer}",
     "scanBarcode": "Scan barcode",
     "scanCheckedOff": "{name} ✓ — checked off your list",
+    "scanPartialCheckoff": "{name} ✓ — 1× to cart, {remaining}× left on list",
     "scanExtraAdded": "{name} — added to cart",
     "scanDuplicateIncremented": "{name} — now {count}× in cart",
     "scanProductNotFound": "Product not found",

@@ -4,19 +4,7 @@
  */
 
 import { normalizeName, normalizeArticleNumber } from "@/lib/products/normalize";
-import fs from "fs";
-import nodePath from "path";
 import { findProductByArticleNumber } from "@/lib/products/find-existing";
-
-// #region agent log
-function dbgLog(hypothesisId: string, message: string, data?: unknown) {
-  try {
-    const logPath = nodePath.join(process.cwd(), "debug-4c9d8e.log");
-    const entry = JSON.stringify({ sessionId: "4c9d8e", timestamp: Date.now(), hypothesisId, message, data }) + "\n";
-    fs.appendFileSync(logPath, entry);
-  } catch { /* best effort */ }
-}
-// #endregion
 import { categorizeCompetitorProductServer } from "@/lib/competitor-products/categorize-competitor-product";
 import { CLAUDE_MODEL_SONNET } from "@/lib/api/config";
 import { callClaude, parseClaudeJsonResponse } from "@/lib/api/claude-client";
@@ -180,10 +168,6 @@ export async function processValidReceipt(
   const now = new Date().toISOString();
   const receiptNumber = ocrResult.receipt_number || null;
 
-  // #region agent log
-  dbgLog("H-2A,H-2B", "about to INSERT receipt", { userId, receiptNumber, purchaseDate: ocrResult.purchase_date, totalAmount: ocrResult.total_amount, storeName: ocrResult.store_name, ts: Date.now() });
-  // #endregion
-
   const findDuplicate = async (): Promise<string | null> => {
     if (receiptNumber) {
       const { data: existing } = await supabase
@@ -246,10 +230,6 @@ export async function processValidReceipt(
     })
     .select("receipt_id")
     .single();
-
-  // #region agent log
-  dbgLog("H-2A,H-1A", "INSERT receipt result", { receiptId: receiptRow?.receipt_id, error: receiptErr?.message });
-  // #endregion
 
   if (receiptErr || !receiptRow) {
     throw new Error(`Failed to save receipt: ${receiptErr?.message}`);

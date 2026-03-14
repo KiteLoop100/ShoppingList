@@ -5,6 +5,7 @@ export {
   addListItemsBatch,
   updateListItem,
   deleteListItem,
+  splitAndCheckoff,
   getActiveListWithItems,
   updateShoppingListNotes,
 } from "./active-list";

@@ -175,6 +175,7 @@
     "retailerSuggestion": "Zuletzt: {retailer}",
     "scanBarcode": "Barcode scannen",
     "scanCheckedOff": "{name} ✓ — von der Liste abgehakt",
+    "scanPartialCheckoff": "{name} ✓ — 1× in den Wagen, noch {remaining}× auf der Liste",
     "scanExtraAdded": "{name} — in den Wagen gelegt",
     "scanDuplicateIncremented": "{name} — jetzt {count}× im Wagen",
     "scanProductNotFound": "Produkt nicht gefunden",

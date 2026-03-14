@@ -724,6 +724,7 @@ export type Database = {
           demand_group_code: string | null
           display_name: string
           is_checked: boolean
+          is_extra_scan: boolean
           item_id: string
           list_id: string
           product_id: string | null
@@ -742,6 +743,7 @@ export type Database = {
           demand_group_code?: string | null
           display_name: string
           is_checked?: boolean
+          is_extra_scan?: boolean
           item_id?: string
           list_id: string
           product_id?: string | null
@@ -760,6 +762,7 @@ export type Database = {
           demand_group_code?: string | null
           display_name?: string
           is_checked?: boolean
+          is_extra_scan?: boolean
           item_id?: string
           list_id?: string
           product_id?: string | null

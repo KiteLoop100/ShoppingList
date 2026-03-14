@@ -222,9 +222,6 @@ export async function claudeSmartPreCrop(
     ]);
 
     const jsonStr = extractJsonFromText(rawText);
-    // #region agent log
-    fetch('http://127.0.0.1:7547/ingest/d58e5f1a-49bc-422a-bf52-4fc861b26370',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'e67f2d'},body:JSON.stringify({sessionId:'e67f2d',location:'gemini-bbox.ts:claudeSmartPreCrop',message:'claude raw bbox response',data:{rawText,jsonStr,imgW,imgH},timestamp:Date.now(),hypothesisId:'H1-H4'})}).catch(()=>{});
-    // #endregion
     const parsed: ClaudeRawResponse = parseClaudeJsonResponse(jsonStr);
 
     const xPct = Number(parsed.bbox?.x_pct) || 0;

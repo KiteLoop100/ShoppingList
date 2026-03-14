@@ -223,9 +223,6 @@ async function saveCompetitorProduct(
     }
   }
 
-  // #region agent log
-  console.log("[DEBUG-e67f2d] gallery upload:", { galleryCount: galleryPhotos.length, categories: galleryPhotos.map(g => g.category) });
-  // #endregion
   for (const gp of galleryPhotos) {
     try {
       const blob = await fetch(gp.dataUrl).then((r) => r.blob());
@@ -233,9 +230,6 @@ async function saveCompetitorProduct(
       const mime = gp.format.includes("webp") ? "image/webp" : "image/jpeg";
       const file = new File([blob], `gallery.${ext}`, { type: mime });
       const url = await uploadCompetitorPhoto(productId, file, "extra");
-      // #region agent log
-      console.log("[DEBUG-e67f2d] gallery uploaded:", { category: gp.category, blobSize: blob.size, hasUrl: !!url });
-      // #endregion
       if (url) {
         await addProductPhoto(productId, "competitor", file, gp.category)
           .catch((err) => { log.warn("[saveCompetitorProduct] gallery photo insert failed:", err); });

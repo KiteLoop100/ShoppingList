@@ -51,23 +51,11 @@ export async function POST(request: Request) {
 
     const result = await processCompetitorPhotos({ images });
 
-    // #region agent log
-    log.debug("[analyze-competitor-photos] extracted_data:", JSON.stringify(result.extractedData));
-    // #endregion
-
     return NextResponse.json({
       ok: true,
       status: result.status,
       review_reason: result.reviewReason ?? null,
       extracted_data: result.extractedData,
-      // #region agent log
-      _debug_extracted: {
-        price: result.extractedData?.price,
-        retailer: result.extractedData?.retailer_from_price_tag,
-        ean: result.extractedData?.ean_barcode,
-        nutri_score: result.extractedData?.nutri_score,
-      },
-      // #endregion
       thumbnail_base64: result.thumbnailFull
         ? result.thumbnailFull.toString("base64")
         : null,

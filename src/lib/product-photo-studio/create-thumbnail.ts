@@ -12,6 +12,7 @@ import { calculateEdgeQualityScore } from "./edge-quality";
 import { enhanceProduct, removeReflections, compositeOnCanvas, FULL_SIZE, THUMB_SIZE } from "./image-enhance";
 import { geminiSmartPreCrop, claudeSmartPreCrop } from "./gemini-bbox";
 import type { PreCropData, PreCropPhotoType } from "./gemini-bbox";
+import { applyTiltCorrection } from "./tilt-detection";
 import { log } from "@/lib/utils/logger";
 import type {
   PhotoInput,
@@ -153,34 +154,15 @@ async function applyPreCropData(
     currentH = meta.height ?? currentH;
   }
 
+  // AI tilt is intentionally IGNORED here. Tilt correction is applied
+  // post-bg-removal via detectTilt() for far greater accuracy.
   if (data.tilt !== 0) {
-    const sharpAngle = -data.tilt;
-    log.debug("[photo-studio] applying tilt correction:", data.tilt, "degrees (sharp angle:", sharpAngle, ")");
-    // #region agent log
-    fetch('http://127.0.0.1:7547/ingest/d58e5f1a-49bc-422a-bf52-4fc861b26370',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'e67f2d'},body:JSON.stringify({sessionId:'e67f2d',location:'create-thumbnail.ts:applyPreCropData',message:'tilt application details',data:{aiTilt:data.tilt,sharpAngle,beforeDims:`${currentW}x${currentH}`},timestamp:Date.now(),hypothesisId:'H4'})}).catch(()=>{});
-    // #endregion
-    output = await sharp(output)
-      .rotate(sharpAngle, { background: { r: 255, g: 255, b: 255 } })
-      .toBuffer();
-    const meta = await sharp(output).metadata();
-    currentW = meta.width ?? currentW;
-    currentH = meta.height ?? currentH;
+    log.debug("[photo-studio] ignoring AI tilt value:", data.tilt, "degrees (handled post-bg-removal)");
   }
 
   const rotatedBbox = transformBboxForCardinalRotation(
     data.bbox, imgWidth, imgHeight, data.rotation,
   );
-
-  if (data.tilt !== 0) {
-    const scaleX = currentW / (data.rotation === 90 || data.rotation === 270 ? imgHeight : imgWidth);
-    const scaleY = currentH / (data.rotation === 90 || data.rotation === 270 ? imgWidth : imgHeight);
-    const offsetX = (currentW - (data.rotation === 90 || data.rotation === 270 ? imgHeight : imgWidth)) / 2;
-    const offsetY = (currentH - (data.rotation === 90 || data.rotation === 270 ? imgWidth : imgHeight)) / 2;
-    rotatedBbox.x = Math.round(rotatedBbox.x * scaleX + offsetX);
-    rotatedBbox.y = Math.round(rotatedBbox.y * scaleY + offsetY);
-    rotatedBbox.width = Math.round(rotatedBbox.width * scaleX);
-    rotatedBbox.height = Math.round(rotatedBbox.height * scaleY);
-  }
 
   rotatedBbox.x = Math.max(0, rotatedBbox.x);
   rotatedBbox.y = Math.max(0, rotatedBbox.y);
@@ -219,12 +201,8 @@ export async function preCropToProduct(
   imageBuffer: Buffer,
   photoType?: PreCropPhotoType,
 ): Promise<Buffer> {
-  const rawMeta = await sharp(imageBuffer).metadata();
   const oriented = await sharp(imageBuffer).rotate().toBuffer();
   const { width = 0, height = 0 } = await sharp(oriented).metadata();
-  // #region agent log
-  fetch('http://127.0.0.1:7547/ingest/d58e5f1a-49bc-422a-bf52-4fc861b26370',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'e67f2d'},body:JSON.stringify({sessionId:'e67f2d',location:'create-thumbnail.ts:preCropToProduct',message:'image orientation info',data:{rawWidth:rawMeta.width,rawHeight:rawMeta.height,rawOrientation:rawMeta.orientation,orientedWidth:width,orientedHeight:height,photoType:photoType??'default'},timestamp:Date.now(),hypothesisId:'H3'})}).catch(()=>{});
-  // #endregion
   if (!width || !height) return oriented;
 
   try {
@@ -336,7 +314,10 @@ export async function processImageToThumbnail(
     return softFallback(input);
   }
 
-  const deReflected = await removeReflections(bgResult.imageBuffer);
+  const tiltCorrected = bgResult.hasTransparency
+    ? await applyTiltCorrection(bgResult.imageBuffer)
+    : bgResult.imageBuffer;
+  const deReflected = await removeReflections(tiltCorrected);
   const enhanced = await enhanceProduct(deReflected);
   const addShadow = bgResult.hasTransparency;
 
@@ -365,7 +346,8 @@ export async function processImageToThumbnail(
         return softFallback(imageBuffer);
       }
 
-      const retryDeReflected = await removeReflections(retryResult.imageBuffer);
+      const retryTiltCorrected = await applyTiltCorrection(retryResult.imageBuffer);
+      const retryDeReflected = await removeReflections(retryTiltCorrected);
       const retryEnhanced = await enhanceProduct(retryDeReflected);
       const [fullSizeResult, thumbnailResult] = await Promise.all([
         compositeOnCanvas(retryEnhanced, FULL_SIZE, true),

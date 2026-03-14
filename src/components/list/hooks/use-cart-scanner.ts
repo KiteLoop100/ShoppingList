@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import { useProducts } from "@/lib/products-context";
 import { useCompetitorProducts } from "@/lib/competitor-products/competitor-products-context";
 import { handleCartScan, type CartScanResult } from "@/lib/cart/scan-to-cart";
-import { addListItem, updateListItem } from "@/lib/list";
+import { addListItem, splitAndCheckoff } from "@/lib/list";
 import { playScanFeedback } from "@/lib/utils/scan-beep";
 import type { Product, CompetitorProduct } from "@/types";
 import type { ListItemWithMeta } from "@/lib/list/list-helpers";
@@ -65,6 +65,32 @@ export function useCartScanner(deps: UseCartScannerDeps) {
           }
           break;
 
+        case "partial_checkoff": {
+          if (!result.itemId || !result.product || result.remainingQuantity == null) break;
+          const product = result.product;
+          const existingChecked = checked.find(
+            (i) => i.product_id === product.product_id && i.is_checked,
+          );
+
+          await splitAndCheckoff(
+            result.itemId,
+            existingChecked?.item_id ?? null,
+            listId,
+            product.product_id,
+            product.name,
+            product.demand_group_code,
+            result.remainingQuantity,
+          );
+
+          playScanFeedback();
+          showToast(t("scanPartialCheckoff", {
+            name: result.productName ?? "",
+            remaining: result.remainingQuantity,
+          }));
+          await refetch();
+          break;
+        }
+
         case "duplicate_incremented":
           if (result.itemId && result.newQuantity) {
             await setItemQuantity(result.itemId, result.newQuantity);
@@ -112,12 +138,13 @@ export function useCartScanner(deps: UseCartScannerDeps) {
           break;
       }
     },
-    [listId, setItemChecked, setItemQuantity, refetch, showToast, t]
+    [listId, checked, setItemChecked, setItemQuantity, refetch, showToast, t]
   );
 
   const onCartProductScanned = useCallback(
     async (product: Product) => {
-      const result = await handleCartScan(product.ean_barcode ?? "", allItems, products, competitorProducts);
+      const ean = product.ean_barcode ?? "";
+      const result = await handleCartScan(ean, allItems, products, competitorProducts, product);
       await handleScanResult(result);
       setScannerOpen(false);
     },

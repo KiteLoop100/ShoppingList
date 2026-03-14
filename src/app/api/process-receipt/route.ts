@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import fs from "fs";
-import path from "path";
 import { claudeRateLimit, checkRateLimit } from "@/lib/api/rate-limit";
 import { requireAuth, requireApiKey, requireSupabaseAdmin } from "@/lib/api/guards";
 import { log } from "@/lib/utils/logger";
@@ -12,16 +10,6 @@ import {
   processValidReceipt,
 } from "@/lib/receipts/parse-receipt";
 import { MAX_RECEIPT_PHOTOS } from "@/lib/receipts/constants";
-
-// #region agent log
-function dbgLog(hypothesisId: string, message: string, data?: unknown) {
-  try {
-    const logPath = path.join(process.cwd(), "debug-4c9d8e.log");
-    const entry = JSON.stringify({ sessionId: "4c9d8e", timestamp: Date.now(), hypothesisId, message, data }) + "\n";
-    fs.appendFileSync(logPath, entry);
-  } catch { /* best effort */ }
-}
-// #endregion
 
 export const maxDuration = 300;
 
@@ -53,10 +41,6 @@ export async function POST(request: Request) {
   }
   const { photo_urls, photo_paths } = parsed.data;
 
-  // #region agent log
-  dbgLog("H-1B,H-2A", "process-receipt called", { userId, photoCount: photo_urls.length, ts: Date.now() });
-  // #endregion
-
   const rateLimitResponse = await checkRateLimit(claudeRateLimit, userId);
   if (rateLimitResponse) return rateLimitResponse;
 
@@ -76,11 +60,6 @@ export async function POST(request: Request) {
     const events: SSEEvent[] = [];
     const emit = (event: string, data: unknown) => { events.push({ event, data }); };
 
-    // #region agent log
-    const ocrStart = Date.now();
-    dbgLog("H-1C", "calling callReceiptOcr", { photoCount: photo_urls.length });
-    // #endregion
-
     const [groups, subGroups] = await Promise.all([
       loadDemandGroups(supabase),
       loadDemandSubGroups(supabase),
@@ -90,13 +69,7 @@ export async function POST(request: Request) {
     let ocrResult;
     try {
       ocrResult = await callReceiptOcr(photo_urls, demandGroupsBlock);
-      // #region agent log
-      dbgLog("H-1C,H-2B", "callReceiptOcr returned", { durationMs: Date.now() - ocrStart, status: ocrResult.status, retailer: ocrResult.retailer });
-      // #endregion
     } catch (err) {
-      // #region agent log
-      dbgLog("H-1C", "callReceiptOcr threw error", { durationMs: Date.now() - ocrStart, error: String(err) });
-      // #endregion
       log.error("[process-receipt] OCR error:", err);
       emit("error", { error: "OCR processing failed", status: 502 });
       resolveWork!(events);
@@ -119,35 +92,21 @@ export async function POST(request: Request) {
 
     emit("progress", { step: "processing" });
 
-    // #region agent log
-    dbgLog("H-1A,H-2A", "status valid — calling processValidReceipt", { productCount: ocrResult.products?.length });
-    // #endregion
-
     let result;
     try {
       result = await processValidReceipt(supabase, userId, ocrResult, photo_urls, photo_paths || []);
     } catch (err) {
       const e = err as { code?: string; receipt_id?: string };
       if (e?.code === "duplicate_receipt") {
-        // #region agent log
-        dbgLog("H-2A", "duplicate_receipt", { receiptId: e.receipt_id });
-        // #endregion
         emit("error", { error: "duplicate_receipt", receipt_id: e.receipt_id, status: 409 });
         resolveWork!(events);
         return;
       }
-      // #region agent log
-      dbgLog("H-1A", "processValidReceipt threw", { error: String(err) });
-      // #endregion
       log.error("[process-receipt] Unhandled error:", err);
       emit("error", { error: "Internal server error", status: 500 });
       resolveWork!(events);
       return;
     }
-
-    // #region agent log
-    dbgLog("H-1A", "processValidReceipt done", { receiptId: result.receipt_id, itemsCount: result.items_count });
-    // #endregion
 
     emit("result", result);
     resolveWork!(events);

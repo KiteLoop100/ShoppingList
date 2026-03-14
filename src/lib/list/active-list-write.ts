@@ -163,6 +163,67 @@ export async function updateListItem(
   }
 }
 
+/**
+ * Split one item off an unchecked list-item into a checked cart-item.
+ * Reduces the source item's quantity by 1 (or deletes it if quantity reaches 0).
+ * If a checked item for the same product already exists, its quantity is incremented;
+ * otherwise a new checked item is created via direct insert (bypassing addListItem's
+ * dedup logic which would merge it back into the unchecked item).
+ */
+export async function splitAndCheckoff(
+  sourceItemId: string,
+  checkedItemId: string | null,
+  listId: string,
+  productId: string,
+  displayName: string,
+  demandGroupCode: string,
+  sourceRemainingQty: number,
+): Promise<void> {
+  const supabase = createClientIfConfigured();
+  if (!supabase) throw new Error("Supabase not configured");
+  const now = new Date().toISOString();
+
+  if (sourceRemainingQty > 0) {
+    const { error } = await supabase
+      .from("list_items")
+      .update({ quantity: sourceRemainingQty })
+      .eq("item_id", sourceItemId);
+    if (error) throw new Error(`splitAndCheckoff: reduce quantity failed: ${error.message}`);
+  } else {
+    await supabase.from("list_items").delete().eq("item_id", sourceItemId);
+  }
+
+  if (checkedItemId) {
+    const { data: existing } = await supabase
+      .from("list_items")
+      .select("quantity")
+      .eq("item_id", checkedItemId)
+      .single();
+    const newQty = (existing?.quantity ?? 1) + 1;
+    const { error } = await supabase
+      .from("list_items")
+      .update({ quantity: newQty })
+      .eq("item_id", checkedItemId);
+    if (error) throw new Error(`splitAndCheckoff: increment checked qty failed: ${error.message}`);
+  } else {
+    const { error } = await supabase.from("list_items").insert({
+      item_id: generateId(),
+      list_id: listId,
+      product_id: productId,
+      custom_name: null,
+      display_name: displayName,
+      demand_group_code: demandGroupCode,
+      quantity: 1,
+      is_checked: true,
+      checked_at: now,
+      sort_position: -Date.now(),
+      added_at: now,
+      is_extra_scan: false,
+    });
+    if (error) throw new Error(`splitAndCheckoff: insert checked item failed: ${error.message}`);
+  }
+}
+
 export async function deleteListItem(itemId: string): Promise<void> {
   const supabase = createClientIfConfigured();
   if (!supabase) return;

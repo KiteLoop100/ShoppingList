@@ -209,6 +209,7 @@ export function useProductCaptureForm(config: ProductCaptureConfig) {
     abortControllerRef.current = controller;
 
     setAnalyzing(true); setError(null); setReviewStatus(null);
+    setProcessedGalleryPhotos([]);
     try {
       const images = await Promise.all(
         allFiles.map(async (file) => {
@@ -242,9 +243,6 @@ export function useProductCaptureForm(config: ProductCaptureConfig) {
         setExistingPhotos((prev) => prev.filter((p) => p.category !== "thumbnail"));
       }
 
-      // #region agent log
-      console.log("[DEBUG-e67f2d] API response:", { status: data.status, hasThumbnail: !!data.thumbnail_base64, thumbnailType: data.thumbnail_type, bgRemoved: data.background_removed, galleryCount: data.gallery_photos?.length ?? 0 });
-      // #endregion
       if (Array.isArray(data.gallery_photos) && data.gallery_photos.length > 0) {
         const gp: ProcessedGalleryPhotoClient[] = data.gallery_photos.map(
           (p: { image_base64: string; format: string; category: "product" | "price_tag" }) => ({
@@ -403,9 +401,6 @@ export function useProductCaptureForm(config: ProductCaptureConfig) {
     setSaving(true); setError(null); setDuplicateInfo(null);
     try {
       const submitValues = { ...values, retailer: effectiveRetailer };
-      // #region agent log
-      console.log("[DEBUG-e67f2d] handleSubmit:", { galleryCount: processedGalleryPhotos.length, hasThumbnail: !!processedThumbnail, photoFileCount: photoFiles.length });
-      // #endregion
       const result: SaveResult = await saveProduct({
         values: submitValues,
         editAldiProduct: editAldiProduct ?? null,

@@ -92,19 +92,6 @@ export async function POST(request: Request) {
       background_removed: gp.backgroundRemoved,
     }));
 
-    // #region agent log
-    log.debug("[DEBUG-e67f2d] API response:", {
-      status: result.status,
-      hasThumbnail: !!result.thumbnailFull,
-      thumbnailType: result.thumbnailType,
-      thumbnailBase64Len: result.thumbnailFull ? result.thumbnailFull.toString("base64").length : 0,
-      bgRemoved: result.backgroundRemoved,
-      bgFailed: result.backgroundRemovalFailed,
-      galleryCount: galleryPhotos.length,
-      galleryDetails: galleryPhotos.map(g => ({ idx: g.index, cat: g.category, bgRemoved: g.background_removed, b64Len: g.image_base64?.length ?? 0 })),
-    });
-    // #endregion
-
     return NextResponse.json({
       ok: true,
       status: result.status,
