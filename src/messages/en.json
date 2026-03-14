@@ -57,6 +57,7 @@
     "hideKeyboard": "Hide keyboard",
     "close": "Close",
     "productNotFoundInDb": "Product not in database.",
+    "createProduct": "Create product",
     "barcodeScanAgain": "Scan again",
     "barcodeProductAdded": "Product added.",
     "barcodeDetected": "Barcode detected",
@@ -459,6 +460,10 @@
     "update": "Update",
     "updating": "Updating…",
     "createProduct": "Create product",
+    "duplicateFound": "A product with this identifier already exists: \"{name}\".",
+    "duplicateHint": "Would you like to use the existing product or correct your input?",
+    "useExisting": "Use existing",
+    "dismissDuplicate": "Correct",
     "aliases": "Aliases (alternative names)",
     "aliasPlaceholder": "Enter alias…"
   },
@@ -874,6 +879,8 @@
     "searchInventoryHint": "Type a product name to search your inventory.",
     "searchNoResults": "No product found in inventory.",
     "notInInventory": "Product not in inventory.",
-    "moreActions": "More actions"
+    "moreActions": "More actions",
+    "productNotInDb": "Product not found in the database.",
+    "createProduct": "Create product"
   }
 }

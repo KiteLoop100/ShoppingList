@@ -23,6 +23,7 @@ export function ProductCaptureModal(props: ProductCaptureConfig) {
     fileInputRef,
     retailers, demandGroups, filteredSubGroups,
     isEditMode, canSubmit, locked,
+    duplicateInfo, useExistingProduct, dismissDuplicate,
     handlePhotosSelected, removePhoto, handleSubmit,
     handleDeleteExistingPhoto, handleSetAsThumbnail,
   } = useProductCaptureForm(props);
@@ -119,6 +120,30 @@ export function ProductCaptureModal(props: ProductCaptureConfig) {
           )}
           {extractedDetails && <ExtractedInfoCards details={extractedDetails} />}
           {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+          {duplicateInfo && (
+            <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-3">
+              <p className="mb-2 text-sm font-medium text-amber-900">
+                {t("duplicateFound", { name: duplicateInfo.name ?? "" })}
+              </p>
+              <p className="mb-3 text-xs text-amber-800">{t("duplicateHint")}</p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={useExistingProduct}
+                  className="flex-1 rounded-lg bg-aldi-blue px-3 py-2 text-sm font-semibold text-white"
+                >
+                  {t("useExisting")}
+                </button>
+                <button
+                  type="button"
+                  onClick={dismissDuplicate}
+                  className="flex-1 rounded-lg border border-aldi-muted-light px-3 py-2 text-sm font-medium text-aldi-text"
+                >
+                  {t("dismissDuplicate")}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
         <div className="border-t border-aldi-muted-light px-4 py-3">
           <button

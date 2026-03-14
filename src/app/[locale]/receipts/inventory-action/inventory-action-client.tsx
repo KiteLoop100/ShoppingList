@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
-import Image from "next/image";
 import dynamic from "next/dynamic";
 import { useTranslations } from "next-intl";
 import { useSearchParams } from "next/navigation";
@@ -14,9 +13,12 @@ import { getCurrentUserId } from "@/lib/auth/auth-context";
 import { loadInventory, upsertInventoryItem, consumeInventoryItem, openInventoryItem, productToInventoryInput, competitorProductToInventoryInput } from "@/lib/inventory/inventory-service";
 import { findInventoryItemByProductId } from "@/lib/inventory/inventory-freeze";
 import { filterInventoryByName } from "@/lib/inventory/inventory-search";
+import { ProductCaptureModal } from "@/components/product-capture/product-capture-modal";
+import type { ProductCaptureValues } from "@/components/product-capture/hooks/use-product-capture-form";
 import type { InventoryItem, InventoryUpsertInput } from "@/lib/inventory/inventory-types";
 import type { Product, CompetitorProduct, SearchResult } from "@/types";
 import type { RetailerProductResult } from "@/lib/competitor-products/competitor-product-service";
+import { ProductRow } from "./product-row";
 
 const BarcodeScannerModal = dynamic(
   () => import("@/components/search/barcode-scanner-modal").then((m) => m.BarcodeScannerModal),
@@ -47,6 +49,8 @@ export function InventoryActionClient() {
   const [showScanner, setShowScanner] = useState(false);
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [freezeOnAdd, setFreezeOnAdd] = useState(false);
+  const [showCaptureModal, setShowCaptureModal] = useState(false);
+  const [captureInitialValues, setCaptureInitialValues] = useState<Partial<ProductCaptureValues> | undefined>();
   const inputRef = useRef<HTMLInputElement>(null);
   const toastRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -177,9 +181,40 @@ export function InventoryActionClient() {
     setShowScanner(false);
   }, [showToastMsg, tSearch]);
 
+  const handleBarcodeCreateProduct = useCallback((ean: string, offData?: { name?: string; brand?: string }) => {
+    setCaptureInitialValues({
+      ean,
+      name: offData?.name ?? "",
+      brand: offData?.brand ?? "",
+    });
+    setShowScanner(false);
+    setShowCaptureModal(true);
+  }, []);
+
+  const handleSearchCreateProduct = useCallback(() => {
+    setCaptureInitialValues({ name: trimmedQuery });
+    setShowCaptureModal(true);
+  }, [trimmedQuery]);
+
+  const handleProductSaved = useCallback((productId: string, productType: "aldi" | "competitor", name: string) => {
+    setShowCaptureModal(false);
+    const input: InventoryUpsertInput = {
+      product_id: productType === "aldi" ? productId : null,
+      competitor_product_id: productType === "competitor" ? productId : null,
+      display_name: name,
+      demand_group_code: null,
+      thumbnail_url: null,
+      quantity: 1,
+      source: "manual",
+    };
+    handleAdd(input);
+  }, [handleAdd]);
+
   const showResults = mode === "add"
     ? trimmedQuery.length >= MIN_QUERY_LENGTH
     : query.trim().length > 0;
+
+  const noSearchResults = mode === "add" && showResults && !isSearching && results.length === 0 && retailerProducts.length === 0;
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-white">
@@ -236,8 +271,17 @@ export function InventoryActionClient() {
           <p className="p-4 text-center text-sm text-aldi-muted">{tSearch("searching")}</p>
         )}
 
-        {mode === "add" && showResults && !isSearching && results.length === 0 && retailerProducts.length === 0 && (
-          <p className="p-4 text-center text-sm text-aldi-muted">{tSearch("noResults")}</p>
+        {noSearchResults && (
+          <div className="flex flex-col items-center gap-3 p-6">
+            <p className="text-center text-sm text-aldi-muted">{t("productNotInDb")}</p>
+            <button
+              type="button"
+              onClick={handleSearchCreateProduct}
+              className="rounded-xl bg-aldi-blue px-6 py-3 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+            >
+              {t("createProduct")}
+            </button>
+          </div>
         )}
 
         {mode === "add" && showResults && results.length > 0 && (
@@ -279,42 +323,22 @@ export function InventoryActionClient() {
         </div>
       )}
 
-      <BarcodeScannerModal open={showScanner} onClose={() => setShowScanner(false)} onProductAdded={handleBarcodeProduct} onProductNotFound={handleBarcodeNotFound} onCompetitorProductFound={handleBarcodeCompetitor} />
-    </div>
-  );
-}
+      <BarcodeScannerModal
+        open={showScanner}
+        onClose={() => setShowScanner(false)}
+        onProductAdded={handleBarcodeProduct}
+        onProductNotFound={handleBarcodeNotFound}
+        onCompetitorProductFound={handleBarcodeCompetitor}
+        onCreateProduct={mode === "add" ? handleBarcodeCreateProduct : undefined}
+      />
 
-function ProductRow({ name, category, thumbnail, price, badge, qty, onClick }: {
-  name: string;
-  category: string | null;
-  thumbnail: string | null | undefined;
-  price?: number | null;
-  badge?: string;
-  qty?: number;
-  onClick: () => void;
-}) {
-  return (
-    <li>
-      <button type="button" className="flex min-h-touch w-full items-center gap-3 px-4 py-2 text-left transition-colors hover:bg-aldi-muted-light/40" onClick={onClick}>
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center">
-          {thumbnail ? (
-            <Image src={thumbnail} alt="" role="presentation" width={40} height={40} className="rounded object-contain" unoptimized />
-          ) : (
-            <span className="flex h-10 w-10 items-center justify-center rounded bg-aldi-muted-light text-xs text-aldi-muted">?</span>
-          )}
-        </span>
-        <span className="flex flex-1 flex-col gap-0.5 overflow-hidden">
-          <span className="truncate text-[15px] font-medium text-aldi-text">{name}</span>
-          {category && <span className="truncate text-xs text-aldi-muted">{category}</span>}
-          {badge && <span className="inline-block w-fit rounded-full bg-aldi-orange/10 px-2 py-0.5 text-[10px] font-semibold text-aldi-orange">{badge}</span>}
-        </span>
-        {qty != null && qty > 1 && (
-          <span className="shrink-0 text-sm font-semibold text-aldi-muted">{qty}x</span>
-        )}
-        {price != null && (
-          <span className="shrink-0 text-sm font-semibold text-aldi-blue">{price.toFixed(2)}&nbsp;&euro;</span>
-        )}
-      </button>
-    </li>
+      <ProductCaptureModal
+        open={showCaptureModal}
+        mode="create"
+        onClose={() => setShowCaptureModal(false)}
+        onSaved={handleProductSaved}
+        initialValues={captureInitialValues}
+      />
+    </div>
   );
 }

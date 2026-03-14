@@ -17,6 +17,16 @@ vi.mock("@/lib/retailers/retailers", () => ({
   }),
 }));
 
+vi.mock("@/lib/products/duplicate-check", () => ({
+  assertNoDuplicate: vi.fn(),
+  DuplicateProductError: class DuplicateProductError extends Error {
+    constructor(public readonly duplicate: unknown) {
+      super("Duplicate");
+      this.name = "DuplicateProductError";
+    }
+  },
+}));
+
 const realFetch = vi.fn();
 const mockFetch = vi.fn((...args: unknown[]) => {
   const url = typeof args[0] === "string" ? args[0] : "";

@@ -16,7 +16,7 @@ import type { ExtractedProductInfo } from "@/lib/product-photo-studio/types";
 import { extractDemandGroupCode } from "@/lib/competitor-products/categorize-competitor-product";
 import { getProductPhotos, deleteProductPhoto, setAsThumbnail } from "@/lib/product-photos/product-photo-service";
 import { sortPhotos, type ProductPhoto } from "@/lib/product-photos/types";
-import { saveProduct, type SaveResult } from "../product-capture-save";
+import { saveProduct, DuplicateProductError, type SaveResult, type DuplicateCheckResult } from "../product-capture-save";
 
 export interface ProductCaptureValues {
   name: string;
@@ -120,6 +120,7 @@ export function useProductCaptureForm(config: ProductCaptureConfig) {
   const [extractedDetails, setExtractedDetails] = useState<ExtractedProductInfo | null>(null);
   const [reviewStatus, setReviewStatus] = useState<string | null>(null);
   const [existingPhotos, setExistingPhotos] = useState<ProductPhoto[]>([]);
+  const [duplicateInfo, setDuplicateInfo] = useState<DuplicateCheckResult | null>(null);
   const [demandGroups, setDemandGroups] = useState<DemandGroup[]>([]);
   const [allSubGroups, setAllSubGroups] = useState<DemandSubGroupRow[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null!);
@@ -153,10 +154,8 @@ export function useProductCaptureForm(config: ProductCaptureConfig) {
         init.price = initialValues.price;
       }
     } else if (initialValues) {
+      init = { ...initialValues };
       if (initialValues.name) init.name = titleCase(initialValues.name);
-      else init.name = "";
-      init = { ...init, ...initialValues };
-      if (initialValues.name && !init.name) init.name = titleCase(initialValues.name);
     }
 
     setValues({ ...EMPTY_VALUES, ...init });
@@ -168,6 +167,7 @@ export function useProductCaptureForm(config: ProductCaptureConfig) {
     setProcessedThumbnail(null); setThumbnailType(null);
     setExtractedDetails(null);
     setReviewStatus(null); setError(null); setAnalyzing(false);
+    setDuplicateInfo(null);
     setExistingPhotos([]);
 
     const editProductId = editAldiProduct?.product_id ?? editCompetitorProduct?.product_id;
@@ -345,7 +345,7 @@ export function useProductCaptureForm(config: ProductCaptureConfig) {
 
   const handleSubmit = useCallback(async () => {
     if (!canSubmit) return;
-    setSaving(true); setError(null);
+    setSaving(true); setError(null); setDuplicateInfo(null);
     try {
       const submitValues = { ...values, retailer: effectiveRetailer };
       const result: SaveResult = await saveProduct({
@@ -360,10 +360,25 @@ export function useProductCaptureForm(config: ProductCaptureConfig) {
       onSaved(result.productId, result.productType, result.name);
       onClose();
     } catch (e: unknown) {
-      log.error("[ProductCaptureForm] save failed:", e);
-      setError(e instanceof Error ? e.message : String(e));
+      if (e instanceof DuplicateProductError) {
+        setDuplicateInfo(e.duplicate);
+      } else {
+        log.error("[ProductCaptureForm] save failed:", e);
+        setError(e instanceof Error ? e.message : String(e));
+      }
     } finally { setSaving(false); }
   }, [canSubmit, values, effectiveRetailer, editAldiProduct, editCompetitorProduct, extractedDetails, processedThumbnail, photoFiles, country, onSaved, onClose]);
+
+  const useExistingProduct = useCallback(() => {
+    if (!duplicateInfo?.product_id || !duplicateInfo.name) return;
+    const productType = duplicateInfo.table === "products" ? "aldi" as const : "competitor" as const;
+    onSaved(duplicateInfo.product_id, productType, duplicateInfo.name);
+    onClose();
+  }, [duplicateInfo, onSaved, onClose]);
+
+  const dismissDuplicate = useCallback(() => {
+    setDuplicateInfo(null);
+  }, []);
 
   return {
     values, setField, setValues,
@@ -374,6 +389,7 @@ export function useProductCaptureForm(config: ProductCaptureConfig) {
     fileInputRef,
     retailers, demandGroups, filteredSubGroups,
     isEditMode, canSubmit, locked,
+    duplicateInfo, useExistingProduct, dismissDuplicate,
     handlePhotosSelected, removePhoto, handleSubmit,
     handleDeleteExistingPhoto, handleSetAsThumbnail,
   };

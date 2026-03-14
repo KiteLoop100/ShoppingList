@@ -19,6 +19,8 @@ export interface BarcodeScannerModalProps {
   onOpenFoodFactsResult?: (data: { name?: string; brand?: string; ean: string }) => void;
   /** When set (inventory context), this callback is used instead of onProductAdded. */
   onProductConsumed?: (product: Product) => void;
+  /** Called when user chooses to create a new product from a not-found barcode. */
+  onCreateProduct?: (ean: string, offData?: { name?: string; brand?: string }) => void;
 }
 
 type LookupPhase = "idle" | "looking-up" | "found" | "not-found" | "error";
@@ -31,6 +33,7 @@ export function BarcodeScannerModal({
   onCompetitorProductFound,
   onOpenFoodFactsResult,
   onProductConsumed,
+  onCreateProduct,
 }: BarcodeScannerModalProps) {
   const t = useTranslations("search");
   const { products } = useProducts();
@@ -39,6 +42,7 @@ export function BarcodeScannerModal({
   const [lookupPhase, setLookupPhase] = useState<LookupPhase>("idle");
   const [detectedEan, setDetectedEan] = useState<string | null>(null);
   const [lookupError, setLookupError] = useState<string | null>(null);
+  const [offData, setOffData] = useState<{ name?: string; brand?: string } | null>(null);
 
   const processingRef = useRef(false);
   const mountedRef = useRef(true);
@@ -80,26 +84,34 @@ export function BarcodeScannerModal({
           return;
         }
 
-        const offData = await fetchOpenFoodFacts(ean);
+        const offResult = await fetchOpenFoodFacts(ean);
         if (!mountedRef.current) return;
-        if (offData && (offData.name || offData.brand) && onOpenFoodFactsResult) {
+        const hasOffData = offResult && (offResult.name || offResult.brand);
+
+        if (hasOffData && onOpenFoodFactsResult && !onCreateProduct) {
           setLookupPhase("found");
-          onOpenFoodFactsResult({ name: offData.name, brand: offData.brand, ean });
+          onOpenFoodFactsResult({ name: offResult.name, brand: offResult.brand, ean });
           setTimeout(() => {
             if (mountedRef.current) onClose();
           }, 500);
           return;
         }
 
+        if (hasOffData) {
+          setOffData({ name: offResult.name, brand: offResult.brand });
+        }
+
         setLookupPhase("not-found");
-        onProductNotFound(ean);
+        if (!onCreateProduct) {
+          onProductNotFound(ean);
+        }
       } catch (e) {
         if (!mountedRef.current) return;
         setLookupPhase("error");
         setLookupError(e instanceof Error ? e.message : t("addError"));
       }
     },
-    [products, competitorProducts, onProductAdded, onProductNotFound, onCompetitorProductFound, onOpenFoodFactsResult, onProductConsumed, onClose, t],
+    [products, competitorProducts, onProductAdded, onProductNotFound, onCompetitorProductFound, onOpenFoodFactsResult, onProductConsumed, onCreateProduct, onClose, t],
   );
 
   const {
@@ -121,6 +133,7 @@ export function BarcodeScannerModal({
       setLookupPhase("idle");
       setDetectedEan(null);
       setLookupError(null);
+      setOffData(null);
       void start();
     } else {
       stop();
@@ -135,6 +148,7 @@ export function BarcodeScannerModal({
     setLookupPhase("idle");
     setDetectedEan(null);
     setLookupError(null);
+    setOffData(null);
     restart();
   }, [restart]);
 
@@ -216,9 +230,21 @@ export function BarcodeScannerModal({
             <p className="mb-3 rounded-lg bg-aldi-muted-light/60 px-3 py-2 text-center text-sm font-medium text-aldi-text">
               {t("productNotFoundInDb")}
             </p>
+            {onCreateProduct && detectedEan && (
+              <button
+                type="button"
+                className="mb-2 w-full rounded-xl bg-aldi-blue px-4 py-3 font-medium text-white transition-opacity hover:opacity-90"
+                onClick={() => {
+                  onCreateProduct(detectedEan, offData ?? undefined);
+                  onClose();
+                }}
+              >
+                {t("createProduct")}
+              </button>
+            )}
             <button
               type="button"
-              className="w-full rounded-xl bg-aldi-blue px-4 py-3 font-medium text-white transition-opacity hover:opacity-90"
+              className={`w-full rounded-xl px-4 py-3 font-medium transition-opacity hover:opacity-90 ${onCreateProduct ? "border border-aldi-blue text-aldi-blue" : "bg-aldi-blue text-white"}`}
               onClick={handleRestart}
             >
               {t("barcodeScanAgain")}

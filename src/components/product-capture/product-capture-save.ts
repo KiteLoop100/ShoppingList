@@ -3,6 +3,10 @@
  * Routes to the correct backend depending on retailer:
  *   - ALDI → /api/products/create-manual (products table)
  *   - Other → competitor-product-service (competitor_products table)
+ *
+ * Runs a pre-save duplicate check (EAN / article_number) that throws
+ * DuplicateProductError when the same product already exists for the
+ * same retailer context. Different-retailer matches are allowed.
  */
 
 import {
@@ -14,10 +18,14 @@ import { categorizeCompetitorProduct } from "@/lib/competitor-products/categoriz
 import { uploadCompetitorPhoto } from "@/lib/competitor-products/upload-competitor-photo";
 import { addProductPhoto } from "@/lib/product-photos/product-photo-service";
 import { isHomeRetailer } from "@/lib/retailers/retailers";
+import { assertNoDuplicate, DuplicateProductError } from "@/lib/products/duplicate-check";
 import { log } from "@/lib/utils/logger";
 import type { Product, CompetitorProduct } from "@/types";
 import type { ExtractedProductInfo } from "@/lib/product-photo-studio/types";
 import type { ProductCaptureValues } from "./hooks/use-product-capture-form";
+
+export { DuplicateProductError } from "@/lib/products/duplicate-check";
+export type { DuplicateCheckResult } from "@/lib/products/duplicate-check";
 
 export interface SaveResult {
   productId: string;
@@ -206,6 +214,15 @@ export async function saveProduct(opts: {
 }): Promise<SaveResult> {
   const retailer = opts.values.retailer;
   const isAldi = isHomeRetailer(retailer || "");
+  const isEdit = !!(opts.editAldiProduct || opts.editCompetitorProduct);
+
+  if (!isEdit) {
+    await assertNoDuplicate({
+      ean_barcode: opts.values.ean.trim() || null,
+      article_number: opts.values.articleNumber.trim() || null,
+      targetRetailer: retailer || "ALDI",
+    });
+  }
 
   if (isAldi || opts.editAldiProduct) {
     const productId = await saveAldiProduct(

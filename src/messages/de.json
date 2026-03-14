@@ -57,6 +57,7 @@
     "hideKeyboard": "Tastatur einklappen",
     "close": "Schließen",
     "productNotFoundInDb": "Produkt nicht in der Datenbank.",
+    "createProduct": "Produkt anlegen",
     "barcodeScanAgain": "Erneut scannen",
     "barcodeProductAdded": "Produkt hinzugefügt.",
     "barcodeDetected": "Barcode erkannt",
@@ -459,6 +460,10 @@
     "update": "Aktualisieren",
     "updating": "Aktualisieren…",
     "createProduct": "Produkt anlegen",
+    "duplicateFound": "Ein Produkt mit dieser Kennung existiert bereits: \"{name}\".",
+    "duplicateHint": "Möchtest du das vorhandene Produkt verwenden oder deine Eingabe korrigieren?",
+    "useExisting": "Vorhandenes verwenden",
+    "dismissDuplicate": "Korrigieren",
     "aliases": "Aliase (alternative Bezeichnungen)",
     "aliasPlaceholder": "Alias eingeben…"
   },
@@ -874,6 +879,8 @@
     "searchInventoryHint": "Tippe den Produktnamen ein, um im Vorrat zu suchen.",
     "searchNoResults": "Kein Produkt im Vorrat gefunden.",
     "notInInventory": "Produkt nicht im Vorrat.",
-    "moreActions": "Weitere Aktionen"
+    "moreActions": "Weitere Aktionen",
+    "productNotInDb": "Produkt wurde nicht in der Datenbank gefunden.",
+    "createProduct": "Produkt anlegen"
   }
 }

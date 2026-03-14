@@ -31,3 +31,4 @@ flyers/**/.processed.json
 .sentryclirc
 
 certificates
+certs/
