@@ -151,6 +151,16 @@ export function useCartScanner(deps: UseCartScannerDeps) {
     [allItems, products, competitorProducts, handleScanResult]
   );
 
+  const onCartCompetitorScanned = useCallback(
+    async (competitor: CompetitorProduct) => {
+      const ean = competitor.ean_barcode ?? "";
+      const result = await handleCartScan(ean, allItems, products, competitorProducts);
+      await handleScanResult(result);
+      setScannerOpen(false);
+    },
+    [allItems, products, competitorProducts, handleScanResult]
+  );
+
   const onCartScanDetected = useCallback(
     async (ean: string) => {
       const result = await handleCartScan(ean, allItems, products, competitorProducts);
@@ -209,6 +219,7 @@ export function useCartScanner(deps: UseCartScannerDeps) {
     toast,
     pricePrompt,
     onCartProductScanned,
+    onCartCompetitorScanned,
     onCartScanDetected,
     onScanNotFound,
     onScanCreateProduct,

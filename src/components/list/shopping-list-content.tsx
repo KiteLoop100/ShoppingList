@@ -284,6 +284,7 @@ export const ShoppingListContent = memo(function ShoppingListContent({
         open={cartScanner.scannerOpen}
         onClose={() => cartScanner.setScannerOpen(false)}
         onProductAdded={cartScanner.onCartProductScanned}
+        onCompetitorProductAdded={cartScanner.onCartCompetitorScanned}
         onProductNotFound={cartScanner.onScanNotFound}
         onCreateProduct={cartScanner.onScanCreateProduct}
       />

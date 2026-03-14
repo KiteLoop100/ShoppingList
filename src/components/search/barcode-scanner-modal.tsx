@@ -16,6 +16,8 @@ export interface BarcodeScannerModalProps {
   onProductAdded: (product: Product) => void;
   onProductNotFound: (ean: string) => void;
   onCompetitorProductFound?: (product: CompetitorProduct, ean: string) => void;
+  /** Lightweight fallback when onCompetitorProductFound is not provided. */
+  onCompetitorProductAdded?: (product: CompetitorProduct) => void;
   onOpenFoodFactsResult?: (data: { name?: string; brand?: string; ean: string }) => void;
   /** When set (inventory context), this callback is used instead of onProductAdded. */
   onProductConsumed?: (product: Product) => void;
@@ -31,6 +33,7 @@ export function BarcodeScannerModal({
   onProductAdded,
   onProductNotFound,
   onCompetitorProductFound,
+  onCompetitorProductAdded,
   onOpenFoodFactsResult,
   onProductConsumed,
   onCreateProduct,
@@ -80,9 +83,14 @@ export function BarcodeScannerModal({
           return;
         }
 
-        if (competitor && onCompetitorProductFound) {
+        if (competitor) {
+          if (onCompetitorProductFound) {
+            onCompetitorProductFound(competitor, ean);
+          } else if (onCompetitorProductAdded) {
+            await Promise.resolve(onCompetitorProductAdded(competitor));
+          }
+          if (!mountedRef.current) return;
           setLookupPhase("found");
-          onCompetitorProductFound(competitor, ean);
           setTimeout(() => { if (mountedRef.current) onClose(); }, 500);
           return;
         }
@@ -110,7 +118,7 @@ export function BarcodeScannerModal({
         setLookupError(e instanceof Error ? e.message : t("addError"));
       }
     },
-    [products, competitorProducts, onProductAdded, onProductNotFound, onCompetitorProductFound, onOpenFoodFactsResult, onProductConsumed, onCreateProduct, onClose, t],
+    [products, competitorProducts, onProductAdded, onProductNotFound, onCompetitorProductFound, onCompetitorProductAdded, onOpenFoodFactsResult, onProductConsumed, onCreateProduct, onClose, t],
   );
 
   const {

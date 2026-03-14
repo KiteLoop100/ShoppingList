@@ -210,6 +210,82 @@ describe("useAddToList", () => {
     });
   });
 
+  describe("addFromBarcodeCompetitor", () => {
+    test("adds competitor product from barcode scan with existing demand_group_code", async () => {
+      const onAdded = vi.fn();
+      const hook = useCreateHook({ onAdded });
+
+      await hook.addFromBarcodeCompetitor({
+        product_id: "comp-99",
+        name: "Espresto Furioso",
+        name_normalized: "espresto furioso",
+        brand: "K-Fee",
+        ean_barcode: "4053528000874",
+        demand_group_code: "HG",
+        country: "DE",
+        status: "active",
+      });
+
+      expect(mockAddListItem).toHaveBeenCalledWith(
+        expect.objectContaining({
+          list_id: "list-1",
+          product_id: null,
+          custom_name: "Espresto Furioso",
+          display_name: "Espresto Furioso",
+          demand_group_code: "HG",
+          quantity: 1,
+          competitor_product_id: "comp-99",
+        }),
+      );
+      expect(mockAssignDemandGroup).not.toHaveBeenCalled();
+      expect(onAdded).toHaveBeenCalled();
+    });
+
+    test("assigns demand group when competitor has no demand_group_code", async () => {
+      const onAdded = vi.fn();
+      const hook = useCreateHook({ onAdded });
+
+      await hook.addFromBarcodeCompetitor({
+        product_id: "comp-100",
+        name: "Some Product",
+        name_normalized: "some product",
+        brand: null,
+        ean_barcode: "1234567890123",
+        demand_group_code: null,
+        country: "DE",
+        status: "active",
+      });
+
+      expect(mockAssignDemandGroup).toHaveBeenCalledWith("Some Product");
+      expect(mockAddListItem).toHaveBeenCalledWith(
+        expect.objectContaining({
+          demand_group_code: "01",
+          competitor_product_id: "comp-100",
+        }),
+      );
+      expect(onAdded).toHaveBeenCalled();
+    });
+
+    test("handles error gracefully", async () => {
+      mockAddListItem.mockRejectedValue(new Error("DB error"));
+      const onAdded = vi.fn();
+      const hook = useCreateHook({ onAdded });
+
+      await hook.addFromBarcodeCompetitor({
+        product_id: "comp-1",
+        name: "Fail Product",
+        name_normalized: "fail product",
+        brand: null,
+        ean_barcode: null,
+        demand_group_code: "AK",
+        country: "DE",
+        status: "active",
+      });
+
+      expect(onAdded).not.toHaveBeenCalled();
+    });
+  });
+
   describe("confirmBatchAdd", () => {
     test("adds multiple products in batch", async () => {
       const products = [

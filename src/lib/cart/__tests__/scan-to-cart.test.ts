@@ -207,6 +207,55 @@ describe("handleCartScan", () => {
   });
 });
 
+describe("handleCartScan — competitor products", () => {
+  function makeCompetitorProduct(overrides: Partial<CompetitorProduct> = {}): CompetitorProduct {
+    return {
+      product_id: "comp-1",
+      name: "Espresto Furioso",
+      name_normalized: "espresto furioso",
+      brand: "K-Fee",
+      ean_barcode: "4053528000874",
+      demand_group_code: "HG",
+      country: "DE",
+      status: "active",
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      ...overrides,
+    } as CompetitorProduct;
+  }
+
+  test("returns extra_added when competitor product found but not on list", async () => {
+    const comp = makeCompetitorProduct();
+    const { findCompetitorProductByEan } = await import("@/lib/competitor-products/competitor-product-service");
+    vi.mocked(findCompetitorProductByEan).mockResolvedValueOnce(comp);
+
+    const result = await handleCartScan("4053528000874", [], [], [comp]);
+    expect(result.type).toBe("extra_added");
+    expect(result.competitorProduct?.product_id).toBe("comp-1");
+    expect(result.productName).toBe("Espresto Furioso");
+  });
+
+  test("returns checked_off when competitor EAN matches a list item via product EAN", async () => {
+    const comp = makeCompetitorProduct();
+    const { findCompetitorProductByEan } = await import("@/lib/competitor-products/competitor-product-service");
+    vi.mocked(findCompetitorProductByEan).mockResolvedValueOnce(comp);
+
+    const aldiProd = makeProduct({ product_id: "prod-x", ean_barcode: "4053528000874" });
+    const items = [makeListItem({ product_id: "prod-x", is_checked: false })];
+
+    const result = await handleCartScan("4053528000874", items, [aldiProd], [comp]);
+    expect(result.type).toBe("checked_off");
+  });
+
+  test("returns product_not_found when neither ALDI nor competitor match", async () => {
+    const { findCompetitorProductByEan } = await import("@/lib/competitor-products/competitor-product-service");
+    vi.mocked(findCompetitorProductByEan).mockResolvedValueOnce(null);
+
+    const result = await handleCartScan("9999999999999", [], [], []);
+    expect(result.type).toBe("product_not_found");
+  });
+});
+
 describe("matchProductToListItems", () => {
   test("finds both unchecked and checked items for the same product", () => {
     const items = [

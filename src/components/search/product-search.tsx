@@ -62,7 +62,7 @@ export function ProductSearch({
 
   const {
     adding, errorMsg, justAdded, clearError, setError,
-    addGeneric, addSpecific, addCompetitorProduct, addFromBarcode, confirmBatchAdd,
+    addGeneric, addSpecific, addCompetitorProduct, addFromBarcode, addFromBarcodeCompetitor, confirmBatchAdd,
   } = useAddToList({
     query, country, retailerPrefix, products, onAdded,
     resetSearch, focusInput,
@@ -272,6 +272,7 @@ export function ProductSearch({
       <BarcodeScannerModal
         open={barcodeScannerOpen} onClose={() => setBarcodeScannerOpen(false)}
         onProductAdded={addFromBarcode}
+        onCompetitorProductAdded={addFromBarcodeCompetitor}
         onProductNotFound={() => { setError(t("barcodeNotFound")); }}
       />
     </div>

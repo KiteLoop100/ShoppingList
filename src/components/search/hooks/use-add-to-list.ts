@@ -5,7 +5,7 @@ import { log } from "@/lib/utils/logger";
 import { getOrCreateActiveList, addListItem, addListItemsBatch } from "@/lib/list";
 import { assignDemandGroup, CategoryAssignmentError } from "@/lib/category/assign-category";
 import { detectRetailerPrefix, type RetailerPrefixResult } from "@/lib/search";
-import type { Product, SearchResult } from "@/types";
+import type { Product, CompetitorProduct, SearchResult } from "@/types";
 import type { RetailerProductResult } from "@/lib/competitor-products/competitor-product-service";
 
 const FLASH_DURATION_MS = 400;
@@ -154,6 +154,32 @@ export function useAddToList(opts: UseAddToListOptions) {
     },
     [flashAdded, t],
   );
+  const addFromBarcodeCompetitor = useCallback(
+    async (competitor: CompetitorProduct) => {
+      setErrorMsg(null);
+      try {
+        const list = await getOrCreateActiveList();
+        const demandGroupCode =
+          competitor.demand_group_code ??
+          (await assignDemandGroup(competitor.name)).demand_group_code;
+        await addListItem({
+          list_id: list.list_id,
+          product_id: null,
+          custom_name: competitor.name,
+          display_name: competitor.name,
+          demand_group_code: demandGroupCode,
+          quantity: 1,
+          competitor_product_id: competitor.product_id,
+        });
+      } catch (e) {
+        log.error("[addFromBarcodeCompetitor] failed:", e);
+        setErrorMsg(t("unexpectedError", { message: errorMessage(e) }));
+        return;
+      }
+      flashAdded();
+    },
+    [flashAdded, t],
+  );
   /** Returns `true` on success, `false` on error. */
   const confirmBatchAdd = useCallback(
     async (selectedItems: { product_id: string; quantity: number }[]): Promise<boolean> => {
@@ -194,6 +220,6 @@ export function useAddToList(opts: UseAddToListOptions) {
   return {
     adding, errorMsg, justAdded, clearError,
     setError: setErrorMsg,
-    addGeneric, addSpecific, addCompetitorProduct, addFromBarcode, confirmBatchAdd,
+    addGeneric, addSpecific, addCompetitorProduct, addFromBarcode, addFromBarcodeCompetitor, confirmBatchAdd,
   };
 }
