@@ -1,30 +1,15 @@
 "use client";
 
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
-import { createClientIfConfigured } from "@/lib/supabase/client";
 import { db } from "@/lib/db";
 import { fetchDemandGroupsFromSupabase, fetchDemandSubGroupsFromSupabase } from "@/lib/categories/category-service";
-import { getCurrentUserId } from "@/lib/auth/auth-context";
 import { generateId } from "@/lib/utils/generate-id";
+import { compressImage } from "@/lib/utils/image-utils";
+import { log } from "@/lib/utils/logger";
+import type { SlotPhoto, PhotoSlotPurpose } from "@/components/guided-photo-slots";
+import type { ProcessedGalleryPhotoClient } from "@/components/product-capture/hooks/use-product-capture-form";
 
-const BUCKET = "product-photos";
-
-export type DataPhotoStatus = "uploading" | "processing" | "done" | "error";
-
-export interface DataPhotoItem {
-  id: string;
-  status: DataPhotoStatus;
-  fieldsRecognized?: number;
-  error?: string;
-  uploadId?: string;
-}
-
-export interface ExtraBlobItem {
-  id: string;
-  blob: Blob;
-  url: string;
-  uploadId?: string;
-}
+const MAX_TOTAL_BASE64_BYTES = 15_000_000;
 
 export interface ProductFormFields {
   name: string;
@@ -59,43 +44,38 @@ export function useProductCreation(options: {
   const [allergens, setAllergens] = useState("");
   const [assortmentType, setAssortmentType] = useState<"daily_range" | "special_food" | "special_nonfood">("daily_range");
 
-  const [thumbnailBlob, setThumbnailBlob] = useState<Blob | null>(null);
-  const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
-  const [thumbnailExtractionUploadId, setThumbnailExtractionUploadId] = useState<string | null>(null);
-  const [extraBlobs, setExtraBlobs] = useState<ExtraBlobItem[]>([]);
-  const [dataPhotos, setDataPhotos] = useState<DataPhotoItem[]>([]);
+  const [frontPhoto, setFrontPhoto] = useState<SlotPhoto | null>(null);
+  const [priceTagPhoto, setPriceTagPhoto] = useState<SlotPhoto | null>(null);
+  const [extraPhotos, setExtraPhotos] = useState<SlotPhoto[]>([]);
+  const [processedThumbnail, setProcessedThumbnail] = useState<string | null>(null);
+  const [thumbnailType, setThumbnailType] = useState<"background_removed" | "soft_fallback" | null>(null);
+  const [processedGalleryPhotos, setProcessedGalleryPhotos] = useState<ProcessedGalleryPhotoClient[]>([]);
+  const [analyzing, setAnalyzing] = useState(false);
 
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [duplicateProductId, setDuplicateProductId] = useState<string | null>(null);
 
-  const fileInputThumb = useRef<HTMLInputElement>(null) as React.RefObject<HTMLInputElement>;
-  const fileInputExtra = useRef<HTMLInputElement>(null) as React.RefObject<HTMLInputElement>;
-  const fileInputData = useRef<HTMLInputElement>(null) as React.RefObject<HTMLInputElement>;
+  const fileInputFrontRef = useRef<HTMLInputElement>(null) as React.RefObject<HTMLInputElement>;
+  const fileInputPriceRef = useRef<HTMLInputElement>(null) as React.RefObject<HTMLInputElement>;
+  const fileInputExtraRef = useRef<HTMLInputElement>(null) as React.RefObject<HTMLInputElement>;
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const resetForm = useCallback(() => {
-    setName("");
-    setBrand("");
-    setPrice("");
-    setEan("");
-    setArticleNumber("");
-    setWeightOrQuantity("");
-    setDemandGroup("");
-    setDemandSubGroup("");
-    setIngredients("");
-    setAllergens("");
+    setName(""); setBrand(""); setPrice(""); setEan("");
+    setArticleNumber(""); setWeightOrQuantity("");
+    setDemandGroup(""); setDemandSubGroup("");
+    setIngredients(""); setAllergens("");
     setAssortmentType("daily_range");
-    if (thumbnailPreview) URL.revokeObjectURL(thumbnailPreview);
-    setThumbnailBlob(null);
-    setThumbnailPreview(null);
-    setThumbnailExtractionUploadId(null);
-    extraBlobs.forEach((e) => URL.revokeObjectURL(e.url));
-    setExtraBlobs([]);
-    setDataPhotos([]);
-    setSaving(false);
-    setSaveError(null);
-    setDuplicateProductId(null);
-  }, [thumbnailPreview, extraBlobs]);
+    if (frontPhoto) URL.revokeObjectURL(frontPhoto.previewUrl);
+    if (priceTagPhoto) URL.revokeObjectURL(priceTagPhoto.previewUrl);
+    extraPhotos.forEach((sp) => URL.revokeObjectURL(sp.previewUrl));
+    setFrontPhoto(null); setPriceTagPhoto(null); setExtraPhotos([]);
+    setProcessedThumbnail(null); setThumbnailType(null);
+    setProcessedGalleryPhotos([]);
+    setAnalyzing(false);
+    setSaving(false); setSaveError(null); setDuplicateProductId(null);
+  }, [frontPhoto, priceTagPhoto, extraPhotos]);
 
   useEffect(() => {
     if (open) resetForm();
@@ -103,7 +83,6 @@ export function useProductCreation(options: {
 
   interface DgOption { code: string; name: string }
   interface SgOption { code: string; name: string; demand_group_code: string }
-
   const [demandGroupOptions, setDemandGroupOptions] = useState<DgOption[]>([]);
   const [allSubGroups, setAllSubGroups] = useState<SgOption[]>([]);
 
@@ -125,7 +104,6 @@ export function useProductCreation(options: {
         }
       }
       setDemandGroupOptions(groups);
-
       const subs: SgOption[] = (idbSubs ?? []).map((s: { code: string; name: string; demand_group_code: string }) => ({
         code: s.code, name: s.name, demand_group_code: s.demand_group_code,
       }));
@@ -141,9 +119,7 @@ export function useProductCreation(options: {
   }, []);
 
   const subGroupOptions = useMemo(
-    () => demandGroup
-      ? allSubGroups.filter((sg) => sg.demand_group_code === demandGroup)
-      : [],
+    () => demandGroup ? allSubGroups.filter((sg) => sg.demand_group_code === demandGroup) : [],
     [demandGroup, allSubGroups],
   );
 
@@ -155,239 +131,159 @@ export function useProductCreation(options: {
 
   useEffect(() => {
     return () => {
-      if (thumbnailPreview) URL.revokeObjectURL(thumbnailPreview);
-      extraBlobs.forEach((e) => URL.revokeObjectURL(e.url));
+      if (frontPhoto) URL.revokeObjectURL(frontPhoto.previewUrl);
+      if (priceTagPhoto) URL.revokeObjectURL(priceTagPhoto.previewUrl);
+      extraPhotos.forEach((sp) => URL.revokeObjectURL(sp.previewUrl));
     };
-  }, [thumbnailPreview, extraBlobs]);
+  }, [frontPhoto, priceTagPhoto, extraPhotos]);
 
   const mergeExtracted = useCallback(
     (data: Record<string, unknown>) => {
-      const set = (key: keyof typeof data, value: unknown) => {
+      const trySet = (key: string, value: unknown) => {
         if (value == null || value === "") return;
         const str = typeof value === "number" ? String(value) : String(value).trim();
         if (!str) return;
         switch (key) {
-          case "name":
-            if (!name.trim()) setName(str);
-            break;
-          case "brand":
-            if (!brand.trim()) setBrand(str);
-            break;
-          case "price":
-            if (!price.trim() && typeof value === "number") setPrice(String(value));
-            break;
-          case "ean_barcode":
-            if (!ean.trim()) setEan(str);
-            break;
-          case "article_number":
-            if (!articleNumber.trim()) setArticleNumber(str);
-            break;
-          case "weight_or_quantity":
-            if (!weightOrQuantity.trim()) setWeightOrQuantity(str);
-            break;
-          case "demand_group_code":
-            if (!demandGroup.trim()) setDemandGroup(str);
-            break;
-          case "demand_sub_group":
-            if (!demandSubGroup.trim()) setDemandSubGroup(str);
-            break;
-          case "ingredients":
-            if (!ingredients.trim()) setIngredients(str);
-            break;
-          case "allergens":
-            if (!allergens.trim()) setAllergens(str);
-            break;
-          default:
-            break;
+          case "name": if (!name.trim()) setName(str); break;
+          case "brand": if (!brand.trim()) setBrand(str); break;
+          case "price": if (!price.trim() && typeof value === "number") setPrice(String(value)); break;
+          case "ean_barcode": if (!ean.trim()) setEan(str); break;
+          case "article_number": if (!articleNumber.trim()) setArticleNumber(str); break;
+          case "weight_or_quantity": if (!weightOrQuantity.trim()) setWeightOrQuantity(str); break;
+          case "demand_group_code": if (!demandGroup.trim()) setDemandGroup(str); break;
+          case "demand_sub_group": if (!demandSubGroup.trim()) setDemandSubGroup(str); break;
+          case "ingredients": if (!ingredients.trim()) setIngredients(str); break;
+          case "allergens": if (!allergens.trim()) setAllergens(str); break;
+          default: break;
         }
       };
-      Object.entries(data).forEach(([k, v]) => set(k as keyof typeof data, v));
+      Object.entries(data).forEach(([k, v]) => trySet(k, v));
     },
-    [name, brand, price, ean, articleNumber, weightOrQuantity, demandGroup, demandSubGroup, ingredients, allergens]
+    [name, brand, price, ean, articleNumber, weightOrQuantity, demandGroup, demandSubGroup, ingredients, allergens],
   );
 
-  const runExtractionForBlob = useCallback(
-    async (blob: Blob): Promise<string | null> => {
-      const uploadId = generateId();
-      const supabase = createClientIfConfigured();
-      if (!supabase) return null;
+  const analyzeAllPhotos = useCallback(async () => {
+    const allSlotPhotos: { file: File; purpose: PhotoSlotPurpose }[] = [];
+    if (frontPhoto) allSlotPhotos.push({ file: frontPhoto.file, purpose: "front" });
+    if (priceTagPhoto) allSlotPhotos.push({ file: priceTagPhoto.file, purpose: "price_tag" });
+    for (const sp of extraPhotos) allSlotPhotos.push({ file: sp.file, purpose: "extra" });
 
-      const ext = blob.type === "image/png" ? "png" : "jpg";
-      const path = `${getCurrentUserId()}/manual/data_${uploadId}.${ext}`;
-      const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, blob, {
-        contentType: blob.type,
-        upsert: false,
-      });
-      if (upErr) return null;
+    if (allSlotPhotos.length === 0) return;
 
-      const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(path);
-      const photoUrl = urlData.publicUrl;
+    abortControllerRef.current?.abort();
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
 
-      await supabase.from("photo_uploads").insert({
-        upload_id: uploadId,
-        user_id: getCurrentUserId(),
-        photo_url: photoUrl,
-        photo_type: "data_extraction",
-        status: "processing",
-        products_created: 0,
-        products_updated: 0,
-      });
+    setAnalyzing(true);
+    setSaveError(null);
 
-      try {
-        const res = await fetch("/api/process-photo", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ upload_id: uploadId, photo_url: photoUrl, data_extraction: true }),
-        });
-        const json = await res.json();
-        if (!res.ok) return uploadId;
-        const extracted = json.extracted_data as Record<string, unknown> | undefined;
-        if (extracted) mergeExtracted(extracted);
-        return uploadId;
-      } catch {
-        return uploadId;
-      }
-    },
-    [mergeExtracted]
-  );
+    try {
+      const images = await Promise.all(
+        allSlotPhotos.map(async ({ file }) => {
+          const { base64, mediaType } = await compressImage(file);
+          return { image_base64: base64, media_type: mediaType };
+        }),
+      );
 
-  const addDataPhoto = useCallback(
-    async (blob: Blob) => {
-      const id = generateId();
-      const uploadId = generateId();
-      setDataPhotos((prev) => [...prev, { id, status: "uploading", uploadId }]);
-
-      const supabase = createClientIfConfigured();
-      if (!supabase) {
-        setDataPhotos((p) => p.map((x) => (x.id === id ? { ...x, status: "error" as const, error: "Supabase nicht konfiguriert" } : x)));
-        return;
+      const totalBytes = images.reduce((sum, img) => sum + img.image_base64.length, 0);
+      if (totalBytes > MAX_TOTAL_BASE64_BYTES) {
+        throw new Error(`Bilder sind zu groß (${(totalBytes / 1_000_000).toFixed(1)} MB). Bitte weniger oder kleinere Fotos verwenden.`);
       }
 
-      const ext = blob.type === "image/png" ? "png" : "jpg";
-      const path = `${getCurrentUserId()}/manual/data_${uploadId}.${ext}`;
-      const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, blob, {
-        contentType: blob.type,
-        upsert: false,
+      const res = await fetch("/api/analyze-product-photos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ images }),
+        signal: controller.signal,
       });
-      if (upErr) {
-        setDataPhotos((p) => p.map((x) => (x.id === id ? { ...x, status: "error" as const, error: upErr.message } : x)));
-        return;
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error ?? `HTTP ${res.status}`);
       }
-      const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(path);
-      const photoUrl = urlData.publicUrl;
+      const data = await res.json();
+      if (controller.signal.aborted) return;
 
-      setDataPhotos((p) => p.map((x) => (x.id === id ? { ...x, status: "processing" as const } : x)));
-
-      const { data: insertErr } = await supabase.from("photo_uploads").insert({
-        upload_id: uploadId,
-        user_id: getCurrentUserId(),
-        photo_url: photoUrl,
-        photo_type: "data_extraction",
-        status: "processing",
-        products_created: 0,
-        products_updated: 0,
-      });
-      if (insertErr) {
-        setDataPhotos((p) => p.map((x) => (x.id === id ? { ...x, status: "error" as const, error: "DB insert failed" } : x)));
-        return;
+      if (data.thumbnail_base64) {
+        const fmt = data.thumbnail_format ?? "image/webp";
+        setProcessedThumbnail(`data:${fmt};base64,${data.thumbnail_base64}`);
+        setThumbnailType(data.thumbnail_type ?? null);
       }
 
-      try {
-        const res = await fetch("/api/process-photo", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ upload_id: uploadId, photo_url: photoUrl, data_extraction: true }),
-        });
-        const json = await res.json();
-        if (!res.ok) {
-          setDataPhotos((p) =>
-            p.map((x) => (x.id === id ? { ...x, status: "error" as const, error: json.error ?? "API error" } : x))
-          );
-          return;
-        }
-        const extracted = json.extracted_data as Record<string, unknown> | undefined;
-        let count = 0;
-        if (extracted) {
-          count = Object.values(extracted).filter((v) => v != null && v !== "").length;
-          mergeExtracted(extracted);
-        }
-        setDataPhotos((p) =>
-          p.map((x) => (x.id === id ? { ...x, status: "done" as const, fieldsRecognized: count } : x))
+      if (Array.isArray(data.gallery_photos) && data.gallery_photos.length > 0) {
+        const gp: ProcessedGalleryPhotoClient[] = data.gallery_photos.map(
+          (p: { image_base64: string; format: string; category: "product" | "price_tag" }) => ({
+            dataUrl: `data:${p.format};base64,${p.image_base64}`,
+            format: p.format,
+            category: p.category,
+          }),
         );
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : "Request failed";
-        setDataPhotos((p) => p.map((x) => (x.id === id ? { ...x, status: "error" as const, error: msg } : x)));
+        setProcessedGalleryPhotos(gp);
       }
-    },
-    [mergeExtracted]
-  );
 
-  const pickThumbnail = useCallback(() => {
-    const input = fileInputThumb.current;
-    if (!input) return;
-    input.accept = "image/*";
-    input.removeAttribute("capture");
-    input.onchange = () => {
-      const file = input.files?.[0];
-      if (!file) return;
-      if (thumbnailPreview) URL.revokeObjectURL(thumbnailPreview);
-      setThumbnailBlob(file);
-      setThumbnailPreview(URL.createObjectURL(file));
-      setThumbnailExtractionUploadId(null);
-      input.value = "";
-      runExtractionForBlob(file).then((id) => id && setThumbnailExtractionUploadId(id));
-    };
-    input.click();
-  }, [thumbnailPreview, runExtractionForBlob]);
+      const extracted = data.extracted_data as Record<string, unknown> | undefined;
+      if (extracted) mergeExtracted(extracted);
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
+      log.error("[useProductCreation] analysis failed:", err);
+      setSaveError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setAnalyzing(false);
+    }
+  }, [frontPhoto, priceTagPhoto, extraPhotos, mergeExtracted]);
 
-  const pickExtra = useCallback(() => {
-    const input = fileInputExtra.current;
-    if (!input) return;
-    input.accept = "image/*";
-    input.multiple = true;
-    input.onchange = () => {
-      const files = input.files;
-      if (!files?.length) return;
-      const newOnes = Array.from(files).map((file) => ({
-        id: generateId(),
-        blob: file,
-        url: URL.createObjectURL(file),
-      }));
-      setExtraBlobs((prev) => [...prev, ...newOnes]);
-      input.value = "";
-      newOnes.forEach((item) => {
-        runExtractionForBlob(item.blob).then((uploadId) => {
-          if (uploadId)
-            setExtraBlobs((prev) =>
-              prev.map((e) => (e.id === item.id ? { ...e, uploadId } : e))
-            );
-        });
-      });
-    };
-    input.click();
-  }, [runExtractionForBlob]);
+  const makeSlotPhoto = useCallback((file: File, purpose: PhotoSlotPurpose): SlotPhoto => ({
+    purpose,
+    file,
+    previewUrl: URL.createObjectURL(file),
+  }), []);
 
-  const removeExtra = useCallback((id: string) => {
-    setExtraBlobs((prev) => {
-      const item = prev.find((e) => e.id === id);
-      if (item) URL.revokeObjectURL(item.url);
-      return prev.filter((e) => e.id !== id);
+  const onFrontSelected = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (frontPhoto) URL.revokeObjectURL(frontPhoto.previewUrl);
+    setProcessedThumbnail(null);
+    setThumbnailType(null);
+    const sp = makeSlotPhoto(file, "front");
+    setFrontPhoto(sp);
+    e.target.value = "";
+  }, [frontPhoto, makeSlotPhoto]);
+
+  const onPriceTagSelected = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (priceTagPhoto) URL.revokeObjectURL(priceTagPhoto.previewUrl);
+    const sp = makeSlotPhoto(file, "price_tag");
+    setPriceTagPhoto(sp);
+    e.target.value = "";
+  }, [priceTagPhoto, makeSlotPhoto]);
+
+  const onExtraSelected = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    if (files.length === 0) return;
+    const newPhotos = files.map((f) => makeSlotPhoto(f, "extra"));
+    setExtraPhotos((prev) => [...prev, ...newPhotos]);
+    e.target.value = "";
+  }, [makeSlotPhoto]);
+
+  const removeFront = useCallback(() => {
+    if (frontPhoto) URL.revokeObjectURL(frontPhoto.previewUrl);
+    setFrontPhoto(null);
+    setProcessedThumbnail(null);
+    setThumbnailType(null);
+    setProcessedGalleryPhotos([]);
+  }, [frontPhoto]);
+
+  const removePriceTag = useCallback(() => {
+    if (priceTagPhoto) URL.revokeObjectURL(priceTagPhoto.previewUrl);
+    setPriceTagPhoto(null);
+  }, [priceTagPhoto]);
+
+  const removeExtra = useCallback((index: number) => {
+    setExtraPhotos((prev) => {
+      if (prev[index]) URL.revokeObjectURL(prev[index].previewUrl);
+      return prev.filter((_, i) => i !== index);
     });
   }, []);
-
-  const pickDataPhoto = useCallback(() => {
-    const input = fileInputData.current;
-    if (!input) return;
-    input.accept = "image/*";
-    input.multiple = true;
-    input.onchange = () => {
-      const files = input.files;
-      if (!files?.length) return;
-      Array.from(files).forEach((file) => addDataPhoto(file));
-      input.value = "";
-    };
-    input.click();
-  }, [addDataPhoto]);
 
   const handleSave = useCallback(async () => {
     if (!name.trim()) {
@@ -398,98 +294,72 @@ export function useProductCreation(options: {
     setDuplicateProductId(null);
     setSaving(true);
 
-    const supabase = createClientIfConfigured();
-    if (!supabase) {
-      setSaveError("Supabase nicht konfiguriert.");
-      setSaving(false);
-      return;
-    }
+    try {
+      const body: Record<string, unknown> = {
+        name: name.trim(),
+        brand: brand.trim() || null,
+        price: price.trim() ? Number(price) : null,
+        ean_barcode: ean.trim() || null,
+        article_number: articleNumber.trim() || null,
+        weight_or_quantity: weightOrQuantity.trim() || null,
+        demand_group_code: demandGroup.trim() || null,
+        demand_sub_group: demandSubGroup.trim() || null,
+        ingredients: ingredients.trim() || null,
+        allergens: allergens.trim() || null,
+        assortment_type: assortmentType,
+        thumbnail_base64: processedThumbnail?.startsWith("data:")
+          ? processedThumbnail.split(",")[1] ?? null : null,
+        thumbnail_format: processedThumbnail?.startsWith("data:")
+          ? (processedThumbnail.match(/data:(image\/[^;]+);/)?.[1] ?? "image/jpeg") : null,
+      };
+      if (duplicateProductId) body.update_existing_product_id = duplicateProductId;
 
-    let thumbnailUrl: string | null = null;
-    if (thumbnailBlob) {
-      const tid = generateId();
-      const path = `${getCurrentUserId()}/manual/thumb_${tid}.jpg`;
-      const { error: te } = await supabase.storage.from(BUCKET).upload(path, thumbnailBlob, {
-        contentType: "image/jpeg",
-        upsert: false,
-      });
-      if (!te) {
-        const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(path);
-        thumbnailUrl = urlData.publicUrl;
+      if (processedGalleryPhotos.length > 0) {
+        body.gallery_photos = processedGalleryPhotos.map((gp) => ({
+          image_base64: gp.dataUrl.split(",")[1] ?? "",
+          format: gp.format,
+          category: gp.category,
+        }));
       }
-    }
 
-    const extraUrls: string[] = [];
-    for (const item of extraBlobs) {
-      const path = `${getCurrentUserId()}/manual/extra_${item.id}.jpg`;
-      const { error: ee } = await supabase.storage.from(BUCKET).upload(path, item.blob, {
-        contentType: item.blob.type || "image/jpeg",
-        upsert: false,
+      const res = await fetch("/api/products/create-manual", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
       });
-      if (!ee) {
-        const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(path);
-        extraUrls.push(urlData.publicUrl);
+      const json = await res.json();
+
+      if (res.ok && json.duplicate && json.existing_product_id && !duplicateProductId) {
+        setDuplicateProductId(json.existing_product_id);
+        setSaving(false);
+        return;
       }
-    }
+      if (!res.ok) {
+        setSaveError(json.error ?? "Speichern fehlgeschlagen");
+        setSaving(false);
+        return;
+      }
 
-    const dataUploadIds = [
-      ...(thumbnailExtractionUploadId ? [thumbnailExtractionUploadId] : []),
-      ...extraBlobs.map((e) => e.uploadId).filter(Boolean) as string[],
-      ...dataPhotos
-        .filter((d) => d.status === "done" && d.uploadId)
-        .map((d) => d.uploadId as string),
-    ];
-
-    const body: Record<string, unknown> = {
-      name: name.trim(),
-      brand: brand.trim() || null,
-      price: price.trim() ? Number(price) : null,
-      ean_barcode: ean.trim() || null,
-      article_number: articleNumber.trim() || null,
-      weight_or_quantity: weightOrQuantity.trim() || null,
-      demand_group_code: demandGroup.trim() || null,
-      demand_sub_group: demandSubGroup.trim() || null,
-      ingredients: ingredients.trim() || null,
-      allergens: allergens.trim() || null,
-      assortment_type: assortmentType,
-      thumbnail_url: thumbnailUrl,
-      extra_photo_urls: extraUrls,
-      data_upload_ids: dataUploadIds,
-    };
-    if (duplicateProductId) body.update_existing_product_id = duplicateProductId;
-
-    const res = await fetch("/api/products/create-manual", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    const json = await res.json();
-
-    if (res.ok && json.duplicate && json.existing_product_id && !duplicateProductId) {
-      setDuplicateProductId(json.existing_product_id);
       setSaving(false);
-      return;
-    }
-
-    if (!res.ok) {
-      setSaveError(json.error ?? "Speichern fehlgeschlagen");
+      resetForm();
+      onSaved?.();
+      onClose();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Speichern fehlgeschlagen";
+      log.error("[useProductCreation] save failed:", e);
+      setSaveError(msg);
       setSaving(false);
-      return;
     }
-
-    setSaving(false);
-    resetForm();
-    onSaved?.();
-    onClose();
   }, [
     name, brand, price, ean, articleNumber, weightOrQuantity,
     demandGroup, demandSubGroup, ingredients, allergens, assortmentType,
-    thumbnailBlob, thumbnailExtractionUploadId, extraBlobs, dataPhotos,
+    processedThumbnail, processedGalleryPhotos,
     duplicateProductId, resetForm, onSaved, onClose,
   ]);
 
   const handleClose = useCallback(() => {
     if (saving) return;
+    abortControllerRef.current?.abort();
     setDuplicateProductId(null);
     setSaveError(null);
     onClose();
@@ -506,25 +376,16 @@ export function useProductCreation(options: {
   };
 
   return {
-    fields,
-    setters,
-    demandGroupOptions,
-    subGroupOptions,
-    thumbnailPreview,
-    extraBlobs,
-    dataPhotos,
-    saving,
-    saveError,
-    duplicateProductId,
-    setDuplicateProductId,
-    fileInputThumb,
-    fileInputExtra,
-    fileInputData,
-    pickThumbnail,
-    pickExtra,
-    removeExtra,
-    pickDataPhoto,
-    handleSave,
-    handleClose,
+    fields, setters,
+    demandGroupOptions, subGroupOptions,
+    frontPhoto, priceTagPhoto, extraPhotos,
+    processedThumbnail, thumbnailType,
+    analyzing, saving, saveError,
+    duplicateProductId, setDuplicateProductId,
+    fileInputFrontRef, fileInputPriceRef, fileInputExtraRef,
+    onFrontSelected, onPriceTagSelected, onExtraSelected,
+    removeFront, removePriceTag, removeExtra,
+    analyzeAllPhotos,
+    handleSave, handleClose,
   };
 }

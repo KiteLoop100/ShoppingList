@@ -70,6 +70,14 @@ export async function POST(request: Request) {
       })),
     );
 
+    const galleryPhotos = (result.galleryPhotos ?? []).map((gp) => ({
+      index: gp.originalIndex,
+      category: gp.category,
+      image_base64: gp.processed.toString("base64"),
+      format: gp.processedFormat,
+      background_removed: gp.backgroundRemoved,
+    }));
+
     return NextResponse.json({
       ok: true,
       status: result.status,
@@ -90,6 +98,7 @@ export async function POST(request: Request) {
       processing_time_ms: result.processingTimeMs,
       classified_photos: classifiedPhotos,
       suggested_thumbnail_index: suggestedThumbnailIndex,
+      gallery_photos: galleryPhotos.length > 0 ? galleryPhotos : undefined,
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Analysis failed";

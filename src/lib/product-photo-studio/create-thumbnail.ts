@@ -11,7 +11,7 @@ import { removeBackground } from "./background-removal";
 import { calculateEdgeQualityScore } from "./edge-quality";
 import { enhanceProduct, removeReflections, compositeOnCanvas, FULL_SIZE, THUMB_SIZE } from "./image-enhance";
 import { geminiSmartPreCrop, claudeSmartPreCrop } from "./gemini-bbox";
-import type { PreCropData } from "./gemini-bbox";
+import type { PreCropData, PreCropPhotoType } from "./gemini-bbox";
 import { log } from "@/lib/utils/logger";
 import type {
   PhotoInput,
@@ -75,38 +75,82 @@ function selectHeroCandidates(
 const PRECROP_MARGIN = 0.20;
 const MIN_PAD_PX = 50;
 
+const PRECROP_MARGIN_PRICE_TAG = 0.05;
+const MIN_PAD_PX_PRICE_TAG = 20;
+
+interface Bbox {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 /**
- * Apply PreCropData (bbox crop, cardinal rotation, fine tilt) to an image buffer.
+ * Transform bbox coordinates for a cardinal rotation (90/180/270).
+ * The AI returns bbox relative to the original orientation;
+ * after rotating the full image we need to map those coordinates
+ * into the new coordinate system.
+ */
+export function transformBboxForCardinalRotation(
+  bbox: Bbox,
+  origW: number,
+  origH: number,
+  rotation: 0 | 90 | 180 | 270,
+): Bbox {
+  switch (rotation) {
+    case 90:
+      return {
+        x: origH - bbox.y - bbox.height,
+        y: bbox.x,
+        width: bbox.height,
+        height: bbox.width,
+      };
+    case 180:
+      return {
+        x: origW - bbox.x - bbox.width,
+        y: origH - bbox.y - bbox.height,
+        width: bbox.width,
+        height: bbox.height,
+      };
+    case 270:
+      return {
+        x: bbox.y,
+        y: origW - bbox.x - bbox.width,
+        width: bbox.height,
+        height: bbox.width,
+      };
+    default:
+      return { ...bbox };
+  }
+}
+
+/**
+ * Apply PreCropData to an image buffer.
+ *
+ * Order: rotate/tilt on the FULL image first, then transform bbox
+ * coordinates into the rotated coordinate system, then crop.
+ * This avoids white-corner artifacts from rotating a cropped region
+ * and ensures the bbox aligns correctly after straightening.
  */
 async function applyPreCropData(
   imageBuffer: Buffer,
   data: PreCropData,
   imgWidth: number,
   imgHeight: number,
+  photoType?: PreCropPhotoType,
 ): Promise<Buffer> {
   let output = imageBuffer;
-
-  const padX = Math.max(MIN_PAD_PX, Math.round(data.bbox.width * PRECROP_MARGIN));
-  const padY = Math.max(MIN_PAD_PX, Math.round(data.bbox.height * PRECROP_MARGIN));
-  const left = Math.max(0, data.bbox.x - padX);
-  const top = Math.max(0, data.bbox.y - padY);
-  const cropWidth = Math.min(imgWidth - left, data.bbox.width + 2 * padX);
-  const cropHeight = Math.min(imgHeight - top, data.bbox.height + 2 * padY);
-
-  log.debug("[photo-studio] pre-crop: bbox",
-    `${data.bbox.width}x${data.bbox.height}`,
-    "pad", `${padX}x${padY}`,
-    "final", `${cropWidth}x${cropHeight}`);
-
-  output = await sharp(output)
-    .extract({ left, top, width: cropWidth, height: cropHeight })
-    .toBuffer();
+  let currentW = imgWidth;
+  let currentH = imgHeight;
 
   if (data.rotation !== 0) {
     log.debug("[photo-studio] applying rotation:", data.rotation, "degrees");
     output = await sharp(output)
       .rotate(data.rotation, { background: { r: 255, g: 255, b: 255 } })
       .toBuffer();
+    const meta = await sharp(output).metadata();
+    currentW = meta.width ?? currentW;
+    currentH = meta.height ?? currentH;
   }
 
   if (data.tilt !== 0) {
@@ -114,7 +158,48 @@ async function applyPreCropData(
     output = await sharp(output)
       .rotate(data.tilt, { background: { r: 255, g: 255, b: 255 } })
       .toBuffer();
+    const meta = await sharp(output).metadata();
+    currentW = meta.width ?? currentW;
+    currentH = meta.height ?? currentH;
   }
+
+  const rotatedBbox = transformBboxForCardinalRotation(
+    data.bbox, imgWidth, imgHeight, data.rotation,
+  );
+
+  if (data.tilt !== 0) {
+    const scaleX = currentW / (data.rotation === 90 || data.rotation === 270 ? imgHeight : imgWidth);
+    const scaleY = currentH / (data.rotation === 90 || data.rotation === 270 ? imgWidth : imgHeight);
+    const offsetX = (currentW - (data.rotation === 90 || data.rotation === 270 ? imgHeight : imgWidth)) / 2;
+    const offsetY = (currentH - (data.rotation === 90 || data.rotation === 270 ? imgWidth : imgHeight)) / 2;
+    rotatedBbox.x = Math.round(rotatedBbox.x * scaleX + offsetX);
+    rotatedBbox.y = Math.round(rotatedBbox.y * scaleY + offsetY);
+    rotatedBbox.width = Math.round(rotatedBbox.width * scaleX);
+    rotatedBbox.height = Math.round(rotatedBbox.height * scaleY);
+  }
+
+  rotatedBbox.x = Math.max(0, rotatedBbox.x);
+  rotatedBbox.y = Math.max(0, rotatedBbox.y);
+  rotatedBbox.width = Math.min(currentW - rotatedBbox.x, Math.max(1, rotatedBbox.width));
+  rotatedBbox.height = Math.min(currentH - rotatedBbox.y, Math.max(1, rotatedBbox.height));
+
+  const margin = photoType === "price_tag" ? PRECROP_MARGIN_PRICE_TAG : PRECROP_MARGIN;
+  const minPad = photoType === "price_tag" ? MIN_PAD_PX_PRICE_TAG : MIN_PAD_PX;
+  const padX = Math.max(minPad, Math.round(rotatedBbox.width * margin));
+  const padY = Math.max(minPad, Math.round(rotatedBbox.height * margin));
+  const left = Math.max(0, rotatedBbox.x - padX);
+  const top = Math.max(0, rotatedBbox.y - padY);
+  const cropWidth = Math.min(currentW - left, rotatedBbox.width + 2 * padX);
+  const cropHeight = Math.min(currentH - top, rotatedBbox.height + 2 * padY);
+
+  log.debug("[photo-studio] pre-crop: bbox",
+    `${rotatedBbox.width}x${rotatedBbox.height}`,
+    "pad", `${padX}x${padY}`,
+    "final", `${cropWidth}x${cropHeight}`);
+
+  output = await sharp(output)
+    .extract({ left, top, width: cropWidth, height: cropHeight })
+    .toBuffer();
 
   return output;
 }
@@ -126,17 +211,20 @@ async function applyPreCropData(
  * Padding is the larger of 20% of crop dimension or 50px per side,
  * preventing tall/narrow products from being clipped.
  */
-export async function preCropToProduct(imageBuffer: Buffer): Promise<Buffer> {
+export async function preCropToProduct(
+  imageBuffer: Buffer,
+  photoType?: PreCropPhotoType,
+): Promise<Buffer> {
   const oriented = await sharp(imageBuffer).rotate().toBuffer();
   const { width = 0, height = 0 } = await sharp(oriented).metadata();
   if (!width || !height) return oriented;
 
   try {
-    let preCropData = await geminiSmartPreCrop(oriented);
+    let preCropData = await geminiSmartPreCrop(oriented, photoType);
 
     if (!preCropData) {
       log.debug("[photo-studio] Gemini pre-crop returned null, trying Claude fallback");
-      preCropData = await claudeSmartPreCrop(oriented);
+      preCropData = await claudeSmartPreCrop(oriented, photoType);
     }
 
     if (!preCropData) {
@@ -144,7 +232,7 @@ export async function preCropToProduct(imageBuffer: Buffer): Promise<Buffer> {
       return oriented;
     }
 
-    return await applyPreCropData(oriented, preCropData, width, height);
+    return await applyPreCropData(oriented, preCropData, width, height, photoType);
   } catch (err) {
     log.warn("[photo-studio] pre-crop failed, using original:", err instanceof Error ? err.message : err);
     return oriented;

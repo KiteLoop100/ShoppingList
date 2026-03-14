@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef, type RefCallback } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "@/lib/i18n/navigation";
 import { createClientIfConfigured } from "@/lib/supabase/client";
@@ -86,6 +86,28 @@ export function InventoryList() {
     setShowInventoryEdit(true);
   }, []);
 
+  const containerRef = useRef<HTMLDivElement>(null);
+  const toolbarObserverRef = useRef<ResizeObserver | null>(null);
+
+  const toolbarRef: RefCallback<HTMLDivElement> = useCallback((node) => {
+    toolbarObserverRef.current?.disconnect();
+    if (!node) return;
+    const update = () => {
+      containerRef.current?.style.setProperty(
+        "--inv-header-h",
+        `${node.offsetHeight}px`,
+      );
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(node);
+    toolbarObserverRef.current = ro;
+  }, []);
+
+  useEffect(() => {
+    return () => toolbarObserverRef.current?.disconnect();
+  }, []);
+
   const activeItems = useMemo(() => filterExpiredPerishables(items), [items]);
   const openedCount = useMemo(() => activeItems.filter((i) => i.status === "opened").length, [activeItems]);
 
@@ -148,8 +170,8 @@ export function InventoryList() {
   }
 
   return (
-    <div className="flex flex-col">
-      <div className="sticky top-0 z-10 flex flex-col gap-2 border-b border-aldi-muted-light bg-white px-4 pb-2.5 pt-3">
+    <div ref={containerRef} className="flex flex-col">
+      <div ref={toolbarRef} className="sticky top-0 z-10 flex flex-col gap-2 border-b border-aldi-muted-light bg-white px-4 pb-2.5 pt-3">
         <div className="flex gap-2">
           <button type="button" onClick={() => navigateTo("add")} className="flex-1 rounded-xl bg-aldi-blue px-3 py-2 text-xs font-medium text-white transition-opacity hover:opacity-90">
             + {t("addProduct")}
@@ -183,7 +205,7 @@ export function InventoryList() {
 
         {grouped.map(([groupKey, groupItems]) => (
           <div key={groupKey}>
-            <div className="sticky top-[calc(var(--inv-header-h,140px))] z-[2] -mx-4 mb-1.5 flex items-center gap-2 border-b border-aldi-muted-light bg-gray-100 px-4 py-1.5">
+            <div className="sticky top-[var(--inv-header-h,140px)] z-[5] -mx-4 mb-1.5 flex items-center gap-2 border-b border-aldi-muted-light bg-gray-100 px-4 py-1.5">
               <span aria-hidden>{SECTION_ICONS[groupKey]}</span>
               <span className="text-xs font-semibold uppercase tracking-wide text-aldi-muted">{t(SECTION_LABEL_KEYS[groupKey])}</span>
             </div>

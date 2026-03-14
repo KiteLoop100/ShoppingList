@@ -14,6 +14,10 @@ vi.mock("../create-thumbnail", () => ({
   createThumbnail: vi.fn(),
 }));
 
+vi.mock("../process-gallery", () => ({
+  processGalleryPhotos: vi.fn(),
+}));
+
 vi.mock("../verify-quality", () => ({
   verifyThumbnailQuality: vi.fn(),
 }));
@@ -21,6 +25,7 @@ vi.mock("../verify-quality", () => ({
 import { classifyPhotos } from "../validate-classify";
 import { extractProductInfo, scanBarcodesFromAll } from "../extract-product-info";
 import { createThumbnail } from "../create-thumbnail";
+import { processGalleryPhotos } from "../process-gallery";
 import { verifyThumbnailQuality } from "../verify-quality";
 import { processCompetitorPhotos } from "../pipeline";
 
@@ -28,6 +33,7 @@ const mockedClassify = vi.mocked(classifyPhotos);
 const mockedExtract = vi.mocked(extractProductInfo);
 const mockedScanBarcodes = vi.mocked(scanBarcodesFromAll);
 const mockedCreateThumb = vi.mocked(createThumbnail);
+const mockedGallery = vi.mocked(processGalleryPhotos);
 const mockedVerify = vi.mocked(verifyThumbnailQuality);
 
 function makeImage(): PhotoInput {
@@ -95,6 +101,7 @@ beforeEach(() => {
   mockedScanBarcodes.mockResolvedValue([null]);
   mockedExtract.mockResolvedValue(validExtraction);
   mockedCreateThumb.mockResolvedValue(validThumbnail);
+  mockedGallery.mockResolvedValue([]);
   mockedVerify.mockResolvedValue(approvedVerification);
 });
 
@@ -283,7 +290,7 @@ describe("processCompetitorPhotos", () => {
     expect(result.extractedData?.ean_barcode).toBe("4001234567890");
   });
 
-  test("runs extraction and thumbnail creation in parallel", async () => {
+  test("runs extraction, thumbnail, and gallery in parallel", async () => {
     const callOrder: string[] = [];
     mockedExtract.mockImplementation(async () => {
       callOrder.push("extract-start");
@@ -297,10 +304,71 @@ describe("processCompetitorPhotos", () => {
       callOrder.push("thumb-end");
       return validThumbnail;
     });
+    mockedGallery.mockImplementation(async () => {
+      callOrder.push("gallery-start");
+      await new Promise((r) => setTimeout(r, 10));
+      callOrder.push("gallery-end");
+      return [];
+    });
 
     await processCompetitorPhotos({ images: [makeImage()] });
 
     expect(callOrder[0]).toBe("extract-start");
     expect(callOrder[1]).toBe("thumb-start");
+    expect(callOrder[2]).toBe("gallery-start");
+  });
+
+  test("includes galleryPhotos in result when present", async () => {
+    mockedGallery.mockResolvedValueOnce([
+      {
+        originalIndex: 1,
+        category: "product",
+        processed: Buffer.from("gallery-photo"),
+        processedFormat: "image/webp",
+        backgroundRemoved: true,
+      },
+    ]);
+
+    const result = await processCompetitorPhotos({
+      images: [makeImage(), makeImage()],
+    });
+
+    expect(result.galleryPhotos).toHaveLength(1);
+    expect(result.galleryPhotos![0].originalIndex).toBe(1);
+    expect(result.galleryPhotos![0].category).toBe("product");
+  });
+
+  test("omits galleryPhotos from result when empty", async () => {
+    mockedGallery.mockResolvedValueOnce([]);
+
+    const result = await processCompetitorPhotos({
+      images: [makeImage()],
+    });
+
+    expect(result.galleryPhotos).toBeUndefined();
+  });
+
+  test("does not call processGalleryPhotos when suspicious content detected", async () => {
+    mockedClassify.mockResolvedValueOnce({
+      photos: [
+        {
+          photo_index: 0,
+          is_product_photo: false,
+          photo_type: "other",
+          confidence: 0.9,
+          rejection_reason: "selfie",
+          quality_score: 0,
+          has_reflections: false,
+          text_readable: false,
+        },
+      ],
+      all_same_product: false,
+      suspicious_content: true,
+      overall_assessment: "Not a product",
+    });
+
+    await processCompetitorPhotos({ images: [makeImage()] });
+
+    expect(mockedGallery).not.toHaveBeenCalled();
   });
 });

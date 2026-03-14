@@ -13,6 +13,7 @@ import { log } from "@/lib/utils/logger";
 import { compressImage, titleCase } from "@/lib/utils/image-utils";
 import type { Product, CompetitorProduct, DemandGroup } from "@/types";
 import type { ExtractedProductInfo } from "@/lib/product-photo-studio/types";
+import type { SlotPhoto, PhotoSlotPurpose } from "@/components/guided-photo-slots";
 import { extractDemandGroupCode } from "@/lib/competitor-products/categorize-competitor-product";
 import { getProductPhotos, deleteProductPhoto, setAsThumbnail } from "@/lib/product-photos/product-photo-service";
 import { sortPhotos, type ProductPhoto } from "@/lib/product-photos/types";
@@ -50,46 +51,38 @@ export interface ProductCaptureConfig {
   editCompetitorProduct?: CompetitorProduct | null;
 }
 
+export interface ProcessedGalleryPhotoClient {
+  dataUrl: string;
+  format: string;
+  category: "product" | "price_tag";
+}
+
 export { compressImage, titleCase } from "@/lib/utils/image-utils";
 
 function initFromAldiProduct(p: Product): Partial<ProductCaptureValues> {
   return {
-    name: p.name,
-    brand: p.brand ?? "",
-    retailer: "ALDI",
-    demandGroupCode: p.demand_group_code ?? "",
-    demandSubGroup: p.demand_sub_group ?? "",
-    ean: p.ean_barcode ?? "",
-    articleNumber: p.article_number ?? "",
+    name: p.name, brand: p.brand ?? "", retailer: "ALDI",
+    demandGroupCode: p.demand_group_code ?? "", demandSubGroup: p.demand_sub_group ?? "",
+    ean: p.ean_barcode ?? "", articleNumber: p.article_number ?? "",
     price: p.price != null ? String(p.price) : "",
     weightOrQuantity: p.weight_or_quantity ?? "",
     assortmentType: p.assortment_type ?? "daily_range",
-    isBio: p.is_bio ?? false,
-    isVegan: p.is_vegan ?? false,
-    isGlutenFree: p.is_gluten_free ?? false,
-    isLactoseFree: p.is_lactose_free ?? false,
-    animalWelfareLevel: p.animal_welfare_level ?? null,
-    aliases: p.aliases ?? [],
+    isBio: p.is_bio ?? false, isVegan: p.is_vegan ?? false,
+    isGlutenFree: p.is_gluten_free ?? false, isLactoseFree: p.is_lactose_free ?? false,
+    animalWelfareLevel: p.animal_welfare_level ?? null, aliases: p.aliases ?? [],
   };
 }
 
 function initFromCompetitorProduct(p: CompetitorProduct): Partial<ProductCaptureValues> {
   return {
-    name: p.name,
-    brand: p.brand ?? "",
-    retailer: p.retailer ?? "",
-    demandGroupCode: p.demand_group_code ?? "",
-    demandSubGroup: p.demand_sub_group ?? "",
-    ean: p.ean_barcode ?? "",
-    articleNumber: p.article_number ?? "",
+    name: p.name, brand: p.brand ?? "", retailer: p.retailer ?? "",
+    demandGroupCode: p.demand_group_code ?? "", demandSubGroup: p.demand_sub_group ?? "",
+    ean: p.ean_barcode ?? "", articleNumber: p.article_number ?? "",
     weightOrQuantity: p.weight_or_quantity ?? "",
     assortmentType: p.assortment_type ?? "daily_range",
-    isBio: p.is_bio ?? false,
-    isVegan: p.is_vegan ?? false,
-    isGlutenFree: p.is_gluten_free ?? false,
-    isLactoseFree: p.is_lactose_free ?? false,
-    animalWelfareLevel: p.animal_welfare_level ?? null,
-    aliases: p.aliases ?? [],
+    isBio: p.is_bio ?? false, isVegan: p.is_vegan ?? false,
+    isGlutenFree: p.is_gluten_free ?? false, isLactoseFree: p.is_lactose_free ?? false,
+    animalWelfareLevel: p.animal_welfare_level ?? null, aliases: p.aliases ?? [],
   };
 }
 
@@ -113,17 +106,24 @@ export function useProductCaptureForm(config: ProductCaptureConfig) {
   const [saving, setSaving] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [photoFiles, setPhotoFiles] = useState<File[]>([]);
-  const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
+
+  const [frontPhoto, setFrontPhoto] = useState<SlotPhoto | null>(null);
+  const [priceTagPhoto, setPriceTagPhoto] = useState<SlotPhoto | null>(null);
+  const [extraPhotos, setExtraPhotos] = useState<SlotPhoto[]>([]);
+
   const [processedThumbnail, setProcessedThumbnail] = useState<string | null>(null);
   const [thumbnailType, setThumbnailType] = useState<"background_removed" | "soft_fallback" | null>(null);
+  const [processedGalleryPhotos, setProcessedGalleryPhotos] = useState<ProcessedGalleryPhotoClient[]>([]);
   const [extractedDetails, setExtractedDetails] = useState<ExtractedProductInfo | null>(null);
   const [reviewStatus, setReviewStatus] = useState<string | null>(null);
   const [existingPhotos, setExistingPhotos] = useState<ProductPhoto[]>([]);
   const [duplicateInfo, setDuplicateInfo] = useState<DuplicateCheckResult | null>(null);
   const [demandGroups, setDemandGroups] = useState<DemandGroup[]>([]);
   const [allSubGroups, setAllSubGroups] = useState<DemandSubGroupRow[]>([]);
-  const fileInputRef = useRef<HTMLInputElement>(null!);
+
+  const fileInputFrontRef = useRef<HTMLInputElement>(null!);
+  const fileInputPriceRef = useRef<HTMLInputElement>(null!);
+  const fileInputExtraRef = useRef<HTMLInputElement>(null!);
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const isEditMode = mode === "edit";
@@ -150,25 +150,20 @@ export function useProductCaptureForm(config: ProductCaptureConfig) {
       init = initFromAldiProduct(editAldiProduct);
     } else if (editCompetitorProduct) {
       init = initFromCompetitorProduct(editCompetitorProduct);
-      if (initialValues?.price && !init.price) {
-        init.price = initialValues.price;
-      }
+      if (initialValues?.price && !init.price) init.price = initialValues.price;
     } else if (initialValues) {
       init = { ...initialValues };
       if (initialValues.name) init.name = titleCase(initialValues.name);
     }
 
     setValues({ ...EMPTY_VALUES, ...init });
-    setPhotoFiles([]);
-    setPhotoPreviews((prev) => {
-      prev.forEach((url) => URL.revokeObjectURL(url));
-      return [];
-    });
+    revokeSlotPhotos();
+    setFrontPhoto(null); setPriceTagPhoto(null); setExtraPhotos([]);
     setProcessedThumbnail(null); setThumbnailType(null);
+    setProcessedGalleryPhotos([]);
     setExtractedDetails(null);
     setReviewStatus(null); setError(null); setAnalyzing(false);
-    setDuplicateInfo(null);
-    setExistingPhotos([]);
+    setDuplicateInfo(null); setExistingPhotos([]);
 
     const editProductId = editAldiProduct?.product_id ?? editCompetitorProduct?.product_id;
     const editProductType = editAldiProduct ? "aldi" as const : editCompetitorProduct ? "competitor" as const : null;
@@ -182,7 +177,13 @@ export function useProductCaptureForm(config: ProductCaptureConfig) {
       cancelled = true;
       abortControllerRef.current?.abort();
     };
-  }, [open, editAldiProduct, editCompetitorProduct, initialValues]);
+  }, [open, editAldiProduct, editCompetitorProduct, initialValues]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function revokeSlotPhotos() {
+    if (frontPhoto) URL.revokeObjectURL(frontPhoto.previewUrl);
+    if (priceTagPhoto) URL.revokeObjectURL(priceTagPhoto.previewUrl);
+    extraPhotos.forEach((sp) => URL.revokeObjectURL(sp.previewUrl));
+  }
 
   const filteredSubGroups = allSubGroups.filter(
     (sg) => sg.demand_group_code === values.demandGroupCode,
@@ -196,23 +197,21 @@ export function useProductCaptureForm(config: ProductCaptureConfig) {
     });
   }, []);
 
-  const handlePhotosSelected = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files ?? []);
-    if (files.length === 0) return;
+  const makeSlotPhoto = useCallback((file: File, purpose: PhotoSlotPurpose): SlotPhoto => ({
+    purpose, file, previewUrl: URL.createObjectURL(file),
+  }), []);
+
+  const runAnalysis = useCallback(async (allFiles: File[]) => {
+    if (allFiles.length === 0) return;
 
     abortControllerRef.current?.abort();
     const controller = new AbortController();
     abortControllerRef.current = controller;
 
-    setPhotoFiles(files);
-    setPhotoPreviews((prev) => {
-      prev.forEach((url) => URL.revokeObjectURL(url));
-      return files.map((f) => URL.createObjectURL(f));
-    });
     setAnalyzing(true); setError(null); setReviewStatus(null);
     try {
       const images = await Promise.all(
-        files.map(async (file) => {
+        allFiles.map(async (file) => {
           const { base64, mediaType } = await compressImage(file);
           return { image_base64: base64, media_type: mediaType };
         }),
@@ -240,104 +239,144 @@ export function useProductCaptureForm(config: ProductCaptureConfig) {
         const fmt = data.thumbnail_format ?? "image/webp";
         setProcessedThumbnail(`data:${fmt};base64,${data.thumbnail_base64}`);
         setThumbnailType(data.thumbnail_type ?? null);
-
-        const thumbIdx: number | null = data.suggested_thumbnail_index ?? null;
-        if (thumbIdx != null) {
-          setPhotoPreviews((prev) => {
-            if (thumbIdx < 0 || thumbIdx >= prev.length) return prev;
-            if (prev[thumbIdx]) URL.revokeObjectURL(prev[thumbIdx]);
-            return prev.filter((_, i) => i !== thumbIdx);
-          });
-          setPhotoFiles((prev) => {
-            if (thumbIdx < 0 || thumbIdx >= prev.length) return prev;
-            return prev.filter((_, i) => i !== thumbIdx);
-          });
-        }
-
         setExistingPhotos((prev) => prev.filter((p) => p.category !== "thumbnail"));
       }
+
+      if (Array.isArray(data.gallery_photos) && data.gallery_photos.length > 0) {
+        const gp: ProcessedGalleryPhotoClient[] = data.gallery_photos.map(
+          (p: { image_base64: string; format: string; category: "product" | "price_tag" }) => ({
+            dataUrl: `data:${p.format};base64,${p.image_base64}`,
+            format: p.format,
+            category: p.category,
+          }),
+        );
+        setProcessedGalleryPhotos(gp);
+      }
+
       if (data.status === "review_required" && !data.thumbnail_base64) {
         setReviewStatus(data.review_reason ?? "review_required");
       }
-      const extracted = data.extracted_data as ExtractedProductInfo | null;
-      if (extracted) {
-        setExtractedDetails(extracted);
-        const aiDemandGroupCode = extractDemandGroupCode(extracted.demand_group_code ?? extracted.demand_group);
-        setValues((prev) => ({
-          ...prev,
-          name: locked.has("name") ? prev.name
-            : (extracted.name && !prev.name) ? titleCase(extracted.name) : prev.name,
-          brand: (extracted.brand && !prev.brand) ? extracted.brand : prev.brand,
-          ean: (extracted.ean_barcode && !prev.ean) ? extracted.ean_barcode : prev.ean,
-          articleNumber: locked.has("articleNumber") ? prev.articleNumber
-            : (extracted.article_number && !prev.articleNumber) ? extracted.article_number : prev.articleNumber,
-          price: locked.has("price") ? prev.price
-            : (extracted.price != null && !prev.price) ? String(extracted.price).replace(".", ",") : prev.price,
-          weightOrQuantity: (extracted.weight_or_quantity && !prev.weightOrQuantity) ? extracted.weight_or_quantity : prev.weightOrQuantity,
-          demandGroupCode: (aiDemandGroupCode && !prev.demandGroupCode) ? aiDemandGroupCode : prev.demandGroupCode,
-          isBio: extracted.is_bio || prev.isBio,
-          isVegan: extracted.is_vegan || prev.isVegan,
-          isGlutenFree: extracted.is_gluten_free || prev.isGlutenFree,
-          isLactoseFree: extracted.is_lactose_free || prev.isLactoseFree,
-          animalWelfareLevel: extracted.animal_welfare_level ?? prev.animalWelfareLevel,
-          retailer: (extracted.retailer_from_price_tag && !prev.retailer)
-            ? (retailers.find((r) => r.name.toLowerCase() === extracted.retailer_from_price_tag!.toLowerCase())?.name ?? prev.retailer)
-            : prev.retailer,
-        }));
-      }
+
+      applyExtractedData(data.extracted_data as ExtractedProductInfo | null);
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") return;
       log.error("[ProductCaptureForm] analysis failed:", err);
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setAnalyzing(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
     }
-  }, [retailers, locked]);
+  }, [locked, retailers]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const removePhoto = useCallback((index: number) => {
-    setPhotoFiles((prev) => {
-      const next = prev.filter((_, i) => i !== index);
-      if (next.length === 0) {
-        setProcessedThumbnail(null);
-        setThumbnailType(null);
-        setExtractedDetails(null);
-        setReviewStatus(null);
-      }
-      return next;
-    });
-    setPhotoPreviews((prev) => {
-      if (prev[index]) URL.revokeObjectURL(prev[index]);
+  function applyExtractedData(extracted: ExtractedProductInfo | null) {
+    if (!extracted) return;
+    setExtractedDetails(extracted);
+    const aiDemandGroupCode = extractDemandGroupCode(extracted.demand_group_code ?? extracted.demand_group);
+    setValues((prev) => ({
+      ...prev,
+      name: locked.has("name") ? prev.name
+        : (extracted.name && !prev.name) ? titleCase(extracted.name) : prev.name,
+      brand: (extracted.brand && !prev.brand) ? extracted.brand : prev.brand,
+      ean: (extracted.ean_barcode && !prev.ean) ? extracted.ean_barcode : prev.ean,
+      articleNumber: locked.has("articleNumber") ? prev.articleNumber
+        : (extracted.article_number && !prev.articleNumber) ? extracted.article_number : prev.articleNumber,
+      price: locked.has("price") ? prev.price
+        : (extracted.price != null && !prev.price) ? String(extracted.price).replace(".", ",") : prev.price,
+      weightOrQuantity: (extracted.weight_or_quantity && !prev.weightOrQuantity) ? extracted.weight_or_quantity : prev.weightOrQuantity,
+      demandGroupCode: (aiDemandGroupCode && !prev.demandGroupCode) ? aiDemandGroupCode : prev.demandGroupCode,
+      isBio: extracted.is_bio || prev.isBio,
+      isVegan: extracted.is_vegan || prev.isVegan,
+      isGlutenFree: extracted.is_gluten_free || prev.isGlutenFree,
+      isLactoseFree: extracted.is_lactose_free || prev.isLactoseFree,
+      animalWelfareLevel: extracted.animal_welfare_level ?? prev.animalWelfareLevel,
+      retailer: (extracted.retailer_from_price_tag && !prev.retailer)
+        ? (retailers.find((r) => r.name.toLowerCase() === extracted.retailer_from_price_tag!.toLowerCase())?.name ?? prev.retailer)
+        : prev.retailer,
+    }));
+  }
+
+  const handleFrontSelected = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (frontPhoto) URL.revokeObjectURL(frontPhoto.previewUrl);
+    setProcessedThumbnail(null); setThumbnailType(null);
+    const sp = makeSlotPhoto(file, "front");
+    setFrontPhoto(sp);
+    e.target.value = "";
+
+    const allFiles = [file, priceTagPhoto?.file, ...extraPhotos.map((x) => x.file)].filter(Boolean) as File[];
+    runAnalysis(allFiles);
+  }, [frontPhoto, priceTagPhoto, extraPhotos, makeSlotPhoto, runAnalysis]);
+
+  const handlePriceTagSelected = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (priceTagPhoto) URL.revokeObjectURL(priceTagPhoto.previewUrl);
+    const sp = makeSlotPhoto(file, "price_tag");
+    setPriceTagPhoto(sp);
+    e.target.value = "";
+
+    const allFiles = [frontPhoto?.file, file, ...extraPhotos.map((x) => x.file)].filter(Boolean) as File[];
+    runAnalysis(allFiles);
+  }, [frontPhoto, priceTagPhoto, extraPhotos, makeSlotPhoto, runAnalysis]);
+
+  const handleExtraSelected = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    if (files.length === 0) return;
+    const newPhotos = files.map((f) => makeSlotPhoto(f, "extra"));
+    setExtraPhotos((prev) => [...prev, ...newPhotos]);
+    e.target.value = "";
+
+    const allFiles = [frontPhoto?.file, priceTagPhoto?.file, ...extraPhotos.map((x) => x.file), ...files].filter(Boolean) as File[];
+    runAnalysis(allFiles);
+  }, [frontPhoto, priceTagPhoto, extraPhotos, makeSlotPhoto, runAnalysis]);
+
+  const removeFront = useCallback(() => {
+    if (frontPhoto) URL.revokeObjectURL(frontPhoto.previewUrl);
+    setFrontPhoto(null);
+    setProcessedThumbnail(null); setThumbnailType(null);
+    setProcessedGalleryPhotos([]);
+    setExtractedDetails(null); setReviewStatus(null);
+  }, [frontPhoto]);
+
+  const removePriceTag = useCallback(() => {
+    if (priceTagPhoto) URL.revokeObjectURL(priceTagPhoto.previewUrl);
+    setPriceTagPhoto(null);
+  }, [priceTagPhoto]);
+
+  const removeExtra = useCallback((index: number) => {
+    setExtraPhotos((prev) => {
+      if (prev[index]) URL.revokeObjectURL(prev[index].previewUrl);
       return prev.filter((_, i) => i !== index);
     });
   }, []);
 
   const handleDeleteExistingPhoto = useCallback(async (photoId: string) => {
     const success = await deleteProductPhoto(photoId);
-    if (success) {
-      setExistingPhotos((prev) => prev.filter((p) => p.id !== photoId));
-    }
+    if (success) setExistingPhotos((prev) => prev.filter((p) => p.id !== photoId));
   }, []);
 
   const handleSetAsThumbnail = useCallback(async (photoId: string) => {
     const success = await setAsThumbnail(photoId);
     if (success) {
       setExistingPhotos((prev) =>
-        sortPhotos(
-          prev.map((p) => ({
-            ...p,
-            category: p.id === photoId
-              ? "thumbnail" as const
-              : p.category === "thumbnail"
-                ? "product" as const
-                : p.category,
-          })),
-        ),
+        sortPhotos(prev.map((p) => ({
+          ...p,
+          category: p.id === photoId ? "thumbnail" as const
+            : p.category === "thumbnail" ? "product" as const : p.category,
+        }))),
       );
     }
   }, []);
 
   const effectiveRetailer = values.retailer === "__custom__" ? values.customRetailer.trim() : values.retailer;
+
+  const photoFiles = useMemo(() => {
+    const files: File[] = [];
+    if (frontPhoto) files.push(frontPhoto.file);
+    if (priceTagPhoto) files.push(priceTagPhoto.file);
+    for (const sp of extraPhotos) files.push(sp.file);
+    return files;
+  }, [frontPhoto, priceTagPhoto, extraPhotos]);
 
   const canSubmit = values.name.trim().length > 0
     && (isEditMode || effectiveRetailer.length > 0)
@@ -354,6 +393,7 @@ export function useProductCaptureForm(config: ProductCaptureConfig) {
         editCompetitorProduct: editCompetitorProduct ?? null,
         extractedDetails,
         processedThumbnail,
+        processedGalleryPhotos,
         photoFiles,
         country: country ?? "DE",
       });
@@ -367,7 +407,7 @@ export function useProductCaptureForm(config: ProductCaptureConfig) {
         setError(e instanceof Error ? e.message : String(e));
       }
     } finally { setSaving(false); }
-  }, [canSubmit, values, effectiveRetailer, editAldiProduct, editCompetitorProduct, extractedDetails, processedThumbnail, photoFiles, country, onSaved, onClose]);
+  }, [canSubmit, values, effectiveRetailer, editAldiProduct, editCompetitorProduct, extractedDetails, processedThumbnail, processedGalleryPhotos, photoFiles, country, onSaved, onClose]);
 
   const useExistingProduct = useCallback(() => {
     if (!duplicateInfo?.product_id || !duplicateInfo.name) return;
@@ -376,21 +416,24 @@ export function useProductCaptureForm(config: ProductCaptureConfig) {
     onClose();
   }, [duplicateInfo, onSaved, onClose]);
 
-  const dismissDuplicate = useCallback(() => {
-    setDuplicateInfo(null);
-  }, []);
+  const dismissDuplicate = useCallback(() => { setDuplicateInfo(null); }, []);
 
   return {
     values, setField, setValues,
     saving, analyzing, error,
-    photoFiles, photoPreviews, processedThumbnail, thumbnailType,
+    frontPhoto, priceTagPhoto, extraPhotos,
+    processedThumbnail, thumbnailType,
+    processedGalleryPhotos,
     existingPhotos,
     extractedDetails, reviewStatus,
-    fileInputRef,
+    fileInputFrontRef, fileInputPriceRef, fileInputExtraRef,
     retailers, demandGroups, filteredSubGroups,
     isEditMode, canSubmit, locked,
     duplicateInfo, useExistingProduct, dismissDuplicate,
-    handlePhotosSelected, removePhoto, handleSubmit,
+    handleFrontSelected, handlePriceTagSelected, handleExtraSelected,
+    removeFront, removePriceTag, removeExtra,
+    handleSubmit,
     handleDeleteExistingPhoto, handleSetAsThumbnail,
+    photoFiles,
   };
 }

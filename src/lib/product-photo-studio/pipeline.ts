@@ -9,7 +9,9 @@
 import { classifyPhotos } from "./validate-classify";
 import { extractProductInfo, scanBarcodesFromAll } from "./extract-product-info";
 import { createThumbnail } from "./create-thumbnail";
+import { processGalleryPhotos } from "./process-gallery";
 import { verifyThumbnailQuality } from "./verify-quality";
+import { selectThumbnailIndex } from "@/lib/product-photos/classify-photo-category";
 import type { ProductPhotoStudioInput, ProductPhotoStudioResult, ThumbnailVerification, ThumbnailType } from "./types";
 import type { PipelineRunner } from "./pipeline-runner";
 import { log } from "@/lib/utils/logger";
@@ -78,20 +80,28 @@ export async function processCompetitorPhotos(
 
   const scannedEan = barcodeResults.find((e: string | null) => e !== null) ?? null;
 
-  // ── STEP 2: Extraction + Thumbnail ──
+  const heroIndex = selectThumbnailIndex(
+    classification.photos.map((p) => ({
+      photoType: p.photo_type,
+      qualityScore: p.quality_score,
+    })),
+  );
+
+  // ── STEP 2: Extraction + Thumbnail + Gallery ──
   const extractStartMs = Date.now();
   const extractFn = async () => {
-    const [extractedData, thumbnailResult] = await Promise.all([
+    const [extractedData, thumbnailResult, galleryPhotos] = await Promise.all([
       extractProductInfo(input.images, scannedEan),
       createThumbnail(input.images, classification),
+      processGalleryPhotos(input.images, classification, heroIndex),
     ]);
-    return { extractedData, thumbnailResult };
+    return { extractedData, thumbnailResult, galleryPhotos };
   };
 
-  const { extractedData, thumbnailResult } = runner
+  const { extractedData, thumbnailResult, galleryPhotos } = runner
     ? await runner.runStep("extract", extractFn)
     : await extractFn();
-  log.debug("[photo-studio] extract+thumbnail took", Date.now() - extractStartMs, "ms");
+  log.debug("[photo-studio] extract+thumbnail+gallery took", Date.now() - extractStartMs, "ms");
 
   // ── STEP 3: Verify thumbnail quality (skip if budget exhausted) ──
   const bgFailed = thumbnailResult.backgroundRemovalFailed === true;
@@ -176,6 +186,7 @@ export async function processCompetitorPhotos(
     backgroundRemovalFailed: bgFailed,
     backgroundProvider: thumbnailResult.backgroundProvider,
     thumbnailType,
+    galleryPhotos: galleryPhotos.length > 0 ? galleryPhotos : undefined,
     processingTimeMs: elapsedMs(startMs),
   };
 }

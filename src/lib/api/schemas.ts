@@ -67,6 +67,16 @@ export const createManualSchema = z.object({
   extra_photo_urls: z.array(z.string().url()).max(10).default([]),
   data_upload_ids: z.array(z.string()).max(20).default([]),
   update_existing_product_id: z.string().nullish(),
+  gallery_photos: z
+    .array(
+      z.object({
+        image_base64: z.string().max(5_000_000),
+        format: z.string().max(50),
+        category: z.enum(["product", "price_tag"]),
+      }),
+    )
+    .max(4)
+    .optional(),
 });
 
 // ─── products/search (GET query params) ──────────────────

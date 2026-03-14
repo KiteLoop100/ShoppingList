@@ -21,25 +21,34 @@ export function CreateProductModal({ open, onClose, onSaved }: CreateProductModa
     setters,
     demandGroupOptions,
     subGroupOptions,
-    thumbnailPreview,
-    extraBlobs,
-    dataPhotos,
+    frontPhoto,
+    priceTagPhoto,
+    extraPhotos,
+    processedThumbnail,
+    thumbnailType,
+    analyzing,
     saving,
     saveError,
     duplicateProductId,
     setDuplicateProductId,
-    fileInputThumb,
-    fileInputExtra,
-    fileInputData,
-    pickThumbnail,
-    pickExtra,
+    fileInputFrontRef,
+    fileInputPriceRef,
+    fileInputExtraRef,
+    onFrontSelected,
+    onPriceTagSelected,
+    onExtraSelected,
+    removeFront,
+    removePriceTag,
     removeExtra,
-    pickDataPhoto,
+    analyzeAllPhotos,
     handleSave,
     handleClose,
   } = useProductCreation({ open, onSaved, onClose });
 
   if (!open) return null;
+
+  const hasPhotos = !!(frontPhoto || priceTagPhoto || extraPhotos.length > 0);
+  const canAnalyze = hasPhotos && !analyzing && !processedThumbnail;
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-aldi-bg">
@@ -60,17 +69,32 @@ export function CreateProductModal({ open, onClose, onSaved }: CreateProductModa
         <div className="mx-auto grid max-w-lg gap-5">
           <ProductPhotoSection
             t={t}
-            thumbnailPreview={thumbnailPreview}
-            extraBlobs={extraBlobs}
-            dataPhotos={dataPhotos}
-            fileInputThumb={fileInputThumb}
-            fileInputExtra={fileInputExtra}
-            fileInputData={fileInputData}
-            pickThumbnail={pickThumbnail}
-            pickExtra={pickExtra}
-            removeExtra={removeExtra}
-            pickDataPhoto={pickDataPhoto}
+            frontPhoto={frontPhoto}
+            priceTagPhoto={priceTagPhoto}
+            extraPhotos={extraPhotos}
+            processedThumbnail={processedThumbnail}
+            thumbnailType={thumbnailType}
+            analyzing={analyzing}
+            fileInputFrontRef={fileInputFrontRef}
+            fileInputPriceRef={fileInputPriceRef}
+            fileInputExtraRef={fileInputExtraRef}
+            onFrontSelected={onFrontSelected}
+            onPriceTagSelected={onPriceTagSelected}
+            onExtraSelected={onExtraSelected}
+            onRemoveFront={removeFront}
+            onRemovePriceTag={removePriceTag}
+            onRemoveExtra={removeExtra}
           />
+
+          {canAnalyze && (
+            <button
+              type="button"
+              onClick={analyzeAllPhotos}
+              className="w-full rounded-2xl bg-aldi-blue/10 px-4 py-3 text-[15px] font-medium text-aldi-blue transition-all hover:bg-aldi-blue/20 active:scale-[0.98]"
+            >
+              {t("analyzing").replace("…", "")} →
+            </button>
+          )}
 
           <ProductFieldsSection
             t={t}

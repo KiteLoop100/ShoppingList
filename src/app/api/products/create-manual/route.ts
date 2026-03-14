@@ -141,6 +141,7 @@ export async function POST(request: Request) {
     (validated.aliases ?? []).map((a) => a.trim()).filter(Boolean),
   )];
   const extraPhotoUrls = validated.extra_photo_urls;
+  const galleryPhotos = validated.gallery_photos ?? [];
   const dataUploadIds = validated.data_upload_ids;
   const userId = auth.user.id;
   let updateExistingProductId = validated.update_existing_product_id ?? null;
@@ -314,6 +315,44 @@ export async function POST(request: Request) {
         created_at: now,
       });
       await insertProductPhoto(supabase, productId, url, "product-thumbnails", extractStoragePath(url, "product-thumbnails"), "product", i + 1);
+    }
+  }
+
+  if (productId && galleryPhotos.length > 0) {
+    for (let i = 0; i < galleryPhotos.length; i++) {
+      try {
+        const gp = galleryPhotos[i];
+        const buf = Buffer.from(gp.image_base64, "base64");
+        const isWebp = gp.format.includes("webp");
+        const ext = isWebp ? "webp" : "jpg";
+        const contentType = isWebp ? "image/webp" : "image/jpeg";
+        const galleryPath = `gallery/${productId}/${crypto.randomUUID()}.${ext}`;
+
+        const { error: gpUploadErr } = await supabase.storage
+          .from("product-gallery")
+          .upload(galleryPath, buf, { contentType, upsert: false });
+
+        if (gpUploadErr) {
+          log.warn("[create-manual] gallery photo upload failed:", gpUploadErr.message);
+          continue;
+        }
+
+        const { data: gpUrlData } = supabase.storage
+          .from("product-gallery")
+          .getPublicUrl(galleryPath);
+
+        await insertProductPhoto(
+          supabase,
+          productId,
+          gpUrlData.publicUrl,
+          "product-gallery",
+          galleryPath,
+          gp.category as "product" | "price_tag",
+          i + 1,
+        );
+      } catch (err) {
+        log.warn("[create-manual] gallery photo", i, "failed:", err instanceof Error ? err.message : err);
+      }
     }
   }
 

@@ -196,6 +196,38 @@ describe("geminiSmartPreCrop", () => {
     expect(result).not.toBeNull();
     expect(result!.tilt).toBe(0);
   });
+
+  test("uses price tag prompt when photoType is price_tag", async () => {
+    mockGeminiResponse({
+      bbox: { x: 50, y: 50, width: 900, height: 900 },
+      rotation: 0,
+      tilt: 0,
+    });
+
+    const buf = await makeTestBuffer();
+    await geminiSmartPreCrop(buf, "price_tag");
+
+    const callArgs = mockGenerateContent.mock.calls[0][0];
+    const promptText = callArgs.contents[0].parts[1].text;
+    expect(promptText).toContain("price tag");
+    expect(promptText).toContain("1% padding");
+  });
+
+  test("uses default product prompt when photoType is undefined", async () => {
+    mockGeminiResponse({
+      bbox: { x: 50, y: 50, width: 900, height: 900 },
+      rotation: 0,
+      tilt: 0,
+    });
+
+    const buf = await makeTestBuffer();
+    await geminiSmartPreCrop(buf);
+
+    const callArgs = mockGenerateContent.mock.calls[0][0];
+    const promptText = callArgs.contents[0].parts[1].text;
+    expect(promptText).toContain("product photo");
+    expect(promptText).toContain("3% padding");
+  });
 });
 
 describe("claudeSmartPreCrop", () => {
@@ -283,5 +315,37 @@ describe("claudeSmartPreCrop", () => {
 
     expect(result).not.toBeNull();
     expect(result!.tilt).toBe(-15);
+  });
+
+  test("uses price tag prompt when photoType is price_tag", async () => {
+    mockedCallClaude.mockResolvedValue(JSON.stringify({
+      bbox: { x_pct: 5, y_pct: 5, w_pct: 90, h_pct: 90 },
+      rotation: 0,
+      tilt: 0,
+    }));
+
+    const buf = await makeTestBuffer();
+    await claudeSmartPreCrop(buf, "price_tag");
+
+    const callArgs = mockedCallClaude.mock.calls[0][0] as { messages: Array<{ content: Array<{ type: string; text?: string }> }> };
+    const promptText = callArgs.messages[0].content[1].text!;
+    expect(promptText).toContain("price tag");
+    expect(promptText).toContain("1% padding");
+  });
+
+  test("uses default product prompt when photoType is undefined", async () => {
+    mockedCallClaude.mockResolvedValue(JSON.stringify({
+      bbox: { x_pct: 5, y_pct: 5, w_pct: 90, h_pct: 90 },
+      rotation: 0,
+      tilt: 0,
+    }));
+
+    const buf = await makeTestBuffer();
+    await claudeSmartPreCrop(buf);
+
+    const callArgs = mockedCallClaude.mock.calls[0][0] as { messages: Array<{ content: Array<{ type: string; text?: string }> }> };
+    const promptText = callArgs.messages[0].content[1].text!;
+    expect(promptText).toContain("product photo");
+    expect(promptText).toContain("3% padding");
   });
 });

@@ -146,6 +146,16 @@ export interface BackgroundRemovalProvider {
   removeBackground(imageBuffer: Buffer): Promise<Buffer>;
 }
 
+// ── Gallery ──
+
+export interface ProcessedGalleryPhoto {
+  originalIndex: number;
+  category: "product" | "price_tag";
+  processed: Buffer;
+  processedFormat: ImageFormat;
+  backgroundRemoved: boolean;
+}
+
 // ── Pipeline Output ──
 
 export type ThumbnailType = "background_removed" | "soft_fallback";
@@ -163,5 +173,6 @@ export interface ProductPhotoStudioResult {
   backgroundRemovalFailed?: boolean;
   backgroundProvider?: string;
   thumbnailType?: ThumbnailType;
+  galleryPhotos?: ProcessedGalleryPhoto[];
   processingTimeMs: number;
 }

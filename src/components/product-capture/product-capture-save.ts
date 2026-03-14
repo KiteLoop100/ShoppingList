@@ -22,7 +22,7 @@ import { assertNoDuplicate, DuplicateProductError } from "@/lib/products/duplica
 import { log } from "@/lib/utils/logger";
 import type { Product, CompetitorProduct } from "@/types";
 import type { ExtractedProductInfo } from "@/lib/product-photo-studio/types";
-import type { ProductCaptureValues } from "./hooks/use-product-capture-form";
+import type { ProductCaptureValues, ProcessedGalleryPhotoClient } from "./hooks/use-product-capture-form";
 
 export { DuplicateProductError } from "@/lib/products/duplicate-check";
 export type { DuplicateCheckResult } from "@/lib/products/duplicate-check";
@@ -68,6 +68,7 @@ async function saveAldiProduct(
   editProduct: Product | null,
   extractedDetails: ExtractedProductInfo | null,
   processedThumbnail: string | null,
+  galleryPhotos: ProcessedGalleryPhotoClient[],
 ): Promise<AldiSaveResult> {
   const body: Record<string, unknown> = {
     name: values.name.trim(),
@@ -97,6 +98,14 @@ async function saveAldiProduct(
       : null,
   };
 
+  if (galleryPhotos.length > 0) {
+    body.gallery_photos = galleryPhotos.map((gp) => ({
+      image_base64: gp.dataUrl.split(",")[1] ?? "",
+      format: gp.format,
+      category: gp.category,
+    }));
+  }
+
   if (editProduct) {
     body.update_existing_product_id = editProduct.product_id;
   }
@@ -125,6 +134,7 @@ async function saveCompetitorProduct(
   editProduct: CompetitorProduct | null,
   extractedDetails: ExtractedProductInfo | null,
   processedThumbnail: string | null,
+  galleryPhotos: ProcessedGalleryPhotoClient[],
   photoFiles: File[],
   country: string,
 ): Promise<CompetitorSaveResult> {
@@ -213,6 +223,22 @@ async function saveCompetitorProduct(
     }
   }
 
+  for (const gp of galleryPhotos) {
+    try {
+      const blob = await fetch(gp.dataUrl).then((r) => r.blob());
+      const ext = gp.format.includes("webp") ? "webp" : "jpg";
+      const mime = gp.format.includes("webp") ? "image/webp" : "image/jpeg";
+      const file = new File([blob], `gallery.${ext}`, { type: mime });
+      const url = await uploadCompetitorPhoto(productId, file, "extra");
+      if (url) {
+        await addProductPhoto(productId, "competitor", file, gp.category)
+          .catch((err) => { log.warn("[saveCompetitorProduct] gallery photo insert failed:", err); });
+      }
+    } catch (err) {
+      log.warn("[saveCompetitorProduct] gallery photo upload failed:", err);
+    }
+  }
+
   return { productId, thumbnailUrl: savedThumbnailUrl };
 }
 
@@ -222,6 +248,7 @@ export async function saveProduct(opts: {
   editCompetitorProduct: CompetitorProduct | null;
   extractedDetails: ExtractedProductInfo | null;
   processedThumbnail: string | null;
+  processedGalleryPhotos?: ProcessedGalleryPhotoClient[];
   photoFiles: File[];
   country: string;
 }): Promise<SaveResult> {
@@ -237,12 +264,15 @@ export async function saveProduct(opts: {
     });
   }
 
+  const gallery = opts.processedGalleryPhotos ?? [];
+
   if (isAldi || opts.editAldiProduct) {
     const aldiResult = await saveAldiProduct(
       opts.values,
       opts.editAldiProduct,
       opts.extractedDetails,
       opts.processedThumbnail,
+      gallery,
     );
     return { productId: aldiResult.productId, productType: "aldi", name: opts.values.name.trim(), thumbnailUrl: aldiResult.thumbnailUrl };
   }
@@ -252,6 +282,7 @@ export async function saveProduct(opts: {
     opts.editCompetitorProduct,
     opts.extractedDetails,
     opts.processedThumbnail,
+    gallery,
     opts.photoFiles,
     opts.country,
   );

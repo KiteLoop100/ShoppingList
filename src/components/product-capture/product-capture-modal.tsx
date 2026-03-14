@@ -17,14 +17,17 @@ export function ProductCaptureModal(props: ProductCaptureConfig) {
   const {
     values, setField,
     saving, analyzing, error,
-    photoPreviews, processedThumbnail, thumbnailType,
+    frontPhoto, priceTagPhoto, extraPhotos,
+    processedThumbnail, thumbnailType,
     existingPhotos,
     extractedDetails, reviewStatus,
-    fileInputRef,
+    fileInputFrontRef, fileInputPriceRef, fileInputExtraRef,
     retailers, demandGroups, filteredSubGroups,
     isEditMode, canSubmit, locked,
     duplicateInfo, useExistingProduct, dismissDuplicate,
-    handlePhotosSelected, removePhoto, handleSubmit,
+    handleFrontSelected, handlePriceTagSelected, handleExtraSelected,
+    removeFront, removePriceTag, removeExtra,
+    handleSubmit,
     handleDeleteExistingPhoto, handleSetAsThumbnail,
   } = useProductCaptureForm(props);
 
@@ -48,29 +51,39 @@ export function ProductCaptureModal(props: ProductCaptureConfig) {
         </div>
         <div className="flex-1 space-y-4 overflow-auto px-4 py-4">
           <PhotoUploadSection
-            fileInputRef={fileInputRef}
-            photoPreviews={photoPreviews}
+            frontPhoto={frontPhoto}
+            priceTagPhoto={priceTagPhoto}
+            extraPhotos={extraPhotos}
             processedThumbnail={processedThumbnail}
             thumbnailType={thumbnailType}
             analyzing={analyzing}
             reviewStatus={reviewStatus}
             existingPhotos={existingPhotos}
-            onPhotosSelected={handlePhotosSelected}
-            onRemovePhoto={removePhoto}
+            fileInputFrontRef={fileInputFrontRef}
+            fileInputPriceRef={fileInputPriceRef}
+            fileInputExtraRef={fileInputExtraRef}
+            onFrontSelected={handleFrontSelected}
+            onPriceTagSelected={handlePriceTagSelected}
+            onExtraSelected={handleExtraSelected}
+            onRemoveFront={removeFront}
+            onRemovePriceTag={removePriceTag}
+            onRemoveExtra={removeExtra}
             onDeleteExistingPhoto={handleDeleteExistingPhoto}
-            onSetAsThumbnail={handleSetAsThumbnail}
             labels={{
               photo: t("photo"),
-              upload: t("photosUpload"),
-              hint: t("photosHint"),
               analyzing: t("photoAnalyzing"),
               reviewRequired: t("photoReviewRequired"),
               softFallback: t("photoSoftFallback"),
-              photosCount: t("photosCount", { count: "PLACEHOLDER" }),
               mainPhoto: t("mainPhoto"),
-              productPhoto: t("productPhoto"),
-              priceTag: t("priceTag"),
-              unclassified: t("unclassified"),
+              slotFrontPhoto: t("slotFrontPhoto"),
+              slotFrontRequired: t("slotFrontRequired"),
+              slotPriceTag: t("slotPriceTag"),
+              slotPriceOptional: t("slotPriceOptional"),
+              slotExtraPhotos: t("slotExtraPhotos"),
+              slotExtraHint: t("slotExtraHint"),
+              slotTakePhoto: t("slotTakePhoto"),
+              slotChooseFile: t("slotChooseFile"),
+              photosCount: t("photosCount", { count: "PLACEHOLDER" }),
               maxPhotosReached: t("maxPhotosReached"),
             }}
           />

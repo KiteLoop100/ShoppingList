@@ -25,7 +25,9 @@ const GEMINI_MODEL = "gemini-2.5-flash";
 const GEMINI_TIMEOUT_MS = 5_000;
 const CLAUDE_TIMEOUT_MS = 8_000;
 
-const GEMINI_PROMPT = `Analyze this product photo. Return ONLY a JSON object, no other text:
+export type PreCropPhotoType = "price_tag";
+
+const GEMINI_PROMPT_DEFAULT = `Analyze this product photo. Return ONLY a JSON object, no other text:
 {
   "bbox": { "x": <left 0-1000>, "y": <top 0-1000>, "width": <0-1000>, "height": <0-1000> },
   "rotation": <0 | 90 | 180 | 270>,
@@ -36,7 +38,18 @@ bbox: Bounding box of the main product using normalized 0-1000 coordinates. Add 
 rotation: Cardinal rotation to make product text readable left-to-right. 0 if already correct.
 tilt: Fine rotation correction in degrees. Positive = clockwise needed. 0 if no tilt visible.`;
 
-const CLAUDE_PROMPT = `Analyze this product photo. Return ONLY a JSON object:
+const GEMINI_PROMPT_PRICE_TAG = `Analyze this price tag photo. Return ONLY a JSON object, no other text:
+{
+  "bbox": { "x": <left 0-1000>, "y": <top 0-1000>, "width": <0-1000>, "height": <0-1000> },
+  "rotation": <0 | 90 | 180 | 270>,
+  "tilt": <float -15.0 to 15.0>
+}
+
+bbox: Find the price tag borders precisely. Use normalized 0-1000 coordinates. Add only 1% padding — crop tightly to the price tag edges.
+rotation: Cardinal rotation to make price tag text readable left-to-right. 0 if already correct.
+tilt: Fine rotation correction in degrees. Positive = clockwise needed. 0 if no tilt visible.`;
+
+const CLAUDE_PROMPT_DEFAULT = `Analyze this product photo. Return ONLY a JSON object:
 {
   "bbox": { "x_pct": <0-100>, "y_pct": <0-100>, "w_pct": <0-100>, "h_pct": <0-100> },
   "rotation": <0 | 90 | 180 | 270>,
@@ -45,6 +58,17 @@ const CLAUDE_PROMPT = `Analyze this product photo. Return ONLY a JSON object:
 
 bbox: Bounding box as percentage of image dimensions. Add 3% padding.
 rotation: Cardinal rotation to make text readable. 0 if correct.
+tilt: Fine rotation correction. 0 if none needed.`;
+
+const CLAUDE_PROMPT_PRICE_TAG = `Analyze this price tag photo. Return ONLY a JSON object:
+{
+  "bbox": { "x_pct": <0-100>, "y_pct": <0-100>, "w_pct": <0-100>, "h_pct": <0-100> },
+  "rotation": <0 | 90 | 180 | 270>,
+  "tilt": <float -15.0 to 15.0>
+}
+
+bbox: Find the price tag borders precisely as percentage of image dimensions. Add only 1% padding — crop tightly to the price tag edges.
+rotation: Cardinal rotation to make price tag text readable. 0 if correct.
 tilt: Fine rotation correction. 0 if none needed.`;
 
 interface GeminiRawResponse {
@@ -92,7 +116,10 @@ function validateBboxArea(
  * Single Gemini Flash call that detects bbox (0-1000 coords), rotation, and tilt.
  * Returns null on any failure — never throws.
  */
-export async function geminiSmartPreCrop(imageBuffer: Buffer): Promise<PreCropData | null> {
+export async function geminiSmartPreCrop(
+  imageBuffer: Buffer,
+  photoType?: PreCropPhotoType,
+): Promise<PreCropData | null> {
   const apiKey = process.env.GOOGLE_GEMINI_API_KEY;
   if (!apiKey) {
     log.warn("[gemini-bbox] GOOGLE_GEMINI_API_KEY not configured, skipping");
@@ -105,6 +132,7 @@ export async function geminiSmartPreCrop(imageBuffer: Buffer): Promise<PreCropDa
 
     const ai = new GoogleGenAI({ apiKey });
     const base64 = imageBuffer.toString("base64");
+    const prompt = photoType === "price_tag" ? GEMINI_PROMPT_PRICE_TAG : GEMINI_PROMPT_DEFAULT;
 
     const response = await Promise.race([
       ai.models.generateContent({
@@ -113,7 +141,7 @@ export async function geminiSmartPreCrop(imageBuffer: Buffer): Promise<PreCropDa
           role: "user",
           parts: [
             { inlineData: { mimeType: "image/jpeg", data: base64 } },
-            { text: GEMINI_PROMPT },
+            { text: prompt },
           ],
         }],
       }),
@@ -165,12 +193,16 @@ export async function geminiSmartPreCrop(imageBuffer: Buffer): Promise<PreCropDa
  * Consolidated Claude Sonnet fallback — one call for bbox + rotation + tilt.
  * Uses percentage-based bbox coordinates. Returns null on any failure.
  */
-export async function claudeSmartPreCrop(imageBuffer: Buffer): Promise<PreCropData | null> {
+export async function claudeSmartPreCrop(
+  imageBuffer: Buffer,
+  photoType?: PreCropPhotoType,
+): Promise<PreCropData | null> {
   try {
     const { width: imgW = 0, height: imgH = 0 } = await sharp(imageBuffer).metadata();
     if (!imgW || !imgH) return null;
 
     const base64 = imageBuffer.toString("base64");
+    const prompt = photoType === "price_tag" ? CLAUDE_PROMPT_PRICE_TAG : CLAUDE_PROMPT_DEFAULT;
 
     const rawText = await Promise.race([
       callClaude({
@@ -180,7 +212,7 @@ export async function claudeSmartPreCrop(imageBuffer: Buffer): Promise<PreCropDa
           role: "user",
           content: [
             { type: "image", source: { type: "base64", media_type: "image/jpeg", data: base64 } },
-            { type: "text", text: CLAUDE_PROMPT },
+            { type: "text", text: prompt },
           ],
         }],
       }),

@@ -25,7 +25,7 @@ vi.mock("../gemini-bbox", () => ({
 
 import { removeBackground } from "../background-removal";
 import { geminiSmartPreCrop, claudeSmartPreCrop } from "../gemini-bbox";
-import { createThumbnail } from "../create-thumbnail";
+import { createThumbnail, transformBboxForCardinalRotation, preCropToProduct } from "../create-thumbnail";
 
 const mockedRemoveBg = vi.mocked(removeBackground);
 const mockedGeminiPreCrop = vi.mocked(geminiSmartPreCrop);
@@ -177,7 +177,7 @@ describe("createThumbnail", () => {
     expect(meta.height).toBe(100);
   });
 
-  test("applies crop and rotation together from single pre-crop result", async () => {
+  test("applies rotation before crop — bbox is transformed to rotated coordinates", async () => {
     mockedGeminiPreCrop.mockResolvedValueOnce({
       bbox: { x: 10, y: 10, width: 80, height: 180 },
       rotation: 90,
@@ -193,6 +193,9 @@ describe("createThumbnail", () => {
 
     const passedBuf = mockedRemoveBg.mock.calls[0][0];
     const meta = await sharp(passedBuf).metadata();
+    // After 90-deg rotation of 100x200 → 200x100.
+    // Bbox {10,10,80,180} transforms to {10,10,180,80} in the 200x100 space.
+    // With 20% padding (min 50px): result is cropped but clamped to image bounds.
     expect(meta.width).toBe(200);
     expect(meta.height).toBe(100);
   });
@@ -337,5 +340,160 @@ describe("createThumbnail", () => {
     await createThumbnail([img1, img2], classification);
 
     expect(mockedRemoveBg).toHaveBeenCalledTimes(1);
+  });
+
+  test("rotation 180 preserves image dimensions", async () => {
+    mockedGeminiPreCrop.mockResolvedValueOnce({
+      bbox: { x: 10, y: 10, width: 80, height: 80 },
+      rotation: 180,
+      tilt: 0,
+    });
+
+    const img = await makeTestImage(100, 100);
+    const classification = makeClassification([
+      { photo_type: "product_front", quality_score: 0.9 },
+    ]);
+
+    await createThumbnail([img], classification);
+
+    const passedBuf = mockedRemoveBg.mock.calls[0][0];
+    const meta = await sharp(passedBuf).metadata();
+    expect(meta.width).toBe(100);
+    expect(meta.height).toBe(100);
+  });
+
+  test("rotation 270 swaps width and height like rotation 90", async () => {
+    mockedGeminiPreCrop.mockResolvedValueOnce({
+      bbox: { x: 0, y: 0, width: 100, height: 200 },
+      rotation: 270,
+      tilt: 0,
+    });
+
+    const img = await makeTestImage(100, 200);
+    const classification = makeClassification([
+      { photo_type: "product_front", quality_score: 0.9 },
+    ]);
+
+    await createThumbnail([img], classification);
+
+    const passedBuf = mockedRemoveBg.mock.calls[0][0];
+    const meta = await sharp(passedBuf).metadata();
+    expect(meta.width).toBe(200);
+    expect(meta.height).toBe(100);
+  });
+});
+
+describe("preCropToProduct", () => {
+  test("forwards photoType to geminiSmartPreCrop", async () => {
+    mockedGeminiPreCrop.mockResolvedValueOnce({
+      bbox: { x: 10, y: 10, width: 80, height: 80 },
+      rotation: 0,
+      tilt: 0,
+    });
+
+    const img = await makeTestImage(100, 100);
+    await preCropToProduct(img.buffer, "price_tag");
+
+    expect(mockedGeminiPreCrop).toHaveBeenCalledWith(
+      expect.any(Buffer),
+      "price_tag",
+    );
+  });
+
+  test("forwards photoType to claudeSmartPreCrop on Gemini fallback", async () => {
+    mockedGeminiPreCrop.mockResolvedValueOnce(null);
+    mockedClaudePreCrop.mockResolvedValueOnce({
+      bbox: { x: 10, y: 10, width: 80, height: 80 },
+      rotation: 0,
+      tilt: 0,
+    });
+
+    const img = await makeTestImage(100, 100);
+    await preCropToProduct(img.buffer, "price_tag");
+
+    expect(mockedClaudePreCrop).toHaveBeenCalledWith(
+      expect.any(Buffer),
+      "price_tag",
+    );
+  });
+
+  test("uses tighter padding (5%) for price_tag photos", async () => {
+    mockedGeminiPreCrop.mockResolvedValueOnce({
+      bbox: { x: 50, y: 50, width: 400, height: 400 },
+      rotation: 0,
+      tilt: 0,
+    });
+
+    const img = await makeTestImage(500, 500);
+    const result = await preCropToProduct(img.buffer, "price_tag");
+    const meta = await sharp(result).metadata();
+
+    // bbox 400x400 at (50,50), price_tag margin 5% → pad = max(20, 400*0.05) = 20
+    // left = 50-20=30, top = 50-20=30, w = min(500-30, 400+40) = 440, h = 440
+    expect(meta.width).toBe(440);
+    expect(meta.height).toBe(440);
+  });
+
+  test("uses standard padding (20%) when photoType is undefined", async () => {
+    mockedGeminiPreCrop.mockResolvedValueOnce({
+      bbox: { x: 50, y: 50, width: 400, height: 400 },
+      rotation: 0,
+      tilt: 0,
+    });
+
+    const img = await makeTestImage(500, 500);
+    const result = await preCropToProduct(img.buffer);
+    const meta = await sharp(result).metadata();
+
+    // bbox 400x400 at (50,50), standard margin 20% → pad = max(50, 400*0.20) = 80
+    // left = 0 (clamped), top = 0, w = min(500, 400+160) = 500, h = 500
+    expect(meta.width).toBe(500);
+    expect(meta.height).toBe(500);
+  });
+});
+
+describe("transformBboxForCardinalRotation", () => {
+  test("rotation 0 returns identical bbox", () => {
+    const bbox = { x: 10, y: 20, width: 80, height: 60 };
+    const result = transformBboxForCardinalRotation(bbox, 200, 300, 0);
+    expect(result).toEqual({ x: 10, y: 20, width: 80, height: 60 });
+  });
+
+  test("rotation 90 swaps axes correctly", () => {
+    const bbox = { x: 10, y: 20, width: 80, height: 60 };
+    const result = transformBboxForCardinalRotation(bbox, 200, 300, 90);
+    // x' = origH - y - h = 300 - 20 - 60 = 220
+    // y' = x = 10
+    // w' = h = 60, h' = w = 80
+    expect(result).toEqual({ x: 220, y: 10, width: 60, height: 80 });
+  });
+
+  test("rotation 180 mirrors both axes", () => {
+    const bbox = { x: 10, y: 20, width: 80, height: 60 };
+    const result = transformBboxForCardinalRotation(bbox, 200, 300, 180);
+    // x' = origW - x - w = 200 - 10 - 80 = 110
+    // y' = origH - y - h = 300 - 20 - 60 = 220
+    expect(result).toEqual({ x: 110, y: 220, width: 80, height: 60 });
+  });
+
+  test("rotation 270 swaps axes in opposite direction", () => {
+    const bbox = { x: 10, y: 20, width: 80, height: 60 };
+    const result = transformBboxForCardinalRotation(bbox, 200, 300, 270);
+    // x' = y = 20
+    // y' = origW - x - w = 200 - 10 - 80 = 110
+    // w' = h = 60, h' = w = 80
+    expect(result).toEqual({ x: 20, y: 110, width: 60, height: 80 });
+  });
+
+  test("full-image bbox stays full-image after 90-degree rotation", () => {
+    const bbox = { x: 0, y: 0, width: 200, height: 300 };
+    const result = transformBboxForCardinalRotation(bbox, 200, 300, 90);
+    expect(result).toEqual({ x: 0, y: 0, width: 300, height: 200 });
+  });
+
+  test("full-image bbox stays full-image after 180-degree rotation", () => {
+    const bbox = { x: 0, y: 0, width: 200, height: 300 };
+    const result = transformBboxForCardinalRotation(bbox, 200, 300, 180);
+    expect(result).toEqual({ x: 0, y: 0, width: 200, height: 300 });
   });
 });
