@@ -176,11 +176,11 @@ export function GuidedPhotoSlots({
               {onDeleteExistingPhoto && <RemoveButton onClick={() => onDeleteExistingPhoto(existingFront.id)} />}
             </div>
           ) : (
-            <SlotUploadButton inputRef={fileInputFrontRef} label={labels.slotTakePhoto} disabled={analyzing} capture />
+            <SlotUploadButton inputRef={fileInputFrontRef} label={labels.slotTakePhoto} disabled={analyzing} />
           )}
         </div>
 
-        <input ref={fileInputFrontRef} type="file" accept="image/*" capture="environment" onChange={onFrontSelected} className="hidden" />
+        <input ref={fileInputFrontRef} type="file" accept="image/*" onChange={onFrontSelected} className="hidden" />
       </section>
 
       {/* Slot 2: Price Tag — optional */}
@@ -212,7 +212,7 @@ export function GuidedPhotoSlots({
           )}
         </div>
 
-        <input ref={fileInputPriceRef} type="file" accept="image/*" capture="environment" onChange={onPriceTagSelected} className="hidden" />
+        <input ref={fileInputPriceRef} type="file" accept="image/*" onChange={onPriceTagSelected} className="hidden" />
       </section>
 
       {/* Slot 3: Extra Photos — optional multi */}

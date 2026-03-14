@@ -57,9 +57,6 @@ export async function POST(request: Request) {
     .select("scan_id")
     .single();
 
-  // #region agent log
-  fetch('http://127.0.0.1:7547/ingest/d58e5f1a-49bc-422a-bf52-4fc861b26370',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'f0b92d'},body:JSON.stringify({sessionId:'f0b92d',location:'process-receipt/route.ts:60',message:'receipt_scans insert result',data:{scanErr:scanErr?.message||scanErr,scanData:scan,scanErrCode:scanErr?.code},timestamp:Date.now(),hypothesisId:'H-A'})}).catch(()=>{});
-  // #endregion
   if (scanErr || !scan) {
     log.error("[process-receipt] Failed to create receipt_scans row:", scanErr);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

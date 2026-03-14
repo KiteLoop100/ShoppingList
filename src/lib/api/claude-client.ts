@@ -27,6 +27,7 @@ export interface ClaudeOptions {
   messages: ClaudeMessage[];
   max_tokens: number;
   temperature?: number;
+  timeoutMs?: number;
 }
 
 export class ClaudeApiError extends Error {
@@ -72,13 +73,15 @@ export async function callClaude(options: ClaudeOptions): Promise<string> {
   };
   const bodyJson = JSON.stringify(reqBody);
 
+  const effectiveTimeout = options.timeoutMs ?? CLAUDE_TIMEOUT_MS;
+
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     try {
       const res = await fetch(API_URL, {
         method: "POST",
         headers,
         body: bodyJson,
-        signal: AbortSignal.timeout(CLAUDE_TIMEOUT_MS),
+        signal: AbortSignal.timeout(effectiveTimeout),
       });
 
       if (!res.ok) {

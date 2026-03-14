@@ -1,3 +1,0 @@
-{"sessionId":"f0b92d","location":"process-receipt/route.ts:60","message":"receipt_scans insert result","data":{"scanErr":"Could not find the table 'public.receipt_scans' in the schema cache","scanData":null,"scanErrCode":"PGRST205"},"timestamp":1773505225234,"hypothesisId":"H-A"}
-{"sessionId":"f0b92d","location":"process-receipt/route.ts:60","message":"receipt_scans insert result","data":{"scanErr":null,"scanData":{"scan_id":"99fe7efa-4af4-4e5a-a1d6-092d6fbd8329"}},"timestamp":1773505354449,"hypothesisId":"H-A"}
-{"sessionId":"f0b92d","location":"process-receipt/route.ts:60","message":"receipt_scans insert result","data":{"scanErr":null,"scanData":{"scan_id":"24691621-bed0-4125-919b-53d9134e5ea7"}},"timestamp":1773505457243,"hypothesisId":"H-A"}

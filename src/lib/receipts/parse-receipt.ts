@@ -99,6 +99,7 @@ export async function callReceiptOcr(
   const rawText = await callClaude({
     model: CLAUDE_MODEL_SONNET,
     max_tokens: 8192,
+    timeoutMs: 120_000,
     messages: [
       {
         role: "user",
