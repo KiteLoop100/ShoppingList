@@ -201,7 +201,7 @@ export function useProductCaptureForm(config: ProductCaptureConfig) {
     purpose, file, previewUrl: URL.createObjectURL(file),
   }), []);
 
-  const runAnalysis = useCallback(async (allFiles: File[]) => {
+  const runAnalysis = useCallback(async (allFiles: File[], roles: Array<"front" | "price_tag" | "extra">) => {
     if (allFiles.length === 0) return;
 
     abortControllerRef.current?.abort();
@@ -225,7 +225,7 @@ export function useProductCaptureForm(config: ProductCaptureConfig) {
       const res = await fetch("/api/analyze-product-photos", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ images }),
+        body: JSON.stringify({ images, photo_roles: roles }),
         signal: controller.signal,
       });
       if (!res.ok) {
@@ -242,6 +242,9 @@ export function useProductCaptureForm(config: ProductCaptureConfig) {
         setExistingPhotos((prev) => prev.filter((p) => p.category !== "thumbnail"));
       }
 
+      // #region agent log
+      console.log("[DEBUG-e67f2d] API response:", { status: data.status, hasThumbnail: !!data.thumbnail_base64, thumbnailType: data.thumbnail_type, bgRemoved: data.background_removed, galleryCount: data.gallery_photos?.length ?? 0 });
+      // #endregion
       if (Array.isArray(data.gallery_photos) && data.gallery_photos.length > 0) {
         const gp: ProcessedGalleryPhotoClient[] = data.gallery_photos.map(
           (p: { image_base64: string; format: string; category: "product" | "price_tag" }) => ({
@@ -303,8 +306,12 @@ export function useProductCaptureForm(config: ProductCaptureConfig) {
     setFrontPhoto(sp);
     e.target.value = "";
 
-    const allFiles = [file, priceTagPhoto?.file, ...extraPhotos.map((x) => x.file)].filter(Boolean) as File[];
-    runAnalysis(allFiles);
+    const pairs: Array<{ file: File; role: "front" | "price_tag" | "extra" }> = [
+      { file, role: "front" },
+      ...(priceTagPhoto ? [{ file: priceTagPhoto.file, role: "price_tag" as const }] : []),
+      ...extraPhotos.map((x) => ({ file: x.file, role: "extra" as const })),
+    ];
+    runAnalysis(pairs.map((p) => p.file), pairs.map((p) => p.role));
   }, [frontPhoto, priceTagPhoto, extraPhotos, makeSlotPhoto, runAnalysis]);
 
   const handlePriceTagSelected = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -315,8 +322,12 @@ export function useProductCaptureForm(config: ProductCaptureConfig) {
     setPriceTagPhoto(sp);
     e.target.value = "";
 
-    const allFiles = [frontPhoto?.file, file, ...extraPhotos.map((x) => x.file)].filter(Boolean) as File[];
-    runAnalysis(allFiles);
+    const pairs: Array<{ file: File; role: "front" | "price_tag" | "extra" }> = [
+      ...(frontPhoto ? [{ file: frontPhoto.file, role: "front" as const }] : []),
+      { file, role: "price_tag" },
+      ...extraPhotos.map((x) => ({ file: x.file, role: "extra" as const })),
+    ];
+    runAnalysis(pairs.map((p) => p.file), pairs.map((p) => p.role));
   }, [frontPhoto, priceTagPhoto, extraPhotos, makeSlotPhoto, runAnalysis]);
 
   const handleExtraSelected = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -326,8 +337,13 @@ export function useProductCaptureForm(config: ProductCaptureConfig) {
     setExtraPhotos((prev) => [...prev, ...newPhotos]);
     e.target.value = "";
 
-    const allFiles = [frontPhoto?.file, priceTagPhoto?.file, ...extraPhotos.map((x) => x.file), ...files].filter(Boolean) as File[];
-    runAnalysis(allFiles);
+    const pairs: Array<{ file: File; role: "front" | "price_tag" | "extra" }> = [
+      ...(frontPhoto ? [{ file: frontPhoto.file, role: "front" as const }] : []),
+      ...(priceTagPhoto ? [{ file: priceTagPhoto.file, role: "price_tag" as const }] : []),
+      ...extraPhotos.map((x) => ({ file: x.file, role: "extra" as const })),
+      ...files.map((f) => ({ file: f, role: "extra" as const })),
+    ];
+    runAnalysis(pairs.map((p) => p.file), pairs.map((p) => p.role));
   }, [frontPhoto, priceTagPhoto, extraPhotos, makeSlotPhoto, runAnalysis]);
 
   const removeFront = useCallback(() => {
@@ -387,6 +403,9 @@ export function useProductCaptureForm(config: ProductCaptureConfig) {
     setSaving(true); setError(null); setDuplicateInfo(null);
     try {
       const submitValues = { ...values, retailer: effectiveRetailer };
+      // #region agent log
+      console.log("[DEBUG-e67f2d] handleSubmit:", { galleryCount: processedGalleryPhotos.length, hasThumbnail: !!processedThumbnail, photoFileCount: photoFiles.length });
+      // #endregion
       const result: SaveResult = await saveProduct({
         values: submitValues,
         editAldiProduct: editAldiProduct ?? null,

@@ -93,6 +93,9 @@ WARENGRUPPEN-ZUORDNUNG:
 - demand_group: Ordne das Produkt anhand von Name, Verpackung und Kategorie einer Warengruppe zu.
 ${demandGroupsBlock}
 
+CONTENT-MODERATION:
+- suspicious_content: Setze auf true, wenn EINES der Fotos unangemessene, beleidigende oder sachfremde Inhalte zeigt (Nacktheit, Gewalt, Selfies, Memes, Screenshots). Produktfotos, Preisschilder und Barcodes sind IMMER angemessen (false).
+
 Antworte ausschliesslich mit validem JSON. Kein Markdown, keine Backticks.
 Fehlende/nicht sichtbare Werte als null. Boolesche Flags als false wenn nicht erkennbar.
 
@@ -124,7 +127,8 @@ Fehlende/nicht sichtbare Werte als null. Boolesche Flags als false wenn nicht er
   "is_gluten_free": false,
   "is_lactose_free": false,
   "animal_welfare_level": null,
-  "country_of_origin": "string or null"
+  "country_of_origin": "string or null",
+  "suspicious_content": false
 }${eanHint}`;
 }
 

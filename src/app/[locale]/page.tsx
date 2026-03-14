@@ -14,6 +14,8 @@ import { useStoreDetection } from "@/hooks/use-store-detection";
 import { OnboardingFlow, ONBOARDING_COMPLETE_KEY } from "@/components/onboarding/onboarding-flow";
 import { useAuth } from "@/lib/auth/auth-context";
 import { PostShoppingPrompt } from "@/components/feedback/post-shopping-prompt";
+import { ScanCompleteBanner } from "@/components/list/scan-complete-banner";
+import { useScanButtonVisible } from "@/hooks/use-scan-button-visible";
 import { loadSettings } from "@/lib/settings/settings-sync";
 
 const COMPLETION_DELAY_MS = 1800;
@@ -78,12 +80,15 @@ export default function MainScreenPage() {
       deferred: listData.deferred,
       total: listData.total,
       withoutPriceCount: listData.withoutPriceCount,
+      cartTotal: listData.cartTotal,
+      cartWithoutPriceCount: listData.cartWithoutPriceCount,
       loading: listData.loading,
       dataSortMode: listData.dataSortMode,
       refetch: listData.refetch,
       setItemChecked: listData.setItemChecked,
       setItemQuantity: listData.setItemQuantity,
       removeItem: listData.removeItem,
+      uncheckItem: listData.uncheckItem,
       deferItem: listData.deferItem,
       undeferItem: listData.undeferItem,
       setBuyElsewhere: listData.setBuyElsewhere,
@@ -98,12 +103,15 @@ export default function MainScreenPage() {
       listData.deferred,
       listData.total,
       listData.withoutPriceCount,
+      listData.cartTotal,
+      listData.cartWithoutPriceCount,
       listData.loading,
       listData.dataSortMode,
       listData.refetch,
       listData.setItemChecked,
       listData.setItemQuantity,
       listData.removeItem,
+      listData.uncheckItem,
       listData.deferItem,
       listData.undeferItem,
       listData.setBuyElsewhere,
@@ -115,8 +123,11 @@ export default function MainScreenPage() {
   refetchRef.current = refetch;
 
   const {
+    isInStore,
     detectedStoreName,
     showSortToast,
+    gpsEnabled,
+    gpsError,
     unknownLocation,
     resetOnCompletion,
   } = useStoreDetection({
@@ -176,7 +187,18 @@ export default function MainScreenPage() {
     [refetch, setSortMode, setUserHasManuallyChosenSort, resetOnCompletion, stableListData.checked.length]
   );
 
+  const [showScanCompleteBanner, setShowScanCompleteBanner] = useState(false);
+
+  const isScanAndGoActive = useMemo(
+    () => stableListData.checked.some((i) => i.is_extra_scan),
+    [stableListData.checked]
+  );
+
+  const hasDefaultStore = store !== null;
+  const scanButtonVisible = useScanButtonVisible(gpsEnabled, isInStore, gpsError, isScanAndGoActive, hasDefaultStore);
+
   // Detect "last item checked" directly from stableListData — avoids child → callback → parent cascade.
+  // When Scan & Go is active, suppress auto-archive and show a banner instead.
   useEffect(() => {
     const uncheckedCount = stableListData.unchecked.length;
     const checkedCount = stableListData.checked.length;
@@ -186,12 +208,29 @@ export default function MainScreenPage() {
     const nowAllChecked = uncheckedCount === 0 && checkedCount > 0;
     prevUncheckedCountRef.current = uncheckedCount;
     if (hadUnchecked && nowAllChecked && listIdArg) {
-      const deferredIds = stableListData.deferred.map((d) => d.item_id);
-      handleLastItemChecked(listIdArg, deferredIds);
+      if (isScanAndGoActive) {
+        setShowScanCompleteBanner(true);
+      } else {
+        const deferredIds = stableListData.deferred.map((d) => d.item_id);
+        handleLastItemChecked(listIdArg, deferredIds);
+      }
     }
   // stableListData.unchecked / checked / deferred are stable array refs from useMemo
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stableListData.unchecked, stableListData.checked, stableListData.deferred, stableListData.listId, handleLastItemChecked]);
+  }, [stableListData.unchecked, stableListData.checked, stableListData.deferred, stableListData.listId, handleLastItemChecked, isScanAndGoActive]);
+
+  const handleFinishScanAndGo = useCallback(async () => {
+    const listIdArg = stableListData.listId;
+    if (!listIdArg) return;
+    setShowScanCompleteBanner(false);
+    const deferredIds = stableListData.deferred.map((d) => d.item_id);
+    await handleLastItemChecked(listIdArg, deferredIds);
+  }, [stableListData.listId, stableListData.deferred, handleLastItemChecked]);
+
+  const extraScanCount = useMemo(
+    () => stableListData.checked.filter((i) => i.is_extra_scan).length,
+    [stableListData.checked]
+  );
 
   const overlayContainerRef = useRef<HTMLDivElement>(null);
 
@@ -295,10 +334,18 @@ export default function MainScreenPage() {
             <ShoppingListContent
               sortMode={sortMode}
               listData={stableListData}
+              scanButtonVisible={scanButtonVisible}
             />
           )}
         </div>
       </div>
+
+      {showScanCompleteBanner && (
+        <ScanCompleteBanner
+          onContinueScanning={() => setShowScanCompleteBanner(false)}
+          onFinishTrip={handleFinishScanAndGo}
+        />
+      )}
 
       {showCompletion && (
         <div
@@ -309,6 +356,14 @@ export default function MainScreenPage() {
           <div className="flex flex-col items-center gap-3">
             <span className="flex h-14 w-14 items-center justify-center rounded-full bg-white/20 text-3xl">✓</span>
             <span className="text-xl font-semibold">{tList("tripComplete")}</span>
+            {extraScanCount > 0 && (
+              <span className="text-sm text-white/80">
+                {tList("tripCompleteSummary", {
+                  total: lastCheckedCount,
+                  extraCount: extraScanCount,
+                })}
+              </span>
+            )}
           </div>
         </div>
       )}

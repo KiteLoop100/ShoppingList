@@ -148,6 +148,31 @@ export function useListMutations(deps: MutationDeps) {
     catch (e) { log.error("[useListData] undeferItem failed:", e); setUnchecked(exclude(itemId)); setDeferred(prev => [...prev, item]); }
   }, [deferredRef, setDeferred, setUnchecked]);
 
+  const uncheckItem = useCallback(async (itemId: string) => {
+    const item = checkedRef.current.find(i => i.item_id === itemId);
+    if (!item) return;
+
+    if (item.is_extra_scan) {
+      const origC = checkedRef.current;
+      setChecked(exclude(itemId));
+      try { await deleteListItem(itemId); debouncedRefetch(); }
+      catch (e) { log.error("[useListData] removeExtraItem failed:", e); setChecked(origC); }
+      return;
+    }
+
+    const uncheckedItem: ListItemWithMeta = { ...item, is_checked: false, checked_at: null };
+    setChecked(exclude(itemId));
+    setUnchecked(prev => [...prev, uncheckedItem]);
+    try {
+      await updateListItem(itemId, { is_checked: false, checked_at: null });
+      debouncedRefetch();
+    } catch (e) {
+      log.error("[useListData] uncheckItem failed:", e);
+      setUnchecked(exclude(itemId));
+      setChecked(prev => [...prev, item]);
+    }
+  }, [checkedRef, setChecked, setUnchecked, debouncedRefetch]);
+
   const updateItemComment = useCallback((itemId: string, comment: string | null) => {
     const patch = (list: ListItemWithMeta[]) =>
       list.map(i => i.item_id === itemId ? { ...i, comment } : i);
@@ -166,5 +191,5 @@ export function useListMutations(deps: MutationDeps) {
     catch (e) { log.error("[useListData] setBuyElsewhere failed:", e); setDeferred(exclude(itemId)); setUnchecked(prev => [...prev, item]); }
   }, [uncheckedRef, setUnchecked, setDeferred]);
 
-  return { checkAnimatingRef, setItemChecked, setItemQuantity, removeItem, deferItem, undeferItem, setBuyElsewhere, updateItemComment };
+  return { checkAnimatingRef, setItemChecked, setItemQuantity, removeItem, uncheckItem, deferItem, undeferItem, setBuyElsewhere, updateItemComment };
 }

@@ -2,7 +2,7 @@
 
 import type { RefObject } from "react";
 import type { ProductPhoto } from "@/lib/product-photos/types";
-import type { SlotPhoto } from "@/components/guided-photo-slots";
+import type { SlotPhoto, ProcessedGalleryPhoto } from "@/components/guided-photo-slots";
 import { GuidedPhotoSlots } from "@/components/guided-photo-slots";
 
 export interface PhotoUploadSectionProps {
@@ -11,6 +11,7 @@ export interface PhotoUploadSectionProps {
   extraPhotos: SlotPhoto[];
   processedThumbnail: string | null;
   thumbnailType?: "background_removed" | "soft_fallback" | null;
+  processedGalleryPhotos?: ProcessedGalleryPhoto[];
   analyzing: boolean;
   reviewStatus: string | null;
   existingPhotos?: ProductPhoto[];
@@ -49,6 +50,7 @@ export function PhotoUploadSection({
   extraPhotos,
   processedThumbnail,
   thumbnailType,
+  processedGalleryPhotos,
   analyzing,
   reviewStatus,
   existingPhotos = [],
@@ -76,6 +78,7 @@ export function PhotoUploadSection({
         extraPhotos={extraPhotos}
         processedThumbnail={processedThumbnail}
         thumbnailType={thumbnailType}
+        processedGalleryPhotos={processedGalleryPhotos}
         analyzing={analyzing}
         existingPhotos={existingPhotos}
         fileInputFrontRef={fileInputFrontRef}

@@ -19,6 +19,7 @@ export function ProductCaptureModal(props: ProductCaptureConfig) {
     saving, analyzing, error,
     frontPhoto, priceTagPhoto, extraPhotos,
     processedThumbnail, thumbnailType,
+    processedGalleryPhotos,
     existingPhotos,
     extractedDetails, reviewStatus,
     fileInputFrontRef, fileInputPriceRef, fileInputExtraRef,
@@ -56,6 +57,7 @@ export function ProductCaptureModal(props: ProductCaptureConfig) {
             extraPhotos={extraPhotos}
             processedThumbnail={processedThumbnail}
             thumbnailType={thumbnailType}
+            processedGalleryPhotos={processedGalleryPhotos}
             analyzing={analyzing}
             reviewStatus={reviewStatus}
             existingPhotos={existingPhotos}

@@ -1,7 +1,10 @@
 /**
  * Product Photo Studio pipeline orchestrator.
- * Coordinates classification, extraction, thumbnail creation, and verification
- * with two parallel groups gated by content moderation.
+ *
+ * Two execution paths:
+ * 1. Fast path (photoRoles provided): skips classification, runs everything
+ *    in parallel. Moderation via suspicious_content in the extract response.
+ * 2. Legacy path (no photoRoles): full classify → extract → verify sequence.
  *
  * Supports optional PipelineRunner for step-by-step persistence and resumability.
  */
@@ -12,7 +15,13 @@ import { createThumbnail } from "./create-thumbnail";
 import { processGalleryPhotos } from "./process-gallery";
 import { verifyThumbnailQuality } from "./verify-quality";
 import { selectThumbnailIndex } from "@/lib/product-photos/classify-photo-category";
-import type { ProductPhotoStudioInput, ProductPhotoStudioResult, ThumbnailVerification, ThumbnailType } from "./types";
+import type {
+  ProductPhotoStudioInput,
+  ProductPhotoStudioResult,
+  ThumbnailVerification,
+  ThumbnailType,
+  ExtractionResult,
+} from "./types";
 import type { PipelineRunner } from "./pipeline-runner";
 import { log } from "@/lib/utils/logger";
 
@@ -28,19 +37,97 @@ function elapsedMs(startMs: number): number {
   return Date.now() - startMs;
 }
 
-export async function processCompetitorPhotos(
+/**
+ * Fast path: photoRoles are known from the UI, so classification is skipped.
+ * All work runs in parallel from t=0.
+ */
+async function processFastPath(
   input: ProductPhotoStudioInput,
-  options?: ProcessOptions,
+  startMs: number,
 ): Promise<ProductPhotoStudioResult> {
-  const startMs = Date.now();
-  const runner = options?.runner;
+  const photoRoles = input.photoRoles!;
+  const heroIndex = photoRoles.indexOf("front");
+  const effectiveHeroIndex = heroIndex >= 0 ? heroIndex : 0;
 
-  if (runner) {
-    await runner.loadState();
+  log.debug("[photo-studio] fast path: heroIndex =", effectiveHeroIndex, "roles =", photoRoles);
+
+  // Phase 1: Barcode + Thumbnail + Gallery in parallel (image processing)
+  // Extract starts after barcodes finish to (a) pass scanned EAN and (b) avoid
+  // overloading AI providers with too many concurrent calls which causes timeouts
+  // in the pre-crop step (Gemini/Claude).
+  const [barcodeResults, thumbnailResult, galleryPhotos] = await Promise.all([
+    scanBarcodesFromAll(input.images),
+    createThumbnail(input.images, effectiveHeroIndex),
+    processGalleryPhotos(input.images, photoRoles, effectiveHeroIndex),
+  ]);
+
+  log.debug("[photo-studio] fast path phase 1 (images) took", elapsedMs(startMs), "ms");
+
+  // Phase 2: Extract with scanned EAN (runs while thumbnail/gallery may still be settling)
+  const scannedEan = barcodeResults.find((e: string | null) => e !== null) ?? null;
+  const extractionResult = await extractProductInfo(input.images, scannedEan);
+
+  log.debug("[photo-studio] fast path phase 2 (extract) took", elapsedMs(startMs), "ms total");
+
+  if (extractionResult.suspicious_content) {
+    log.warn("[photo-studio] moderation gate: suspicious content detected (from extract)");
+    return {
+      status: "review_required",
+      reviewReason: "suspicious_content",
+      extractedData: null,
+      backgroundRemoved: false,
+      processingTimeMs: elapsedMs(startMs),
+    };
   }
 
-  log.debug("[photo-studio] processing", input.images.length, "photos");
+  const extractedData = extractionResult.data;
+  const finalEan = scannedEan ?? extractedData.ean_barcode;
 
+  const bgFailed = thumbnailResult.backgroundRemovalFailed === true;
+  const hasThumbnail = thumbnailResult.fullSize != null;
+
+  if (bgFailed) {
+    log.warn("[photo-studio] background removal failed, provider used:", thumbnailResult.backgroundProvider);
+  }
+
+  const thumbnailType: ThumbnailType | undefined = hasThumbnail
+    ? (thumbnailResult.backgroundRemoved ? "background_removed" : "soft_fallback")
+    : undefined;
+
+  const qualityScore = bgFailed ? 0.3 : 0.6;
+
+  log.debug(
+    "[photo-studio] fast path completed in",
+    elapsedMs(startMs),
+    "ms, thumbnailType:",
+    thumbnailType ?? "none",
+  );
+
+  return {
+    status: "success",
+    extractedData: { ...extractedData, ean_barcode: finalEan },
+    thumbnailFull: thumbnailResult.fullSize,
+    thumbnailFullFormat: thumbnailResult.fullSizeFormat,
+    thumbnailSmall: thumbnailResult.thumbnail,
+    qualityScore,
+    backgroundRemoved: thumbnailResult.backgroundRemoved,
+    backgroundRemovalFailed: bgFailed,
+    backgroundProvider: thumbnailResult.backgroundProvider,
+    thumbnailType,
+    galleryPhotos: galleryPhotos.length > 0 ? galleryPhotos : undefined,
+    processingTimeMs: elapsedMs(startMs),
+  };
+}
+
+/**
+ * Legacy path: full classify → extract → verify sequence.
+ * Used when photoRoles are not provided (backward compatibility).
+ */
+async function processLegacyPath(
+  input: ProductPhotoStudioInput,
+  startMs: number,
+  runner?: PipelineRunner,
+): Promise<ProductPhotoStudioResult> {
   // ── STEP 1: Barcode scan + Classification ──
   const classifyStartMs = Date.now();
   const classifyFn = async () => {
@@ -90,18 +177,20 @@ export async function processCompetitorPhotos(
   // ── STEP 2: Extraction + Thumbnail + Gallery ──
   const extractStartMs = Date.now();
   const extractFn = async () => {
-    const [extractedData, thumbnailResult, galleryPhotos] = await Promise.all([
+    const [extractionResult, thumbnailResult, galleryPhotos] = await Promise.all([
       extractProductInfo(input.images, scannedEan),
       createThumbnail(input.images, classification),
       processGalleryPhotos(input.images, classification, heroIndex),
     ]);
-    return { extractedData, thumbnailResult, galleryPhotos };
+    return { extractionResult, thumbnailResult, galleryPhotos };
   };
 
-  const { extractedData, thumbnailResult, galleryPhotos } = runner
+  const { extractionResult, thumbnailResult, galleryPhotos } = runner
     ? await runner.runStep("extract", extractFn)
     : await extractFn();
   log.debug("[photo-studio] extract+thumbnail+gallery took", Date.now() - extractStartMs, "ms");
+
+  const extractedData = extractionResult.data;
 
   // ── STEP 3: Verify thumbnail quality (skip if budget exhausted) ──
   const bgFailed = thumbnailResult.backgroundRemovalFailed === true;
@@ -189,4 +278,24 @@ export async function processCompetitorPhotos(
     galleryPhotos: galleryPhotos.length > 0 ? galleryPhotos : undefined,
     processingTimeMs: elapsedMs(startMs),
   };
+}
+
+export async function processCompetitorPhotos(
+  input: ProductPhotoStudioInput,
+  options?: ProcessOptions,
+): Promise<ProductPhotoStudioResult> {
+  const startMs = Date.now();
+  const runner = options?.runner;
+
+  if (runner) {
+    await runner.loadState();
+  }
+
+  log.debug("[photo-studio] processing", input.images.length, "photos");
+
+  if (input.photoRoles && input.photoRoles.length === input.images.length) {
+    return processFastPath(input, startMs);
+  }
+
+  return processLegacyPath(input, startMs, runner);
 }

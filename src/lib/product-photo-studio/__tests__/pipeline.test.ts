@@ -1,5 +1,5 @@
 import { describe, test, expect, vi, beforeEach } from "vitest";
-import type { PhotoInput } from "../types";
+import type { PhotoInput, ExtractionResult } from "../types";
 
 vi.mock("../validate-classify", () => ({
   classifyPhotos: vi.fn(),
@@ -58,7 +58,7 @@ const validClassification = {
   overall_assessment: "Valid",
 };
 
-const validExtraction = {
+const validExtractedData = {
   name: "Test Product",
   brand: "TestBrand",
   ean_barcode: null,
@@ -77,6 +77,11 @@ const validExtraction = {
   is_lactose_free: false,
   animal_welfare_level: null,
   country_of_origin: null,
+};
+
+const validExtractionResult: ExtractionResult = {
+  data: validExtractedData,
+  suspicious_content: false,
 };
 
 const validThumbnail = {
@@ -99,13 +104,13 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockedClassify.mockResolvedValue(validClassification);
   mockedScanBarcodes.mockResolvedValue([null]);
-  mockedExtract.mockResolvedValue(validExtraction);
+  mockedExtract.mockResolvedValue(validExtractionResult);
   mockedCreateThumb.mockResolvedValue(validThumbnail);
   mockedGallery.mockResolvedValue([]);
   mockedVerify.mockResolvedValue(approvedVerification);
 });
 
-describe("processCompetitorPhotos", () => {
+describe("processCompetitorPhotos — legacy path (no photoRoles)", () => {
   test("returns success for valid product photos", async () => {
     const result = await processCompetitorPhotos({
       images: [makeImage()],
@@ -130,7 +135,7 @@ describe("processCompetitorPhotos", () => {
     );
   });
 
-  test("returns review_required when suspicious content detected", async () => {
+  test("returns review_required when suspicious content detected via classify", async () => {
     mockedClassify.mockResolvedValueOnce({
       photos: [
         {
@@ -190,23 +195,6 @@ describe("processCompetitorPhotos", () => {
     expect(mockedCreateThumb).toHaveBeenCalled();
   });
 
-  test("returns success even when thumbnail QA recommends reject (has thumbnail + data)", async () => {
-    mockedVerify.mockResolvedValueOnce({
-      passes_quality_check: false,
-      quality_score: 0.2,
-      issues: ["Blurry"],
-      recommendation: "reject",
-    });
-
-    const result = await processCompetitorPhotos({
-      images: [makeImage()],
-    });
-
-    expect(result.status).toBe("success");
-    expect(result.extractedData).not.toBeNull();
-    expect(result.thumbnailFull).toBeDefined();
-  });
-
   test("returns success with thumbnailType soft_fallback when background removal failed", async () => {
     mockedCreateThumb.mockResolvedValueOnce({
       ...validThumbnail,
@@ -239,20 +227,6 @@ describe("processCompetitorPhotos", () => {
     );
   });
 
-  test("includes backgroundRemovalFailed in result", async () => {
-    mockedCreateThumb.mockResolvedValueOnce({
-      ...validThumbnail,
-      backgroundRemovalFailed: true,
-    });
-
-    const result = await processCompetitorPhotos({
-      images: [makeImage()],
-    });
-
-    expect(result.backgroundRemovalFailed).toBe(true);
-    expect(result.status).toBe("success");
-  });
-
   test("returns thumbnailType background_removed for successful bg removal", async () => {
     const result = await processCompetitorPhotos({
       images: [makeImage()],
@@ -261,26 +235,11 @@ describe("processCompetitorPhotos", () => {
     expect(result.thumbnailType).toBe("background_removed");
   });
 
-  test("returns success even when verification recommends review", async () => {
-    mockedVerify.mockResolvedValueOnce({
-      passes_quality_check: false,
-      quality_score: 0.6,
-      issues: ["Minor issue"],
-      recommendation: "review",
-    });
-
-    const result = await processCompetitorPhotos({
-      images: [makeImage()],
-    });
-
-    expect(result.status).toBe("success");
-  });
-
   test("uses scanned EAN over AI-extracted EAN", async () => {
     mockedScanBarcodes.mockResolvedValueOnce(["4001234567890"]);
     mockedExtract.mockResolvedValueOnce({
-      ...validExtraction,
-      ean_barcode: "0000000000000",
+      data: { ...validExtractedData, ean_barcode: "0000000000000" },
+      suspicious_content: false,
     });
 
     const result = await processCompetitorPhotos({
@@ -296,7 +255,7 @@ describe("processCompetitorPhotos", () => {
       callOrder.push("extract-start");
       await new Promise((r) => setTimeout(r, 10));
       callOrder.push("extract-end");
-      return validExtraction;
+      return validExtractionResult;
     });
     mockedCreateThumb.mockImplementation(async () => {
       callOrder.push("thumb-start");
@@ -370,5 +329,206 @@ describe("processCompetitorPhotos", () => {
     await processCompetitorPhotos({ images: [makeImage()] });
 
     expect(mockedGallery).not.toHaveBeenCalled();
+  });
+
+  test("calls classifyPhotos when no photoRoles provided", async () => {
+    await processCompetitorPhotos({ images: [makeImage()] });
+    expect(mockedClassify).toHaveBeenCalled();
+  });
+});
+
+describe("processCompetitorPhotos — fast path (with photoRoles)", () => {
+  test("skips classification when photoRoles provided", async () => {
+    const result = await processCompetitorPhotos({
+      images: [makeImage()],
+      photoRoles: ["front"],
+    });
+
+    expect(mockedClassify).not.toHaveBeenCalled();
+    expect(result.status).toBe("success");
+    expect(result.extractedData?.name).toBe("Test Product");
+  });
+
+  test("does not call verifyThumbnailQuality", async () => {
+    await processCompetitorPhotos({
+      images: [makeImage()],
+      photoRoles: ["front"],
+    });
+
+    expect(mockedVerify).not.toHaveBeenCalled();
+  });
+
+  test("uses first front role as hero index", async () => {
+    await processCompetitorPhotos({
+      images: [makeImage(), makeImage(), makeImage()],
+      photoRoles: ["price_tag", "front", "extra"],
+    });
+
+    expect(mockedCreateThumb).toHaveBeenCalledWith(
+      expect.any(Array),
+      1,
+    );
+  });
+
+  test("passes photo roles to gallery processing", async () => {
+    const roles = ["front", "price_tag", "extra"] as const;
+    await processCompetitorPhotos({
+      images: [makeImage(), makeImage(), makeImage()],
+      photoRoles: [...roles],
+    });
+
+    expect(mockedGallery).toHaveBeenCalledWith(
+      expect.any(Array),
+      [...roles],
+      0,
+    );
+  });
+
+  test("returns review_required when extract reports suspicious_content", async () => {
+    mockedExtract.mockResolvedValueOnce({
+      data: validExtractedData,
+      suspicious_content: true,
+    });
+
+    const result = await processCompetitorPhotos({
+      images: [makeImage()],
+      photoRoles: ["front"],
+    });
+
+    expect(result.status).toBe("review_required");
+    expect(result.reviewReason).toBe("suspicious_content");
+    expect(result.extractedData).toBeNull();
+  });
+
+  test("discards thumbnail when suspicious_content detected after parallel processing", async () => {
+    mockedExtract.mockResolvedValueOnce({
+      data: validExtractedData,
+      suspicious_content: true,
+    });
+
+    const result = await processCompetitorPhotos({
+      images: [makeImage()],
+      photoRoles: ["front"],
+    });
+
+    expect(mockedCreateThumb).toHaveBeenCalled();
+    expect(result.thumbnailFull).toBeUndefined();
+    expect(result.extractedData).toBeNull();
+  });
+
+  test("runs image ops in parallel, then extract sequentially with scanned EAN", async () => {
+    const callOrder: string[] = [];
+    mockedExtract.mockImplementation(async () => {
+      callOrder.push("extract-start");
+      await new Promise((r) => setTimeout(r, 10));
+      callOrder.push("extract-end");
+      return validExtractionResult;
+    });
+    mockedCreateThumb.mockImplementation(async () => {
+      callOrder.push("thumb-start");
+      await new Promise((r) => setTimeout(r, 10));
+      callOrder.push("thumb-end");
+      return validThumbnail;
+    });
+    mockedGallery.mockImplementation(async () => {
+      callOrder.push("gallery-start");
+      await new Promise((r) => setTimeout(r, 10));
+      callOrder.push("gallery-end");
+      return [];
+    });
+    mockedScanBarcodes.mockImplementation(async () => {
+      callOrder.push("barcode-start");
+      return [null];
+    });
+
+    await processCompetitorPhotos({
+      images: [makeImage()],
+      photoRoles: ["front"],
+    });
+
+    // Phase 1: thumbnail, gallery, barcode run in parallel
+    expect(callOrder).toContain("thumb-start");
+    expect(callOrder).toContain("gallery-start");
+    expect(callOrder).toContain("barcode-start");
+
+    // Phase 2: extract starts AFTER phase 1 completes
+    const extractIdx = callOrder.indexOf("extract-start");
+    const thumbEndIdx = callOrder.indexOf("thumb-end");
+    const galleryEndIdx = callOrder.indexOf("gallery-end");
+    expect(extractIdx).toBeGreaterThan(thumbEndIdx);
+    expect(extractIdx).toBeGreaterThan(galleryEndIdx);
+  });
+
+  test("uses scanned EAN over AI-extracted EAN", async () => {
+    mockedScanBarcodes.mockResolvedValueOnce(["4001234567890"]);
+    mockedExtract.mockResolvedValueOnce({
+      data: { ...validExtractedData, ean_barcode: "0000000000000" },
+      suspicious_content: false,
+    });
+
+    const result = await processCompetitorPhotos({
+      images: [makeImage()],
+      photoRoles: ["front"],
+    });
+
+    expect(result.extractedData?.ean_barcode).toBe("4001234567890");
+  });
+
+  test("passes scanned EAN to extractProductInfo in fast path", async () => {
+    mockedScanBarcodes.mockResolvedValueOnce(["4001234567890"]);
+
+    await processCompetitorPhotos({
+      images: [makeImage()],
+      photoRoles: ["front"],
+    });
+
+    expect(mockedExtract).toHaveBeenCalledWith(
+      expect.any(Array),
+      "4001234567890",
+    );
+  });
+
+  test("falls back to legacy path when photoRoles length mismatches images", async () => {
+    await processCompetitorPhotos({
+      images: [makeImage(), makeImage()],
+      photoRoles: ["front"],
+    });
+
+    expect(mockedClassify).toHaveBeenCalled();
+  });
+
+  test("returns classification as undefined in fast path", async () => {
+    const result = await processCompetitorPhotos({
+      images: [makeImage()],
+      photoRoles: ["front"],
+    });
+
+    expect(result.classification).toBeUndefined();
+  });
+
+  test("returns thumbnailType background_removed for successful bg removal", async () => {
+    const result = await processCompetitorPhotos({
+      images: [makeImage()],
+      photoRoles: ["front"],
+    });
+
+    expect(result.thumbnailType).toBe("background_removed");
+  });
+
+  test("returns thumbnailType soft_fallback when bg removal failed", async () => {
+    mockedCreateThumb.mockResolvedValueOnce({
+      ...validThumbnail,
+      backgroundRemoved: false,
+      backgroundRemovalFailed: true,
+      backgroundProvider: "soft-fallback",
+    });
+
+    const result = await processCompetitorPhotos({
+      images: [makeImage()],
+      photoRoles: ["front"],
+    });
+
+    expect(result.backgroundRemovalFailed).toBe(true);
+    expect(result.thumbnailType).toBe("soft_fallback");
   });
 });

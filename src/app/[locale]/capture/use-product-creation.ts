@@ -190,10 +190,12 @@ export function useProductCreation(options: {
         throw new Error(`Bilder sind zu groß (${(totalBytes / 1_000_000).toFixed(1)} MB). Bitte weniger oder kleinere Fotos verwenden.`);
       }
 
+      const photo_roles = allSlotPhotos.map((sp) => sp.purpose);
+
       const res = await fetch("/api/analyze-product-photos", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ images }),
+        body: JSON.stringify({ images, photo_roles }),
         signal: controller.signal,
       });
       if (!res.ok) {
@@ -379,7 +381,7 @@ export function useProductCreation(options: {
     fields, setters,
     demandGroupOptions, subGroupOptions,
     frontPhoto, priceTagPhoto, extraPhotos,
-    processedThumbnail, thumbnailType,
+    processedThumbnail, thumbnailType, processedGalleryPhotos,
     analyzing, saving, saveError,
     duplicateProductId, setDuplicateProductId,
     fileInputFrontRef, fileInputPriceRef, fileInputExtraRef,

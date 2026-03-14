@@ -23,22 +23,23 @@
 | 8 | F38 | Bulk Text Entry | 6 | 7 | 42 | Phase 2 | below |
 | 9 | F39 | Listenvorlagen / Templates | 7 | 6 | 42 | Phase 2 | below |
 | 10 | BL-65 | Smart Catalog Filters Phase 2 | 5 | 8 | 40 | Phase 2 | [BACKLOG.md](BACKLOG.md) |
-| 11 | F35 | Warenkorb-Optimierer | 8 | 5 | 40 | Phase 3 | below |
-| 12 | F20 | Recipe Import (URL) | 9 | 4 | 36 | Phase 3 | below |
-| 13 | F02-SS | Semantic Search (AI) | 6 | 6 | 36 | Phase 3 | below |
-| 14 | F36 | Saisonkalender | 5 | 7 | 35 | Phase 2 | below |
-| 15 | F41 | Loyalty Card Wallet | 5 | 7 | 35 | Phase 3 | below |
-| 16 | F40 | Multi-Listen | 7 | 5 | 35 | Phase 3 | below |
-| 17 | F24 | ALDI Insights | 7 | 4 | 28 | Phase 3 | [FEATURES-INSIGHTS.md](FEATURES-INSIGHTS.md) |
-| 18 | F16 | Shared Lists | 9 | 3 | 27 | Phase 4 | — |
-| 19 | BL-67 | Auto Store via OSM | 5 | 5 | 25 | Phase 3 | [BACKLOG.md](BACKLOG.md) |
-| 20 | F22 | Promotional Price Highlighting | 6 | 4 | 24 | Phase 3 | below |
-| 21 | F10 | Offline Mode | 7 | 3 | 21 | Phase 4 | [OFFLINE-STRATEGY.md](OFFLINE-STRATEGY.md) |
-| 22 | F18 | Analytics Dashboard | 5 | 4 | 20 | Phase 4 | — |
-| 23 | — | Smart Savings Notifications | 8 | 2 | 16 | Phase 4 | [FEATURES-NOTIFICATIONS.md](FEATURES-NOTIFICATIONS.md) |
-| 24 | F19 | Price Comparison (multi-retailer) | 6 | 2 | 12 | Phase 5 | — |
-| 25 | F21 | External Voice Assistants | 5 | 2 | 10 | Phase 5 | — |
-| 26 | F30 | ALDI Customer Intelligence | 4 | 2 | 8 | Phase 5 | [FEATURES-ALDI-KUNDEN-UNTERSTUETZUNG.md](FEATURES-ALDI-KUNDEN-UNTERSTUETZUNG.md) |
+| 11 | F43 | Scan & Go | 8 | 5 | 40 | Phase 2–3 | [SCAN-AND-GO.md](SCAN-AND-GO.md) |
+| 12 | F35 | Warenkorb-Optimierer | 8 | 5 | 40 | Phase 3 | below |
+| 13 | F20 | Recipe Import (URL) | 9 | 4 | 36 | Phase 3 | below |
+| 14 | F02-SS | Semantic Search (AI) | 6 | 6 | 36 | Phase 3 | below |
+| 15 | F36 | Saisonkalender | 5 | 7 | 35 | Phase 2 | below |
+| 16 | F41 | Loyalty Card Wallet | 5 | 7 | 35 | Phase 3 | below |
+| 17 | F40 | Multi-Listen | 7 | 5 | 35 | Phase 3 | below |
+| 18 | F24 | ALDI Insights | 7 | 4 | 28 | Phase 3 | [FEATURES-INSIGHTS.md](FEATURES-INSIGHTS.md) |
+| 19 | F16 | Shared Lists | 9 | 3 | 27 | Phase 4 | — |
+| 20 | BL-67 | Auto Store via OSM | 5 | 5 | 25 | Phase 3 | [BACKLOG.md](BACKLOG.md) |
+| 21 | F22 | Promotional Price Highlighting | 6 | 4 | 24 | Phase 3 | below |
+| 22 | F10 | Offline Mode | 7 | 3 | 21 | Phase 4 | [OFFLINE-STRATEGY.md](OFFLINE-STRATEGY.md) |
+| 23 | F18 | Analytics Dashboard | 5 | 4 | 20 | Phase 4 | — |
+| 24 | — | Smart Savings Notifications | 8 | 2 | 16 | Phase 4 | [FEATURES-NOTIFICATIONS.md](FEATURES-NOTIFICATIONS.md) |
+| 25 | F19 | Price Comparison (multi-retailer) | 6 | 2 | 12 | Phase 5 | — |
+| 26 | F21 | External Voice Assistants | 5 | 2 | 10 | Phase 5 | — |
+| 27 | F30 | ALDI Customer Intelligence | 4 | 2 | 8 | Phase 5 | [FEATURES-ALDI-KUNDEN-UNTERSTUETZUNG.md](FEATURES-ALDI-KUNDEN-UNTERSTUETZUNG.md) |
 
 **Quick wins in [BACKLOG.md](BACKLOG.md)** (not ranked here, all < half day): BL-69 PWA App Shortcuts, BL-70 Produktfotos in Einkaufsliste, BL-71 Einkaufsnotizen pro Trip, BL-72 Retailer Memory.
 
@@ -464,5 +465,5 @@ Aktueller Warenkorb: ~EUR 34
 
 ---
 
-*Last updated: 2026-03-13*
-*See also: [FEATURES-CORE.md](FEATURES-CORE.md) (implemented features), [FEATURES-INVENTORY.md](FEATURES-INVENTORY.md) (F42 Haushaltsinventar), [FEATURES-INSIGHTS.md](FEATURES-INSIGHTS.md) (F24), [FEATURES-NOTIFICATIONS.md](FEATURES-NOTIFICATIONS.md) (Smart Savings Notifications)*
+*Last updated: 2026-03-14*
+*See also: [FEATURES-CORE.md](FEATURES-CORE.md) (implemented features), [FEATURES-INVENTORY.md](FEATURES-INVENTORY.md) (F42 Haushaltsinventar), [SCAN-AND-GO.md](SCAN-AND-GO.md) (F43 Scan & Go), [FEATURES-INSIGHTS.md](FEATURES-INSIGHTS.md) (F24), [FEATURES-NOTIFICATIONS.md](FEATURES-NOTIFICATIONS.md) (Smart Savings Notifications)*

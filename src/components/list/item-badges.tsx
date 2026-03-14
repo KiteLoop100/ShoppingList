@@ -70,6 +70,14 @@ export function ItemBadges({
     );
   }
 
+  if (item.is_checked && item.is_extra_scan) {
+    return (
+      <span className="mt-0.5 inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-[11px] font-medium leading-snug bg-[#F37D1E]/15 text-[#F37D1E]">
+        + {t("extraBadge")}
+      </span>
+    );
+  }
+
   if (categoryLabel) {
     return (
       <span className="block truncate text-[11px] leading-snug text-aldi-muted">

@@ -43,6 +43,8 @@ export interface UseListFetchResult {
   deferred: ListItemWithMeta[];
   total: number;
   withoutPriceCount: number;
+  cartTotal: number;
+  cartWithoutPriceCount: number;
   loading: boolean;
   dataSortMode: SortMode;
   setUnchecked: React.Dispatch<React.SetStateAction<ListItemWithMeta[]>>;
@@ -72,6 +74,8 @@ export function useListFetch(sortMode: SortMode): UseListFetchResult {
   const [deferred, setDeferred] = useState<ListItemWithMeta[]>([]);
   const [total, setTotal] = useState(0);
   const [withoutPriceCount, setWithoutPriceCount] = useState(0);
+  const [cartTotal, setCartTotal] = useState(0);
+  const [cartWithoutPriceCount, setCartWithoutPriceCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [dataSortMode, setDataSortMode] = useState<SortMode>(sortMode);
 
@@ -140,7 +144,8 @@ export function useListFetch(sortMode: SortMode): UseListFetchResult {
       assignPrices(u, c, productPriceMap, d);
       assignThumbnails(u, c, productThumbnailMap, d);
       assignHasAdditionalInfo(u, c, productIdsWithAdditionalInfo, d);
-      const { total: t, withoutPriceCount: w } = estimateTotal([...u, ...c]);
+      const { total: t, withoutPriceCount: w } = estimateTotal([...u, ...c, ...d]);
+      const { total: ct, withoutPriceCount: cw } = estimateTotal(c);
 
       setListId(list.list_id);
       setListNotes(list.notes ?? null);
@@ -150,6 +155,8 @@ export function useListFetch(sortMode: SortMode): UseListFetchResult {
       setDeferred(d);
       setTotal(t);
       setWithoutPriceCount(w);
+      setCartTotal(ct);
+      setCartWithoutPriceCount(cw);
       setDataSortMode(currentSortMode);
 
       scheduleActivationTimer(d, productDeferredInfo, () => refetch(), activationTimerRef);
@@ -174,6 +181,8 @@ export function useListFetch(sortMode: SortMode): UseListFetchResult {
       setDeferred(result.deferred);
       setTotal(result.total);
       setWithoutPriceCount(result.withoutPriceCount);
+      setCartTotal(result.cartTotal);
+      setCartWithoutPriceCount(result.cartWithoutPriceCount);
       setDataSortMode(sortModeRef.current);
     } catch (e) {
       log.error("[useListData] resort failed:", e);
@@ -211,7 +220,9 @@ export function useListFetch(sortMode: SortMode): UseListFetchResult {
   }, [sortMode]);
 
   return {
-    listId, listNotes, store, unchecked, checked, deferred, total, withoutPriceCount, loading, dataSortMode,
+    listId, listNotes, store, unchecked, checked, deferred,
+    total, withoutPriceCount, cartTotal, cartWithoutPriceCount,
+    loading, dataSortMode,
     setUnchecked, setChecked, setDeferred,
     uncheckedRef, checkedRef, deferredRef,
     refetch, refetchRef, autoReorderCacheRef,

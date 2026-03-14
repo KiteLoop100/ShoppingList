@@ -13,6 +13,7 @@ import { toPhotoCategory } from "@/lib/product-photos/classify-photo-category";
 import { log } from "@/lib/utils/logger";
 import type {
   PhotoInput,
+  PhotoRole,
   ClassificationResponse,
   ProcessedGalleryPhoto,
   ImageFormat,
@@ -58,14 +59,21 @@ async function processOnePhoto(
   };
 }
 
+function roleToCategory(role: PhotoRole): "product" | "price_tag" | null {
+  if (role === "price_tag") return "price_tag";
+  if (role === "extra") return "product";
+  return null;
+}
+
 /**
- * Process all classified photos except the hero candidate.
+ * Process all non-hero photos for the gallery.
+ * Accepts either a ClassificationResponse (legacy) or PhotoRole[] (fast path).
  * Returns up to MAX_GALLERY_PHOTOS processed results;
  * individual failures are logged and skipped.
  */
 export async function processGalleryPhotos(
   images: PhotoInput[],
-  classification: ClassificationResponse,
+  classificationOrRoles: ClassificationResponse | PhotoRole[],
   heroIndex: number | null,
 ): Promise<ProcessedGalleryPhoto[]> {
   const candidates: Array<{
@@ -74,18 +82,28 @@ export async function processGalleryPhotos(
     category: "product" | "price_tag";
   }> = [];
 
-  for (const photo of classification.photos) {
-    if (photo.photo_index === heroIndex) continue;
-    if (photo.photo_index < 0 || photo.photo_index >= images.length) continue;
-
-    const category = toPhotoCategory(photo.photo_type);
-    if (category === null || category === "thumbnail") continue;
-
-    candidates.push({
-      image: images[photo.photo_index],
-      originalIndex: photo.photo_index,
-      category,
-    });
+  if (Array.isArray(classificationOrRoles) && typeof classificationOrRoles[0] === "string") {
+    const roles = classificationOrRoles as PhotoRole[];
+    for (let i = 0; i < roles.length; i++) {
+      if (i === heroIndex) continue;
+      if (i >= images.length) continue;
+      const category = roleToCategory(roles[i]);
+      if (!category) continue;
+      candidates.push({ image: images[i], originalIndex: i, category });
+    }
+  } else {
+    const classification = classificationOrRoles as ClassificationResponse;
+    for (const photo of classification.photos) {
+      if (photo.photo_index === heroIndex) continue;
+      if (photo.photo_index < 0 || photo.photo_index >= images.length) continue;
+      const category = toPhotoCategory(photo.photo_type);
+      if (category === null || category === "thumbnail") continue;
+      candidates.push({
+        image: images[photo.photo_index],
+        originalIndex: photo.photo_index,
+        category,
+      });
+    }
   }
 
   const toProcess = candidates.slice(0, MAX_GALLERY_PHOTOS);

@@ -178,6 +178,11 @@ export class AppDatabase extends Dexie {
     this.version(16).stores({
       demand_sub_groups: "++id, code, demand_group_code, sort_position",
     });
+    // F43 Phase 2: Add is_extra_scan to list_items indexes
+    this.version(17).stores({
+      list_items:
+        "++id, item_id, list_id, product_id, demand_group_code, is_checked, sort_position, is_extra_scan",
+    });
   }
 }
 

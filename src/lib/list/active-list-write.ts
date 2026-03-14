@@ -16,6 +16,8 @@ export interface AddItemParams {
   quantity?: number;
   buy_elsewhere_retailer?: string | null;
   competitor_product_id?: string | null;
+  is_extra_scan?: boolean;
+  is_checked?: boolean;
 }
 
 export async function addListItem(params: AddItemParams): Promise<LocalListItem> {
@@ -28,6 +30,8 @@ export async function addListItem(params: AddItemParams): Promise<LocalListItem>
     quantity = 1,
     buy_elsewhere_retailer = null,
     competitor_product_id = null,
+    is_extra_scan = false,
+    is_checked: initialChecked = false,
   } = params;
 
   const supabase = createClientIfConfigured();
@@ -75,6 +79,7 @@ export async function addListItem(params: AddItemParams): Promise<LocalListItem>
   const now = new Date().toISOString();
   const sort_position = -Date.now();
 
+  const checkedAt = initialChecked ? now : null;
   const insertPayload = {
     item_id,
     list_id,
@@ -82,11 +87,12 @@ export async function addListItem(params: AddItemParams): Promise<LocalListItem>
     custom_name,
     display_name,
     quantity,
-    is_checked: false,
-    checked_at: null as string | null,
+    is_checked: initialChecked,
+    checked_at: checkedAt,
     sort_position,
     demand_group_code,
     added_at: now,
+    is_extra_scan,
     ...(buy_elsewhere_retailer ? { buy_elsewhere_retailer } : {}),
     ...(competitor_product_id ? { competitor_product_id } : {}),
   };
@@ -113,6 +119,7 @@ export async function addListItem(params: AddItemParams): Promise<LocalListItem>
     sort_position: newItem.sort_position,
     demand_group_code: newItem.demand_group_code ?? demand_group_code,
     added_at: newItem.added_at,
+    is_extra_scan: newItem.is_extra_scan ?? false,
   };
 }
 
@@ -130,6 +137,7 @@ export async function updateListItem(
     buy_elsewhere_retailer?: string | null;
     competitor_product_id?: string | null;
     comment?: string | null;
+    is_extra_scan?: boolean;
   }
 ): Promise<void> {
   const supabase = createClientIfConfigured();
@@ -147,6 +155,7 @@ export async function updateListItem(
   if (updates.buy_elsewhere_retailer !== undefined) updatePayload.buy_elsewhere_retailer = updates.buy_elsewhere_retailer;
   if (updates.competitor_product_id !== undefined) updatePayload.competitor_product_id = updates.competitor_product_id;
   if (updates.comment !== undefined) updatePayload.comment = updates.comment;
+  if (updates.is_extra_scan !== undefined) updatePayload.is_extra_scan = updates.is_extra_scan;
 
   if (Object.keys(updatePayload).length > 0) {
     const { error } = await supabase.from("list_items").update(updatePayload).eq("item_id", itemId);

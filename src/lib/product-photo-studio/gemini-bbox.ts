@@ -36,7 +36,7 @@ const GEMINI_PROMPT_DEFAULT = `Analyze this product photo. Return ONLY a JSON ob
 
 bbox: Bounding box of the main product using normalized 0-1000 coordinates. Add 3% padding on each side.
 rotation: Cardinal rotation to make product text readable left-to-right. 0 if already correct.
-tilt: Fine rotation correction in degrees. Positive = clockwise needed. 0 if no tilt visible.`;
+tilt: Measure the ACTUAL tilt angle of the product in degrees. Look at vertical edges of the product packaging — how many degrees are they tilted from perfectly vertical? Positive = product leans clockwise, negative = product leans counterclockwise. Report the TRUE angle, even if it is large (up to 15 degrees). 0 ONLY if the product is perfectly straight.`;
 
 const GEMINI_PROMPT_PRICE_TAG = `Analyze this price tag photo. Return ONLY a JSON object, no other text:
 {
@@ -47,7 +47,7 @@ const GEMINI_PROMPT_PRICE_TAG = `Analyze this price tag photo. Return ONLY a JSO
 
 bbox: Find the price tag borders precisely. Use normalized 0-1000 coordinates. Add only 1% padding — crop tightly to the price tag edges.
 rotation: Cardinal rotation to make price tag text readable left-to-right. 0 if already correct.
-tilt: Fine rotation correction in degrees. Positive = clockwise needed. 0 if no tilt visible.`;
+tilt: Measure the ACTUAL tilt angle of the price tag in degrees. Look at horizontal text lines — how many degrees are they tilted from perfectly horizontal? Positive = text tilts clockwise, negative = text tilts counterclockwise. Report the TRUE angle, even if it is large (up to 15 degrees). 0 ONLY if the text is perfectly straight.`;
 
 const CLAUDE_PROMPT_DEFAULT = `Analyze this product photo. Return ONLY a JSON object:
 {
@@ -58,7 +58,7 @@ const CLAUDE_PROMPT_DEFAULT = `Analyze this product photo. Return ONLY a JSON ob
 
 bbox: Bounding box as percentage of image dimensions. Add 3% padding.
 rotation: Cardinal rotation to make text readable. 0 if correct.
-tilt: Fine rotation correction. 0 if none needed.`;
+tilt: Measure the ACTUAL tilt angle of the product in degrees. Look at vertical edges of the product packaging — how many degrees are they tilted from perfectly vertical? Positive = product leans clockwise, negative = product leans counterclockwise. Report the TRUE angle, even if it is large (up to 15 degrees). 0 ONLY if the product is perfectly straight.`;
 
 const CLAUDE_PROMPT_PRICE_TAG = `Analyze this price tag photo. Return ONLY a JSON object:
 {
@@ -69,7 +69,7 @@ const CLAUDE_PROMPT_PRICE_TAG = `Analyze this price tag photo. Return ONLY a JSO
 
 bbox: Find the price tag borders precisely as percentage of image dimensions. Add only 1% padding — crop tightly to the price tag edges.
 rotation: Cardinal rotation to make price tag text readable. 0 if correct.
-tilt: Fine rotation correction. 0 if none needed.`;
+tilt: Measure the ACTUAL tilt angle of the price tag in degrees. Look at horizontal text lines — how many degrees are they tilted from perfectly horizontal? Positive = text tilts clockwise, negative = text tilts counterclockwise. Report the TRUE angle, even if it is large (up to 15 degrees). 0 ONLY if the text is perfectly straight.`;
 
 interface GeminiRawResponse {
   bbox?: { x?: number; y?: number; width?: number; height?: number };
@@ -222,6 +222,9 @@ export async function claudeSmartPreCrop(
     ]);
 
     const jsonStr = extractJsonFromText(rawText);
+    // #region agent log
+    fetch('http://127.0.0.1:7547/ingest/d58e5f1a-49bc-422a-bf52-4fc861b26370',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'e67f2d'},body:JSON.stringify({sessionId:'e67f2d',location:'gemini-bbox.ts:claudeSmartPreCrop',message:'claude raw bbox response',data:{rawText,jsonStr,imgW,imgH},timestamp:Date.now(),hypothesisId:'H1-H4'})}).catch(()=>{});
+    // #endregion
     const parsed: ClaudeRawResponse = parseClaudeJsonResponse(jsonStr);
 
     const xPct = Number(parsed.bbox?.x_pct) || 0;

@@ -26,6 +26,7 @@ export function CreateProductModal({ open, onClose, onSaved }: CreateProductModa
     extraPhotos,
     processedThumbnail,
     thumbnailType,
+    processedGalleryPhotos,
     analyzing,
     saving,
     saveError,
@@ -74,6 +75,7 @@ export function CreateProductModal({ open, onClose, onSaved }: CreateProductModa
             extraPhotos={extraPhotos}
             processedThumbnail={processedThumbnail}
             thumbnailType={thumbnailType}
+            processedGalleryPhotos={processedGalleryPhotos}
             analyzing={analyzing}
             fileInputFrontRef={fileInputFrontRef}
             fileInputPriceRef={fileInputPriceRef}

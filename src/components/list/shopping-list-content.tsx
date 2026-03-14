@@ -8,7 +8,6 @@ import { ListSection, DeferredSections, CheckedSection, ElsewhereSection } from 
 import { useProducts } from "@/lib/products-context";
 import { canFillWithTypicalProducts, fillListWithTypicalProducts } from "@/lib/list";
 import { ListSkeleton } from "@/components/ui/skeleton";
-import { formatPrice } from "@/lib/utils/format-price";
 import { RetailerPickerSheet } from "./retailer-picker-sheet";
 import { ElsewhereCheckoffPrompt } from "./elsewhere-checkoff-prompt";
 import { CompetitorProductDetailModal } from "./competitor-product-detail-modal";
@@ -21,7 +20,11 @@ import { useListModals } from "./hooks/use-list-modals";
 import { useCompetitorActions } from "./hooks/use-competitor-actions";
 import { useListDerived } from "./hooks/use-list-derived";
 import { ShoppingTileGrid } from "./shopping-tile-grid";
+import { DualPriceFooter } from "./dual-price-footer";
+import { BarcodeScannerModal } from "@/components/search/barcode-scanner-modal";
 import { useArrowNavigation } from "@/hooks/use-arrow-navigation";
+import { useCartScanner } from "./hooks/use-cart-scanner";
+import { CartScanPricePrompt } from "./cart-scan-price-prompt";
 
 import type { UseListDataResult } from "./use-list-data";
 import type { SortMode } from "@/types";
@@ -29,11 +32,13 @@ import type { SortMode } from "@/types";
 export interface ShoppingListContentProps {
   sortMode: SortMode;
   listData: UseListDataResult;
+  scanButtonVisible: boolean;
 }
 
 export const ShoppingListContent = memo(function ShoppingListContent({
   sortMode: _sortMode,
   listData,
+  scanButtonVisible,
 }: ShoppingListContentProps) {
   const t = useTranslations("list");
   const tCommon = useTranslations("common");
@@ -41,9 +46,10 @@ export const ShoppingListContent = memo(function ShoppingListContent({
   const { products, refetch: refetchProducts } = useProducts();
   const { products: competitorProducts, refetch: refetchCompetitorProducts } = useCompetitorProducts();
   const {
-    listId, listNotes, unchecked, checked, deferred, total, withoutPriceCount,
+    listId, listNotes, unchecked, checked, deferred,
+    total, withoutPriceCount, cartTotal, cartWithoutPriceCount,
     loading, dataSortMode, refetch,
-    setItemChecked, setItemQuantity, removeItem, deferItem, undeferItem, setBuyElsewhere, updateItemComment,
+    setItemChecked, setItemQuantity, removeItem, uncheckItem, deferItem, undeferItem, setBuyElsewhere, updateItemComment,
   } = listData;
 
   const modals = useListModals();
@@ -75,6 +81,12 @@ export const ShoppingListContent = memo(function ShoppingListContent({
     openCompetitorDetail: modals.openCompetitorDetail,
     openGenericPicker: modals.openGenericPicker, closeGenericPicker: modals.closeGenericPicker,
     openDetail: modals.openDetail,
+    openCapture: modals.openCapture,
+  });
+
+  const cartScanner = useCartScanner({
+    listId, unchecked, checked, deferred,
+    setItemChecked, setItemQuantity, refetch,
     openCapture: modals.openCapture,
   });
 
@@ -110,7 +122,6 @@ export const ShoppingListContent = memo(function ShoppingListContent({
 
   const allRegularChecked = unchecked.length === 0 && checked.length > 0 && deferred.length > 0;
   const hasAnyItems = !listEmpty;
-  const priceFormatted = formatPrice(total);
 
   const deferredCbs = { onCheck: handleDeferredCheck, onQuantityChange: setItemQuantity,
     onDelete: handleDelete, deleteLabel: t("delete"), onOpenDetail: actions.handleOpenDetail,
@@ -174,7 +185,7 @@ export const ShoppingListContent = memo(function ShoppingListContent({
               deferredSectionLabel={t("deferredSection", { date: "{date}" })}
               deferredSectionNextTripLabel={t("deferredSectionNextTrip")} callbacks={deferredCbs} />
             <CheckedSection items={checked} open={ms.checkedOpen} onToggle={modals.toggleCheckedSection}
-              label={t("checked")} callbacks={checkedCbs} />
+              label={t("checked")} callbacks={checkedCbs} onUncheckItem={uncheckItem} />
             <ElsewhereSection elsewhereByRetailer={elsewhereByRetailer} sectionLabel={t("buyElsewhereSection")}
               addButtonLabel={t("competitorProductTitle")} onAddCompetitor={() => modals.openCapture({ mode: "create" })}
               callbacks={elsewhereCbs} />
@@ -182,13 +193,25 @@ export const ShoppingListContent = memo(function ShoppingListContent({
         )}
       </div>
 
+      {cartScanner.toast && (
+        <div className={`fixed left-4 right-4 bottom-20 z-30 animate-fade-in rounded-xl px-4 py-3 text-center text-sm font-medium shadow-lg text-white ${
+          cartScanner.toast.type === "success" ? "bg-green-600" : cartScanner.toast.type === "info" ? "bg-aldi-blue" : "bg-yellow-500"
+        }`} role="status" aria-live="polite">
+          {cartScanner.toast.message}
+        </div>
+      )}
+
       {hasAnyItems && (
-        <footer className="border-t border-aldi-muted-light bg-gray-50/50 px-4 py-4" role="region" aria-label={t("estimatedTotal", { price: priceFormatted })}>
-          <p className="text-base font-semibold text-aldi-text">{t("estimatedTotal", { price: priceFormatted })}</p>
-          {withoutPriceCount > 0 && (
-            <p className="mt-0.5 text-sm text-aldi-muted">{t("productsWithoutPrice", { count: withoutPriceCount })}</p>
-          )}
-        </footer>
+        <DualPriceFooter
+          listTotal={total}
+          listWithoutPriceCount={withoutPriceCount}
+          listItemCount={unchecked.length + checked.length + deferred.length}
+          cartTotal={cartTotal}
+          cartWithoutPriceCount={cartWithoutPriceCount}
+          cartItemCount={checked.length}
+          onScanPress={scanButtonVisible ? () => cartScanner.setScannerOpen(true) : undefined}
+          showCartColumn={scanButtonVisible || checked.length > 0}
+        />
       )}
 
       <ProductDetailModal product={ms.detailProduct} onClose={modals.closeDetail}
@@ -257,6 +280,20 @@ export const ShoppingListContent = memo(function ShoppingListContent({
       />
       <CompetitorProductDetailModal product={ms.detailCompetitorProduct} retailer={ms.detailCompetitorRetailer}
         onClose={modals.closeCompetitorDetail} onEdit={(cp) => modals.editFromCompetitorDetail(cp)} />
+      <BarcodeScannerModal
+        open={cartScanner.scannerOpen}
+        onClose={() => cartScanner.setScannerOpen(false)}
+        onProductAdded={cartScanner.onCartProductScanned}
+        onProductNotFound={cartScanner.onScanNotFound}
+        onCreateProduct={cartScanner.onScanCreateProduct}
+      />
+      {cartScanner.pricePrompt && (
+        <CartScanPricePrompt
+          productName={cartScanner.pricePrompt.product.name}
+          onSubmit={cartScanner.handlePriceSubmit}
+          onSkip={cartScanner.handlePriceSkip}
+        />
+      )}
     </>
   );
 });

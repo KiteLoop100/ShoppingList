@@ -15,6 +15,7 @@
 | **FEATURES-ACCOUNT.md** | F17: Accounts, Auth, Multi-Device, IndexedDB-to-Supabase migration | 327 |
 | **FEATURES-FEEDBACK.md** | F25: Product, general, and post-shopping feedback | 330 |
 | **FEATURES-INVENTORY.md** | F42: Haushaltsinventar (Household Inventory) | 88 |
+| **SCAN-AND-GO.md** | F43: Scan & Go — unified shopping list + cart, barcode scan, dual-price footer | 300 |
 | **FEATURES-NOTIFICATIONS.md** | Notification feature spec (planned) | 524 |
 | **FEATURES-INSIGHTS.md** | F24: ALDI Insights analytics (planned) | 368 |
 | **FEATURES-ALDI-KUNDEN-UNTERSTUETZUNG.md** | F30: Crowdsourced customer intelligence (planned) | 404 |
@@ -41,7 +42,7 @@ VISION.md (Why?)
 PRODUCT.md (What?)
   |
 FEATURES-CORE.md + FEATURES-CAPTURE.md + FEATURES-FLYER.md + FEATURES-INVENTORY.md (How -- implemented)
-FEATURES-PLANNED.md + FEATURES-INSIGHTS.md + FEATURES-NOTIFICATIONS.md (How -- planned)
+FEATURES-PLANNED.md + SCAN-AND-GO.md + FEATURES-INSIGHTS.md + FEATURES-NOTIFICATIONS.md (How -- planned)
   |
 BACKLOG.md (Code quality, tech debt, responsive roadmap)
   |
@@ -66,5 +67,6 @@ Always reference the specific file:
 - Sorting logic -> "Read LEARNING-ALGORITHMS.md"
 - Account / Auth -> "Read FEATURES-ACCOUNT.md"
 - Feature prioritization / what to build next -> "Read FEATURES-PLANNED.md Priority Backlog"
+- Scan & Go / in-store scanning -> "Read SCAN-AND-GO.md"
 - Planned features (voice, recipe, semantic search) -> "Read FEATURES-PLANNED.md"
 - Launch preparation -> "Read LAUNCH-READINESS.md"

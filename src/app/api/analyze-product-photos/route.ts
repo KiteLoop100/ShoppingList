@@ -16,6 +16,7 @@ import {
   getIdentifier,
 } from "@/lib/api/rate-limit";
 import { analyzeRequestSchema } from "@/lib/product-photo-studio/types";
+import type { PhotoRole } from "@/lib/product-photo-studio/types";
 import { processProductPhotos } from "@/lib/product-photo-studio/pipeline";
 import { toPhotoCategory, selectThumbnailIndex } from "@/lib/product-photos/classify-photo-category";
 import { log } from "@/lib/utils/logger";
@@ -47,28 +48,41 @@ export async function POST(request: Request) {
     );
   }
 
+  const { photo_roles } = parsed.data;
+  if (photo_roles && photo_roles.length !== parsed.data.images.length) {
+    return NextResponse.json(
+      { error: "photo_roles length must match images length" },
+      { status: 400 },
+    );
+  }
+
   try {
     const images = parsed.data.images.map((img) => ({
       buffer: Buffer.from(img.image_base64, "base64"),
       mediaType: img.media_type,
     }));
 
-    const result = await processProductPhotos({ images });
+    const photoRoles = photo_roles as PhotoRole[] | undefined;
+    const result = await processProductPhotos({ images, photoRoles });
 
-    const classifiedPhotos = result.classification.photos.map((p) => ({
-      index: p.photo_index,
-      category: toPhotoCategory(p.photo_type),
-      photo_type: p.photo_type,
-      quality_score: p.quality_score,
-      is_product_photo: p.is_product_photo,
-    }));
+    const classifiedPhotos = result.classification
+      ? result.classification.photos.map((p) => ({
+          index: p.photo_index,
+          category: toPhotoCategory(p.photo_type),
+          photo_type: p.photo_type,
+          quality_score: p.quality_score,
+          is_product_photo: p.is_product_photo,
+        }))
+      : undefined;
 
-    const suggestedThumbnailIndex = selectThumbnailIndex(
-      result.classification.photos.map((p) => ({
-        photoType: p.photo_type,
-        qualityScore: p.quality_score,
-      })),
-    );
+    const suggestedThumbnailIndex = result.classification
+      ? selectThumbnailIndex(
+          result.classification.photos.map((p) => ({
+            photoType: p.photo_type,
+            qualityScore: p.quality_score,
+          })),
+        )
+      : null;
 
     const galleryPhotos = (result.galleryPhotos ?? []).map((gp) => ({
       index: gp.originalIndex,
@@ -77,6 +91,19 @@ export async function POST(request: Request) {
       format: gp.processedFormat,
       background_removed: gp.backgroundRemoved,
     }));
+
+    // #region agent log
+    log.debug("[DEBUG-e67f2d] API response:", {
+      status: result.status,
+      hasThumbnail: !!result.thumbnailFull,
+      thumbnailType: result.thumbnailType,
+      thumbnailBase64Len: result.thumbnailFull ? result.thumbnailFull.toString("base64").length : 0,
+      bgRemoved: result.backgroundRemoved,
+      bgFailed: result.backgroundRemovalFailed,
+      galleryCount: galleryPhotos.length,
+      galleryDetails: galleryPhotos.map(g => ({ idx: g.index, cat: g.category, bgRemoved: g.background_removed, b64Len: g.image_base64?.length ?? 0 })),
+    });
+    // #endregion
 
     return NextResponse.json({
       ok: true,
@@ -96,8 +123,8 @@ export async function POST(request: Request) {
       background_removal_failed: result.backgroundRemovalFailed ?? false,
       background_provider: result.backgroundProvider ?? null,
       processing_time_ms: result.processingTimeMs,
-      classified_photos: classifiedPhotos,
-      suggested_thumbnail_index: suggestedThumbnailIndex,
+      classified_photos: classifiedPhotos ?? undefined,
+      suggested_thumbnail_index: suggestedThumbnailIndex ?? undefined,
       gallery_photos: galleryPhotos.length > 0 ? galleryPhotos : undefined,
     });
   } catch (e) {

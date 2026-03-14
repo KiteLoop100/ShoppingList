@@ -1,5 +1,5 @@
 import { describe, test, expect, vi, beforeEach } from "vitest";
-import type { PhotoInput, ClassificationResponse, ProcessedGalleryPhoto } from "../types";
+import type { PhotoInput, PhotoRole, ClassificationResponse, ProcessedGalleryPhoto } from "../types";
 
 vi.mock("../create-thumbnail", () => ({
   preCropToProduct: vi.fn(),
@@ -259,6 +259,63 @@ describe("processGalleryPhotos", () => {
     await processGalleryPhotos(images, classification, 0);
 
     expect(mockedPreCrop).toHaveBeenCalledTimes(1);
+    expect(mockedPreCrop).toHaveBeenCalledWith(
+      expect.any(Buffer),
+      undefined,
+    );
+  });
+});
+
+describe("processGalleryPhotos — photoRoles path", () => {
+  test("skips hero and processes remaining photos using roles", async () => {
+    const images = [makeImage(0), makeImage(1), makeImage(2)];
+    const roles: PhotoRole[] = ["front", "price_tag", "extra"];
+
+    const result = await processGalleryPhotos(images, roles, 0);
+
+    expect(result).toHaveLength(2);
+    expect(result[0].originalIndex).toBe(1);
+    expect(result[0].category).toBe("price_tag");
+    expect(result[1].originalIndex).toBe(2);
+    expect(result[1].category).toBe("product");
+  });
+
+  test("skips front roles (not hero) as they have no gallery category", async () => {
+    const images = [makeImage(0), makeImage(1)];
+    const roles: PhotoRole[] = ["front", "front"];
+
+    const result = await processGalleryPhotos(images, roles, 0);
+
+    expect(result).toHaveLength(0);
+  });
+
+  test("returns empty array when only hero exists", async () => {
+    const images = [makeImage(0)];
+    const roles: PhotoRole[] = ["front"];
+
+    const result = await processGalleryPhotos(images, roles, 0);
+
+    expect(result).toHaveLength(0);
+  });
+
+  test("passes price_tag hint to preCropToProduct", async () => {
+    const images = [makeImage(0), makeImage(1)];
+    const roles: PhotoRole[] = ["front", "price_tag"];
+
+    await processGalleryPhotos(images, roles, 0);
+
+    expect(mockedPreCrop).toHaveBeenCalledWith(
+      expect.any(Buffer),
+      "price_tag",
+    );
+  });
+
+  test("passes undefined hint to preCropToProduct for extra photos", async () => {
+    const images = [makeImage(0), makeImage(1)];
+    const roles: PhotoRole[] = ["front", "extra"];
+
+    await processGalleryPhotos(images, roles, 0);
+
     expect(mockedPreCrop).toHaveBeenCalledWith(
       expect.any(Buffer),
       undefined,

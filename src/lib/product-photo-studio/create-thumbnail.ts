@@ -154,9 +154,13 @@ async function applyPreCropData(
   }
 
   if (data.tilt !== 0) {
-    log.debug("[photo-studio] applying tilt correction:", data.tilt, "degrees");
+    const sharpAngle = -data.tilt;
+    log.debug("[photo-studio] applying tilt correction:", data.tilt, "degrees (sharp angle:", sharpAngle, ")");
+    // #region agent log
+    fetch('http://127.0.0.1:7547/ingest/d58e5f1a-49bc-422a-bf52-4fc861b26370',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'e67f2d'},body:JSON.stringify({sessionId:'e67f2d',location:'create-thumbnail.ts:applyPreCropData',message:'tilt application details',data:{aiTilt:data.tilt,sharpAngle,beforeDims:`${currentW}x${currentH}`},timestamp:Date.now(),hypothesisId:'H4'})}).catch(()=>{});
+    // #endregion
     output = await sharp(output)
-      .rotate(data.tilt, { background: { r: 255, g: 255, b: 255 } })
+      .rotate(sharpAngle, { background: { r: 255, g: 255, b: 255 } })
       .toBuffer();
     const meta = await sharp(output).metadata();
     currentW = meta.width ?? currentW;
@@ -215,8 +219,12 @@ export async function preCropToProduct(
   imageBuffer: Buffer,
   photoType?: PreCropPhotoType,
 ): Promise<Buffer> {
+  const rawMeta = await sharp(imageBuffer).metadata();
   const oriented = await sharp(imageBuffer).rotate().toBuffer();
   const { width = 0, height = 0 } = await sharp(oriented).metadata();
+  // #region agent log
+  fetch('http://127.0.0.1:7547/ingest/d58e5f1a-49bc-422a-bf52-4fc861b26370',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'e67f2d'},body:JSON.stringify({sessionId:'e67f2d',location:'create-thumbnail.ts:preCropToProduct',message:'image orientation info',data:{rawWidth:rawMeta.width,rawHeight:rawMeta.height,rawOrientation:rawMeta.orientation,orientedWidth:width,orientedHeight:height,photoType:photoType??'default'},timestamp:Date.now(),hypothesisId:'H3'})}).catch(()=>{});
+  // #endregion
   if (!width || !height) return oriented;
 
   try {
@@ -415,9 +423,15 @@ async function pickBetterResult(
 
 export async function createThumbnail(
   images: PhotoInput[],
-  classification: ClassificationResponse,
+  classificationOrHeroIndex: ClassificationResponse | number,
 ): Promise<ThumbnailResult> {
-  const candidates = selectHeroCandidates(images, classification);
+  if (typeof classificationOrHeroIndex === "number") {
+    const heroIndex = classificationOrHeroIndex;
+    const hero = images[heroIndex] ?? images[0];
+    return processCandidate(hero);
+  }
+
+  const candidates = selectHeroCandidates(images, classificationOrHeroIndex);
 
   if (candidates.length === 1) {
     return processCandidate(candidates[0]);

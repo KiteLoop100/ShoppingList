@@ -18,12 +18,15 @@ export interface UseListDataResult {
   deferred: ListItemWithMeta[];
   total: number;
   withoutPriceCount: number;
+  cartTotal: number;
+  cartWithoutPriceCount: number;
   loading: boolean;
   dataSortMode: SortMode;
   refetch: (opts?: { forceReorder?: boolean }) => Promise<void>;
   setItemChecked: (itemId: string, checked: boolean) => Promise<void>;
   setItemQuantity: (itemId: string, quantity: number) => Promise<void>;
   removeItem: (itemId: string) => Promise<void>;
+  uncheckItem: (itemId: string) => Promise<void>;
   deferItem: (itemId: string) => Promise<void>;
   undeferItem: (itemId: string) => Promise<void>;
   setBuyElsewhere: (itemId: string, retailer: string) => Promise<void>;
@@ -33,7 +36,8 @@ export interface UseListDataResult {
 export function useListData(sortMode: SortMode = "my-order"): UseListDataResult {
   const fetch = useListFetch(sortMode);
   const {
-    listId, listNotes, store, unchecked, checked, deferred, total, withoutPriceCount,
+    listId, listNotes, store, unchecked, checked, deferred,
+    total, withoutPriceCount, cartTotal, cartWithoutPriceCount,
     loading, dataSortMode, setUnchecked, setChecked, setDeferred,
     uncheckedRef, checkedRef, deferredRef,
     refetch, refetchRef, autoReorderCacheRef,
@@ -48,7 +52,7 @@ export function useListData(sortMode: SortMode = "my-order"): UseListDataResult 
     }, 300);
   }, [debounceRefetchRef, refetchRef]);
 
-  const { checkAnimatingRef, setItemChecked, setItemQuantity, removeItem, deferItem, undeferItem, setBuyElsewhere, updateItemComment } =
+  const { checkAnimatingRef, setItemChecked, setItemQuantity, removeItem, uncheckItem, deferItem, undeferItem, setBuyElsewhere, updateItemComment } =
     useListMutations({
       uncheckedRef, checkedRef, deferredRef,
       setUnchecked, setChecked, setDeferred,
@@ -96,8 +100,9 @@ export function useListData(sortMode: SortMode = "my-order"): UseListDataResult 
 
   return {
     listId, listNotes, store, unchecked, checked, deferred,
-    total, withoutPriceCount, loading, dataSortMode,
+    total, withoutPriceCount, cartTotal, cartWithoutPriceCount,
+    loading, dataSortMode,
     refetch, setItemChecked, setItemQuantity,
-    removeItem, deferItem, undeferItem, setBuyElsewhere, updateItemComment,
+    removeItem, uncheckItem, deferItem, undeferItem, setBuyElsewhere, updateItemComment,
   };
 }

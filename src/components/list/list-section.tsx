@@ -1,7 +1,8 @@
 "use client";
 
-import { memo } from "react";
+import { memo, useState, useCallback } from "react";
 import { ListItemRow } from "./list-item-row";
+import { CartItemControls } from "./cart-item-controls";
 import { getCategoryColor } from "@/lib/categories/category-colors";
 import { getRetailerByName } from "@/lib/retailers/retailers";
 import type { ListItemWithMeta } from "@/lib/list/list-helpers";
@@ -168,11 +169,27 @@ export interface CheckedSectionProps {
   onToggle: () => void;
   label: string;
   callbacks: ItemCallbacks;
+  onUncheckItem?: (itemId: string) => void;
 }
 
 export const CheckedSection = memo(function CheckedSection({
-  items, open, onToggle, label, callbacks,
+  items, open, onToggle, label, callbacks, onUncheckItem,
 }: CheckedSectionProps) {
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  const handleItemTap = useCallback((itemId: string) => {
+    setExpandedId(prev => prev === itemId ? null : itemId);
+  }, []);
+
+  const handleCartRemove = useCallback((itemId: string) => {
+    setExpandedId(null);
+    if (onUncheckItem) {
+      onUncheckItem(itemId);
+    } else {
+      callbacks.onDelete(itemId);
+    }
+  }, [onUncheckItem, callbacks]);
+
   if (items.length === 0) return null;
   return (
     <section className="mt-6">
@@ -188,9 +205,24 @@ export const CheckedSection = memo(function CheckedSection({
         <ul className="space-y-3">
           {items.map((item) => (
             <li key={item.item_id}>
-              <ListItemRow item={item} onCheck={callbacks.onCheck} onQuantityChange={callbacks.onQuantityChange}
-                onDelete={callbacks.onDelete} deleteLabel={callbacks.deleteLabel}
-                onOpenDetail={callbacks.onOpenDetail} onRenameItem={callbacks.onRenameItem} />
+              <div
+                onClick={() => handleItemTap(item.item_id)}
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleItemTap(item.item_id); } }}
+                role="button"
+                tabIndex={0}
+                className="cursor-pointer"
+              >
+                <ListItemRow item={item} onCheck={callbacks.onCheck} onQuantityChange={callbacks.onQuantityChange}
+                  onDelete={callbacks.onDelete} deleteLabel={callbacks.deleteLabel}
+                  onOpenDetail={callbacks.onOpenDetail} onRenameItem={callbacks.onRenameItem} />
+              </div>
+              {expandedId === item.item_id && (
+                <CartItemControls
+                  item={item}
+                  onRemove={handleCartRemove}
+                  onQuantityChange={callbacks.onQuantityChange}
+                />
+              )}
             </li>
           ))}
         </ul>

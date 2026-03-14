@@ -2,6 +2,7 @@
  * Stage 2: Extract comprehensive product information from multiple photos.
  * Sends all photos in a single Claude Sonnet call, treating them as
  * different views of the same product. Combines with ZBar barcode results.
+ * Also performs content moderation (suspicious_content flag).
  */
 
 import { callClaudeJSON } from "@/lib/api/claude-client";
@@ -9,7 +10,7 @@ import { CLAUDE_MODEL_SONNET } from "@/lib/api/config";
 import { decodeEanFromImageBuffer } from "@/lib/barcode-from-image";
 import { extractCompetitorProductPrompt } from "./prompts";
 import { buildImageContent } from "./build-image-content";
-import type { PhotoInput, ExtractedCompetitorProductInfo, NutritionInfo } from "./types";
+import type { PhotoInput, ExtractedCompetitorProductInfo, ExtractionResult, NutritionInfo } from "./types";
 import { log } from "@/lib/utils/logger";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { loadDemandGroups, loadDemandSubGroups, buildDemandGroupsAndSubGroupsPrompt } from "@/lib/categories/constants";
@@ -86,7 +87,7 @@ function sanitizeExtracted(
 export async function extractProductInfo(
   images: PhotoInput[],
   scannedEan: string | null,
-): Promise<ExtractedCompetitorProductInfo> {
+): Promise<ExtractionResult> {
   try {
     const supabase = createAdminClient();
     if (!supabase) throw new Error("Supabase admin client not configured");
@@ -102,7 +103,10 @@ export async function extractProductInfo(
       messages: [{ role: "user", content: buildImageContent(images, prompt) }],
     });
 
-    return sanitizeExtracted(result, scannedEan);
+    return {
+      data: sanitizeExtracted(result, scannedEan),
+      suspicious_content: result.suspicious_content === true,
+    };
   } catch (err) {
     log.error("[photo-studio] extraction failed:", err);
     throw err;

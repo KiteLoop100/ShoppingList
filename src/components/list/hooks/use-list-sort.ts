@@ -133,7 +133,7 @@ export async function resortItems(
   data: SortData,
   currentSortMode: SortMode,
   syncedStoreIds: { current: Set<string> },
-): Promise<{ unchecked: ListItemWithMeta[]; checked: ListItemWithMeta[]; deferred: ListItemWithMeta[]; total: number; withoutPriceCount: number }> {
+): Promise<{ unchecked: ListItemWithMeta[]; checked: ListItemWithMeta[]; deferred: ListItemWithMeta[]; total: number; withoutPriceCount: number; cartTotal: number; cartWithoutPriceCount: number }> {
   const todayStr = new Date().toISOString().slice(0, 10);
   const freshItems = data.items.map(srcItem => {
     const src = srcItem as ListItemWithMeta;
@@ -185,6 +185,7 @@ export async function resortItems(
   assignPrices(u, c, data.productPriceMap, d);
   assignThumbnails(u, c, data.productThumbnailMap, d);
   assignHasAdditionalInfo(u, c, data.productIdsWithAdditionalInfo, d);
-  const { total, withoutPriceCount } = estimateTotal([...u, ...c]);
-  return { unchecked: u, checked: c, deferred: d, total, withoutPriceCount };
+  const { total, withoutPriceCount } = estimateTotal([...u, ...c, ...d]);
+  const { total: cartTotal, withoutPriceCount: cartWithoutPriceCount } = estimateTotal(c);
+  return { unchecked: u, checked: c, deferred: d, total, withoutPriceCount, cartTotal, cartWithoutPriceCount };
 }

@@ -27,12 +27,19 @@ export interface GuidedPhotoSlotsLabels {
   softFallback?: string;
 }
 
+export interface ProcessedGalleryPhoto {
+  dataUrl: string;
+  format: string;
+  category: "product" | "price_tag";
+}
+
 export interface GuidedPhotoSlotsProps {
   frontPhoto: SlotPhoto | null;
   priceTagPhoto: SlotPhoto | null;
   extraPhotos: SlotPhoto[];
   processedThumbnail: string | null;
   thumbnailType?: "background_removed" | "soft_fallback" | null;
+  processedGalleryPhotos?: ProcessedGalleryPhoto[];
   analyzing: boolean;
   existingPhotos?: ProductPhoto[];
   labels: GuidedPhotoSlotsLabels;
@@ -105,6 +112,7 @@ export function GuidedPhotoSlots({
   extraPhotos,
   processedThumbnail,
   thumbnailType,
+  processedGalleryPhotos = [],
   analyzing,
   existingPhotos = [],
   labels,
@@ -119,6 +127,12 @@ export function GuidedPhotoSlots({
   onRemoveExtra,
   onDeleteExistingPhoto,
 }: GuidedPhotoSlotsProps) {
+  const processedPriceTag = processedGalleryPhotos.find((p) => p.category === "price_tag");
+  const processedExtras = processedGalleryPhotos.filter((p) => p.category === "product");
+
+  // #region agent log
+  console.log("[DEBUG-e67f2d] GuidedPhotoSlots render:", { extraCount: extraPhotos.length, processedGalleryCount: processedGalleryPhotos.length, processedExtrasCount: processedExtras.length, hasProcessedPriceTag: !!processedPriceTag, hasProcessedThumbnail: !!processedThumbnail });
+  // #endregion
   const totalCount = (frontPhoto ? 1 : 0)
     + (priceTagPhoto ? 1 : 0)
     + extraPhotos.length
@@ -180,7 +194,13 @@ export function GuidedPhotoSlots({
         </div>
 
         <div className="shrink-0">
-          {priceTagPhoto ? (
+          {processedPriceTag && priceTagPhoto ? (
+            <div className="relative">
+              <img src={processedPriceTag.dataUrl} alt="" className="h-14 w-14 rounded-lg border-2 border-green-400 object-cover shadow-sm" />
+              <span className="absolute -right-1 -top-1 rounded-full bg-green-500 px-1 text-[8px] text-white">&#10003;</span>
+              <RemoveButton onClick={onRemovePriceTag} />
+            </div>
+          ) : priceTagPhoto ? (
             <div className="relative">
               <img src={priceTagPhoto.previewUrl} alt="" className="h-14 w-14 rounded-lg object-cover shadow-sm" />
               <RemoveButton onClick={onRemovePriceTag} />
@@ -220,12 +240,20 @@ export function GuidedPhotoSlots({
                 {onDeleteExistingPhoto && <RemoveButton onClick={() => onDeleteExistingPhoto(photo.id)} />}
               </div>
             ))}
-            {extraPhotos.map((sp, i) => (
-              <div key={`extra-${i}`} className="relative">
-                <img src={sp.previewUrl} alt="" className="h-12 w-12 rounded-lg object-cover" />
-                <RemoveButton onClick={() => onRemoveExtra(i)} />
-              </div>
-            ))}
+            {extraPhotos.map((sp, i) => {
+              const processed = processedExtras[i];
+              const src = processed ? processed.dataUrl : sp.previewUrl;
+              const isProcessed = !!processed;
+              return (
+                <div key={`extra-${i}`} className="relative">
+                  <img src={src} alt="" className={`h-12 w-12 rounded-lg object-cover${isProcessed ? " border-2 border-green-400 shadow-sm" : ""}`} />
+                  {isProcessed && (
+                    <span className="absolute -right-1 -top-1 rounded-full bg-green-500 px-1 text-[8px] text-white">&#10003;</span>
+                  )}
+                  <RemoveButton onClick={() => onRemoveExtra(i)} />
+                </div>
+              );
+            })}
           </div>
         )}
 

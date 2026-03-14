@@ -19,8 +19,12 @@ export const photoInputSchema = z.object({
   media_type: z.enum(VALID_MEDIA_TYPES),
 });
 
+export const VALID_PHOTO_ROLES = ["front", "price_tag", "extra"] as const;
+export type PhotoRole = (typeof VALID_PHOTO_ROLES)[number];
+
 export const analyzeRequestSchema = z.object({
   images: z.array(photoInputSchema).min(1).max(8),
+  photo_roles: z.array(z.enum(VALID_PHOTO_ROLES)).optional(),
 });
 
 export type AnalyzeRequest = z.infer<typeof analyzeRequestSchema>;
@@ -34,6 +38,7 @@ export interface PhotoInput {
 
 export interface ProductPhotoStudioInput {
   images: PhotoInput[];
+  photoRoles?: PhotoRole[];
 }
 
 // ── Stage 1: Classification ──
@@ -106,6 +111,11 @@ export interface ExtractedProductInfo {
   demand_group?: string | null;
 }
 
+export interface ExtractionResult {
+  data: ExtractedProductInfo;
+  suspicious_content: boolean;
+}
+
 // ── Stage 3: Thumbnail ──
 
 export type ImageFormat = "image/webp" | "image/jpeg" | "image/png";
@@ -163,7 +173,7 @@ export type ThumbnailType = "background_removed" | "soft_fallback";
 export interface ProductPhotoStudioResult {
   status: "success" | "review_required";
   reviewReason?: string;
-  classification: ClassificationResponse;
+  classification?: ClassificationResponse;
   extractedData: ExtractedCompetitorProductInfo | null;
   thumbnailFull?: Buffer;
   thumbnailFullFormat?: ImageFormat;

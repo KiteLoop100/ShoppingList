@@ -125,6 +125,7 @@ export interface ListItem {
   buy_elsewhere_retailer?: string | null;
   competitor_product_id?: string | null;
   comment?: string | null;
+  is_extra_scan?: boolean;
 }
 
 export interface ShoppingTrip {

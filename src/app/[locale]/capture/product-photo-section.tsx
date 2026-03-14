@@ -2,7 +2,7 @@
 
 import type { RefObject } from "react";
 import type { TranslationValues } from "use-intl";
-import type { SlotPhoto } from "@/components/guided-photo-slots";
+import type { SlotPhoto, ProcessedGalleryPhoto } from "@/components/guided-photo-slots";
 import { GuidedPhotoSlots } from "@/components/guided-photo-slots";
 
 interface ProductPhotoSectionProps {
@@ -12,6 +12,7 @@ interface ProductPhotoSectionProps {
   extraPhotos: SlotPhoto[];
   processedThumbnail: string | null;
   thumbnailType?: "background_removed" | "soft_fallback" | null;
+  processedGalleryPhotos?: ProcessedGalleryPhoto[];
   analyzing: boolean;
   fileInputFrontRef: RefObject<HTMLInputElement>;
   fileInputPriceRef: RefObject<HTMLInputElement>;
@@ -31,6 +32,7 @@ export function ProductPhotoSection({
   extraPhotos,
   processedThumbnail,
   thumbnailType,
+  processedGalleryPhotos,
   analyzing,
   fileInputFrontRef,
   fileInputPriceRef,
@@ -50,6 +52,7 @@ export function ProductPhotoSection({
         extraPhotos={extraPhotos}
         processedThumbnail={processedThumbnail}
         thumbnailType={thumbnailType}
+        processedGalleryPhotos={processedGalleryPhotos}
         analyzing={analyzing}
         fileInputFrontRef={fileInputFrontRef}
         fileInputPriceRef={fileInputPriceRef}

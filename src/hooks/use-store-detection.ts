@@ -31,6 +31,10 @@ export interface StoreDetectionState {
   isInStore: boolean;
   detectedStoreName: string | null;
   showSortToast: boolean;
+  /** Whether GPS is enabled in app settings AND browser permission allows it. */
+  gpsEnabled: boolean;
+  /** True when GPS is enabled but position could not be determined (all retries failed). */
+  gpsError: boolean;
   /** GPS position available but no known store nearby -- user can create one. */
   unknownLocation: GeoPosition | null;
   /** Call after user creates a store from the unknown-location prompt. */
@@ -66,6 +70,8 @@ export function useStoreDetection({
   const [isInStore, setIsInStore] = useState(false);
   const [detectedStoreName, setDetectedStoreName] = useState<string | null>(null);
   const [showSortToast, setShowSortToast] = useState(false);
+  const [gpsEnabled, setGpsEnabled] = useState(false);
+  const [gpsError, setGpsError] = useState(false);
   const [unknownLocation, setUnknownLocation] = useState<GeoPosition | null>(null);
   const gpsAttemptRef = useRef(0);
   const prevStoreIdRef = useRef<string | null | "__init__">("__init__");
@@ -107,9 +113,11 @@ export function useStoreDetection({
         if (cancelled) return;
         if (!gpsCheck.allowed) {
           log.info(`[useStoreDetection] GPS skipped: ${gpsCheck.reason}`);
+          setGpsEnabled(false);
           gpsAttemptRef.current = 1;
           return;
         }
+        setGpsEnabled(true);
       }
 
       gpsAttemptRef.current = retryCount + 1;
@@ -154,6 +162,7 @@ export function useStoreDetection({
       }
 
       log.warn("[useStoreDetection] All GPS retries exhausted, using default store fallback");
+      setGpsError(true);
     }
 
     void attempt(0);
@@ -229,6 +238,8 @@ export function useStoreDetection({
     isInStore,
     detectedStoreName,
     showSortToast,
+    gpsEnabled,
+    gpsError,
     unknownLocation,
     handleStoreCreated,
     handleSkipCreateStore,

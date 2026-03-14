@@ -58,6 +58,34 @@ body {
   pointer-events: none;
 }
 
+/* Cart inline-controls slide-in from collapsed to full height */
+@keyframes cart-controls-in {
+  0%   { opacity: 0; max-height: 0; padding-top: 0; padding-bottom: 0; }
+  100% { opacity: 1; max-height: 60px; }
+}
+.animate-cart-controls-in {
+  animation: cart-controls-in 0.2s ease-out forwards;
+  overflow: hidden;
+}
+
+/* Scan-complete banner slide-up from bottom */
+@keyframes slide-up {
+  0%   { opacity: 0; transform: translateY(100%); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+.animate-slide-up {
+  animation: slide-up 0.3s ease-out forwards;
+}
+
+/* Scan-button and cart-column appear in footer */
+@keyframes scan-fade-in {
+  0%   { opacity: 0; transform: scale(0.92); }
+  100% { opacity: 1; transform: scale(1); }
+}
+.animate-scan-fade-in {
+  animation: scan-fade-in 0.3s ease-out forwards;
+}
+
 /* Focus-visible ring for keyboard navigation (RESP-030) */
 @media (pointer: fine) {
   :focus-visible {
