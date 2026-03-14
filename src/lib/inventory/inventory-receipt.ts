@@ -265,7 +265,7 @@ export async function enrichMissingDemandGroupCodes(
   supabase: SupabaseClient,
   items: InventoryItem[],
 ): Promise<void> {
-  const needsEnrich = items.filter((i) => !i.demand_group_code);
+  const needsEnrich = items.filter((i) => !i.demand_group_code || !i.thumbnail_url);
   if (needsEnrich.length === 0) return;
 
   const enrichItems: ReceiptItemForInventory[] = needsEnrich.map((i) => ({
@@ -280,8 +280,8 @@ export async function enrichMissingDemandGroupCodes(
     const pid = item.product_id ?? item.competitor_product_id;
     if (pid) {
       const m = meta.get(pid);
-      if (m?.demand_group_code) item.demand_group_code = m.demand_group_code;
-      if (m?.thumbnail_url && !item.thumbnail_url) item.thumbnail_url = m.thumbnail_url;
+      if (m?.demand_group_code && !item.demand_group_code) item.demand_group_code = m.demand_group_code;
+      if (m?.thumbnail_url) item.thumbnail_url = m.thumbnail_url;
     }
   }
 }

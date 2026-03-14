@@ -31,6 +31,7 @@ export interface SaveResult {
   productId: string;
   productType: "aldi" | "competitor";
   name: string;
+  thumbnailUrl: string | null;
 }
 
 function applyExtractedUpdates(
@@ -57,12 +58,17 @@ function applyExtractedUpdates(
   if (details.animal_welfare_level != null) set("animal_welfare_level", details.animal_welfare_level);
 }
 
+interface AldiSaveResult {
+  productId: string;
+  thumbnailUrl: string | null;
+}
+
 async function saveAldiProduct(
   values: ProductCaptureValues,
   editProduct: Product | null,
   extractedDetails: ExtractedProductInfo | null,
   processedThumbnail: string | null,
-): Promise<string> {
+): Promise<AldiSaveResult> {
   const body: Record<string, unknown> = {
     name: values.name.trim(),
     brand: values.brand.trim() || null,
@@ -103,10 +109,15 @@ async function saveAldiProduct(
 
   const data = await res.json();
   if (!res.ok) throw new Error(data.error ?? "Save failed");
-  if (data.duplicate && data.existing_product_id) {
-    return data.existing_product_id;
-  }
-  return data.product_id;
+  const pid = (data.duplicate && data.existing_product_id)
+    ? data.existing_product_id
+    : data.product_id;
+  return { productId: pid, thumbnailUrl: data.thumbnail_url ?? null };
+}
+
+interface CompetitorSaveResult {
+  productId: string;
+  thumbnailUrl: string | null;
 }
 
 async function saveCompetitorProduct(
@@ -116,8 +127,9 @@ async function saveCompetitorProduct(
   processedThumbnail: string | null,
   photoFiles: File[],
   country: string,
-): Promise<string> {
+): Promise<CompetitorSaveResult> {
   let productId: string;
+  let savedThumbnailUrl: string | null = null;
 
   if (editProduct) {
     productId = editProduct.product_id;
@@ -182,7 +194,7 @@ async function saveCompetitorProduct(
     }
   }
 
-  if (processedThumbnail && photoFiles.length > 0) {
+  if (processedThumbnail) {
     try {
       const thumbBlob = await fetch(processedThumbnail).then((r) => r.blob());
       const isWebp = processedThumbnail.startsWith("data:image/webp");
@@ -191,6 +203,7 @@ async function saveCompetitorProduct(
       const thumbFile = new File([thumbBlob], `thumbnail.${ext}`, { type: mime });
       const url = await uploadCompetitorPhoto(productId, thumbFile, "front");
       if (url) {
+        savedThumbnailUrl = url;
         await updateCompetitorProduct(productId, { thumbnail_url: url });
         await addProductPhoto(productId, "competitor", thumbFile, "thumbnail")
           .catch((err) => { log.warn("[saveCompetitorProduct] product_photos insert failed:", err); });
@@ -200,7 +213,7 @@ async function saveCompetitorProduct(
     }
   }
 
-  return productId;
+  return { productId, thumbnailUrl: savedThumbnailUrl };
 }
 
 export async function saveProduct(opts: {
@@ -225,16 +238,16 @@ export async function saveProduct(opts: {
   }
 
   if (isAldi || opts.editAldiProduct) {
-    const productId = await saveAldiProduct(
+    const aldiResult = await saveAldiProduct(
       opts.values,
       opts.editAldiProduct,
       opts.extractedDetails,
       opts.processedThumbnail,
     );
-    return { productId, productType: "aldi", name: opts.values.name.trim() };
+    return { productId: aldiResult.productId, productType: "aldi", name: opts.values.name.trim(), thumbnailUrl: aldiResult.thumbnailUrl };
   }
 
-  const productId = await saveCompetitorProduct(
+  const compResult = await saveCompetitorProduct(
     opts.values,
     opts.editCompetitorProduct,
     opts.extractedDetails,
@@ -242,5 +255,5 @@ export async function saveProduct(opts: {
     opts.photoFiles,
     opts.country,
   );
-  return { productId, productType: "competitor", name: opts.values.name.trim() };
+  return { productId: compResult.productId, productType: "competitor", name: opts.values.name.trim(), thumbnailUrl: compResult.thumbnailUrl };
 }

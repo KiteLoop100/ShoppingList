@@ -28,12 +28,7 @@ vi.mock("@/lib/products/duplicate-check", () => ({
 }));
 
 const realFetch = vi.fn();
-const mockFetch = vi.fn((...args: unknown[]) => {
-  const url = typeof args[0] === "string" ? args[0] : "";
-  if (url.includes("/ingest/")) return Promise.resolve(new Response("ok"));
-  return realFetch(...args);
-});
-global.fetch = mockFetch;
+global.fetch = realFetch;
 
 import { saveProduct } from "../product-capture-save";
 import {
@@ -329,6 +324,74 @@ describe("saveProduct", () => {
     expect(updateCompetitorProduct).toHaveBeenCalledWith("comp-webp", {
       thumbnail_url: "https://storage/comp-webp_front.webp",
     });
+  });
+
+  test("returns thumbnailUrl in SaveResult for ALDI products", async () => {
+    realFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ ok: true, product_id: "aldi-t", thumbnail_url: "https://cdn/thumb.jpg" }),
+    });
+
+    const result = await saveProduct({
+      values: makeValues({ retailer: "ALDI" }),
+      editAldiProduct: null,
+      editCompetitorProduct: null,
+      extractedDetails: null,
+      processedThumbnail: "data:image/webp;base64,AAAA",
+      photoFiles: [],
+      country: "DE",
+    });
+
+    expect(result.thumbnailUrl).toBe("https://cdn/thumb.jpg");
+  });
+
+  test("returns thumbnailUrl in SaveResult for competitor products", async () => {
+    vi.mocked(findOrCreateCompetitorProduct).mockResolvedValueOnce({
+      product_id: "comp-t", name: "T", name_normalized: "t",
+      brand: null, ean_barcode: null, article_number: null,
+      weight_or_quantity: null, country: "DE", retailer: "REWE",
+      thumbnail_url: null, other_photo_url: null, category_id: null,
+      demand_group_code: null, demand_sub_group: null, assortment_type: null,
+      status: "active", is_bio: false, is_vegan: false, is_gluten_free: false,
+      is_lactose_free: false, animal_welfare_level: null, ingredients: null,
+      nutrition_info: null, allergens: null, nutri_score: null,
+      country_of_origin: null, created_at: "", updated_at: "",
+    });
+
+    const fakeBlob = new Blob(["img"], { type: "image/webp" });
+    realFetch.mockResolvedValueOnce({ blob: () => Promise.resolve(fakeBlob) });
+    vi.mocked(uploadCompetitorPhoto).mockResolvedValueOnce("https://cdn/comp-t.webp");
+
+    const result = await saveProduct({
+      values: makeValues({ retailer: "REWE", price: "" }),
+      editAldiProduct: null,
+      editCompetitorProduct: null,
+      extractedDetails: null,
+      processedThumbnail: "data:image/webp;base64,AAAA",
+      photoFiles: [new File(["p"], "p.jpg", { type: "image/jpeg" })],
+      country: "DE",
+    });
+
+    expect(result.thumbnailUrl).toBe("https://cdn/comp-t.webp");
+  });
+
+  test("returns null thumbnailUrl when no thumbnail processed", async () => {
+    realFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ ok: true, product_id: "aldi-no-t" }),
+    });
+
+    const result = await saveProduct({
+      values: makeValues({ retailer: "ALDI" }),
+      editAldiProduct: null,
+      editCompetitorProduct: null,
+      extractedDetails: null,
+      processedThumbnail: null,
+      photoFiles: [],
+      country: "DE",
+    });
+
+    expect(result.thumbnailUrl).toBeNull();
   });
 
   test("returns existing_product_id on duplicate response", async () => {

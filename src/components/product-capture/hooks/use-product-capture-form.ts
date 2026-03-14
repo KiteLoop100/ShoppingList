@@ -42,7 +42,7 @@ export interface ProductCaptureConfig {
   open: boolean;
   mode: "create" | "edit";
   onClose: () => void;
-  onSaved: (productId: string, productType: "aldi" | "competitor", name: string) => void;
+  onSaved: (productId: string, productType: "aldi" | "competitor", name: string, thumbnailUrl?: string | null) => void;
   initialValues?: Partial<ProductCaptureValues>;
   hiddenFields?: string[];
   lockedFields?: string[];
@@ -357,7 +357,7 @@ export function useProductCaptureForm(config: ProductCaptureConfig) {
         photoFiles,
         country: country ?? "DE",
       });
-      onSaved(result.productId, result.productType, result.name);
+      onSaved(result.productId, result.productType, result.name, result.thumbnailUrl);
       onClose();
     } catch (e: unknown) {
       if (e instanceof DuplicateProductError) {

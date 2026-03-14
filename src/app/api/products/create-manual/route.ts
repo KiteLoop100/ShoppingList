@@ -162,6 +162,7 @@ export async function POST(request: Request) {
   }
 
   let productId: string | null = updateExistingProductId || null;
+  let savedThumbnailUrl: string | null = null;
 
   if (!productId) {
     const found = await findExistingProduct(supabase, {
@@ -217,6 +218,7 @@ export async function POST(request: Request) {
         const publicUrl = await processThumbnail(supabase, thumbnailBase64, thumbnailUrl, thumbStoragePath);
         if (publicUrl) {
           updates.thumbnail_url = publicUrl;
+          savedThumbnailUrl = publicUrl;
           await insertProductPhoto(supabase, productId, publicUrl, "product-thumbnails", thumbStoragePath, "thumbnail");
         }
       } catch (e) {
@@ -282,9 +284,11 @@ export async function POST(request: Request) {
         .from("products")
         .update({ thumbnail_url: thumbnailUrl, updated_at: now })
         .eq("product_id", productId);
+      savedThumbnailUrl = thumbnailUrl;
     }
 
     if (finalThumbnailUrl && thumbStoragePath) {
+      savedThumbnailUrl = finalThumbnailUrl;
       await insertProductPhoto(supabase, productId, finalThumbnailUrl, "product-thumbnails", thumbStoragePath, "thumbnail");
     }
   }
@@ -317,5 +321,6 @@ export async function POST(request: Request) {
     ok: true,
     product_id: productId,
     updated: !!updateExistingProductId,
+    thumbnail_url: savedThumbnailUrl,
   });
 }

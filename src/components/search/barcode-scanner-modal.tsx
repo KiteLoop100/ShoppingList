@@ -60,40 +60,39 @@ export function BarcodeScannerModal({
       if (navigator.vibrate) navigator.vibrate(50);
 
       try {
-        const product = await findProductByEan(ean, products);
+        const [productResult, competitorResult, offSettled] = await Promise.allSettled([
+          findProductByEan(ean, products),
+          findCompetitorProductByEan(ean, competitorProducts),
+          fetchOpenFoodFacts(ean),
+        ]);
         if (!mountedRef.current) return;
+
+        const product = productResult.status === "fulfilled" ? productResult.value : null;
+        const competitor = competitorResult.status === "fulfilled" ? competitorResult.value : null;
+        const offResult = offSettled.status === "fulfilled" ? offSettled.value : null;
+
         if (product) {
           const handler = onProductConsumed ?? onProductAdded;
           await Promise.resolve(handler(product));
           if (!mountedRef.current) return;
           setLookupPhase("found");
-          setTimeout(() => {
-            if (mountedRef.current) onClose();
-          }, 500);
+          setTimeout(() => { if (mountedRef.current) onClose(); }, 500);
           return;
         }
 
-        const competitor = await findCompetitorProductByEan(ean, competitorProducts);
-        if (!mountedRef.current) return;
         if (competitor && onCompetitorProductFound) {
           setLookupPhase("found");
           onCompetitorProductFound(competitor, ean);
-          setTimeout(() => {
-            if (mountedRef.current) onClose();
-          }, 500);
+          setTimeout(() => { if (mountedRef.current) onClose(); }, 500);
           return;
         }
 
-        const offResult = await fetchOpenFoodFacts(ean);
-        if (!mountedRef.current) return;
         const hasOffData = offResult && (offResult.name || offResult.brand);
 
         if (hasOffData && onOpenFoodFactsResult && !onCreateProduct) {
           setLookupPhase("found");
           onOpenFoodFactsResult({ name: offResult.name, brand: offResult.brand, ean });
-          setTimeout(() => {
-            if (mountedRef.current) onClose();
-          }, 500);
+          setTimeout(() => { if (mountedRef.current) onClose(); }, 500);
           return;
         }
 

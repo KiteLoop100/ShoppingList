@@ -196,14 +196,14 @@ export function InventoryActionClient() {
     setShowCaptureModal(true);
   }, [trimmedQuery]);
 
-  const handleProductSaved = useCallback((productId: string, productType: "aldi" | "competitor", name: string) => {
+  const handleProductSaved = useCallback((productId: string, productType: "aldi" | "competitor", name: string, thumbnailUrl?: string | null) => {
     setShowCaptureModal(false);
     const input: InventoryUpsertInput = {
       product_id: productType === "aldi" ? productId : null,
       competitor_product_id: productType === "competitor" ? productId : null,
       display_name: name,
       demand_group_code: null,
-      thumbnail_url: null,
+      thumbnail_url: thumbnailUrl ?? null,
       quantity: 1,
       source: "manual",
     };
