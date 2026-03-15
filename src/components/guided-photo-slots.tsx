@@ -179,7 +179,7 @@ export function GuidedPhotoSlots({
           {processedThumbnail ? (
             <div className="relative">
               <img src={processedThumbnail} alt="" className="h-14 w-14 rounded-lg border-2 border-green-400 object-cover shadow-sm" />
-              <span className="absolute -left-1 -top-1 text-[10px] text-yellow-500">★</span>
+              {onRotateFront && !analyzing && <RotateButton onClick={onRotateFront} ariaLabel={labels.rotatePhoto} />}
               {thumbnailType === "soft_fallback" ? (
                 <span className="absolute -right-1 -top-1 rounded-full bg-blue-500 px-1 text-[8px] text-white" title={labels.softFallback}>&#8505;</span>
               ) : (
@@ -217,6 +217,7 @@ export function GuidedPhotoSlots({
           {processedPriceTag && priceTagPhoto ? (
             <div className="relative">
               <img src={processedPriceTag.dataUrl} alt="" className="h-14 w-14 rounded-lg border-2 border-green-400 object-cover shadow-sm" />
+              {onRotatePriceTag && !analyzing && <RotateButton onClick={onRotatePriceTag} ariaLabel={labels.rotatePhoto} />}
               <span className="absolute -right-1 -top-1 rounded-full bg-green-500 px-1 text-[8px] text-white">&#10003;</span>
               <RemoveButton onClick={onRemovePriceTag} />
             </div>
@@ -271,7 +272,7 @@ export function GuidedPhotoSlots({
                   {isProcessed && (
                     <span className="absolute -right-1 -top-1 rounded-full bg-green-500 px-1 text-[8px] text-white">&#10003;</span>
                   )}
-                  {onRotateExtra && !analyzing && !isProcessed && <RotateButton onClick={() => onRotateExtra(i)} ariaLabel={labels.rotatePhoto} />}
+                  {onRotateExtra && !analyzing && <RotateButton onClick={() => onRotateExtra(i)} ariaLabel={labels.rotatePhoto} />}
                   <RemoveButton onClick={() => onRemoveExtra(i)} />
                 </div>
               );
