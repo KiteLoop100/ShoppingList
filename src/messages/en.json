@@ -273,6 +273,7 @@
       "slotExtraHint": "Back, side, barcode",
       "slotTakePhoto": "Photo",
       "slotChooseFile": "From gallery",
+      "rotatePhoto": "Rotate",
       "analyzing": "Analyzing photos…",
       "photosCount": "{count} of 5 photos",
       "maxPhotosReached": "Maximum of 5 photos reached",
@@ -490,6 +491,7 @@
     "slotExtraHint": "Back, side, barcode",
     "slotTakePhoto": "Photo",
     "slotChooseFile": "From gallery",
+    "rotatePhoto": "Rotate",
     "setAsMain": "Set as main photo",
     "changeCategory": "Change category",
     "deletePhoto": "Delete",
@@ -855,7 +857,14 @@
     "tabReceipts": "Receipts",
     "tabInventory": "Inventory",
     "inventoryCount": "{count} products",
-    "addInventory": "Add product to inventory"
+    "addInventory": "Add product to inventory",
+    "editArticleNumber": "Edit article number",
+    "editArticleNumberPlaceholder": "e.g. 123456",
+    "editArticleNumberSave": "Save",
+    "editArticleNumberCancel": "Cancel",
+    "articleNumberUpdatedLinked": "Article no. changed — {productName} linked",
+    "articleNumberUpdatedNotFound": "Article no. changed — no product found",
+    "editArticleNumberHint": "Digits only, at least 4"
   },
   "catalog": {
     "navLabel": "Catalog",

@@ -17,6 +17,8 @@ import {
 import { ProductCaptureModal } from "@/components/product-capture/product-capture-modal";
 import { ProductDetailModal } from "@/components/list/product-detail-modal";
 import { CompetitorProductDetailModal } from "@/components/list/competitor-product-detail-modal";
+import { ArticleNumberEditSheet } from "@/components/receipts/article-number-edit-sheet";
+import { useArticleNumberEdit } from "./use-article-number-edit";
 import { db } from "@/lib/db";
 import { findCompetitorProductById } from "@/lib/competitor-products/competitor-product-service";
 import { log } from "@/lib/utils/logger";
@@ -40,7 +42,7 @@ export function ReceiptDetailContent({ receiptId, showBackLink = true }: Receipt
   const [loading, setLoading] = useState(true);
   const [showPhotos, setShowPhotos] = useState(false);
   const [captureItem, setCaptureItem] = useState<GroupedReceiptItem | null>(null);
-  const [toast, setToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [detailProduct, setDetailProduct] = useState<Product | null>(null);
   const [detailCompetitor, setDetailCompetitor] = useState<CompetitorProduct | null>(null);
   const [detailRetailer, setDetailRetailer] = useState<string | null>(null);
@@ -53,22 +55,20 @@ export function ReceiptDetailContent({ receiptId, showBackLink = true }: Receipt
   const loadReceipt = useCallback(async () => {
     setLoading(true);
     const supabase = createClientIfConfigured();
-    if (!supabase || !receiptId) {
-      setLoading(false);
-      return;
-    }
+    if (!supabase || !receiptId) { setLoading(false); return; }
     const result = await loadReceiptWithItems(receiptId, supabase);
-    if (result) {
-      setReceipt(result.receipt);
-      setRawItems(result.items);
-      setPhotoUrls(result.photoUrls);
-    }
+    if (result) { setReceipt(result.receipt); setRawItems(result.items); setPhotoUrls(result.photoUrls); }
     setLoading(false);
   }, [receiptId]);
 
-  useEffect(() => {
-    loadReceipt();
-  }, [loadReceipt]);
+  useEffect(() => { loadReceipt(); }, [loadReceipt]);
+
+  const showToast = useCallback((msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 2500);
+  }, []);
+
+  const articleEdit = useArticleNumberEdit(loadReceipt);
 
   const handlePhotoSaved = useCallback(async (productId: string, productType: "aldi" | "competitor") => {
     if (captureItem) {
@@ -86,20 +86,14 @@ export function ReceiptDetailContent({ receiptId, showBackLink = true }: Receipt
     setEditAldiProduct(null);
     setEditCompetitorProduct(null);
     setDetailReceiptItem(null);
-    setToast(true);
-    setTimeout(() => setToast(false), 2500);
+    showToast(t("photoSaved"));
     await loadReceipt();
-  }, [captureItem, loadReceipt]);
+  }, [captureItem, loadReceipt, showToast, t]);
 
   const handleItemClick = useCallback(async (item: GroupedReceiptItem) => {
     if (item.competitor_product_id) {
       const cp = await findCompetitorProductById(item.competitor_product_id);
-      if (cp) {
-        setDetailCompetitor(cp);
-        setDetailRetailer(receipt?.retailer ?? null);
-        setDetailReceiptItem(item);
-        return;
-      }
+      if (cp) { setDetailCompetitor(cp); setDetailRetailer(receipt?.retailer ?? null); setDetailReceiptItem(item); return; }
     }
     if (item.product_id) {
       const fromDb = await db.products.where("product_id").equals(item.product_id).first();
@@ -230,14 +224,20 @@ export function ReceiptDetailContent({ receiptId, showBackLink = true }: Receipt
                       )}
                     </span>
                     <span className="flex items-center gap-2 text-[11px] text-aldi-muted">
-                      {item.article_number && <span>Art. {item.article_number}</span>}
+                      {item.article_number && (
+                        <button type="button" onClick={(e) => { e.stopPropagation(); articleEdit.openEdit(item); }}
+                          className="rounded px-1 transition-colors hover:bg-aldi-blue-light">
+                          Art. {item.article_number}
+                        </button>
+                      )}
                       {item.is_weight_item && item.weight_kg != null && (
                         <span>{Number.isInteger(item.weight_kg) ? item.weight_kg : item.weight_kg.toFixed(2)} kg</span>
                       )}
                       {isLinked ? (
                         <span className="rounded bg-green-50 px-1 text-green-600">✓</span>
                       ) : (
-                        <span className="rounded bg-amber-50 px-1 text-amber-500" title={t("notLinkedTooltip")}>?</span>
+                        <button type="button" onClick={(e) => { e.stopPropagation(); articleEdit.openEdit(item); }}
+                          className="rounded bg-amber-50 px-1 text-amber-500 transition-colors hover:bg-amber-100" title={t("notLinkedTooltip")}>?</button>
                       )}
                     </span>
                   </button>
@@ -276,9 +276,20 @@ export function ReceiptDetailContent({ receiptId, showBackLink = true }: Receipt
         onClose={() => { setDetailCompetitor(null); setDetailReceiptItem(null); }}
         onEdit={(cp) => { setDetailCompetitor(null); setEditCompetitorProduct(cp); }}
         retailer={detailRetailer} />
-      {toast && (
+      {articleEdit.editItem && <ArticleNumberEditSheet
+        currentNumber={articleEdit.editItem.article_number}
+        saving={articleEdit.saving}
+        onCancel={articleEdit.closeEdit}
+        onSave={async (num) => {
+          const res = await articleEdit.saveEdit(num, receipt?.purchase_date);
+          if (res) showToast(res.matched
+            ? t("articleNumberUpdatedLinked", { productName: res.productName ?? "" })
+            : t("articleNumberUpdatedNotFound"));
+        }}
+      />}
+      {toastMessage && (
         <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-full bg-aldi-text px-5 py-2.5 text-sm font-medium text-white shadow-lg">
-          {t("photoSaved")}
+          {toastMessage}
         </div>
       )}
     </>

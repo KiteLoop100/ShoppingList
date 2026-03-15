@@ -28,8 +28,8 @@ export interface ReceiptResult {
   items_added?: number;
 }
 
-const MAX_IMAGE_DIMENSION = 2400;
-const JPEG_QUALITY = 0.85;
+const MAX_IMAGE_DIMENSION = 3200;
+const JPEG_QUALITY = 0.92;
 
 interface SSEResult {
   type: "result" | "error";
@@ -196,8 +196,8 @@ export function useReceiptProcessing(options: { open: boolean; onClose: () => vo
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: "environment",
-          width: { ideal: 1920 },
-          height: { ideal: 2560 },
+          width: { ideal: 2400 },
+          height: { ideal: 3200 },
         },
         audio: false,
       });

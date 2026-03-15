@@ -9,6 +9,7 @@ import { categorizeCompetitorProductServer } from "@/lib/competitor-products/cat
 import { log } from "@/lib/utils/logger";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { NON_PRODUCT_PATTERN } from "./receipt-prompt";
+import { tryAutoCorrectArticleNumber } from "./article-number-correction";
 import type { ReceiptOcrResult, ProcessReceiptResult } from "./parse-receipt";
 import { findOrCreateCompetitorProductServer } from "./parse-receipt";
 import { upsertInventoryFromReceipt } from "@/lib/inventory/inventory-service";
@@ -93,7 +94,7 @@ export async function mergeIntoExistingReceipt(
     if (!receiptName) continue;
 
     const isNonProduct = NON_PRODUCT_PATTERN.test(receiptName);
-    const articleNumber = normalizeArticleNumber(p.article_number);
+    let articleNumber = normalizeArticleNumber(p.article_number);
     const quantity = typeof p.quantity === "number" && p.quantity > 0 ? p.quantity : 1;
     const unitPrice = typeof p.unit_price === "number" ? p.unit_price : null;
     const totalPrice = typeof p.total_price === "number" ? p.total_price : null;
@@ -103,9 +104,20 @@ export async function mergeIntoExistingReceipt(
 
     if (!isNonProduct) {
       if (isAldi) {
-        const found = await findProductByArticleNumber(
+        let found = await findProductByArticleNumber(
           supabase, articleNumber, "product_id, price, price_updated_at",
         );
+
+        if (!found && articleNumber) {
+          const correction = await tryAutoCorrectArticleNumber(
+            supabase, articleNumber, "product_id, price, price_updated_at",
+          );
+          if (correction) {
+            found = correction.product;
+            articleNumber = correction.correctedNumber;
+          }
+        }
+
         productId = found?.product_id ?? null;
 
         if (found && effectivePrice != null && ocrResult.purchase_date) {

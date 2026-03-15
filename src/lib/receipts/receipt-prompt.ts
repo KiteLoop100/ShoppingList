@@ -41,7 +41,7 @@ SCHRITT 2 – NUR bei status "valid", extrahiere ALLE folgenden Informationen:
 
 2. PRODUKTE – extrahiere JEDE Produktzeile:
 - position: Reihenfolge auf dem Kassenzettel (1, 2, 3, ...)
-- article_number: Artikelnummer falls vorhanden (bei manchen Händlern links auf der Zeile, bei anderen gar nicht vorhanden – dann null)
+- article_number: Artikelnummer falls vorhanden. Bei ALDI steht sie als 6-stellige Zahl ganz LINKS am Zeilenanfang vor dem Produktnamen (z.B. "123456 MILCH 3,5%  1,09 A"). Lies diese Zahl ZEICHENWEISE und SEHR SORGFÄLTIG ab – Zahlendreher sind ein häufiges Problem bei OCR. Prüfe jede einzelne Ziffer gegen das Bild. Bei anderen Händlern kann die Artikelnummer fehlen (dann null).
 - receipt_name: Der abgekürzte Produktname auf dem Kassenzettel (exakt wie gedruckt)
 - quantity: Anzahl (Standard 1, falls Stückzahl angegeben wie "2x" dann 2)
 - unit_price: Preis pro Stück

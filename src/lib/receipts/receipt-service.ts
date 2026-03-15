@@ -1,4 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { normalizeArticleNumber } from "@/lib/products/normalize";
+import { findProductByArticleNumber } from "@/lib/products/find-existing";
 import { log } from "@/lib/utils/logger";
 
 export interface ReceiptData {
@@ -236,4 +238,60 @@ export async function getSignedPhotoUrls(
   return photoUrls
     .map((u) => (isStoragePath(u) ? signedMap.get(u) ?? "" : u))
     .filter(Boolean);
+}
+
+export interface ArticleNumberUpdateResult {
+  matched: boolean;
+  productName?: string;
+  priceUpdated?: boolean;
+}
+
+/**
+ * Update the article number on one or more receipt items, re-match against
+ * the product database, and optionally update the product price.
+ * @param itemPrice - effective unit/total price of the item (avoids extra DB fetch)
+ */
+export async function updateReceiptItemArticleNumber(
+  receiptItemIds: string[],
+  newArticleNumber: string,
+  supabase: SupabaseClient,
+  purchaseDate?: string | null,
+  itemPrice?: number | null,
+): Promise<ArticleNumberUpdateResult> {
+  const normalized = normalizeArticleNumber(newArticleNumber);
+  const found = normalized
+    ? await findProductByArticleNumber(
+        supabase, normalized, "product_id, name, price, price_updated_at",
+      )
+    : null;
+
+  const { error } = await supabase
+    .from("receipt_items")
+    .update({ article_number: normalized, product_id: found?.product_id ?? null })
+    .in("receipt_item_id", receiptItemIds);
+
+  if (error) {
+    log.warn("[receipts] Failed to update article number:", error);
+    throw error;
+  }
+
+  let priceUpdated = false;
+  if (found?.product_id && purchaseDate && typeof itemPrice === "number") {
+    const receiptDate = new Date(purchaseDate);
+    const lastPriceDate = found.price_updated_at
+      ? new Date(String(found.price_updated_at)) : new Date(0);
+    if (receiptDate >= lastPriceDate) {
+      await supabase.from("products").update({
+        price: itemPrice, price_updated_at: purchaseDate,
+        updated_at: new Date().toISOString(),
+      }).eq("product_id", found.product_id);
+      priceUpdated = true;
+    }
+  }
+
+  return {
+    matched: !!found,
+    productName: found ? String(found.name ?? "") : undefined,
+    priceUpdated,
+  };
 }

@@ -14,6 +14,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { buildReceiptPrompt, NON_PRODUCT_PATTERN } from "./receipt-prompt";
 import { loadDemandGroups, loadDemandSubGroups, buildDemandGroupsAndSubGroupsPrompt } from "@/lib/categories/constants";
 import { mergeIntoExistingReceipt } from "./merge-receipt";
+import { tryAutoCorrectArticleNumber } from "./article-number-correction";
 import { upsertInventoryFromReceipt } from "@/lib/inventory/inventory-service";
 
 export interface ReceiptProduct {
@@ -247,7 +248,7 @@ export async function processValidReceipt(
     if (!receiptName) continue;
 
     const isNonProduct = NON_PRODUCT_PATTERN.test(receiptName);
-    const articleNumber = normalizeArticleNumber(p.article_number);
+    let articleNumber = normalizeArticleNumber(p.article_number);
     const quantity = typeof p.quantity === "number" && p.quantity > 0 ? p.quantity : 1;
     const unitPrice = typeof p.unit_price === "number" ? p.unit_price : null;
     const totalPrice = typeof p.total_price === "number" ? p.total_price : null;
@@ -257,11 +258,22 @@ export async function processValidReceipt(
 
     if (!isNonProduct) {
       if (isAldi) {
-        const found = await findProductByArticleNumber(
+        let found = await findProductByArticleNumber(
           supabase,
           articleNumber,
           "product_id, price, price_updated_at",
         );
+
+        if (!found && articleNumber) {
+          const correction = await tryAutoCorrectArticleNumber(
+            supabase, articleNumber, "product_id, price, price_updated_at",
+          );
+          if (correction) {
+            found = correction.product;
+            articleNumber = correction.correctedNumber;
+          }
+        }
+
         productId = found?.product_id ?? null;
 
         if (found && effectivePrice != null && ocrResult.purchase_date) {

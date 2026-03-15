@@ -7,7 +7,7 @@ import { log } from "@/lib/utils/logger";
 
 
 const uploadReceiptPhotoSchema = z.object({
-  base64: z.string().min(100).max(5_000_000),
+  base64: z.string().min(100).max(8_000_000),
   index: z.number().int().min(0).max(10),
   timestamp: z.number().int().positive(),
 });

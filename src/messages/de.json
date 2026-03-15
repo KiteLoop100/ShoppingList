@@ -273,6 +273,7 @@
       "slotExtraHint": "Rückseite, Seite, Barcode",
       "slotTakePhoto": "Foto",
       "slotChooseFile": "Aus Galerie",
+      "rotatePhoto": "Drehen",
       "analyzing": "Fotos werden analysiert…",
       "photosCount": "{count} von 5 Fotos",
       "maxPhotosReached": "Maximum von 5 Fotos erreicht",
@@ -490,6 +491,7 @@
     "slotExtraHint": "Rückseite, Seite, Barcode",
     "slotTakePhoto": "Foto",
     "slotChooseFile": "Aus Galerie",
+    "rotatePhoto": "Drehen",
     "setAsMain": "Als Hauptbild setzen",
     "changeCategory": "Kategorie ändern",
     "deletePhoto": "Löschen",
@@ -855,7 +857,14 @@
     "tabReceipts": "Kassenzettel",
     "tabInventory": "Vorrat",
     "inventoryCount": "{count} Produkte",
-    "addInventory": "Produkt zum Vorrat hinzufügen"
+    "addInventory": "Produkt zum Vorrat hinzufügen",
+    "editArticleNumber": "Artikelnummer bearbeiten",
+    "editArticleNumberPlaceholder": "z.B. 123456",
+    "editArticleNumberSave": "Speichern",
+    "editArticleNumberCancel": "Abbrechen",
+    "articleNumberUpdatedLinked": "Art.-Nr. geändert — {productName} verknüpft",
+    "articleNumberUpdatedNotFound": "Art.-Nr. geändert — kein Produkt gefunden",
+    "editArticleNumberHint": "Nur Ziffern, mind. 4 Stellen"
   },
   "catalog": {
     "navLabel": "Katalog",
