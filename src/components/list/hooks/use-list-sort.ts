@@ -185,7 +185,8 @@ export async function resortItems(
   assignPrices(u, c, data.productPriceMap, d);
   assignThumbnails(u, c, data.productThumbnailMap, d);
   assignHasAdditionalInfo(u, c, data.productIdsWithAdditionalInfo, d);
-  const { total, withoutPriceCount } = estimateTotal([...u, ...c, ...d]);
+  const dNonElsewhere = d.filter(i => i.deferred_reason !== "elsewhere");
+  const { total, withoutPriceCount } = estimateTotal([...u, ...c, ...dNonElsewhere]);
   const { total: cartTotal, withoutPriceCount: cartWithoutPriceCount } = estimateTotal(c);
   return { unchecked: u, checked: c, deferred: d, total, withoutPriceCount, cartTotal, cartWithoutPriceCount };
 }

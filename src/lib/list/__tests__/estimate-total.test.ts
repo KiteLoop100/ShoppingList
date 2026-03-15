@@ -119,4 +119,62 @@ describe("estimateTotal", () => {
       expect(result.total).toBeCloseTo(7.35);
     });
   });
+
+  describe("elsewhere-item exclusion (caller responsibility)", () => {
+    const unchecked = [
+      makeItem({ item_id: "u1", price: 1.09, quantity: 1, is_checked: false }),
+      makeItem({ item_id: "u2", price: 1.49, quantity: 1, is_checked: false }),
+    ];
+    const checked = [
+      makeItem({ item_id: "c1", price: 2.19, quantity: 1, is_checked: true }),
+    ];
+    const deferredRegular = [
+      makeItem({ item_id: "d1", price: 0.89, quantity: 1, is_checked: false, is_deferred: true, deferred_reason: "manual" }),
+    ];
+    const deferredElsewhere = [
+      makeItem({ item_id: "e1", price: 3.49, quantity: 1, is_checked: false, is_deferred: true, deferred_reason: "elsewhere", buy_elsewhere_retailer: "REWE" }),
+      makeItem({ item_id: "e2", price: null, quantity: 1, is_checked: false, is_deferred: true, deferred_reason: "elsewhere", buy_elsewhere_retailer: "LIDL" }),
+    ];
+
+    test("list total excludes elsewhere items when filtered by caller", () => {
+      const allDeferred = [...deferredRegular, ...deferredElsewhere];
+      const nonElsewhere = allDeferred.filter(i => i.deferred_reason !== "elsewhere");
+      const result = estimateTotal([...unchecked, ...checked, ...nonElsewhere]);
+
+      expect(result.total).toBeCloseTo(1.09 + 1.49 + 2.19 + 0.89);
+      expect(result.withoutPriceCount).toBe(0);
+    });
+
+    test("list total wrongly inflated when elsewhere items not filtered", () => {
+      const allDeferred = [...deferredRegular, ...deferredElsewhere];
+      const unfiltered = estimateTotal([...unchecked, ...checked, ...allDeferred]);
+
+      expect(unfiltered.total).toBeCloseTo(1.09 + 1.49 + 2.19 + 0.89 + 3.49);
+      expect(unfiltered.withoutPriceCount).toBe(1);
+    });
+
+    test("cart total is unaffected by elsewhere items", () => {
+      const result = estimateTotal(checked);
+
+      expect(result.total).toBeCloseTo(2.19);
+      expect(result.withoutPriceCount).toBe(0);
+    });
+
+    test("item count excludes elsewhere when filtered by caller", () => {
+      const allDeferred = [...deferredRegular, ...deferredElsewhere];
+      const nonElsewhereDeferred = allDeferred.filter(i => i.deferred_reason !== "elsewhere");
+
+      const listItemCount = unchecked.length + checked.length + nonElsewhereDeferred.length;
+
+      expect(listItemCount).toBe(4);
+      expect(unchecked.length + checked.length + allDeferred.length).toBe(6);
+    });
+
+    test("elsewhere items with price=null do not affect withoutPriceCount when filtered", () => {
+      const nonElsewhere = deferredRegular.filter(i => i.deferred_reason !== "elsewhere");
+      const result = estimateTotal([...unchecked, ...nonElsewhere]);
+
+      expect(result.withoutPriceCount).toBe(0);
+    });
+  });
 });

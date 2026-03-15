@@ -144,7 +144,8 @@ export function useListFetch(sortMode: SortMode): UseListFetchResult {
       assignPrices(u, c, productPriceMap, d);
       assignThumbnails(u, c, productThumbnailMap, d);
       assignHasAdditionalInfo(u, c, productIdsWithAdditionalInfo, d);
-      const { total: t, withoutPriceCount: w } = estimateTotal([...u, ...c, ...d]);
+      const dNonElsewhere = d.filter(i => i.deferred_reason !== "elsewhere");
+      const { total: t, withoutPriceCount: w } = estimateTotal([...u, ...c, ...dNonElsewhere]);
       const { total: ct, withoutPriceCount: cw } = estimateTotal(c);
 
       setListId(list.list_id);

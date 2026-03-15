@@ -205,7 +205,7 @@ export const ShoppingListContent = memo(function ShoppingListContent({
         <DualPriceFooter
           listTotal={total}
           listWithoutPriceCount={withoutPriceCount}
-          listItemCount={unchecked.length + checked.length + deferred.length}
+          listItemCount={unchecked.length + checked.length + deferred.filter(i => i.deferred_reason !== "elsewhere").length}
           cartTotal={cartTotal}
           cartWithoutPriceCount={cartWithoutPriceCount}
           cartItemCount={checked.length}
