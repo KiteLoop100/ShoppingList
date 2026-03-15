@@ -25,6 +25,7 @@ export interface GuidedPhotoSlotsLabels {
   maxPhotosReached: string;
   mainPhoto: string;
   softFallback?: string;
+  rotatePhoto?: string;
 }
 
 export interface ProcessedGalleryPhoto {
@@ -52,6 +53,9 @@ export interface GuidedPhotoSlotsProps {
   onRemoveFront: () => void;
   onRemovePriceTag: () => void;
   onRemoveExtra: (index: number) => void;
+  onRotateFront?: () => void;
+  onRotatePriceTag?: () => void;
+  onRotateExtra?: (index: number) => void;
   onDeleteExistingPhoto?: (photoId: string) => void;
 }
 
@@ -76,6 +80,21 @@ function RemoveButton({ onClick, ariaLabel }: { onClick: () => void; ariaLabel?:
     >
       <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+      </svg>
+    </button>
+  );
+}
+
+function RotateButton({ onClick, ariaLabel }: { onClick: () => void; ariaLabel?: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="absolute -left-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-aldi-blue text-white shadow-sm"
+      aria-label={ariaLabel}
+    >
+      <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182" />
       </svg>
     </button>
   );
@@ -125,6 +144,9 @@ export function GuidedPhotoSlots({
   onRemoveFront,
   onRemovePriceTag,
   onRemoveExtra,
+  onRotateFront,
+  onRotatePriceTag,
+  onRotateExtra,
   onDeleteExistingPhoto,
 }: GuidedPhotoSlotsProps) {
   const processedPriceTag = processedGalleryPhotos.find((p) => p.category === "price_tag");
@@ -167,6 +189,7 @@ export function GuidedPhotoSlots({
           ) : frontPhoto ? (
             <div className="relative">
               <img src={frontPhoto.previewUrl} alt="" className="h-14 w-14 rounded-lg object-cover shadow-sm" />
+              {onRotateFront && !analyzing && <RotateButton onClick={onRotateFront} ariaLabel={labels.rotatePhoto} />}
               <RemoveButton onClick={onRemoveFront} />
             </div>
           ) : existingFront ? (
@@ -200,6 +223,7 @@ export function GuidedPhotoSlots({
           ) : priceTagPhoto ? (
             <div className="relative">
               <img src={priceTagPhoto.previewUrl} alt="" className="h-14 w-14 rounded-lg object-cover shadow-sm" />
+              {onRotatePriceTag && !analyzing && <RotateButton onClick={onRotatePriceTag} ariaLabel={labels.rotatePhoto} />}
               <RemoveButton onClick={onRemovePriceTag} />
             </div>
           ) : existingPriceTag ? (
@@ -247,6 +271,7 @@ export function GuidedPhotoSlots({
                   {isProcessed && (
                     <span className="absolute -right-1 -top-1 rounded-full bg-green-500 px-1 text-[8px] text-white">&#10003;</span>
                   )}
+                  {onRotateExtra && !analyzing && !isProcessed && <RotateButton onClick={() => onRotateExtra(i)} ariaLabel={labels.rotatePhoto} />}
                   <RemoveButton onClick={() => onRemoveExtra(i)} />
                 </div>
               );

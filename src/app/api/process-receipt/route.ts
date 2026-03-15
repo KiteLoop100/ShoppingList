@@ -138,6 +138,13 @@ export async function POST(request: Request) {
 
       emit("result", { ...result, scan_id: scanId });
       await updateScan({ status: "completed", receipt_id: result.receipt_id });
+
+      await supabase
+        .from("receipt_scans")
+        .update({ status: "completed", error_code: "dismissed", updated_at: new Date().toISOString() })
+        .eq("user_id", userId)
+        .eq("status", "failed");
+
       resolveWork!(events);
     } catch (err) {
       log.error("[process-receipt] Unexpected outer error:", err);

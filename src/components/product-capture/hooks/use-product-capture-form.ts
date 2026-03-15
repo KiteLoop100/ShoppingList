@@ -10,7 +10,7 @@ import {
   type DemandSubGroupRow,
 } from "@/lib/categories/category-service";
 import { log } from "@/lib/utils/logger";
-import { compressImage, titleCase } from "@/lib/utils/image-utils";
+import { compressImage, titleCase, rotateImageFile } from "@/lib/utils/image-utils";
 import type { Product, CompetitorProduct, DemandGroup } from "@/types";
 import type { ExtractedProductInfo } from "@/lib/product-photo-studio/types";
 import type { SlotPhoto, PhotoSlotPurpose } from "@/components/guided-photo-slots";
@@ -364,6 +364,37 @@ export function useProductCaptureForm(config: ProductCaptureConfig) {
     });
   }, []);
 
+  const rotateFront = useCallback(async () => {
+    if (!frontPhoto) return;
+    const { file, previewUrl } = await rotateImageFile(frontPhoto.file);
+    URL.revokeObjectURL(frontPhoto.previewUrl);
+    setFrontPhoto({ purpose: "front", file, previewUrl });
+    setProcessedThumbnail(null);
+    setThumbnailType(null);
+    setProcessedGalleryPhotos([]);
+  }, [frontPhoto]);
+
+  const rotatePriceTag = useCallback(async () => {
+    if (!priceTagPhoto) return;
+    const { file, previewUrl } = await rotateImageFile(priceTagPhoto.file);
+    URL.revokeObjectURL(priceTagPhoto.previewUrl);
+    setPriceTagPhoto({ purpose: "price_tag", file, previewUrl });
+  }, [priceTagPhoto]);
+
+  const rotateExtra = useCallback(async (index: number) => {
+    setExtraPhotos((prev) => {
+      const target = prev[index];
+      if (!target) return prev;
+      rotateImageFile(target.file).then(({ file, previewUrl }) => {
+        URL.revokeObjectURL(target.previewUrl);
+        setExtraPhotos((curr) =>
+          curr.map((sp, i) => i === index ? { purpose: "extra", file, previewUrl } : sp),
+        );
+      });
+      return prev;
+    });
+  }, []);
+
   const handleDeleteExistingPhoto = useCallback(async (photoId: string) => {
     const success = await deleteProductPhoto(photoId);
     if (success) setExistingPhotos((prev) => prev.filter((p) => p.id !== photoId));
@@ -446,6 +477,7 @@ export function useProductCaptureForm(config: ProductCaptureConfig) {
     duplicateInfo, useExistingProduct, dismissDuplicate,
     handleFrontSelected, handlePriceTagSelected, handleExtraSelected,
     removeFront, removePriceTag, removeExtra,
+    rotateFront, rotatePriceTag, rotateExtra,
     handleSubmit,
     handleDeleteExistingPhoto, handleSetAsThumbnail,
     photoFiles,

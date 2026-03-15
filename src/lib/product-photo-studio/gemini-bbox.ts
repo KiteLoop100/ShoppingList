@@ -1,7 +1,6 @@
 /**
  * Smart pre-crop via a single Gemini Flash call that returns
- * bounding box, cardinal rotation, and fine tilt in one shot.
- * Replaces three separate Claude calls (bbox/rotation/tilt).
+ * bounding box and cardinal rotation in one shot.
  *
  * Fallback: consolidated Claude Sonnet call with the same output contract.
  */
@@ -15,12 +14,10 @@ import { log } from "@/lib/utils/logger";
 export interface PreCropData {
   bbox: { x: number; y: number; width: number; height: number };
   rotation: 0 | 90 | 180 | 270;
-  tilt: number;
 }
 
 const VALID_ROTATIONS = new Set([0, 90, 180, 270]);
 const MIN_BBOX_AREA_RATIO = 0.20;
-const MAX_TILT = 15;
 const GEMINI_MODEL = "gemini-2.5-flash";
 const GEMINI_TIMEOUT_MS = 5_000;
 const CLAUDE_TIMEOUT_MS = 8_000;
@@ -30,57 +27,47 @@ export type PreCropPhotoType = "price_tag";
 const GEMINI_PROMPT_DEFAULT = `Analyze this product photo. Return ONLY a JSON object, no other text:
 {
   "bbox": { "x": <left 0-1000>, "y": <top 0-1000>, "width": <0-1000>, "height": <0-1000> },
-  "rotation": <0 | 90 | 180 | 270>,
-  "tilt": <float -15.0 to 15.0>
+  "rotation": <0 | 90 | 180 | 270>
 }
 
 bbox: Bounding box of the main product using normalized 0-1000 coordinates. Add 3% padding on each side.
-rotation: Cardinal rotation to make product text readable left-to-right. 0 if already correct.
-tilt: Measure the ACTUAL tilt angle of the product in degrees. Look at vertical edges of the product packaging — how many degrees are they tilted from perfectly vertical? Positive = product leans clockwise, negative = product leans counterclockwise. Report the TRUE angle, even if it is large (up to 15 degrees). 0 ONLY if the product is perfectly straight.`;
+rotation: Cardinal rotation to make product text readable left-to-right. 0 if already correct.`;
 
 const GEMINI_PROMPT_PRICE_TAG = `Analyze this price tag photo. Return ONLY a JSON object, no other text:
 {
   "bbox": { "x": <left 0-1000>, "y": <top 0-1000>, "width": <0-1000>, "height": <0-1000> },
-  "rotation": <0 | 90 | 180 | 270>,
-  "tilt": <float -15.0 to 15.0>
+  "rotation": <0 | 90 | 180 | 270>
 }
 
 bbox: Find the price tag borders precisely. Use normalized 0-1000 coordinates. Add only 1% padding — crop tightly to the price tag edges.
-rotation: Cardinal rotation to make price tag text readable left-to-right. 0 if already correct.
-tilt: Measure the ACTUAL tilt angle of the price tag in degrees. Look at horizontal text lines — how many degrees are they tilted from perfectly horizontal? Positive = text tilts clockwise, negative = text tilts counterclockwise. Report the TRUE angle, even if it is large (up to 15 degrees). 0 ONLY if the text is perfectly straight.`;
+rotation: Cardinal rotation to make price tag text readable left-to-right. 0 if already correct.`;
 
 const CLAUDE_PROMPT_DEFAULT = `Analyze this product photo. Return ONLY a JSON object:
 {
   "bbox": { "x_pct": <0-100>, "y_pct": <0-100>, "w_pct": <0-100>, "h_pct": <0-100> },
-  "rotation": <0 | 90 | 180 | 270>,
-  "tilt": <float -15.0 to 15.0>
+  "rotation": <0 | 90 | 180 | 270>
 }
 
 bbox: Bounding box as percentage of image dimensions. Add 3% padding.
-rotation: Cardinal rotation to make text readable. 0 if correct.
-tilt: Measure the ACTUAL tilt angle of the product in degrees. Look at vertical edges of the product packaging — how many degrees are they tilted from perfectly vertical? Positive = product leans clockwise, negative = product leans counterclockwise. Report the TRUE angle, even if it is large (up to 15 degrees). 0 ONLY if the product is perfectly straight.`;
+rotation: Cardinal rotation to make text readable. 0 if correct.`;
 
 const CLAUDE_PROMPT_PRICE_TAG = `Analyze this price tag photo. Return ONLY a JSON object:
 {
   "bbox": { "x_pct": <0-100>, "y_pct": <0-100>, "w_pct": <0-100>, "h_pct": <0-100> },
-  "rotation": <0 | 90 | 180 | 270>,
-  "tilt": <float -15.0 to 15.0>
+  "rotation": <0 | 90 | 180 | 270>
 }
 
 bbox: Find the price tag borders precisely as percentage of image dimensions. Add only 1% padding — crop tightly to the price tag edges.
-rotation: Cardinal rotation to make price tag text readable. 0 if correct.
-tilt: Measure the ACTUAL tilt angle of the price tag in degrees. Look at horizontal text lines — how many degrees are they tilted from perfectly horizontal? Positive = text tilts clockwise, negative = text tilts counterclockwise. Report the TRUE angle, even if it is large (up to 15 degrees). 0 ONLY if the text is perfectly straight.`;
+rotation: Cardinal rotation to make price tag text readable. 0 if correct.`;
 
 interface GeminiRawResponse {
   bbox?: { x?: number; y?: number; width?: number; height?: number };
   rotation?: number;
-  tilt?: number;
 }
 
 interface ClaudeRawResponse {
   bbox?: { x_pct?: number; y_pct?: number; w_pct?: number; h_pct?: number };
   rotation?: number;
-  tilt?: number;
 }
 
 function extractJsonFromText(text: string): string {
@@ -92,13 +79,6 @@ function extractJsonFromText(text: string): string {
 function sanitizeRotation(raw: unknown): 0 | 90 | 180 | 270 {
   const n = Number(raw);
   return VALID_ROTATIONS.has(n) ? (n as 0 | 90 | 180 | 270) : 0;
-}
-
-function sanitizeTilt(raw: unknown): number {
-  const n = Number(raw);
-  if (!Number.isFinite(n)) return 0;
-  const clamped = Math.max(-MAX_TILT, Math.min(MAX_TILT, n));
-  return Math.round(clamped * 10) / 10;
 }
 
 function validateBboxArea(
@@ -113,7 +93,7 @@ function validateBboxArea(
 }
 
 /**
- * Single Gemini Flash call that detects bbox (0-1000 coords), rotation, and tilt.
+ * Single Gemini Flash call that detects bbox (0-1000 coords) and rotation.
  * Returns null on any failure — never throws.
  */
 export async function geminiSmartPreCrop(
@@ -176,13 +156,12 @@ export async function geminiSmartPreCrop(
     }
 
     const rotation = sanitizeRotation(parsed.rotation);
-    const tilt = sanitizeTilt(parsed.tilt);
 
     log.debug("[gemini-bbox] success: bbox",
       `${bbox.width}x${bbox.height}+${bbox.x}+${bbox.y}`,
-      "rotation", rotation, "tilt", tilt);
+      "rotation", rotation);
 
-    return { bbox, rotation, tilt };
+    return { bbox, rotation };
   } catch (err) {
     log.warn("[gemini-bbox] failed:", err instanceof Error ? err.message : err);
     return null;
@@ -190,7 +169,7 @@ export async function geminiSmartPreCrop(
 }
 
 /**
- * Consolidated Claude Sonnet fallback — one call for bbox + rotation + tilt.
+ * Consolidated Claude Sonnet fallback — one call for bbox + rotation.
  * Uses percentage-based bbox coordinates. Returns null on any failure.
  */
 export async function claudeSmartPreCrop(
@@ -246,13 +225,12 @@ export async function claudeSmartPreCrop(
     }
 
     const rotation = sanitizeRotation(parsed.rotation);
-    const tilt = sanitizeTilt(parsed.tilt);
 
     log.debug("[claude-bbox] success: bbox",
       `${bbox.width}x${bbox.height}+${bbox.x}+${bbox.y}`,
-      "rotation", rotation, "tilt", tilt);
+      "rotation", rotation);
 
-    return { bbox, rotation, tilt };
+    return { bbox, rotation };
   } catch (err) {
     log.warn("[claude-bbox] failed:", err instanceof Error ? err.message : err);
     return null;

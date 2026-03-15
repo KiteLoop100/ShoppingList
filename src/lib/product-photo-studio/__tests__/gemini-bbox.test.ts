@@ -61,7 +61,6 @@ describe("geminiSmartPreCrop", () => {
     mockGeminiResponse({
       bbox: { x: 100, y: 200, width: 600, height: 500 },
       rotation: 0,
-      tilt: 0,
     });
 
     const buf = await makeTestBuffer(500, 800);
@@ -73,14 +72,12 @@ describe("geminiSmartPreCrop", () => {
     expect(result!.bbox.width).toBe(Math.round((600 / 1000) * 500));
     expect(result!.bbox.height).toBe(Math.round((500 / 1000) * 800));
     expect(result!.rotation).toBe(0);
-    expect(result!.tilt).toBe(0);
   });
 
-  test("returns rotation and tilt values when present", async () => {
+  test("returns rotation value when present", async () => {
     mockGeminiResponse({
       bbox: { x: 50, y: 50, width: 900, height: 900 },
       rotation: 90,
-      tilt: 2.5,
     });
 
     const buf = await makeTestBuffer();
@@ -88,14 +85,12 @@ describe("geminiSmartPreCrop", () => {
 
     expect(result).not.toBeNull();
     expect(result!.rotation).toBe(90);
-    expect(result!.tilt).toBe(2.5);
   });
 
   test("sanitizes invalid rotation to 0", async () => {
     mockGeminiResponse({
       bbox: { x: 50, y: 50, width: 900, height: 900 },
       rotation: 45,
-      tilt: 0,
     });
 
     const buf = await makeTestBuffer();
@@ -105,39 +100,10 @@ describe("geminiSmartPreCrop", () => {
     expect(result!.rotation).toBe(0);
   });
 
-  test("clamps tilt exceeding ±15 range", async () => {
-    mockGeminiResponse({
-      bbox: { x: 50, y: 50, width: 900, height: 900 },
-      rotation: 0,
-      tilt: 25.3,
-    });
-
-    const buf = await makeTestBuffer();
-    const result = await geminiSmartPreCrop(buf);
-
-    expect(result).not.toBeNull();
-    expect(result!.tilt).toBe(15);
-  });
-
-  test("clamps negative tilt exceeding -15", async () => {
-    mockGeminiResponse({
-      bbox: { x: 50, y: 50, width: 900, height: 900 },
-      rotation: 0,
-      tilt: -20,
-    });
-
-    const buf = await makeTestBuffer();
-    const result = await geminiSmartPreCrop(buf);
-
-    expect(result).not.toBeNull();
-    expect(result!.tilt).toBe(-15);
-  });
-
   test("returns null when bbox covers < 20% of image", async () => {
     mockGeminiResponse({
       bbox: { x: 0, y: 0, width: 100, height: 100 },
       rotation: 0,
-      tilt: 0,
     });
 
     const buf = await makeTestBuffer();
@@ -157,7 +123,7 @@ describe("geminiSmartPreCrop", () => {
 
   test("handles JSON wrapped in markdown fences", async () => {
     mockGenerateContent.mockResolvedValue({
-      text: '```json\n{"bbox":{"x":100,"y":100,"width":800,"height":800},"rotation":0,"tilt":0}\n```',
+      text: '```json\n{"bbox":{"x":100,"y":100,"width":800,"height":800},"rotation":0}\n```',
     });
 
     const buf = await makeTestBuffer();
@@ -171,7 +137,6 @@ describe("geminiSmartPreCrop", () => {
     mockGeminiResponse({
       bbox: { x: 900, y: 900, width: 200, height: 200 },
       rotation: 0,
-      tilt: 0,
     });
 
     const buf = await makeTestBuffer(500, 800);
@@ -183,25 +148,10 @@ describe("geminiSmartPreCrop", () => {
     }
   });
 
-  test("handles non-finite tilt as 0", async () => {
-    mockGeminiResponse({
-      bbox: { x: 50, y: 50, width: 900, height: 900 },
-      rotation: 0,
-      tilt: "NaN",
-    });
-
-    const buf = await makeTestBuffer();
-    const result = await geminiSmartPreCrop(buf);
-
-    expect(result).not.toBeNull();
-    expect(result!.tilt).toBe(0);
-  });
-
   test("uses price tag prompt when photoType is price_tag", async () => {
     mockGeminiResponse({
       bbox: { x: 50, y: 50, width: 900, height: 900 },
       rotation: 0,
-      tilt: 0,
     });
 
     const buf = await makeTestBuffer();
@@ -217,7 +167,6 @@ describe("geminiSmartPreCrop", () => {
     mockGeminiResponse({
       bbox: { x: 50, y: 50, width: 900, height: 900 },
       rotation: 0,
-      tilt: 0,
     });
 
     const buf = await makeTestBuffer();
@@ -239,7 +188,6 @@ describe("claudeSmartPreCrop", () => {
     mockedCallClaude.mockResolvedValue(JSON.stringify({
       bbox: { x_pct: 10, y_pct: 20, w_pct: 60, h_pct: 50 },
       rotation: 0,
-      tilt: 0,
     }));
 
     const buf = await makeTestBuffer(500, 800);
@@ -256,7 +204,6 @@ describe("claudeSmartPreCrop", () => {
     mockedCallClaude.mockResolvedValue(JSON.stringify({
       bbox: { x_pct: 0, y_pct: 0, w_pct: 5, h_pct: 5 },
       rotation: 0,
-      tilt: 0,
     }));
 
     const buf = await makeTestBuffer();
@@ -265,11 +212,10 @@ describe("claudeSmartPreCrop", () => {
     expect(result).toBeNull();
   });
 
-  test("returns rotation and tilt from Claude response", async () => {
+  test("returns rotation from Claude response", async () => {
     mockedCallClaude.mockResolvedValue(JSON.stringify({
       bbox: { x_pct: 5, y_pct: 5, w_pct: 90, h_pct: 90 },
       rotation: 270,
-      tilt: -3.5,
     }));
 
     const buf = await makeTestBuffer();
@@ -277,7 +223,6 @@ describe("claudeSmartPreCrop", () => {
 
     expect(result).not.toBeNull();
     expect(result!.rotation).toBe(270);
-    expect(result!.tilt).toBe(-3.5);
   });
 
   test("returns null on Claude API error", async () => {
@@ -293,7 +238,6 @@ describe("claudeSmartPreCrop", () => {
     mockedCallClaude.mockResolvedValue(JSON.stringify({
       bbox: { x_pct: 5, y_pct: 5, w_pct: 90, h_pct: 90 },
       rotation: 120,
-      tilt: 0,
     }));
 
     const buf = await makeTestBuffer();
@@ -303,25 +247,10 @@ describe("claudeSmartPreCrop", () => {
     expect(result!.rotation).toBe(0);
   });
 
-  test("clamps tilt to ±15 range", async () => {
-    mockedCallClaude.mockResolvedValue(JSON.stringify({
-      bbox: { x_pct: 5, y_pct: 5, w_pct: 90, h_pct: 90 },
-      rotation: 0,
-      tilt: -30,
-    }));
-
-    const buf = await makeTestBuffer();
-    const result = await claudeSmartPreCrop(buf);
-
-    expect(result).not.toBeNull();
-    expect(result!.tilt).toBe(-15);
-  });
-
   test("uses price tag prompt when photoType is price_tag", async () => {
     mockedCallClaude.mockResolvedValue(JSON.stringify({
       bbox: { x_pct: 5, y_pct: 5, w_pct: 90, h_pct: 90 },
       rotation: 0,
-      tilt: 0,
     }));
 
     const buf = await makeTestBuffer();
@@ -337,7 +266,6 @@ describe("claudeSmartPreCrop", () => {
     mockedCallClaude.mockResolvedValue(JSON.stringify({
       bbox: { x_pct: 5, y_pct: 5, w_pct: 90, h_pct: 90 },
       rotation: 0,
-      tilt: 0,
     }));
 
     const buf = await makeTestBuffer();

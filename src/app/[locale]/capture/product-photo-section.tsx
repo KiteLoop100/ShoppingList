@@ -23,6 +23,9 @@ interface ProductPhotoSectionProps {
   onRemoveFront: () => void;
   onRemovePriceTag: () => void;
   onRemoveExtra: (index: number) => void;
+  onRotateFront?: () => void;
+  onRotatePriceTag?: () => void;
+  onRotateExtra?: (index: number) => void;
 }
 
 export function ProductPhotoSection({
@@ -43,6 +46,9 @@ export function ProductPhotoSection({
   onRemoveFront,
   onRemovePriceTag,
   onRemoveExtra,
+  onRotateFront,
+  onRotatePriceTag,
+  onRotateExtra,
 }: ProductPhotoSectionProps) {
   return (
     <div className="rounded-2xl bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
@@ -63,6 +69,9 @@ export function ProductPhotoSection({
         onRemoveFront={onRemoveFront}
         onRemovePriceTag={onRemovePriceTag}
         onRemoveExtra={onRemoveExtra}
+        onRotateFront={onRotateFront}
+        onRotatePriceTag={onRotatePriceTag}
+        onRotateExtra={onRotateExtra}
         labels={{
           slotFrontPhoto: t("slotFrontPhoto"),
           slotFrontRequired: t("slotFrontRequired"),
@@ -72,6 +81,7 @@ export function ProductPhotoSection({
           slotExtraHint: t("slotExtraHint"),
           slotTakePhoto: t("slotTakePhoto"),
           slotChooseFile: t("slotChooseFile"),
+          rotatePhoto: t("rotatePhoto"),
           analyzing: t("analyzing"),
           photosCount: t("photosCount"),
           maxPhotosReached: t("maxPhotosReached"),

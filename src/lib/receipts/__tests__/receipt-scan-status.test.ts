@@ -30,6 +30,14 @@ function getErrorMessage(errorCode: string | undefined): string {
   }
 }
 
+function filterStaleFailedScans(
+  scans: ScanRow[],
+  latestCompletedAt: string | null,
+): ScanRow[] {
+  if (!latestCompletedAt) return scans;
+  return scans.filter((s) => s.created_at > latestCompletedAt);
+}
+
 describe("receipt scan status detection", () => {
   it("returns 'processing' for a fresh scan", () => {
     const scan: ScanRow = {
@@ -125,6 +133,48 @@ describe("receipt scan status transitions", () => {
       created_at: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
     };
     expect(detectScanStatus(scan)).toBe("failed");
+  });
+});
+
+describe("filterStaleFailedScans", () => {
+  it("returns all scans when no completed scan exists", () => {
+    const scans: ScanRow[] = [
+      { scan_id: "f1", status: "failed", error_code: "ocr_failed", created_at: "2026-03-14T16:50:00Z" },
+      { scan_id: "f2", status: "failed", error_code: "ocr_failed", created_at: "2026-03-14T16:40:00Z" },
+    ];
+    expect(filterStaleFailedScans(scans, null)).toHaveLength(2);
+  });
+
+  it("filters out failed scans older than the latest completed scan", () => {
+    const scans: ScanRow[] = [
+      { scan_id: "f1", status: "failed", error_code: "ocr_failed", created_at: "2026-03-14T16:50:00Z" },
+      { scan_id: "f2", status: "failed", error_code: "ocr_failed", created_at: "2026-03-14T16:40:00Z" },
+    ];
+    const result = filterStaleFailedScans(scans, "2026-03-14T16:52:00Z");
+    expect(result).toHaveLength(0);
+  });
+
+  it("keeps failed scans newer than the latest completed scan", () => {
+    const scans: ScanRow[] = [
+      { scan_id: "f1", status: "failed", error_code: "ocr_failed", created_at: "2026-03-14T16:55:00Z" },
+      { scan_id: "f2", status: "failed", error_code: "ocr_failed", created_at: "2026-03-14T16:40:00Z" },
+    ];
+    const result = filterStaleFailedScans(scans, "2026-03-14T16:52:00Z");
+    expect(result).toHaveLength(1);
+    expect(result[0].scan_id).toBe("f1");
+  });
+
+  it("reproduces the exact bug scenario: 5 failed + 1 completed newer", () => {
+    const failedScans: ScanRow[] = [
+      { scan_id: "f1", status: "failed", error_code: "ocr_failed", created_at: "2026-03-14T16:50:00Z" },
+      { scan_id: "f2", status: "failed", error_code: "ocr_failed", created_at: "2026-03-14T16:41:00Z" },
+      { scan_id: "f3", status: "failed", error_code: "ocr_failed", created_at: "2026-03-14T16:34:00Z" },
+      { scan_id: "f4", status: "failed", error_code: "ocr_failed", created_at: "2026-03-14T16:24:00Z" },
+      { scan_id: "f5", status: "failed", error_code: "ocr_failed", created_at: "2026-03-14T16:22:00Z" },
+    ];
+    const latestCompletedAt = "2026-03-14T16:52:50Z";
+    const result = filterStaleFailedScans(failedScans, latestCompletedAt);
+    expect(result).toHaveLength(0);
   });
 });
 

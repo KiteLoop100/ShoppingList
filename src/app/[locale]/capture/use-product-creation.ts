@@ -4,7 +4,7 @@ import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { db } from "@/lib/db";
 import { fetchDemandGroupsFromSupabase, fetchDemandSubGroupsFromSupabase } from "@/lib/categories/category-service";
 import { generateId } from "@/lib/utils/generate-id";
-import { compressImage } from "@/lib/utils/image-utils";
+import { compressImage, rotateImageFile } from "@/lib/utils/image-utils";
 import { log } from "@/lib/utils/logger";
 import type { SlotPhoto, PhotoSlotPurpose } from "@/components/guided-photo-slots";
 import type { ProcessedGalleryPhotoClient } from "@/components/product-capture/hooks/use-product-capture-form";
@@ -287,6 +287,37 @@ export function useProductCreation(options: {
     });
   }, []);
 
+  const rotateFront = useCallback(async () => {
+    if (!frontPhoto) return;
+    const { file, previewUrl } = await rotateImageFile(frontPhoto.file);
+    URL.revokeObjectURL(frontPhoto.previewUrl);
+    setFrontPhoto({ purpose: "front", file, previewUrl });
+    setProcessedThumbnail(null);
+    setThumbnailType(null);
+    setProcessedGalleryPhotos([]);
+  }, [frontPhoto]);
+
+  const rotatePriceTag = useCallback(async () => {
+    if (!priceTagPhoto) return;
+    const { file, previewUrl } = await rotateImageFile(priceTagPhoto.file);
+    URL.revokeObjectURL(priceTagPhoto.previewUrl);
+    setPriceTagPhoto({ purpose: "price_tag", file, previewUrl });
+  }, [priceTagPhoto]);
+
+  const rotateExtra = useCallback(async (index: number) => {
+    setExtraPhotos((prev) => {
+      const target = prev[index];
+      if (!target) return prev;
+      rotateImageFile(target.file).then(({ file, previewUrl }) => {
+        URL.revokeObjectURL(target.previewUrl);
+        setExtraPhotos((curr) =>
+          curr.map((sp, i) => i === index ? { purpose: "extra", file, previewUrl } : sp),
+        );
+      });
+      return prev;
+    });
+  }, []);
+
   const handleSave = useCallback(async () => {
     if (!name.trim()) {
       setSaveError("Bitte Name eingeben.");
@@ -387,6 +418,7 @@ export function useProductCreation(options: {
     fileInputFrontRef, fileInputPriceRef, fileInputExtraRef,
     onFrontSelected, onPriceTagSelected, onExtraSelected,
     removeFront, removePriceTag, removeExtra,
+    rotateFront, rotatePriceTag, rotateExtra,
     analyzeAllPhotos,
     handleSave, handleClose,
   };

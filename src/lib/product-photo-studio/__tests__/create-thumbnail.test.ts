@@ -161,7 +161,7 @@ describe("createThumbnail", () => {
     mockedGeminiPreCrop.mockResolvedValueOnce({
       bbox: { x: 0, y: 0, width: 100, height: 200 },
       rotation: 90,
-      tilt: 0,
+    
     });
 
     const img = await makeTestImage(100, 200);
@@ -181,7 +181,7 @@ describe("createThumbnail", () => {
     mockedGeminiPreCrop.mockResolvedValueOnce({
       bbox: { x: 10, y: 10, width: 80, height: 180 },
       rotation: 90,
-      tilt: 0,
+    
     });
 
     const img = await makeTestImage(100, 200);
@@ -204,7 +204,7 @@ describe("createThumbnail", () => {
     mockedGeminiPreCrop.mockResolvedValueOnce({
       bbox: { x: 10, y: 10, width: 80, height: 80 },
       rotation: 0,
-      tilt: 0,
+    
     });
 
     const img = await makeTestImage(100, 100);
@@ -225,7 +225,7 @@ describe("createThumbnail", () => {
     mockedClaudePreCrop.mockResolvedValueOnce({
       bbox: { x: 10, y: 10, width: 80, height: 80 },
       rotation: 0,
-      tilt: 0,
+    
     });
 
     const img = await makeTestImage(100, 100);
@@ -243,7 +243,7 @@ describe("createThumbnail", () => {
     mockedGeminiPreCrop.mockResolvedValueOnce({
       bbox: { x: 20, y: 30, width: 160, height: 340 },
       rotation: 0,
-      tilt: 0,
+    
     });
 
     const img = await makeTestImage(200, 400);
@@ -264,7 +264,7 @@ describe("createThumbnail", () => {
     mockedGeminiPreCrop.mockResolvedValueOnce({
       bbox: { x: 0, y: 0, width: 80, height: 90 },
       rotation: 0,
-      tilt: 0,
+    
     });
 
     const img = await makeTestImage(100, 100);
@@ -346,7 +346,7 @@ describe("createThumbnail", () => {
     mockedGeminiPreCrop.mockResolvedValueOnce({
       bbox: { x: 10, y: 10, width: 80, height: 80 },
       rotation: 180,
-      tilt: 0,
+    
     });
 
     const img = await makeTestImage(100, 100);
@@ -366,7 +366,7 @@ describe("createThumbnail", () => {
     mockedGeminiPreCrop.mockResolvedValueOnce({
       bbox: { x: 0, y: 0, width: 100, height: 200 },
       rotation: 270,
-      tilt: 0,
+    
     });
 
     const img = await makeTestImage(100, 200);
@@ -388,7 +388,7 @@ describe("preCropToProduct", () => {
     mockedGeminiPreCrop.mockResolvedValueOnce({
       bbox: { x: 10, y: 10, width: 80, height: 80 },
       rotation: 0,
-      tilt: 0,
+    
     });
 
     const img = await makeTestImage(100, 100);
@@ -405,7 +405,7 @@ describe("preCropToProduct", () => {
     mockedClaudePreCrop.mockResolvedValueOnce({
       bbox: { x: 10, y: 10, width: 80, height: 80 },
       rotation: 0,
-      tilt: 0,
+    
     });
 
     const img = await makeTestImage(100, 100);
@@ -421,7 +421,7 @@ describe("preCropToProduct", () => {
     mockedGeminiPreCrop.mockResolvedValueOnce({
       bbox: { x: 50, y: 50, width: 400, height: 400 },
       rotation: 0,
-      tilt: 0,
+    
     });
 
     const img = await makeTestImage(500, 500);
@@ -438,7 +438,7 @@ describe("preCropToProduct", () => {
     mockedGeminiPreCrop.mockResolvedValueOnce({
       bbox: { x: 50, y: 50, width: 400, height: 400 },
       rotation: 0,
-      tilt: 0,
+    
     });
 
     const img = await makeTestImage(500, 500);

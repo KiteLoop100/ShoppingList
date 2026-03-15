@@ -28,6 +28,7 @@ export function ProductCaptureModal(props: ProductCaptureConfig) {
     duplicateInfo, useExistingProduct, dismissDuplicate,
     handleFrontSelected, handlePriceTagSelected, handleExtraSelected,
     removeFront, removePriceTag, removeExtra,
+    rotateFront, rotatePriceTag, rotateExtra,
     handleSubmit,
     handleDeleteExistingPhoto, handleSetAsThumbnail,
   } = useProductCaptureForm(props);
@@ -70,6 +71,9 @@ export function ProductCaptureModal(props: ProductCaptureConfig) {
             onRemoveFront={removeFront}
             onRemovePriceTag={removePriceTag}
             onRemoveExtra={removeExtra}
+            onRotateFront={rotateFront}
+            onRotatePriceTag={rotatePriceTag}
+            onRotateExtra={rotateExtra}
             onDeleteExistingPhoto={handleDeleteExistingPhoto}
             labels={{
               photo: t("photo"),
@@ -85,6 +89,7 @@ export function ProductCaptureModal(props: ProductCaptureConfig) {
               slotExtraHint: t("slotExtraHint"),
               slotTakePhoto: t("slotTakePhoto"),
               slotChooseFile: t("slotChooseFile"),
+              rotatePhoto: t("rotatePhoto"),
               photosCount: t("photosCount", { count: "PLACEHOLDER" }),
               maxPhotosReached: t("maxPhotosReached"),
             }}

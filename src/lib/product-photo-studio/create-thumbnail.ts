@@ -12,7 +12,6 @@ import { calculateEdgeQualityScore } from "./edge-quality";
 import { enhanceProduct, removeReflections, compositeOnCanvas, FULL_SIZE, THUMB_SIZE } from "./image-enhance";
 import { geminiSmartPreCrop, claudeSmartPreCrop } from "./gemini-bbox";
 import type { PreCropData, PreCropPhotoType } from "./gemini-bbox";
-import { applyTiltCorrection } from "./tilt-detection";
 import { log } from "@/lib/utils/logger";
 import type {
   PhotoInput,
@@ -128,7 +127,7 @@ export function transformBboxForCardinalRotation(
 /**
  * Apply PreCropData to an image buffer.
  *
- * Order: rotate/tilt on the FULL image first, then transform bbox
+ * Order: rotate on the FULL image first, then transform bbox
  * coordinates into the rotated coordinate system, then crop.
  * This avoids white-corner artifacts from rotating a cropped region
  * and ensures the bbox aligns correctly after straightening.
@@ -152,12 +151,6 @@ async function applyPreCropData(
     const meta = await sharp(output).metadata();
     currentW = meta.width ?? currentW;
     currentH = meta.height ?? currentH;
-  }
-
-  // AI tilt is intentionally IGNORED here. Tilt correction is applied
-  // post-bg-removal via detectTilt() for far greater accuracy.
-  if (data.tilt !== 0) {
-    log.debug("[photo-studio] ignoring AI tilt value:", data.tilt, "degrees (handled post-bg-removal)");
   }
 
   const rotatedBbox = transformBboxForCardinalRotation(
@@ -192,7 +185,7 @@ async function applyPreCropData(
 
 /**
  * 3b-pre: Crop to product region before background removal.
- * Uses a single Gemini Flash call for bbox + rotation + tilt detection,
+ * Uses a single Gemini Flash call for bbox + rotation detection,
  * with a consolidated Claude Sonnet call as fallback.
  * Padding is the larger of 20% of crop dimension or 50px per side,
  * preventing tall/narrow products from being clipped.
@@ -314,10 +307,7 @@ export async function processImageToThumbnail(
     return softFallback(input);
   }
 
-  const tiltCorrected = bgResult.hasTransparency
-    ? await applyTiltCorrection(bgResult.imageBuffer)
-    : bgResult.imageBuffer;
-  const deReflected = await removeReflections(tiltCorrected);
+  const deReflected = await removeReflections(bgResult.imageBuffer);
   const enhanced = await enhanceProduct(deReflected);
   const addShadow = bgResult.hasTransparency;
 
@@ -346,8 +336,7 @@ export async function processImageToThumbnail(
         return softFallback(imageBuffer);
       }
 
-      const retryTiltCorrected = await applyTiltCorrection(retryResult.imageBuffer);
-      const retryDeReflected = await removeReflections(retryTiltCorrected);
+      const retryDeReflected = await removeReflections(retryResult.imageBuffer);
       const retryEnhanced = await enhanceProduct(retryDeReflected);
       const [fullSizeResult, thumbnailResult] = await Promise.all([
         compositeOnCanvas(retryEnhanced, FULL_SIZE, true),

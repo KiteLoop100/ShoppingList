@@ -9,7 +9,6 @@
 import { preCropToProduct } from "./create-thumbnail";
 import { removeBackground } from "./background-removal";
 import { compositeOnCanvas } from "./image-enhance";
-import { applyTiltCorrection } from "./tilt-detection";
 import { toPhotoCategory } from "@/lib/product-photos/classify-photo-category";
 import { log } from "@/lib/utils/logger";
 import type {
@@ -38,7 +37,7 @@ async function processOnePhoto(
   let backgroundRemoved: boolean;
 
   if (bgResult && bgResult.hasTransparency) {
-    finalBuffer = await applyTiltCorrection(bgResult.imageBuffer);
+    finalBuffer = bgResult.imageBuffer;
     backgroundRemoved = true;
   } else {
     finalBuffer = cropped;

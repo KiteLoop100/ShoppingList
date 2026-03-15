@@ -41,6 +41,9 @@ export function CreateProductModal({ open, onClose, onSaved }: CreateProductModa
     removeFront,
     removePriceTag,
     removeExtra,
+    rotateFront,
+    rotatePriceTag,
+    rotateExtra,
     analyzeAllPhotos,
     handleSave,
     handleClose,
@@ -86,6 +89,9 @@ export function CreateProductModal({ open, onClose, onSaved }: CreateProductModa
             onRemoveFront={removeFront}
             onRemovePriceTag={removePriceTag}
             onRemoveExtra={removeExtra}
+            onRotateFront={rotateFront}
+            onRotatePriceTag={rotatePriceTag}
+            onRotateExtra={rotateExtra}
           />
 
           {canAnalyze && (

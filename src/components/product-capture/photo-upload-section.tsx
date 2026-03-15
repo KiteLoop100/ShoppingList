@@ -24,6 +24,9 @@ export interface PhotoUploadSectionProps {
   onRemoveFront: () => void;
   onRemovePriceTag: () => void;
   onRemoveExtra: (index: number) => void;
+  onRotateFront?: () => void;
+  onRotatePriceTag?: () => void;
+  onRotateExtra?: (index: number) => void;
   onDeleteExistingPhoto?: (photoId: string) => void;
   labels: {
     photo: string;
@@ -39,6 +42,7 @@ export interface PhotoUploadSectionProps {
     slotExtraHint: string;
     slotTakePhoto: string;
     slotChooseFile: string;
+    rotatePhoto?: string;
     photosCount: string;
     maxPhotosReached: string;
   };
@@ -63,6 +67,9 @@ export function PhotoUploadSection({
   onRemoveFront,
   onRemovePriceTag,
   onRemoveExtra,
+  onRotateFront,
+  onRotatePriceTag,
+  onRotateExtra,
   onDeleteExistingPhoto,
   labels,
 }: PhotoUploadSectionProps) {
@@ -90,6 +97,9 @@ export function PhotoUploadSection({
         onRemoveFront={onRemoveFront}
         onRemovePriceTag={onRemovePriceTag}
         onRemoveExtra={onRemoveExtra}
+        onRotateFront={onRotateFront}
+        onRotatePriceTag={onRotatePriceTag}
+        onRotateExtra={onRotateExtra}
         onDeleteExistingPhoto={onDeleteExistingPhoto}
         labels={{
           slotFrontPhoto: labels.slotFrontPhoto,
@@ -100,6 +110,7 @@ export function PhotoUploadSection({
           slotExtraHint: labels.slotExtraHint,
           slotTakePhoto: labels.slotTakePhoto,
           slotChooseFile: labels.slotChooseFile,
+          rotatePhoto: labels.rotatePhoto,
           analyzing: labels.analyzing,
           photosCount: labels.photosCount,
           maxPhotosReached: labels.maxPhotosReached,

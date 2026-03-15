@@ -125,13 +125,27 @@ export function ReceiptsClientPage() {
     const { data: { user } } = await supabase.auth.getUser();
     const userId = user?.id ?? getCurrentUserId();
 
-    const { data: scans } = await supabase
+    const { data: latestCompleted } = await supabase
+      .from("receipt_scans")
+      .select("created_at")
+      .eq("user_id", userId)
+      .eq("status", "completed")
+      .order("created_at", { ascending: false })
+      .limit(1);
+
+    let query = supabase
       .from("receipt_scans")
       .select("scan_id, status, error_code, photo_urls, photo_paths, created_at")
       .eq("user_id", userId)
       .in("status", ["processing", "failed"])
       .order("created_at", { ascending: false })
       .limit(1);
+
+    if (latestCompleted && latestCompleted.length > 0) {
+      query = query.gt("created_at", latestCompleted[0].created_at);
+    }
+
+    const { data: scans } = await query;
 
     if (!scans || scans.length === 0) {
       setPendingScan(null);
@@ -229,10 +243,14 @@ export function ReceiptsClientPage() {
 
     const supabase = createClientIfConfigured();
     if (supabase) {
+      const { data: { user } } = await supabase.auth.getUser();
+      const userId = user?.id ?? getCurrentUserId();
+
       await supabase
         .from("receipt_scans")
         .update({ status: "completed", error_code: "dismissed", updated_at: new Date().toISOString() })
-        .eq("scan_id", pendingScan.scanId);
+        .eq("user_id", userId)
+        .eq("status", "failed");
     }
 
     setPendingScan(null);
