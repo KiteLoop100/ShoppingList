@@ -5,6 +5,23 @@
 
 ---
 
+## 2026-03-18 – F04 GPS Monitor Bug Fix
+
+Fixed a bug where the in-store GPS monitor stopped updating when the user stayed on the main screen. The monitor polled `getCurrentPosition` every 90 seconds, but mobile GPS hardware going idle caused timeouts, and 3 consecutive errors permanently killed the monitor with no recovery.
+
+### Changes
+- **FEATURES-CORE.md** — Fixed radius values (were 100 m / 200 m, actual implementation is 200 m / 350 m). Documented new backoff/recovery behavior and visibility-change refresh.
+- **LEARNING-ALGORITHMS.md** — Fixed radius values in 4 locations to match implementation (200 m enter / 350 m leave).
+- **SCAN-AND-GO.md** — Added backoff/recovery note to GPS infrastructure reference section.
+
+### Code changes (not spec files)
+- `src/lib/store/store-service.ts` — Added `timeout` to `GetPositionOptions`; increased default from 10 s to 20 s.
+- `src/lib/store/in-store-monitor.ts` — Fixed poll options (`maximumAge: 90s`, `timeout: 25s`); replaced permanent stop after 3 errors with exponential backoff (30 s – 5 min) and auto-recovery; added `pollNow()` method, `isPolling` concurrency guard, and `stopped` flag.
+- `src/hooks/use-store-detection.ts` — Added `visibilitychange` listener to trigger `pollNow()` on app resume.
+- `src/lib/store/__tests__/in-store-monitor.test.ts` — Updated and expanded tests (23 total).
+
+---
+
 ## 2026-03-11 – Backlog Bereinigung, F28 Audit, BL-74 i18n, BL-69 PWA Shortcuts
 
 Session covering migration sync, responsive audit, i18n consolidation, and PWA shortcuts.

@@ -1050,7 +1050,7 @@ unter bestimmten Bedingungen erscheinen.
 In `use-store-detection.ts`:
 - `isInStore: boolean` -- GPS-bestaetigt im Laden (< 200m)
 - `detectedStoreName: string | null` -- Name des erkannten Ladens
-- Polling alle 90s, Hysterese: Betreten < 200m, Verlassen > 350m
+- Polling alle 90s, Hysterese: Betreten < 200m, Verlassen > 350m. Bei GPS-Fehlern: exponentielles Backoff (30s-5min) statt permanentem Stopp; automatische Erholung bei GPS-Verfuegbarkeit
 
 In `gps-permission.ts`:
 - `checkGpsAllowed()` -- prueft App-Setting `gps_enabled` UND Browser-Permission

@@ -155,8 +155,8 @@ Pairwise learning requires **two independent conditions** to both be true:
 
 **Condition 1: GPS-confirmed in-store presence**
 - The app polls GPS every 90 seconds while open
-- The user must be within 100 m of a known store for in-store status to activate
-- Hysteresis: status only reverts to "not in store" when distance exceeds 200 m (avoids flickering at boundaries)
+- The user must be within 200 m of a known store for in-store status to activate
+- Hysteresis: status only reverts to "not in store" when distance exceeds 350 m (avoids flickering at boundaries)
 - The `gps_confirmed_in_store` flag is stored on the list in IndexedDB
 - If the store was only set via the default-store fallback (no GPS confirmation), learning is skipped
 
@@ -278,13 +278,13 @@ Factors to consider: day of week, seasonality, purchase interval, time since las
 │                  SHOPPING STARTS                      │
 │                                                       │
 │  User opens app                                      │
-│  → GPS detects store (100 m radius)                  │
+│  → GPS detects store (200 m radius)                  │
 │  → If found: gps_confirmed_in_store = true           │
 │  → "Im Laden" badge shown in header (MVP)            │
 │  → Aisle order loaded (best available data)          │
 │  → List sorted in shopping order                     │
 │  → GPS polling starts (every 90 s)                   │
-│    → Hysteresis: enter 100 m / leave 200 m           │
+│    → Hysteresis: enter 200 m / leave 350 m           │
 │    → Badge updates when status changes               │
 └──────────────────┬───────────────────────────────────┘
                    │

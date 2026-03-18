@@ -281,13 +281,13 @@ Users can defer any active (unchecked) item to the next day by swiping right. Th
 
 ## F04: Store Detection
 
-**Initial detection:** GPS-based (100 m radius around known stores — ALDI, REWE, EDEKA, Lidl, or any user-created store). If GPS is unavailable or no store is in range, the default store from Settings is used as fallback. Without store: default category sorting.
+**Initial detection:** GPS-based (200 m radius around known stores — ALDI, REWE, EDEKA, Lidl, or any user-created store). If GPS is unavailable or no store is in range, the default store from Settings is used as fallback. Without store: default category sorting.
 
 **Manual store picker removed (2026-02-25):** The header no longer contains a manual store picker button. Store selection is now fully automatic via GPS detection + default store in Settings. This simplifies the UI and removes a rarely-used control.
 
 **Unknown location → Create Store dialog (2026-03-07):** When GPS finds a position but no known store is within range, the app shows a dialog prompting the user to create a new store. The dialog includes a retailer dropdown (22 known DACH + NZ retailers, plus custom entry), an optional store name field, and the auto-detected address via reverse geocoding (OpenStreetMap Nominatim). The new store is saved to both Supabase and IndexedDB.
 
-**Periodic GPS monitoring:** After the initial detection, the app polls GPS every 90 seconds while open. A `gps_confirmed_in_store` flag on the list tracks whether the user is currently near a store. Hysteresis prevents flickering: enter radius is 100 m, leave radius is 200 m.
+**Periodic GPS monitoring:** After the initial detection, the app polls GPS every 90 seconds while open. A `gps_confirmed_in_store` flag on the list tracks whether the user is currently near a store. Hysteresis prevents flickering: enter radius is 200 m, leave radius is 350 m. On consecutive GPS errors, the monitor enters exponential backoff (30 s to 5 min) instead of stopping permanently, and recovers automatically when GPS becomes available. Returning to the app from the background triggers an immediate GPS refresh.
 
 **In-store indicator (MVP):** A small "Im Laden" / "In store" badge appears in the header when GPS confirms in-store presence.
 

@@ -75,7 +75,9 @@ export function useStoreDetection({
   const [gpsError, setGpsError] = useState(false);
   const [unknownLocation, setUnknownLocation] = useState<GeoPosition | null>(null);
   const { setCountry } = useCurrentCountry();
-  const gpsAttemptRef = useRef(0);
+  /** Tracks the listId for which GPS detection has already been started. Prevents
+   * duplicate runs within the same list, while allowing re-detection when listId changes. */
+  const detectedForListRef = useRef<string | null>(null);
   const prevStoreIdRef = useRef<string | null | "__init__">("__init__");
   const manualSortRef = useRef(false);
   manualSortRef.current = userHasManuallyChosenSort;
@@ -89,7 +91,7 @@ export function useStoreDetection({
         initiallyInStore,
         (inStore, nearestStore) => {
           setIsInStore(inStore);
-          if (nearestStore) setDetectedStoreName(nearestStore.name);
+          setDetectedStoreName(nearestStore?.name ?? null);
         }
       );
     },
@@ -102,7 +104,8 @@ export function useStoreDetection({
   }, []);
 
   useEffect(() => {
-    if (!listId || gpsAttemptRef.current > 0) return;
+    if (!listId || detectedForListRef.current === listId) return;
+    detectedForListRef.current = listId;
 
     let cancelled = false;
     let retryTimer: ReturnType<typeof setTimeout> | null = null;
@@ -116,13 +119,10 @@ export function useStoreDetection({
         if (!gpsCheck.allowed) {
           log.info(`[useStoreDetection] GPS skipped: ${gpsCheck.reason}`);
           setGpsEnabled(false);
-          gpsAttemptRef.current = 1;
           return;
         }
         setGpsEnabled(true);
       }
-
-      gpsAttemptRef.current = retryCount + 1;
 
       const { result, gpsPosition } = await detectStoreOrPosition(listId!);
 
@@ -234,6 +234,17 @@ export function useStoreDetection({
     const id = setTimeout(() => setShowSortToast(false), SORT_TOAST_MS);
     return () => clearTimeout(id);
   }, [showSortToast]);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const onVisible = () => {
+      if (document.visibilityState === "visible") {
+        monitorRef.current?.pollNow();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, []);
 
   const resetOnCompletion = useCallback(() => {
     stopMonitor();

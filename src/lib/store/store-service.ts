@@ -122,6 +122,8 @@ export interface GeoPosition {
 export interface GetPositionOptions {
   /** Max age of a cached position in ms. 0 = force fresh. Default: 60_000. */
   maximumAge?: number;
+  /** Timeout in ms for the GPS hardware to respond. Default: 20_000. */
+  timeout?: number;
 }
 
 /** Get current device position (asks for permission if needed). */
@@ -136,7 +138,7 @@ export function getCurrentPosition(opts?: GetPositionOptions): Promise<GeoPositi
       reject,
       {
         enableHighAccuracy: true,
-        timeout: 10_000,
+        timeout: opts?.timeout ?? 20_000,
         maximumAge: opts?.maximumAge ?? 60_000,
       }
     );
@@ -180,6 +182,21 @@ export async function findNearestStore(
   }
 
   return nearest;
+}
+
+/**
+ * Fetch stores within 10 km of `pos` using a geo-bounded Supabase query.
+ * Falls back to a filtered IndexedDB scan when Supabase returns nothing.
+ * Used by InStoreMonitor so the cache refresh doesn't pull every store globally.
+ */
+export async function getStoresNearby(pos: GeoPosition): Promise<LocalStore[]> {
+  const bounds = geoBoundingBox(pos.latitude, pos.longitude, NEARBY_SEARCH_RADIUS_M);
+  let stores = await getStoresFromSupabase(bounds);
+  if (stores.length === 0) {
+    const all = await db.stores.toArray();
+    stores = all.filter((s) => isValidCoordinate(s.latitude, s.longitude));
+  }
+  return stores;
 }
 
 /** Get one store by id (from same source as getStoresSorted). */
@@ -230,35 +247,7 @@ export interface StoreDetectionResult {
   gpsPosition?: GeoPosition;
 }
 
-/** Try to detect store by GPS; if none, use default store from settings (F12). */
-export async function detectAndSetStoreForList(
-  listId: string
-): Promise<StoreDetectionResult | null> {
-  let gpsPosition: GeoPosition | undefined;
-  try {
-    const pos = await getCurrentPosition({ maximumAge: 0 });
-    gpsPosition = pos;
-    const store = await findNearestStore(pos.latitude, pos.longitude);
-    if (store) {
-      await setListStore(listId, store.store_id);
-      return { store, detectedByGps: true, gpsPosition };
-    }
-  } catch (e) {
-    log.warn("[detectAndSetStoreForList] GPS failed:", e);
-  }
-  const { getDefaultStoreId } = await import("@/lib/settings/default-store");
-  const defaultId = getDefaultStoreId();
-  if (defaultId) {
-    const store = await getStoreById(defaultId);
-    if (store) {
-      await setListStore(listId, store.store_id);
-      return { store, detectedByGps: false, gpsPosition };
-    }
-  }
-  return null;
-}
-
-/** Variant: returns the GPS position even if no store was found (for create-store flow). */
+/** Returns the GPS position even if no store was found (for create-store flow). */
 export async function detectStoreOrPosition(
   listId: string
 ): Promise<{ result: StoreDetectionResult | null; gpsPosition: GeoPosition | null }> {
@@ -360,6 +349,9 @@ export async function createStore(input: CreateStoreInput): Promise<LocalStore> 
     city: city || "",
     postal_code: postalCode || "",
     country: country || "DE",
+    // (0, 0) = "null island" sentinel for stores created without a GPS fix.
+    // isValidCoordinate() rejects (0, 0), so these stores are excluded from
+    // GPS-based detection but remain accessible via the default-store fallback.
     latitude: lat ?? 0,
     longitude: lng ?? 0,
     has_sorting_data: false,
