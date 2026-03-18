@@ -181,6 +181,29 @@ export async function processFlyer(
       flyerCountryUncertain,
     );
 
+    const { data: existingFlyer } = await supabase
+      .from("flyers")
+      .select("flyer_id")
+      .eq("valid_from", validFrom)
+      .eq("valid_until", validUntil)
+      .eq("total_pages", totalPages)
+      .eq("country", flyerCountry)
+      .neq("flyer_id", flyerId)
+      .limit(1);
+    if (existingFlyer?.length) {
+      log.warn("[process-photo] Duplicate flyer detected, cleaning up:", flyerId);
+      await supabase.from("flyer_pages").delete().eq("flyer_id", flyerId);
+      await supabase.from("flyers").delete().eq("flyer_id", flyerId);
+      await supabase
+        .from("photo_uploads")
+        .update({ status: "error", error_message: "Handzettel existiert bereits", processed_at: now })
+        .eq("upload_id", uploadId);
+      return NextResponse.json(
+        { error: "Duplicate flyer", existing_flyer_id: existingFlyer[0].flyer_id },
+        { status: 409 },
+      );
+    }
+
     await supabase
       .from("flyers")
       .update({

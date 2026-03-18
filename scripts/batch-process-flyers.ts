@@ -230,6 +230,22 @@ async function main() {
           if (detectedCountry === "AT") flyerCountry = "AT";
           else if (detectedCountry === "DE") flyerCountry = "DE";
 
+          const { data: existing } = await supabase
+            .from("flyers")
+            .select("flyer_id")
+            .eq("valid_from", validFrom)
+            .eq("valid_until", validTo)
+            .eq("total_pages", pageCount)
+            .eq("country", flyerCountry)
+            .neq("flyer_id", flyerId)
+            .limit(1);
+          if (existing?.length) {
+            console.log(`  DUPLIKAT: Handzettel ${validFrom}–${validTo} (${pageCount}S) existiert bereits → überspringe`);
+            await supabase.from("flyer_pages").delete().eq("flyer_id", flyerId);
+            await supabase.from("flyers").delete().eq("flyer_id", flyerId);
+            break;
+          }
+
           await supabase.from("flyers").update({
             title, valid_from: validFrom, valid_until: validTo, country: flyerCountry,
             status: validTo < today ? "expired" : "active",
