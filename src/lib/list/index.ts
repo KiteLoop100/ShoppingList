@@ -7,6 +7,7 @@ export {
   deleteListItem,
   splitAndCheckoff,
   getActiveListWithItems,
+  resetActiveListCache,
   updateShoppingListNotes,
 } from "./active-list";
 export type { AddItemParams } from "./active-list";

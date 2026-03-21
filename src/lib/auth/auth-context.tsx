@@ -12,6 +12,8 @@ import {
 } from "react";
 import { createClientIfConfigured } from "@/lib/supabase/client";
 import { migrateLocalDataToSupabase } from "@/lib/auth/auth-helpers";
+import { looksLikeRegisteredAccountUser } from "@/lib/auth/session-guards";
+import { resetActiveListCache } from "@/lib/list/active-list";
 import type { User, Session } from "@supabase/supabase-js";
 import { log } from "@/lib/utils/logger";
 
@@ -86,8 +88,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     );
 
+    const syncSessionFromClient = () => {
+      supabase.auth.getSession().then(({ data: { session: s } }) => {
+        setSession(s);
+        setUser(s?.user ?? null);
+        cachedUserId = s?.user?.id ?? null;
+      }).catch((err) => {
+        log.error("[Auth] getSession (sync) failed:", err);
+      });
+    };
+
+    const onPageShow = (e: PageTransitionEvent) => {
+      if (e.persisted) syncSessionFromClient();
+    };
+    window.addEventListener("pageshow", onPageShow);
+
     return () => {
       subscription.unsubscribe();
+      window.removeEventListener("pageshow", onPageShow);
     };
   }, []);
 
@@ -108,8 +126,50 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = useCallback(async () => {
     const supabase = createClientIfConfigured();
     if (!supabase) return;
-    await supabase.auth.signOut();
+    resetActiveListCache();
+    try {
+      await supabase.auth.signOut();
+    } catch (e) {
+      log.error("[Auth] signOut failed:", e);
+    }
+    const { data: { session: afterSignOut } } = await supabase.auth.getSession();
+    if (!afterSignOut) {
+      setSession(null);
+      setUser(null);
+      cachedUserId = null;
+      const { data, error } = await supabase.auth.signInAnonymously();
+      if (data?.session?.user) {
+        setSession(data.session);
+        setUser(data.session.user);
+        cachedUserId = data.session.user.id;
+      }
+      if (error) {
+        log.error("[Auth] Anonymous sign-in after signOut failed:", error.message);
+      }
+      return;
+    }
+    const u = afterSignOut.user;
+    if (!looksLikeRegisteredAccountUser(u)) {
+      setSession(afterSignOut);
+      setUser(u);
+      cachedUserId = u.id;
+      return;
+    }
+    log.warn("[Auth] Registered session still present after signOut; clearing client state");
+    setSession(null);
+    setUser(null);
     cachedUserId = null;
+    try {
+      await supabase.auth.signOut();
+    } catch (e) {
+      log.error("[Auth] second signOut failed:", e);
+    }
+    const { data: anon } = await supabase.auth.signInAnonymously();
+    if (anon.session?.user) {
+      setSession(anon.session);
+      setUser(anon.session.user);
+      cachedUserId = anon.session.user.id;
+    }
   }, []);
 
   const linkEmail = useCallback(async (email: string, password: string) => {

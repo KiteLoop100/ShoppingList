@@ -176,9 +176,14 @@ export function buildProductMaps(idbProducts: Product[], contextProducts: Produc
     }
   };
 
-  const processProduct = (p: Product) => {
+  /** IDB first, then context. Context wins for thumbnails: if server/product context has no URL, clear stale IDB thumb. */
+  const processProduct = (p: Product, source: "idb" | "context") => {
     if (p.price != null) productPriceMap.set(p.product_id, p.price);
-    if (p.thumbnail_url) productThumbnailMap.set(p.product_id, p.thumbnail_url);
+    if (p.thumbnail_url) {
+      productThumbnailMap.set(p.product_id, p.thumbnail_url);
+    } else if (source === "context") {
+      productThumbnailMap.delete(p.product_id);
+    }
     markHasAdditionalInfo(p);
     productMetaMap.set(p.product_id, {
       demand_group_code: p.demand_group_code ?? null,
@@ -193,8 +198,8 @@ export function buildProductMaps(idbProducts: Product[], contextProducts: Produc
     });
   };
 
-  for (const p of idbProducts) processProduct(p);
-  for (const p of contextProducts) processProduct(p);
+  for (const p of idbProducts) processProduct(p, "idb");
+  for (const p of contextProducts) processProduct(p, "context");
 
   return { productPriceMap, productThumbnailMap, productMetaMap, productIdsWithAdditionalInfo, productDeferredInfo };
 }

@@ -150,6 +150,10 @@ export function useCompetitorActions(args: UseCompetitorActionsArgs) {
       if (fromDb) p = fromDb as Product;
     }
     if (p && item.thumbnail_url && !p.thumbnail_url) p = { ...p, thumbnail_url: item.thumbnail_url };
+    // List row only shows thumbs from assignThumbnails; strip stale catalog URLs when list has none (Dexie fallback).
+    if (p && !item.thumbnail_url && !item.competitor_thumbnail_url) {
+      p = { ...p, thumbnail_url: null, thumbnail_back_url: null };
+    }
     if (p) openDetail(p, item.item_id, item.comment ?? null);
   }, [competitorProducts, openCompetitorDetail, openCompetitorForm, openCapture, openGenericPicker, openDetail]);
 

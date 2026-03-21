@@ -15,6 +15,7 @@ import { getDefaultStoreId } from "@/lib/settings/default-store";
 import { type AutoReorderSetting } from "@/lib/list/auto-reorder-service";
 import { processAutoReorder } from "./use-auto-reorder";
 import { sortListItems, resortItems } from "./use-list-sort";
+import { resetActiveListCache } from "@/lib/list/active-list";
 import {
   fetchListData,
   buildProductMaps,
@@ -61,7 +62,7 @@ export interface UseListFetchResult {
 }
 
 export function useListFetch(sortMode: SortMode): UseListFetchResult {
-  const { loading: authLoading } = useAuth();
+  const { loading: authLoading, user } = useAuth();
   const { products: contextProducts } = useProducts();
   const contextProductsRef = useRef(contextProducts);
   contextProductsRef.current = contextProducts;
@@ -207,8 +208,9 @@ export function useListFetch(sortMode: SortMode): UseListFetchResult {
 
   useEffect(() => {
     if (authLoading) return;
+    resetActiveListCache();
     refetch();
-  }, [refetch, authLoading]);
+  }, [refetch, authLoading, user?.id]);
 
   const isFirstSortModeEffect = useRef(true);
   useEffect(() => {

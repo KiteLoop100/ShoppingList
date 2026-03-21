@@ -56,6 +56,7 @@ vi.mock("@/lib/utils/logger", () => ({
 import {
   getOrCreateActiveList,
   getListItems,
+  resetActiveListCache,
 } from "../active-list";
 import {
   addListItem,
@@ -138,6 +139,15 @@ describe("getOrCreateActiveList", () => {
     });
 
     await expect(getOrCreateActiveList()).rejects.toThrow("Not authenticated");
+  });
+});
+
+describe("resetActiveListCache", () => {
+  test("is safe to call repeatedly", () => {
+    expect(() => {
+      resetActiveListCache();
+      resetActiveListCache();
+    }).not.toThrow();
   });
 });
 

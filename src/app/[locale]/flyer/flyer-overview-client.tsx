@@ -84,9 +84,6 @@ export function FlyerOverviewClientPage() {
           return true;
         });
 
-        // #region agent log
-        fetch('http://127.0.0.1:7547/ingest/d58e5f1a-49bc-422a-bf52-4fc861b26370',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c2cfb9'},body:JSON.stringify({sessionId:'c2cfb9',location:'flyer-overview-client.tsx:dedup',message:'Flyers after dedup',data:{before:sorted.length,after:rows.length,flyers:rows.map(f=>({id:f.flyer_id,title:f.title,from:f.valid_from,until:f.valid_until,status:f.status,pages:f.total_pages}))},timestamp:Date.now(),runId:'post-fix',hypothesisId:'B'})}).catch(()=>{});
-        // #endregion
         if (!cancelled) {
           setFlyers(rows);
           setLoading(false);
@@ -137,9 +134,6 @@ export function FlyerOverviewClientPage() {
             {flyers.map((flyer) => {
               const today = new Date().toISOString().slice(0, 10);
               const isExpired = flyer.valid_until < today;
-              // #region agent log
-              fetch('http://127.0.0.1:7547/ingest/d58e5f1a-49bc-422a-bf52-4fc861b26370',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c2cfb9'},body:JSON.stringify({sessionId:'c2cfb9',location:'flyer-overview-client.tsx:render',message:'Render flyer card',data:{id:flyer.flyer_id,title:flyer.title,status:flyer.status,isExpired,valid_until:flyer.valid_until,today},timestamp:Date.now(),runId:'post-fix',hypothesisId:'A'})}).catch(()=>{});
-              // #endregion
               return (
                 <li key={flyer.flyer_id}>
                   <button

@@ -662,7 +662,8 @@
     "loggedInAs": "Angemeldet als: {email}",
     "anonymousHint": "Du nutzt die App ohne Konto. Erstelle ein Konto, um deine Daten auf mehreren Geräten zu nutzen.",
     "signingOut": "Abmelden…",
-    "privacyNotice": "Mit der Nutzung akzeptierst du unsere <privacyLink>Datenschutzerklärung</privacyLink>."
+    "privacyNotice": "Mit der Nutzung akzeptierst du unsere <privacyLink>Datenschutzerklärung</privacyLink>.",
+    "backToShoppingList": "Zur Einkaufsliste"
   },
   "onboarding": {
     "skip": "Überspringen",

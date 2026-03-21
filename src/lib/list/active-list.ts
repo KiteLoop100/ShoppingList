@@ -107,6 +107,11 @@ export async function getListItems(listId: string): Promise<LocalListItem[]> {
 
 let cachedActiveListId: string | null = null;
 
+/** Clears the in-memory active list id cache (e.g. after auth user id changes). */
+export function resetActiveListCache(): void {
+  cachedActiveListId = null;
+}
+
 export async function getActiveListWithItems(): Promise<{
   list: LocalShoppingList;
   items: LocalListItem[];
