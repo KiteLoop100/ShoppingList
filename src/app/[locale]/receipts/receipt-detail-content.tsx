@@ -105,24 +105,6 @@ export function ReceiptDetailContent({ receiptId, showBackLink = true }: Receipt
     await loadReceipt();
     if (!pid) return;
     const fresh = await refreshAldiProductInDexie(pid);
-    // #region agent log
-    fetch("http://127.0.0.1:7547/ingest/d58e5f1a-49bc-422a-bf52-4fc861b26370", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "701147" },
-      body: JSON.stringify({
-        sessionId: "701147",
-        location: "receipt-detail-content.tsx:syncAfterGallery",
-        message: "after refreshAldiProductInDexie",
-        data: {
-          pid,
-          hasFresh: !!fresh,
-          thumbnailPresent: fresh?.thumbnail_url != null && fresh.thumbnail_url !== "",
-        },
-        timestamp: Date.now(),
-        hypothesisId: "H3",
-      }),
-    }).catch(() => {});
-    // #endregion
     if (!fresh) return;
     setDetailProduct((cur) => (cur?.product_id === pid ? fresh : cur));
     setEditAldiProduct((cur) => (cur?.product_id === pid ? fresh : cur));

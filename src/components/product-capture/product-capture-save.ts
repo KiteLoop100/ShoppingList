@@ -63,6 +63,11 @@ interface AldiSaveResult {
   thumbnailUrl: string | null;
 }
 
+function normalizeNutritionForApi(info: unknown): Record<string, unknown> | null {
+  if (info == null || typeof info !== "object" || Array.isArray(info)) return null;
+  return info as Record<string, unknown>;
+}
+
 async function saveAldiProduct(
   values: ProductCaptureValues,
   editProduct: Product | null,
@@ -70,10 +75,13 @@ async function saveAldiProduct(
   processedThumbnail: string | null,
   galleryPhotos: ProcessedGalleryPhotoClient[],
 ): Promise<AldiSaveResult> {
+  const rawPrice = values.price.trim() ? parseFloat(values.price.replace(",", ".")) : null;
+  const price = rawPrice != null && Number.isFinite(rawPrice) ? rawPrice : null;
+
   const body: Record<string, unknown> = {
     name: values.name.trim(),
     brand: values.brand.trim() || null,
-    price: values.price.trim() ? parseFloat(values.price.replace(",", ".")) : null,
+    price,
     ean_barcode: values.ean.trim() || null,
     article_number: values.articleNumber.trim() || null,
     weight_or_quantity: values.weightOrQuantity.trim() || null,
@@ -88,7 +96,7 @@ async function saveAldiProduct(
     aliases: values.aliases.length > 0 ? values.aliases : [],
     ingredients: extractedDetails?.ingredients ?? null,
     allergens: extractedDetails?.allergens ?? null,
-    nutrition_info: extractedDetails?.nutrition_info ?? null,
+    nutrition_info: normalizeNutritionForApi(extractedDetails?.nutrition_info ?? null),
     thumbnail_url: processedThumbnail?.startsWith("https://") ? processedThumbnail : null,
     thumbnail_base64: processedThumbnail?.startsWith("data:")
       ? processedThumbnail.split(",")[1] ?? null
@@ -102,7 +110,7 @@ async function saveAldiProduct(
     body.gallery_photos = galleryPhotos.map((gp) => ({
       image_base64: gp.dataUrl.split(",")[1] ?? "",
       format: gp.format,
-      category: gp.category,
+      category: gp.category === "price_tag" ? "price_tag" : "product",
     }));
   }
 
@@ -117,7 +125,13 @@ async function saveAldiProduct(
   });
 
   const data = await res.json();
-  if (!res.ok) throw new Error(data.error ?? "Save failed");
+  if (!res.ok) {
+    const detail =
+      data && typeof data.details === "object" && data.details != null
+        ? ` ${JSON.stringify(data.details)}`
+        : "";
+    throw new Error(`${data.error ?? "Save failed"}${detail}`);
+  }
   const pid = (data.duplicate && data.existing_product_id)
     ? data.existing_product_id
     : data.product_id;

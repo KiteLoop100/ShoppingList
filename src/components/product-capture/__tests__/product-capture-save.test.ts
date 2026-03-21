@@ -38,6 +38,7 @@ import {
 } from "@/lib/competitor-products/competitor-product-service";
 import { uploadCompetitorPhoto } from "@/lib/competitor-products/upload-competitor-photo";
 import type { ProductCaptureValues } from "../hooks/use-product-capture-form";
+import type { ExtractedProductInfo } from "@/lib/product-photo-studio/types";
 
 function makeValues(overrides: Partial<ProductCaptureValues> = {}): ProductCaptureValues {
   return {
@@ -440,6 +441,69 @@ describe("saveProduct", () => {
     expect(body.thumbnail_base64).toBe("AABBCC");
     expect(body.thumbnail_format).toBe("image/webp");
     expect(body.thumbnail_url).toBeNull();
+  });
+
+  test("sends price null when price text does not parse to a finite number", async () => {
+    realFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ ok: true, product_id: "aldi-price" }),
+    });
+
+    await saveProduct({
+      values: makeValues({ retailer: "ALDI", price: "x" }),
+      editAldiProduct: null,
+      editCompetitorProduct: null,
+      extractedDetails: null,
+      processedThumbnail: null,
+      photoFiles: [],
+      country: "DE",
+    });
+
+    const fetchCall = realFetch.mock.calls[0];
+    const body = JSON.parse(fetchCall[1].body as string);
+    expect(body.price).toBeNull();
+  });
+
+  test("sends nutrition_info null when extraction has array-shaped nutrition (invalid)", async () => {
+    realFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ ok: true, product_id: "aldi-nutri" }),
+    });
+
+    const badExtracted = {
+      name: null,
+      brand: null,
+      ean_barcode: null,
+      article_number: null,
+      price: null,
+      retailer_from_price_tag: null,
+      unit_price: null,
+      weight_or_quantity: null,
+      ingredients: null,
+      nutrition_info: [{ foo: 1 }],
+      allergens: null,
+      nutri_score: null,
+      is_bio: false,
+      is_vegan: false,
+      is_gluten_free: false,
+      is_lactose_free: false,
+      animal_welfare_level: null,
+      country_of_origin: null,
+    } as ExtractedProductInfo;
+
+    await saveProduct({
+      values: makeValues({ retailer: "ALDI" }),
+      editAldiProduct: null,
+      editCompetitorProduct: null,
+      extractedDetails: badExtracted,
+      processedThumbnail: null,
+      photoFiles: [],
+      country: "DE",
+    });
+
+    const fetchCall = realFetch.mock.calls[0];
+    const body = JSON.parse(fetchCall[1].body as string);
+    expect(body.nutrition_info).toBeNull();
   });
 
   test("sends thumbnail_url when processedThumbnail is an HTTPS URL", async () => {

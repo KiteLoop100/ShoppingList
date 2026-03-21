@@ -306,44 +306,8 @@ export function InventoryList() {
           fetchItems();
           const pid =
             captureProductRef.current?.product_id ?? detailProductRef.current?.product_id ?? null;
-          // #region agent log
-          fetch("http://127.0.0.1:7547/ingest/d58e5f1a-49bc-422a-bf52-4fc861b26370", {
-            method: "POST",
-            headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "701147" },
-            body: JSON.stringify({
-              sessionId: "701147",
-              location: "inventory-list.tsx:aldiGallery",
-              message: "onGalleryPhotosChanged",
-              data: {
-                pid,
-                hasCapture: !!captureProductRef.current,
-                hasDetail: !!detailProductRef.current,
-              },
-              timestamp: Date.now(),
-              hypothesisId: "H1",
-            }),
-          }).catch(() => {});
-          // #endregion
           if (!pid) return;
           const fresh = await refreshAldiProductInDexie(pid);
-          // #region agent log
-          fetch("http://127.0.0.1:7547/ingest/d58e5f1a-49bc-422a-bf52-4fc861b26370", {
-            method: "POST",
-            headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "701147" },
-            body: JSON.stringify({
-              sessionId: "701147",
-              location: "inventory-list.tsx:aldiFresh",
-              message: "after refreshAldiProductInDexie",
-              data: {
-                pid,
-                hasFresh: !!fresh,
-                thumbnailPresent: fresh?.thumbnail_url != null && fresh.thumbnail_url !== "",
-              },
-              timestamp: Date.now(),
-              hypothesisId: "H2",
-            }),
-          }).catch(() => {});
-          // #endregion
           if (!fresh) return;
           setCaptureProduct((c) => (c?.product_id === pid ? fresh : c));
           setDetailProduct((d) => (d?.product_id === pid ? fresh : d));

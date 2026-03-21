@@ -1,5 +1,8 @@
 import { z } from "zod";
 
+/** Align with `MAX_TOTAL_BASE64_BYTES` in product capture (single field may hold most of the budget). */
+const MAX_MANUAL_BASE64_CHARS = 15_000_000;
+
 // ─── confirm-photo ───────────────────────────────────────
 export const confirmPhotoSchema = z.object({
   upload_id: z.string().min(1, "upload_id required"),
@@ -48,7 +51,10 @@ export const createManualSchema = z.object({
   demand_sub_group: z.string().nullish(),
   ingredients: z.string().nullish(),
   allergens: z.string().nullish(),
-  nutrition_info: z.record(z.string(), z.unknown()).nullish(),
+  nutrition_info: z.preprocess(
+    (v) => (Array.isArray(v) ? null : v),
+    z.record(z.string(), z.unknown()).nullish(),
+  ),
   assortment_type: z
     .enum(["daily_range", "special", "special_food", "special_nonfood"])
     .nullish()
@@ -61,7 +67,7 @@ export const createManualSchema = z.object({
   is_lactose_free: z.boolean().nullish(),
   animal_welfare_level: z.number().int().min(0).max(4).nullish(),
   thumbnail_url: z.string().url().nullish(),
-  thumbnail_base64: z.string().max(5_000_000).nullish(),
+  thumbnail_base64: z.string().max(MAX_MANUAL_BASE64_CHARS).nullish(),
   thumbnail_format: z.string().max(50).nullish(),
   aliases: z.array(z.string().trim().max(100)).max(20).default([]),
   extra_photo_urls: z.array(z.string().url()).max(10).default([]),
@@ -70,7 +76,7 @@ export const createManualSchema = z.object({
   gallery_photos: z
     .array(
       z.object({
-        image_base64: z.string().max(5_000_000),
+        image_base64: z.string().max(MAX_MANUAL_BASE64_CHARS),
         format: z.string().max(50),
         category: z.enum(["product", "price_tag"]),
       }),
