@@ -10,7 +10,9 @@ import type { InventoryItem } from "@/lib/inventory/inventory-types";
 import type { Product, CompetitorProduct } from "@/types";
 import { getCategoryGroup, SECTION_ICONS, type CategoryGroupKey } from "@/lib/list/recent-purchase-categories";
 import { useProducts } from "@/lib/products-context";
-import { findCompetitorProductById } from "@/lib/competitor-products/competitor-product-service";
+import { useCompetitorProducts } from "@/lib/competitor-products/competitor-products-context";
+import { ProductDetailModal } from "@/components/list/product-detail-modal";
+import { CompetitorProductDetailModal } from "@/components/list/competitor-product-detail-modal";
 import { ProductCaptureModal } from "@/components/product-capture/product-capture-modal";
 import { InventoryEditSheet } from "./inventory-edit-sheet";
 import { InventoryItemRow } from "./inventory-item-row";
@@ -18,6 +20,7 @@ import { InventoryFilters, type InventoryFilter } from "./inventory-filters";
 import { filterExpiredPerishables } from "./inventory-perishable-filter";
 import { filterInventoryByName } from "@/lib/inventory/inventory-search";
 import { useInventoryActions } from "./use-inventory-actions";
+import { useInventoryItemClick } from "./use-inventory-item-click";
 import { CardSkeleton } from "@/components/ui/skeleton";
 
 const GROUP_SORT: Record<CategoryGroupKey, number> = { produce: 0, chilled: 1, frozen: 2, dry: 3 };
@@ -31,13 +34,16 @@ const SECTION_LABEL_KEYS: Record<CategoryGroupKey, string> = {
 export function InventoryList() {
   const t = useTranslations("inventory");
   const router = useRouter();
-  const { products } = useProducts();
+  const { products, refetch: refetchProducts } = useProducts();
+  const { refetch: refetchCompetitorProducts } = useCompetitorProducts();
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<InventoryFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [toast, setToast] = useState<{ message: string; undoId?: string; prevStatus?: "sealed" | "opened"; addedListItemId?: string } | null>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [detailProduct, setDetailProduct] = useState<Product | null>(null);
+  const [detailCompetitor, setDetailCompetitor] = useState<CompetitorProduct | null>(null);
   const [captureProduct, setCaptureProduct] = useState<Product | null>(null);
   const [captureCompetitor, setCaptureCompetitor] = useState<CompetitorProduct | null>(null);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
@@ -70,16 +76,21 @@ export function InventoryList() {
     router.push(`/receipts/inventory-action?mode=${mode}` as never);
   }, [router]);
 
-  const handleItemClick = useCallback(async (item: InventoryItem) => {
-    if (item.product_id) {
-      const found = products.find((p) => p.product_id === item.product_id) ?? null;
-      if (found) { setCaptureProduct(found); return; }
-    }
-    if (item.competitor_product_id) {
-      const found = await findCompetitorProductById(item.competitor_product_id);
-      if (found) { setCaptureCompetitor(found); return; }
-    }
-  }, [products]);
+  const { handleItemClick } = useInventoryItemClick({
+    products,
+    setDetailProduct,
+    setDetailCompetitor,
+  });
+
+  const openCaptureFromAldiDetail = useCallback((p: Product) => {
+    setDetailProduct(null);
+    setCaptureProduct(p);
+  }, []);
+
+  const openCaptureFromCompetitorDetail = useCallback((cp: CompetitorProduct) => {
+    setDetailCompetitor(null);
+    setCaptureCompetitor(cp);
+  }, []);
 
   const handleEditBestBefore = useCallback((item: InventoryItem) => {
     setEditingItem(item);
@@ -230,7 +241,6 @@ export function InventoryList() {
           </div>
         ))}
       </div>
-
       {toast && (
         <div className="fixed bottom-6 left-4 right-4 z-40 mx-auto max-w-sm animate-fade-in rounded-xl bg-aldi-text px-4 py-3 text-center text-sm text-white shadow-lg">
           {toast.message}
@@ -241,12 +251,27 @@ export function InventoryList() {
           )}
         </div>
       )}
-
+      <ProductDetailModal
+        product={detailProduct}
+        onClose={() => setDetailProduct(null)}
+        onEdit={openCaptureFromAldiDetail}
+        onReorderChanged={() => { void refetchProducts(); }}
+      />
+      <CompetitorProductDetailModal
+        product={detailCompetitor}
+        retailer={null}
+        onClose={() => setDetailCompetitor(null)}
+        onEdit={openCaptureFromCompetitorDetail}
+      />
       <ProductCaptureModal
         open={!!captureProduct}
         mode="edit"
         onClose={() => setCaptureProduct(null)}
-        onSaved={() => { setCaptureProduct(null); fetchItems(); }}
+        onSaved={async () => {
+          setCaptureProduct(null);
+          await refetchProducts();
+          fetchItems();
+        }}
         editAldiProduct={captureProduct}
         hiddenFields={["retailer"]}
       />
@@ -254,7 +279,11 @@ export function InventoryList() {
         open={!!captureCompetitor}
         mode="edit"
         onClose={() => setCaptureCompetitor(null)}
-        onSaved={() => { setCaptureCompetitor(null); fetchItems(); }}
+        onSaved={async () => {
+          setCaptureCompetitor(null);
+          await refetchCompetitorProducts();
+          fetchItems();
+        }}
         editCompetitorProduct={captureCompetitor}
       />
       {showInventoryEdit && (
