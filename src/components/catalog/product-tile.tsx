@@ -189,6 +189,7 @@ export function ProductTile({ product, shoppingListMode, onProductUpdated }: Pro
           mode="edit"
           editAldiProduct={product}
           onClose={() => setShowEdit(false)}
+          onGalleryPhotosChanged={() => { void onProductUpdated?.(); }}
           onSaved={() => { setShowEdit(false); onProductUpdated?.(); }}
         />
       )}

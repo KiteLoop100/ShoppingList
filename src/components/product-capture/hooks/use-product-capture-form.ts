@@ -44,6 +44,8 @@ export interface ProductCaptureConfig {
   mode: "create" | "edit";
   onClose: () => void;
   onSaved: (productId: string, productType: "aldi" | "competitor", name: string, thumbnailUrl?: string | null) => void;
+  /** Called after an existing gallery photo is deleted (keeps catalog / IndexedDB in sync with Supabase). */
+  onGalleryPhotosChanged?: () => void | Promise<void>;
   initialValues?: Partial<ProductCaptureValues>;
   hiddenFields?: string[];
   lockedFields?: string[];
@@ -97,7 +99,9 @@ const EMPTY_VALUES: ProductCaptureValues = {
 const MAX_TOTAL_BASE64_BYTES = 15_000_000;
 
 export function useProductCaptureForm(config: ProductCaptureConfig) {
-  const { open, mode, onClose, onSaved, initialValues, lockedFields, editAldiProduct, editCompetitorProduct } = config;
+  const {
+    open, mode, onClose, onSaved, onGalleryPhotosChanged, initialValues, lockedFields, editAldiProduct, editCompetitorProduct,
+  } = config;
   const locked = useMemo(() => new Set(lockedFields ?? []), [lockedFields]);
   const { country } = useCurrentCountry();
   const retailers = getRetailersForCountry(country ?? "DE");
@@ -397,8 +401,15 @@ export function useProductCaptureForm(config: ProductCaptureConfig) {
 
   const handleDeleteExistingPhoto = useCallback(async (photoId: string) => {
     const success = await deleteProductPhoto(photoId);
-    if (success) setExistingPhotos((prev) => prev.filter((p) => p.id !== photoId));
-  }, []);
+    if (success) {
+      setExistingPhotos((prev) => prev.filter((p) => p.id !== photoId));
+      try {
+        await onGalleryPhotosChanged?.();
+      } catch (e) {
+        log.warn("[ProductCaptureForm] onGalleryPhotosChanged failed:", e);
+      }
+    }
+  }, [onGalleryPhotosChanged]);
 
   const handleSetAsThumbnail = useCallback(async (photoId: string) => {
     const success = await setAsThumbnail(photoId);

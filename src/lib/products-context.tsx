@@ -11,28 +11,16 @@ import {
   type ReactNode,
 } from "react";
 import type { Product } from "@/types";
-import type { Database } from "@/types/supabase";
+import {
+  mapSupabaseProductRowToProduct,
+  type ProductRow,
+} from "@/lib/products/map-supabase-product-row";
 import { createClientIfConfigured } from "@/lib/supabase/client";
 import { useCurrentCountry } from "@/lib/current-country-context";
 import { log } from "@/lib/utils/logger";
 import { setSearchProducts } from "@/lib/search/local-search";
 import { indexProducts } from "@/lib/search/search-indexer";
 import { loadPurchaseHistory } from "@/lib/search/purchase-history";
-
-type ProductRow = Database["public"]["Tables"]["products"]["Row"];
-
-function rowToProduct(row: ProductRow): Product {
-  return {
-    ...row,
-    country: row.country ?? "DE",
-    demand_group_code: row.demand_group_code ?? "AK",
-    assortment_type: (row.assortment_type as Product["assortment_type"]) ?? "daily_range",
-    availability: (row.availability as Product["availability"]) ?? "national",
-    status: (row.status as Product["status"]) ?? "active",
-    source: (row.source as Product["source"]) ?? "admin",
-    nutrition_info: row.nutrition_info as Record<string, unknown> | null,
-  };
-}
 
 function lastSyncKey(country: string): string {
   return `products-last-sync-${country}`;
@@ -120,7 +108,7 @@ async function deltaSync(country: string): Promise<Product[] | null> {
 
   if (error && rows.length === 0) return null;
 
-  const products = rows.map(rowToProduct);
+  const products = rows.map(mapSupabaseProductRowToProduct);
 
   if (isIndexedDBAvailable()) {
     try {

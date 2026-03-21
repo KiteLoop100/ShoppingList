@@ -37,7 +37,7 @@ export function ProductDetailView({
 
   useEffect(() => {
     getProductPhotos(product.product_id, productType).then(setProductPhotos);
-  }, [product.product_id, productType]);
+  }, [product, productType]);
 
   const imageLabels: Record<string, string> = {
     mainPhoto: t("mainPhoto"),

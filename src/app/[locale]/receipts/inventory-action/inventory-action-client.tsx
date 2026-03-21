@@ -38,7 +38,7 @@ export function InventoryActionClient() {
   const tSearch = useTranslations("search");
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { products } = useProducts();
+  const { products, refetch: refetchProducts } = useProducts();
   const { country } = useCurrentCountry();
 
   const rawMode = searchParams.get("mode");
@@ -336,6 +336,7 @@ export function InventoryActionClient() {
         open={showCaptureModal}
         mode="create"
         onClose={() => setShowCaptureModal(false)}
+        onGalleryPhotosChanged={() => { void refetchProducts(); }}
         onSaved={handleProductSaved}
         initialValues={captureInitialValues}
       />

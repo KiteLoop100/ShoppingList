@@ -4,6 +4,8 @@ import { useEffect, useState, useCallback, useMemo, useRef, type RefCallback } f
 import { useTranslations } from "next-intl";
 import { useRouter } from "@/lib/i18n/navigation";
 import { createClientIfConfigured } from "@/lib/supabase/client";
+import { findCompetitorProductById } from "@/lib/competitor-products/competitor-product-service";
+import { refreshAldiProductInDexie } from "@/lib/products/refresh-aldi-product-in-dexie";
 import { getCurrentUserId } from "@/lib/auth/auth-context";
 import { loadInventory } from "@/lib/inventory/inventory-service";
 import type { InventoryItem } from "@/lib/inventory/inventory-types";
@@ -17,6 +19,7 @@ import { ProductCaptureModal } from "@/components/product-capture/product-captur
 import { InventoryEditSheet } from "./inventory-edit-sheet";
 import { InventoryItemRow } from "./inventory-item-row";
 import { InventoryFilters, type InventoryFilter } from "./inventory-filters";
+import { InventorySearchField } from "./inventory-search-field";
 import { filterExpiredPerishables } from "./inventory-perishable-filter";
 import { filterInventoryByName } from "@/lib/inventory/inventory-search";
 import { useInventoryActions } from "./use-inventory-actions";
@@ -40,6 +43,7 @@ export function InventoryList() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<InventoryFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [scanHighlightId, setScanHighlightId] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; undoId?: string; prevStatus?: "sealed" | "opened"; addedListItemId?: string } | null>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [detailProduct, setDetailProduct] = useState<Product | null>(null);
@@ -48,6 +52,15 @@ export function InventoryList() {
   const [captureCompetitor, setCaptureCompetitor] = useState<CompetitorProduct | null>(null);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [showInventoryEdit, setShowInventoryEdit] = useState(false);
+
+  const detailProductRef = useRef(detailProduct);
+  detailProductRef.current = detailProduct;
+  const captureProductRef = useRef(captureProduct);
+  captureProductRef.current = captureProduct;
+  const captureCompetitorRef = useRef(captureCompetitor);
+  captureCompetitorRef.current = captureCompetitor;
+  const detailCompetitorRef = useRef(detailCompetitor);
+  detailCompetitorRef.current = detailCompetitor;
 
   useEffect(() => {
     return () => { if (toastTimerRef.current) clearTimeout(toastTimerRef.current); };
@@ -118,6 +131,26 @@ export function InventoryList() {
   useEffect(() => {
     return () => toolbarObserverRef.current?.disconnect();
   }, []);
+
+  const handleBarcodeMatchedItem = useCallback((itemId: string) => {
+    setFilter("all");
+    setScanHighlightId(itemId);
+  }, []);
+
+  useEffect(() => {
+    if (!scanHighlightId) return;
+    const scrollT = window.setTimeout(() => {
+      document.getElementById(`inventory-item-${scanHighlightId}`)?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    }, 200);
+    const clearT = window.setTimeout(() => setScanHighlightId(null), 4500);
+    return () => {
+      window.clearTimeout(scrollT);
+      window.clearTimeout(clearT);
+    };
+  }, [scanHighlightId]);
 
   const activeItems = useMemo(() => filterExpiredPerishables(items), [items]);
   const openedCount = useMemo(() => activeItems.filter((i) => i.status === "opened").length, [activeItems]);
@@ -195,13 +228,13 @@ export function InventoryList() {
           </button>
         </div>
 
-        <input
-          type="search"
-          className="w-full rounded-xl border border-aldi-muted-light bg-gray-50 px-3 py-2 text-sm text-aldi-text outline-none placeholder:text-aldi-muted focus:border-aldi-blue focus:ring-1 focus:ring-aldi-blue"
-          placeholder={t("searchInventory")}
+        <InventorySearchField
           value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          autoComplete="off"
+          onChange={setSearchQuery}
+          items={activeItems}
+          placeholder={t("searchInventory")}
+          onBarcodeMatchedItem={handleBarcodeMatchedItem}
+          showToast={showToast}
         />
 
         {(openedCount > 0 || categoryChips.length > 1) && (
@@ -225,6 +258,7 @@ export function InventoryList() {
                 <InventoryItemRow
                   key={item.id}
                   item={item}
+                  highlighted={item.id === scanHighlightId}
                   onConsume={actions.handleConsume}
                   onConsumeAndAddToList={actions.handleConsumeAndAddToList}
                   onOpen={actions.handleOpen}
@@ -267,6 +301,53 @@ export function InventoryList() {
         open={!!captureProduct}
         mode="edit"
         onClose={() => setCaptureProduct(null)}
+        onGalleryPhotosChanged={async () => {
+          await refetchProducts();
+          fetchItems();
+          const pid =
+            captureProductRef.current?.product_id ?? detailProductRef.current?.product_id ?? null;
+          // #region agent log
+          fetch("http://127.0.0.1:7547/ingest/d58e5f1a-49bc-422a-bf52-4fc861b26370", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "701147" },
+            body: JSON.stringify({
+              sessionId: "701147",
+              location: "inventory-list.tsx:aldiGallery",
+              message: "onGalleryPhotosChanged",
+              data: {
+                pid,
+                hasCapture: !!captureProductRef.current,
+                hasDetail: !!detailProductRef.current,
+              },
+              timestamp: Date.now(),
+              hypothesisId: "H1",
+            }),
+          }).catch(() => {});
+          // #endregion
+          if (!pid) return;
+          const fresh = await refreshAldiProductInDexie(pid);
+          // #region agent log
+          fetch("http://127.0.0.1:7547/ingest/d58e5f1a-49bc-422a-bf52-4fc861b26370", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "701147" },
+            body: JSON.stringify({
+              sessionId: "701147",
+              location: "inventory-list.tsx:aldiFresh",
+              message: "after refreshAldiProductInDexie",
+              data: {
+                pid,
+                hasFresh: !!fresh,
+                thumbnailPresent: fresh?.thumbnail_url != null && fresh.thumbnail_url !== "",
+              },
+              timestamp: Date.now(),
+              hypothesisId: "H2",
+            }),
+          }).catch(() => {});
+          // #endregion
+          if (!fresh) return;
+          setCaptureProduct((c) => (c?.product_id === pid ? fresh : c));
+          setDetailProduct((d) => (d?.product_id === pid ? fresh : d));
+        }}
         onSaved={async () => {
           setCaptureProduct(null);
           await refetchProducts();
@@ -279,6 +360,17 @@ export function InventoryList() {
         open={!!captureCompetitor}
         mode="edit"
         onClose={() => setCaptureCompetitor(null)}
+        onGalleryPhotosChanged={async () => {
+          await refetchCompetitorProducts();
+          fetchItems();
+          const id =
+            captureCompetitorRef.current?.product_id ?? detailCompetitorRef.current?.product_id ?? null;
+          if (!id) return;
+          const cp = await findCompetitorProductById(id);
+          if (!cp) return;
+          setCaptureCompetitor((c) => (c?.product_id === id ? cp : c));
+          setDetailCompetitor((d) => (d?.product_id === id ? cp : d));
+        }}
         onSaved={async () => {
           setCaptureCompetitor(null);
           await refetchCompetitorProducts();

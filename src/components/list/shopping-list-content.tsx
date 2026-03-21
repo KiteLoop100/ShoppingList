@@ -13,7 +13,11 @@ import { ElsewhereCheckoffPrompt } from "./elsewhere-checkoff-prompt";
 import { CompetitorProductDetailModal } from "./competitor-product-detail-modal";
 import { ProductCaptureModal } from "@/components/product-capture/product-capture-modal";
 import { useCompetitorProducts } from "@/lib/competitor-products/competitor-products-context";
+import { db } from "@/lib/db";
+import { findCompetitorProductById } from "@/lib/competitor-products/competitor-product-service";
+import { fetchAldiProductByIdFromSupabase } from "@/lib/products/fetch-aldi-product";
 import { updateListItem } from "@/lib/list";
+import { log } from "@/lib/utils/logger";
 import { getRetailerForProduct } from "@/lib/settings/retailer-memory";
 import { TripNoteSection } from "./trip-note-section";
 import { useListModals } from "./hooks/use-list-modals";
@@ -54,6 +58,8 @@ export const ShoppingListContent = memo(function ShoppingListContent({
 
   const modals = useListModals();
   const { state: ms } = modals;
+  const listModalRef = useRef(ms);
+  listModalRef.current = ms;
 
   const [canFillTypical, setCanFillTypical] = useState(false);
   const [fillTypicalLoading, setFillTypicalLoading] = useState(false);
@@ -245,6 +251,29 @@ export const ShoppingListContent = memo(function ShoppingListContent({
         open={ms.captureOpen}
         mode={ms.captureConfig?.mode ?? "create"}
         onClose={modals.closeCapture}
+        onGalleryPhotosChanged={async () => {
+          await refetchProducts();
+          await refetchCompetitorProducts();
+          await refetch();
+          const s = listModalRef.current;
+          const pid = s.detailProduct?.product_id;
+          if (pid) {
+            const fresh = await fetchAldiProductByIdFromSupabase(pid);
+            if (fresh) {
+              try {
+                await db.products.put(fresh);
+              } catch (e) {
+                log.warn("[shopping-list] IndexedDB put after gallery change failed:", e);
+              }
+              modals.openDetail(fresh, s.detailListItemId, s.detailListItemComment);
+            }
+          }
+          const cid = s.detailCompetitorProduct?.product_id;
+          if (cid) {
+            const cp = await findCompetitorProductById(cid);
+            if (cp) modals.openCompetitorDetail(cp, s.detailCompetitorRetailer);
+          }
+        }}
         onSaved={async (productId, productType, name) => {
           const itemId = ms.captureConfig?.itemId;
           if (itemId) {

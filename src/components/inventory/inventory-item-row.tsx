@@ -12,6 +12,8 @@ const LONG_PRESS_MS = 500;
 
 interface InventoryItemRowProps {
   item: InventoryItem;
+  /** Brief highlight after locating a row via barcode scan on the inventory list. */
+  highlighted?: boolean;
   onConsume: (id: string) => void;
   onConsumeAndAddToList: (id: string) => void;
   onOpen: (id: string) => void;
@@ -26,6 +28,7 @@ interface InventoryItemRowProps {
 
 export function InventoryItemRow({
   item,
+  highlighted = false,
   onConsume,
   onConsumeAndAddToList,
   onOpen,
@@ -148,7 +151,12 @@ export function InventoryItemRow({
 
   return (
     <>
-      <div className="relative overflow-hidden rounded-xl">
+      <div
+        id={`inventory-item-${item.id}`}
+        className={`relative overflow-hidden rounded-xl transition-shadow duration-300 ${
+          highlighted ? "ring-2 ring-aldi-orange ring-offset-2 ring-offset-white" : ""
+        }`}
+      >
         {/* Swipe action indicators behind the row */}
         {swiping && swipingRight && (
           <div className={`absolute inset-0 flex items-center justify-start rounded-xl px-4 transition-colors ${

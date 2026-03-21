@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import Image from "next/image";
 import { useTranslations } from "next-intl";
 import { createClientIfConfigured } from "@/lib/supabase/client";
@@ -20,6 +20,8 @@ import { CompetitorProductDetailModal } from "@/components/list/competitor-produ
 import { ArticleNumberEditSheet } from "@/components/receipts/article-number-edit-sheet";
 import { useArticleNumberEdit } from "./use-article-number-edit";
 import { db } from "@/lib/db";
+import { useProducts } from "@/lib/products-context";
+import { refreshAldiProductInDexie } from "@/lib/products/refresh-aldi-product-in-dexie";
 import { findCompetitorProductById } from "@/lib/competitor-products/competitor-product-service";
 import { log } from "@/lib/utils/logger";
 import type { Product, CompetitorProduct } from "@/types";
@@ -35,6 +37,7 @@ export interface ReceiptDetailContentProps {
 export function ReceiptDetailContent({ receiptId, showBackLink = true }: ReceiptDetailContentProps) {
   const t = useTranslations("receipts");
   const tCommon = useTranslations("common");
+  const { refetch: refetchProducts } = useProducts();
 
   const [receipt, setReceipt] = useState<ReceiptData | null>(null);
   const [rawItems, setRawItems] = useState<ReceiptItem[]>([]);
@@ -49,6 +52,11 @@ export function ReceiptDetailContent({ receiptId, showBackLink = true }: Receipt
   const [editAldiProduct, setEditAldiProduct] = useState<Product | null>(null);
   const [editCompetitorProduct, setEditCompetitorProduct] = useState<CompetitorProduct | null>(null);
   const [detailReceiptItem, setDetailReceiptItem] = useState<GroupedReceiptItem | null>(null);
+
+  const detailProductRef = useRef<Product | null>(null);
+  detailProductRef.current = detailProduct;
+  const editAldiProductRef = useRef<Product | null>(null);
+  editAldiProductRef.current = editAldiProduct;
 
   const groupedItems = useMemo(() => groupReceiptItems(rawItems), [rawItems]);
 
@@ -90,19 +98,49 @@ export function ReceiptDetailContent({ receiptId, showBackLink = true }: Receipt
     await loadReceipt();
   }, [captureItem, loadReceipt, showToast, t]);
 
+  const syncAfterGalleryChange = useCallback(async () => {
+    const pid =
+      detailProductRef.current?.product_id ?? editAldiProductRef.current?.product_id ?? null;
+    await refetchProducts();
+    await loadReceipt();
+    if (!pid) return;
+    const fresh = await refreshAldiProductInDexie(pid);
+    // #region agent log
+    fetch("http://127.0.0.1:7547/ingest/d58e5f1a-49bc-422a-bf52-4fc861b26370", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "701147" },
+      body: JSON.stringify({
+        sessionId: "701147",
+        location: "receipt-detail-content.tsx:syncAfterGallery",
+        message: "after refreshAldiProductInDexie",
+        data: {
+          pid,
+          hasFresh: !!fresh,
+          thumbnailPresent: fresh?.thumbnail_url != null && fresh.thumbnail_url !== "",
+        },
+        timestamp: Date.now(),
+        hypothesisId: "H3",
+      }),
+    }).catch(() => {});
+    // #endregion
+    if (!fresh) return;
+    setDetailProduct((cur) => (cur?.product_id === pid ? fresh : cur));
+    setEditAldiProduct((cur) => (cur?.product_id === pid ? fresh : cur));
+  }, [refetchProducts, loadReceipt]);
+
   const handleItemClick = useCallback(async (item: GroupedReceiptItem) => {
     if (item.competitor_product_id) {
       const cp = await findCompetitorProductById(item.competitor_product_id);
       if (cp) { setDetailCompetitor(cp); setDetailRetailer(receipt?.retailer ?? null); setDetailReceiptItem(item); return; }
     }
     if (item.product_id) {
+      const fresh = await refreshAldiProductInDexie(item.product_id);
+      if (fresh) {
+        setDetailProduct(fresh);
+        return;
+      }
       const fromDb = await db.products.where("product_id").equals(item.product_id).first();
       if (fromDb) { setDetailProduct(fromDb as Product); return; }
-      const supabase = createClientIfConfigured();
-      if (supabase) {
-        const { data } = await supabase.from("products").select("*").eq("product_id", item.product_id).maybeSingle();
-        if (data) { setDetailProduct(data as Product); return; }
-      }
     }
     setCaptureItem(item);
   }, [receipt?.retailer]);
@@ -265,6 +303,7 @@ export function ReceiptDetailContent({ receiptId, showBackLink = true }: Receipt
         mode={editAldiProduct || editCompetitorProduct ? "edit" : "create"}
         onClose={() => { setCaptureItem(null); setEditAldiProduct(null); setEditCompetitorProduct(null); setDetailReceiptItem(null); }}
         onSaved={(productId, productType) => handlePhotoSaved(productId, productType)}
+        onGalleryPhotosChanged={syncAfterGalleryChange}
         initialValues={captureInitialValues}
         lockedFields={captureItem ? ["name", "articleNumber", "price"] : undefined}
         editAldiProduct={editAldiProduct}

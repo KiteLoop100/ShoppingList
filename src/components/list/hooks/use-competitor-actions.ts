@@ -4,6 +4,8 @@ import { useCallback, useRef, useMemo } from "react";
 import { updateListItem } from "@/lib/list";
 import { setRetailerForProduct } from "@/lib/settings/retailer-memory";
 import { db } from "@/lib/db";
+import { log } from "@/lib/utils/logger";
+import { fetchAldiProductByIdFromSupabase } from "@/lib/products/fetch-aldi-product";
 import { findCompetitorProductById } from "@/lib/competitor-products/competitor-product-service";
 import type { ListItemWithMeta } from "@/lib/list/list-helpers";
 import type { Product, CompetitorProduct } from "@/types";
@@ -148,6 +150,15 @@ export function useCompetitorActions(args: UseCompetitorActionsArgs) {
     if (!p) {
       const fromDb = await db.products.where("product_id").equals(item.product_id).first();
       if (fromDb) p = fromDb as Product;
+    }
+    const fresh = await fetchAldiProductByIdFromSupabase(item.product_id);
+    if (fresh) {
+      p = fresh;
+      try {
+        await db.products.put(fresh);
+      } catch (e) {
+        log.warn("[competitor-actions] IndexedDB product put after fetch failed:", e);
+      }
     }
     if (p && item.thumbnail_url && !p.thumbnail_url) p = { ...p, thumbnail_url: item.thumbnail_url };
     // List row only shows thumbs from assignThumbnails; strip stale catalog URLs when list has none (Dexie fallback).
