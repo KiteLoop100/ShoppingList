@@ -39,13 +39,24 @@ export function useInventoryActions({ items, setItems, showToast, fetchItems, t 
     const supabase = createClientIfConfigured();
     if (!supabase) return;
 
-    const prevStatus = item.status as "sealed" | "opened";
-    setItems((prev) => prev.filter((i) => i.id !== id));
-    const ok = await consumeInventoryItem(supabase, id);
-    if (ok) {
-      showToast(t("consumedToast", { name: item.display_name }), id, prevStatus);
+    if (item.quantity > 1) {
+      const newQty = item.quantity - 1;
+      setItems((prev) => prev.map((i) => i.id === id ? { ...i, quantity: newQty } : i));
+      const ok = await updateQuantity(supabase, id, newQty);
+      if (ok) {
+        showToast(t("consumedOneToast", { name: item.display_name, remaining: String(newQty) }));
+      } else {
+        setItems((prev) => prev.map((i) => i.id === id ? { ...i, quantity: item.quantity } : i));
+      }
     } else {
-      setItems((prev) => [...prev, item]);
+      const prevStatus = item.status as "sealed" | "opened";
+      setItems((prev) => prev.filter((i) => i.id !== id));
+      const ok = await consumeInventoryItem(supabase, id);
+      if (ok) {
+        showToast(t("consumedToast", { name: item.display_name }), id, prevStatus);
+      } else {
+        setItems((prev) => [...prev, item]);
+      }
     }
   }, [items, t, showToast, setItems]);
 
@@ -163,9 +174,6 @@ export function useInventoryActions({ items, setItems, showToast, fetchItems, t 
     const supabase = createClientIfConfigured();
     if (!supabase) return;
 
-    const prevStatus = item.status as "sealed" | "opened";
-    setItems((prev) => prev.filter((i) => i.id !== id));
-
     let addedItemId: string | undefined;
     try {
       const list = await getOrCreateActiveList();
@@ -184,15 +192,34 @@ export function useInventoryActions({ items, setItems, showToast, fetchItems, t 
       log.warn("[inventory] addListItem in consumeAndAdd failed:", e);
     }
 
-    const ok = await consumeInventoryItem(supabase, id);
-    if (ok) {
-      const toastKey = addedItemId ? "consumeAndAddToListToast" : "consumeAndAddToListPartialWarn";
-      showToast(t(toastKey, { name: item.display_name }), id, prevStatus, addedItemId);
+    if (item.quantity > 1) {
+      const newQty = item.quantity - 1;
+      setItems((prev) => prev.map((i) => i.id === id ? { ...i, quantity: newQty } : i));
+      const ok = await updateQuantity(supabase, id, newQty);
+      if (ok) {
+        const toastKey = addedItemId ? "consumeAndAddToListOneToast" : "consumeAndAddToListPartialWarn";
+        showToast(t(toastKey, { name: item.display_name, remaining: String(newQty) }));
+      } else {
+        setItems((prev) => prev.map((i) => i.id === id ? { ...i, quantity: item.quantity } : i));
+        if (addedItemId) {
+          try { await deleteListItem(addedItemId); } catch (e) {
+            log.warn("[inventory] rollback deleteListItem failed:", e);
+          }
+        }
+      }
     } else {
-      setItems((prev) => [...prev, item]);
-      if (addedItemId) {
-        try { await deleteListItem(addedItemId); } catch (e) {
-          log.warn("[inventory] rollback deleteListItem failed:", e);
+      const prevStatus = item.status as "sealed" | "opened";
+      setItems((prev) => prev.filter((i) => i.id !== id));
+      const ok = await consumeInventoryItem(supabase, id);
+      if (ok) {
+        const toastKey = addedItemId ? "consumeAndAddToListToast" : "consumeAndAddToListPartialWarn";
+        showToast(t(toastKey, { name: item.display_name }), id, prevStatus, addedItemId);
+      } else {
+        setItems((prev) => [...prev, item]);
+        if (addedItemId) {
+          try { await deleteListItem(addedItemId); } catch (e) {
+            log.warn("[inventory] rollback deleteListItem failed:", e);
+          }
         }
       }
     }
