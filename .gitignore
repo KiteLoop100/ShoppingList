@@ -3,6 +3,7 @@ node_modules/
 .next-local/
 .env
 .env.local
+.mcp.json
 *.tsbuildinfo
 
 #data files

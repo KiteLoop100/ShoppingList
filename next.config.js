@@ -60,27 +60,4 @@ const withPWA = require("next-pwa")({
   ],
 });
 
-const baseConfig = withPWA(withNextIntl(nextConfig));
-
-try {
-  if (process.env.SENTRY_ORG) {
-    const { withSentryConfig } = require("@sentry/nextjs");
-    module.exports = withSentryConfig(
-      baseConfig,
-      {
-        silent: true,
-        org: process.env.SENTRY_ORG,
-        project: process.env.SENTRY_PROJECT,
-      },
-      {
-        widenClientFileUpload: true,
-        hideSourceMaps: true,
-        disableLogger: true,
-      }
-    );
-  } else {
-    module.exports = baseConfig;
-  }
-} catch {
-  module.exports = baseConfig;
-}
+module.exports = withPWA(withNextIntl(nextConfig));

@@ -1364,6 +1364,53 @@ export type Database = {
           },
         ]
       }
+      receipt_scans: {
+        Row: {
+          created_at: string
+          error_code: string | null
+          error_message: string | null
+          photo_paths: string[]
+          photo_urls: string[]
+          receipt_id: string | null
+          scan_id: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          error_code?: string | null
+          error_message?: string | null
+          photo_paths?: string[]
+          photo_urls: string[]
+          receipt_id?: string | null
+          scan_id?: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          error_code?: string | null
+          error_message?: string | null
+          photo_paths?: string[]
+          photo_urls?: string[]
+          receipt_id?: string | null
+          scan_id?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "receipt_scans_receipt_id_fkey"
+            columns: ["receipt_id"]
+            isOneToOne: false
+            referencedRelation: "receipts"
+            referencedColumns: ["receipt_id"]
+          },
+        ]
+      }
       receipts: {
         Row: {
           created_at: string

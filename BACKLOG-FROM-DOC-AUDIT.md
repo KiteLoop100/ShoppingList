@@ -6,16 +6,16 @@
 
 ### Code Quality Issues
 
-- [ ] `src/app/api/debug-log/route.ts` — No authentication, no rate limiting, no input validation; writes arbitrary JSON to filesystem. Remove before launch. — Severity: **High**
-- [ ] `src/app/api/analyze-competitor-photos/route.ts` — FEATURES-ELSEWHERE.md states this was replaced by the unified `/api/analyze-product-photos`, but the old route still exists and is active. Either remove or document as a separate endpoint. — Severity: **Medium**
+- [x] `src/app/api/debug-log/route.ts` — Removed (already deleted before 2026-03-22).
+- [x] `src/app/api/analyze-competitor-photos/route.ts` — Removed 2026-03-22. Replaced by unified `/api/analyze-product-photos`.
 - [ ] `src/lib/auth/auth-context.tsx` — Module-level singleton `cachedUserId` violates coding standard "No Module-Level Singletons" — Severity: **Low**
 - [ ] `src/lib/search/local-search.ts` — Module-level `let indexedProducts`, `let userHistory`, `let demandGroupMap` violate coding standard. May be intentional for performance caching. — Severity: **Low**
-- [ ] `src/lib/db/seed-category-aliases.ts` — Deprecated file still present, `category_aliases` IndexedDB store uses stale `category_id` index from v3 schema — Severity: **Low**
-- [ ] `src/types/supabase.ts` — Generated types appear stale: missing columns from recent migrations (`stores.retailer`, `competitor_products.demand_group_code/demand_sub_group/assortment_type/retailer`, `receipts.retailer`). Run `npx supabase gen types typescript` to regenerate. — Severity: **High**
+- [x] `src/lib/db/seed-category-aliases.ts` — Removed 2026-03-22.
+- [x] `src/types/supabase.ts` — Regenerated 2026-03-22. Note: `stores.retailer` was never in the DB schema (audit was incorrect); other columns are now present.
 
 ### Missing or Incomplete Documentation
 
-- [ ] 7 API routes completely undocumented: `analyze-competitor-photos`, `flyer-processing-status`, `flyer-country`, `apply-thumbnail-overwrites`, `debug-log`, `admin/check`, `admin/login` — Add to ARCHITECTURE.md §6.1
+- [ ] 5 API routes completely undocumented: `flyer-processing-status`, `flyer-country`, `apply-thumbnail-overwrites`, `admin/check`, `admin/login` — Add to ARCHITECTURE.md §6.1 (`analyze-competitor-photos` and `debug-log` have been removed)
 - [ ] Onboarding flow (`src/components/onboarding/`, 7 screens) — Not mentioned in any FEATURES doc
 - [ ] Privacy page (`src/app/[locale]/privacy/`) — Not documented anywhere
 - [ ] `src/lib/search/purchase-history.ts` — Not listed in SEARCH-ARCHITECTURE.md §10 file inventory
@@ -32,7 +32,7 @@
 - [ ] ARCHITECTURE.md §6.1 documents a theoretical REST API (`/api/products`, `/api/lists/*`, `/api/stores/*`) that was never built. The actual architecture uses direct Supabase client access for list/store operations and task-oriented API routes for photo/receipt processing. — Rationale: Misleads contributors about API design
 - [ ] Rate limit documentation says "5 requests/hour/user" for Claude endpoints but actual code has 50/hour (testing phase). Code comment says "reduce to 5-10/h before public release". — Rationale: Pre-launch checklist item
 - [ ] ARCHITECTURE.md §2.2 references "Claude API (Anthropic)" but actual AI provider is Gemini (`@google/genai`). All Claude/Anthropic references need updating to reflect Gemini. — Rationale: Major tech stack inaccuracy
-- [ ] `@sentry/nextjs` listed as active in ARCHITECTURE.md §2.4 but not in `package.json`. Sentry config files exist but dependency is missing. — Rationale: Either add dependency or remove config files
+- [x] `@sentry/nextjs` — Sentry config files, next.config.js conditional, and .env.example vars removed 2026-03-22. Sentry fully cleaned up.
 - [ ] 4 Supabase tables (`aisle_orders`, `aggregated_aisle_orders`, `user_product_preferences`, `sorting_errors`) documented but not in generated types. Either local-only (doc should say so) or missing from schema. — Rationale: Clarify whether these are Supabase tables or local-only
 
 ### Potential Bugs or Inconsistencies

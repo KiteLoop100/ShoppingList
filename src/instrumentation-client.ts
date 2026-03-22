@@ -1,1 +1,1 @@
-import "../sentry.client.config";
+// Client-side instrumentation (currently unused)
