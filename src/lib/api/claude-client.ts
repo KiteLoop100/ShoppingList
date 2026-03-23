@@ -126,11 +126,78 @@ export function cleanJsonFences(text: string): string {
 }
 
 /**
- * Strip JSON fences, parse as T, and attempt truncated-JSON repair on failure.
+ * Removes leading ```json / ``` and trailing ``` so bracket scanning can find the payload.
+ */
+function stripMarkdownJsonFences(text: string): string {
+  return text
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```\s*$/i, "")
+    .trim();
+}
+
+/**
+ * Returns the first balanced JSON object or array substring, respecting string literals
+ * (so `{` / `}` / `[` / `]` inside strings do not affect depth).
+ */
+export function extractFirstBalancedJsonValue(text: string): string | null {
+  const start = text.search(/[\[{]/);
+  if (start === -1) return null;
+
+  let depth = 0;
+  let inString = false;
+  let escape = false;
+
+  for (let i = start; i < text.length; i++) {
+    const c = text[i];
+    if (inString) {
+      if (escape) {
+        escape = false;
+      } else if (c === "\\") {
+        escape = true;
+      } else if (c === '"') {
+        inString = false;
+      }
+      continue;
+    }
+    if (c === '"') {
+      inString = true;
+      continue;
+    }
+    if (c === "{" || c === "[") {
+      depth++;
+    } else if (c === "}" || c === "]") {
+      depth--;
+      if (depth === 0) {
+        return text.slice(start, i + 1);
+      }
+    }
+  }
+
+  return null;
+}
+
+function getJsonTextForParse(raw: string): string {
+  const trimmed = raw.trim();
+  // Remove ```json / ``` fences anywhere (Claude often wraps JSON in markdown).
+  let withoutFences = trimmed
+    .replace(/```(?:json)?\s*/gi, "")
+    .replace(/\s*```/g, "")
+    .trim();
+  const fromBalanced =
+    extractFirstBalancedJsonValue(withoutFences) ??
+    extractFirstBalancedJsonValue(trimmed) ??
+    extractFirstBalancedJsonValue(stripMarkdownJsonFences(trimmed));
+  if (fromBalanced) return fromBalanced.trim();
+
+  return cleanJsonFences(trimmed).trim();
+}
+
+/**
+ * Strip JSON fences / trailing prose, parse as T, and attempt truncated-JSON repair on failure.
  * Use when you already have raw Claude text (e.g. from a retry wrapper).
  */
 export function parseClaudeJsonResponse<T>(raw: string): T {
-  const cleaned = cleanJsonFences(raw);
+  const cleaned = getJsonTextForParse(raw);
   try {
     return JSON.parse(cleaned) as T;
   } catch {
@@ -138,7 +205,9 @@ export function parseClaudeJsonResponse<T>(raw: string): T {
     if (repaired) {
       try {
         return JSON.parse(repaired) as T;
-      } catch { /* fall through to final error */ }
+      } catch {
+        /* fall through to final error */
+      }
     }
     throw new Error(
       `Failed to parse Claude JSON response.\nRaw (first 500 chars): ${cleaned.slice(0, 500)}`,

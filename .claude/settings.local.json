@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find \"/c/Users/Peter/Dropbox/OH, PMH/_Peter/Arduino, IT/DigitalShoppingList/src\" -type f \\\\\\( -name \"*.ts\" -o -name \"*.tsx\" \\\\\\) -exec wc -l {} +)",
+      "Bash(echo \"EXIT: $?\")",
+      "Bash(npm run:*)",
+      "Bash(cd:*)",
+      "Bash(netstat -ano)",
+      "Bash(taskkill /F /PID 31096)",
+      "Bash(cmd.exe /c \"taskkill /F /PID 31096\")",
+      "Bash(cmd.exe /c \"taskkill /F /PID 17768\")",
+      "Bash(npx tsx:*)",
+      "Bash(grep -A 5 \"toastMessage\" src/app/[locale]/receipts/receipt-detail-content.tsx)",
+      "Bash(npx vitest:*)",
+      "Bash(ls:*)"
+    ]
+  }
+}

@@ -1,5 +1,11 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from "vitest";
-import { callClaude, callClaudeJSON, ClaudeApiError, parseClaudeJsonResponse } from "../claude-client";
+import {
+  callClaude,
+  callClaudeJSON,
+  ClaudeApiError,
+  extractFirstBalancedJsonValue,
+  parseClaudeJsonResponse,
+} from "../claude-client";
 
 const mockFetch = vi.fn();
 vi.stubGlobal("fetch", mockFetch);
@@ -180,5 +186,37 @@ describe("parseClaudeJsonResponse", () => {
 
   test("throws on unparseable content", () => {
     expect(() => parseClaudeJsonResponse("not json")).toThrow("Failed to parse");
+  });
+
+  test("parses JSON when markdown fence and trailing explanation follow the object", () => {
+    const raw = [
+      "```json",
+      '{ "demand_group_code": "54", "note": "x" }',
+      "```",
+      "",
+      "**Begründung:** Muskat ist ein Gewürz...",
+    ].join("\n");
+
+    const result = parseClaudeJsonResponse<{ demand_group_code: string; note: string }>(raw);
+    expect(result.demand_group_code).toBe("54");
+    expect(result.note).toBe("x");
+  });
+
+  test("parses JSON array when prose follows the closing bracket", () => {
+    const raw = '[1, 2, 3]\n\nSee above.';
+    const result = parseClaudeJsonResponse<number[]>(raw);
+    expect(result).toEqual([1, 2, 3]);
+  });
+
+  test("does not treat braces inside JSON strings as structure", () => {
+    const raw = '{"msg": "use { or } carefully"} then more text';
+    const result = parseClaudeJsonResponse<{ msg: string }>(raw);
+    expect(result.msg).toBe("use { or } carefully");
+  });
+});
+
+describe("extractFirstBalancedJsonValue", () => {
+  test("returns null when no object or array", () => {
+    expect(extractFirstBalancedJsonValue("no brackets")).toBeNull();
   });
 });

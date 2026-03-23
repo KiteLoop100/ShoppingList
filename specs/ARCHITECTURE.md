@@ -265,7 +265,7 @@ Note: List operations (add/remove/check-off items), store queries, and aisle ord
 - One-time data migration in `src/lib/auth/auth-helpers.ts`: IndexedDB → Supabase + old device-ID reassignment
 - Login page: `src/app/[locale]/login/page.tsx`
 - Full specification: **[FEATURES-ACCOUNT.md](FEATURES-ACCOUNT.md)**
-- Security items: **[SECURITY-BACKLOG.md](SECURITY-BACKLOG.md)**
+- Security items: All resolved — see `archive/SECURITY-BACKLOG.md`
 
 ---
 
@@ -418,4 +418,4 @@ Developer (Cursor) → Git Push → GitHub → Vercel (auto-deploy)
 ---
 
 *Last updated: 2026-03-10*
-*See also: SEARCH-ARCHITECTURE.md, FEATURES-ACCOUNT.md, LAUNCH-READINESS.md, SECURITY-BACKLOG.md*
+*See also: SEARCH-ARCHITECTURE.md, FEATURES-ACCOUNT.md, FEATURES-PLANNED.md*

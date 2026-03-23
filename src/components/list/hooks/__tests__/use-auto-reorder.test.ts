@@ -11,15 +11,6 @@ vi.mock("@/lib/list", () => ({
   updateListItem: (...args: unknown[]) => mockUpdateListItem(...args),
 }));
 
-vi.mock("./list-data-helpers", () => ({
-  computeActivationTime: (date: string, _country: string) => {
-    const [y, m, d] = date.split("-").map(Number);
-    const dayBefore = new Date(Date.UTC(y, m - 1, d));
-    dayBefore.setUTCDate(dayBefore.getUTCDate() - 1);
-    return Date.UTC(dayBefore.getUTCFullYear(), dayBefore.getUTCMonth(), dayBefore.getUTCDate(), 15, 0, 0);
-  },
-}));
-
 import {
   isDeferredSpecial,
   computeReorderActivationDate,

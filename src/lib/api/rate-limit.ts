@@ -1,6 +1,7 @@
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 import { NextResponse } from "next/server";
+import { DAILY_AI_RECIPE_LIMIT } from "@/lib/recipe/constants";
 import { log } from "@/lib/utils/logger";
 
 const redis =
@@ -52,6 +53,29 @@ export const feedbackRateLimit = redis
       limiter: Ratelimit.slidingWindow(10, "1 d"),
       analytics: true,
       prefix: "ratelimit:feedback",
+    })
+  : null;
+
+/** 50 recipe URL extractions per day per user (F-RECIPE-IMPORT). */
+export const recipeExtractRateLimit = redis
+  ? new Ratelimit({
+      redis,
+      limiter: Ratelimit.slidingWindow(50, "1 d"),
+      analytics: true,
+      prefix: "ratelimit:recipe-extract",
+    })
+  : null;
+
+/**
+ * Shared daily AI budget for F-RECIPE-COOK cook-chat and future recipe-suggestion
+ * endpoints (decision D8). Recipe URL extract uses {@link recipeExtractRateLimit} separately.
+ */
+export const recipeAiDailyRateLimit = redis
+  ? new Ratelimit({
+      redis,
+      limiter: Ratelimit.slidingWindow(DAILY_AI_RECIPE_LIMIT, "1 d"),
+      analytics: true,
+      prefix: "ratelimit:recipe-ai-daily",
     })
   : null;
 

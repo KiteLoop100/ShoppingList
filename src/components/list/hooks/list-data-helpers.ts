@@ -14,14 +14,7 @@ import {
 } from "@/lib/list/auto-reorder-service";
 import type { LocalDemandGroup, LocalDemandSubGroup, LocalListItem, LocalShoppingList, LocalStore } from "@/lib/db";
 import type { DemandGroup, DemandSubGroup, Product } from "@/types";
-
-// ─── Constants ────────────────────────────────────────────────────────
-
-const COUNTRY_TZ: Record<string, string> = {
-  DE: "Europe/Berlin",
-  AT: "Europe/Vienna",
-  NZ: "Pacific/Auckland",
-};
+import { computeActivationTime } from "@/lib/list/special-activation";
 
 // ─── Shared types ─────────────────────────────────────────────────────
 
@@ -68,24 +61,9 @@ export interface SortedItems {
   deferred: ListItemWithMeta[];
 }
 
+export { computeActivationTime, getSpecialActivationCalendarDate } from "@/lib/list/special-activation";
+
 // ─── Pure helper functions ────────────────────────────────────────────
-
-export function computeActivationTime(specialStartDate: string, country: string): number {
-  const tz = COUNTRY_TZ[country] || "Europe/Berlin";
-  const [y, m, d] = specialStartDate.split("-").map(Number);
-  const dayBefore = new Date(Date.UTC(y, m - 1, d));
-  dayBefore.setUTCDate(dayBefore.getUTCDate() - 1);
-
-  const guessUtc = Date.UTC(
-    dayBefore.getUTCFullYear(), dayBefore.getUTCMonth(), dayBefore.getUTCDate(),
-    14, 0, 0
-  );
-  const localHourStr = new Intl.DateTimeFormat("en-US", {
-    timeZone: tz, hour: "numeric", hour12: false,
-  }).format(new Date(guessUtc));
-  const localHour = parseInt(localHourStr, 10);
-  return guessUtc - (localHour - 15) * 3_600_000;
-}
 
 export async function fetchListData(caches: ListDataCaches): Promise<FetchedListData> {
   const shouldFetchDemandGroups = caches.demandGroupsCache.current === null;

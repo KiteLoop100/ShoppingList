@@ -207,10 +207,7 @@ Two entry points:
 
 ## Security Notes
 
-See [SECURITY-BACKLOG.md](SECURITY-BACKLOG.md) for open security items:
-- S1: Receipt photos in public bucket (should use signed URLs)
-- S2: receipt_items RLS without user filtering
-- S5: No input validation on API routes
+All security items (S1–S7) have been resolved. See `archive/SECURITY-BACKLOG.md` for history.
 
 ---
 

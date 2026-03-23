@@ -5,7 +5,10 @@ import { type AutoReorderSetting } from "@/lib/list/auto-reorder-service";
 import type { ListItemWithMeta } from "@/lib/list/list-helpers";
 import type { LocalListItem, LocalShoppingList } from "@/lib/db";
 import type { AssortmentType, DemandGroup, Product } from "@/types";
-import { computeActivationTime } from "./list-data-helpers";
+import {
+  computeActivationTime,
+  getSpecialActivationCalendarDate,
+} from "@/lib/list/special-activation";
 
 // ─── Pure helpers ─────────────────────────────────────────────────────
 
@@ -76,9 +79,15 @@ export async function processAutoReorder(
     }
     if (!(item as ListItemWithMeta).is_deferred) {
       const info = productDeferredInfo.get(item.product_id);
-      if (info && isDeferredSpecial(info.assortment_type, info.special_start_date, info.country)) {
+      const saleStart = info?.special_start_date;
+      if (
+        info &&
+        saleStart &&
+        isDeferredSpecial(info.assortment_type, saleStart, info.country)
+      ) {
         (item as ListItemWithMeta).is_deferred = true;
-        (item as ListItemWithMeta).available_from = info.special_start_date;
+        (item as ListItemWithMeta).available_from =
+          getSpecialActivationCalendarDate(saleStart) ?? saleStart;
         (item as ListItemWithMeta).deferred_reason = "special";
       }
     }

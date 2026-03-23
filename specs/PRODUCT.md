@@ -58,7 +58,7 @@ No existing tool combines: intelligent product search, store-specific sorting, f
 ## 6. Core Functions (Overview)
 
 > Detailed feature descriptions in FEATURES-CORE.md, FEATURES-CAPTURE.md, FEATURES-FLYER.md.
-> MVP scope in MVP.md.
+> MVP scope: see `archive/MVP.md`.
 
 - Smart product input with autocomplete (generic + specific)
 - Automatic aisle sorting (self-learning, GPS-based store detection)

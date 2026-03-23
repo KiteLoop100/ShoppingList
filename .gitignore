@@ -33,3 +33,6 @@ flyers/**/.processed.json
 
 certificates
 certs/
+
+# Word/Office temp lock files
+~$*

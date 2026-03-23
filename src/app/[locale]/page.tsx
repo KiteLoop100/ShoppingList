@@ -28,6 +28,7 @@ export default function MainScreenPage() {
   const tCatalog = useTranslations("catalog");
   const tFlyer = useTranslations("flyer");
   const tReceipts = useTranslations("receipts");
+  const tRecipes = useTranslations("recipes");
 
   const [invEnabled, setInvEnabled] = useState(false);
   const [showCompletion, setShowCompletion] = useState(false);
@@ -260,6 +261,16 @@ export default function MainScreenPage() {
           <span className="hidden text-xs font-medium md:inline">{tCatalog("navLabel")}</span>
         </Link>
         <Link
+          href="/recipes"
+          className="touch-target flex items-center justify-center gap-1.5 rounded-xl text-aldi-blue transition-colors hover:bg-aldi-blue-light md:px-2"
+          aria-label={tRecipes("navLabel")}
+        >
+          <svg className="h-[22px] w-[22px]" fill="none" viewBox="0 0 24 24" strokeWidth={1.75} stroke="currentColor" aria-hidden>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
+          </svg>
+          <span className="hidden text-xs font-medium md:inline">{tRecipes("navLabel")}</span>
+        </Link>
+        <Link
           href="/receipts"
           className="touch-target flex items-center justify-center gap-1.5 rounded-xl text-aldi-blue transition-colors hover:bg-aldi-blue-light md:px-2"
           aria-label={invEnabled ? tReceipts("householdTitle") : tReceipts("navLabel")}
@@ -315,6 +326,15 @@ export default function MainScreenPage() {
           sortMode={sortReady ? sortMode : undefined}
           onSortModeChange={handleSortModeChange}
         />
+
+        <div className="shrink-0 px-4 pb-1 pt-1 md:px-6 lg:px-8">
+          <Link
+            href="/recipe-import"
+            className="touch-target inline-flex min-h-[44px] items-center text-sm text-aldi-muted transition-colors hover:text-aldi-blue hover:underline"
+          >
+            {tRecipes("addRecipe")}
+          </Link>
+        </div>
 
         {showSortToast && (
           <div

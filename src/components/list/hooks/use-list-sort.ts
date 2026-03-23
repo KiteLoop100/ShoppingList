@@ -14,6 +14,7 @@ import { getDemandGroupOrderForList } from "@/lib/store/aisle-order";
 import { getHierarchicalOrder } from "@/lib/store/hierarchical-order";
 import { syncPairwiseFromSupabase } from "@/lib/store/sync-pairwise-from-supabase";
 import { isDeferredSpecial } from "./use-auto-reorder";
+import { getSpecialActivationCalendarDate } from "@/lib/list/special-activation";
 import type { SortData, SortedItems } from "./list-data-helpers";
 import type { LocalListItem } from "@/lib/db";
 import type { DemandGroup, SortMode } from "@/types";
@@ -170,9 +171,14 @@ export async function resortItems(
     }
     if (srcItem.product_id && !item.is_deferred) {
       const info = data.productDeferredInfo.get(srcItem.product_id);
-      if (info && isDeferredSpecial(info.assortment_type, info.special_start_date, info.country)) {
+      const saleStart = info?.special_start_date;
+      if (
+        info &&
+        saleStart &&
+        isDeferredSpecial(info.assortment_type, saleStart, info.country)
+      ) {
         item.is_deferred = true;
-        item.available_from = info.special_start_date;
+        item.available_from = getSpecialActivationCalendarDate(saleStart) ?? saleStart;
         item.deferred_reason = "special";
       }
     }
