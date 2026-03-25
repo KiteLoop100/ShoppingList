@@ -8,30 +8,25 @@ import type { Product } from "@/types";
 import type { InventoryItem } from "@/lib/inventory/inventory-types";
 import type { CookChatMessage } from "@/lib/recipe/types";
 
-/** Max catalog products injected into the cook prompt (token budget). */
-export const MAX_CATALOG_PROMPT_PRODUCTS = 150;
+/** Max catalog lines injected into the cook prompt (token budget). */
+export const MAX_CATALOG_PROMPT_PRODUCTS = 200;
 
-/** Calendar days from today until best-before (0 = today); null if unknown. */
-function daysUntilBestBefore(iso: string): number | null {
+const DE_DATE = new Intl.DateTimeFormat("de-DE", {
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+});
+
+function formatBestBefore(iso: string | null): string | null {
+  if (!iso) return null;
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return null;
-  const now = new Date();
-  const t0 = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-  const t1 = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-  return Math.round((t1 - t0) / 86_400_000);
+  return DE_DATE.format(d);
 }
 
-function formatShortMhd(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  const day = String(d.getDate()).padStart(2, "0");
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  return `${day}.${month}.`;
-}
-
-function statusShort(status: InventoryItem["status"]): string {
-  if (status === "sealed") return "verschl.";
-  if (status === "opened") return "offen";
+function statusLabel(status: InventoryItem["status"]): string {
+  if (status === "sealed") return "verschlossen";
+  if (status === "opened") return "geöffnet";
   return status;
 }
 
@@ -48,20 +43,17 @@ export function sortInventoryForPrompt(items: InventoryItem[]): InventoryItem[] 
 }
 
 /**
- * Compact pantry lines for the model (German). MHD only if urgent (<7 days) or expired.
+ * One line per pantry item for the model (German labels).
  */
 export function formatPantryForPrompt(inventoryItems: InventoryItem[]): string {
   const sorted = sortInventoryForPrompt(inventoryItems);
   const lines = sorted.map((it) => {
-    const st = statusShort(it.status);
-    let line = `${it.display_name} ×${it.quantity} (${st}`;
-    if (it.best_before) {
-      const days = daysUntilBestBefore(it.best_before);
-      if (days !== null && days < 7) {
-        line += `, ⚠️ abl. ${formatShortMhd(it.best_before)}`;
-      }
+    const status = statusLabel(it.status);
+    let line = `- ${it.display_name}, ${it.quantity} Stk, Status: ${status}`;
+    const mhd = formatBestBefore(it.best_before);
+    if (mhd) {
+      line += `, ablaufend am ${mhd}`;
     }
-    line += ")";
     return line;
   });
   return lines.length > 0 ? lines.join("\n") : "(leer)";
@@ -72,68 +64,80 @@ function formatPriceEUR(price: number | null): string {
   return price.toFixed(2);
 }
 
-function categoryBucket(p: Product): string {
-  return (p.demand_sub_group?.trim() || p.demand_group_code || "Sonstiges").slice(0, 80);
-}
-
-function productPriceToken(p: Product): string {
-  return `${p.name} ${formatPriceEUR(p.price)}€`;
+function categoryLabel(p: Product): string {
+  return (p.demand_sub_group?.trim() || p.demand_group_code || "—").slice(0, 80);
 }
 
 /**
- * ALDI catalog excerpt: popularity-ordered input, grouped by category, capped for token budget.
+ * Compact ALDI catalog excerpt: popularity-ordered input, capped for token budget.
  */
 export function formatCatalogForPrompt(products: Product[]): string {
   const slice = products.slice(0, MAX_CATALOG_PROMPT_PRODUCTS);
-  const order: string[] = [];
-  const byCat = new Map<string, Product[]>();
-  for (const p of slice) {
-    const key = categoryBucket(p);
-    if (!byCat.has(key)) {
-      byCat.set(key, []);
-      order.push(key);
-    }
-    byCat.get(key)!.push(p);
-  }
-  const blocks = order.map((key) => {
-    const items = byCat.get(key) ?? [];
-    const body = items.map(productPriceToken).join(", ");
-    return `${key.toUpperCase()}: ${body}`;
+  const lines = slice.map((p) => {
+    const cat = categoryLabel(p);
+    const eur = formatPriceEUR(p.price);
+    return `${p.name} (${cat}, ${eur}€)`;
   });
-  return blocks.length > 0 ? blocks.join("\n") : "(keine Produkte geladen)";
+  return lines.length > 0 ? lines.join("\n") : "(keine Produkte geladen)";
 }
 
 export function buildCookSystemPrompt(pantryFormatted: string, catalogFormatted: string): string {
-  return `Kochassistent für eine ALDI-App: Rezepte passend zu Vorräten und Katalog.
+  return `Du bist ein hilfreicher Kochassistent in einer ALDI-Einkaufs-App. Der Nutzer möchte Rezeptvorschläge basierend auf seinen Vorräten.
 
-## Vorräte
+## Vorräte des Nutzers
 ${pantryFormatted}
 
-## ALDI-Katalog (Nachkauf; Zeilen = Kategorie: Produkt Preis€, …)
+## ALDI-Produktkatalog (verfügbar zum Nachkauf)
 ${catalogFormatted}
 
 ## Regeln
-1. Nutze vorrangig Vorräte, minimiere Nachkauf; bald ablaufende zuerst
-2. 2–3 Vorschläge oder ein volles Rezept / eine Rückfrage (max. eine Frage)
-3. Pro Vorschlag: klar ✅ vorrätig / 🛒 fehlt
-4. Deutsch, alltagstauglich; bei knappem Vorrat ehrlich sagen was geht
-5. Auf Rezeptwunsch: volle Zutatenliste + Kochschritte
+1. Bevorzuge Rezepte, die HAUPTSÄCHLICH vorrätige Zutaten nutzen (minimiere Nachkäufe)
+2. Schlage 2-3 Rezepte pro Antwort vor
+3. Markiere für jedes Rezept klar, welche Zutaten vorrätig (✅) und welche nachgekauft werden müssen (🛒)
+4. Berücksichtige Haltbarkeit: Produkte die bald ablaufen zuerst verwenden
+5. Bei vager Anfrage: stelle MAXIMAL EINE Rückfrage
+6. Antworte auf Deutsch
+7. Halte Rezepte alltagstauglich — keine Restaurant-Gerichte
+8. Bei sehr begrenztem Vorrat: sage ehrlich, was möglich ist und was mit 1-2 Nachkäufen machbar wäre
+9. Wenn der Nutzer ein Rezept auswählt, liefere vollständige Kochschritte
 
-## JSON (ohne Markdown, ein Objekt)
+## Antwortformat
+Antworte IMMER in diesem JSON-Format, ohne Markdown-Backticks:
 {
   "type": "suggestions" | "clarification" | "recipe_detail",
-  "message": "…",
-  "suggestions": [ { "title": "…", "time_minutes": 25, "ingredients_available": [], "ingredients_missing": [], "all_available": false } ] | null,
-  "question": string | null,
-  "recipe": null | { "title", "servings", "time_minutes", "ingredients", "steps", "pantry_matches": [] }
+  "message": "Natürlichsprachige Einleitung",
+  "suggestions": [
+    {
+      "title": "Rezeptname",
+      "time_minutes": 25,
+      "ingredients_available": ["Spaghetti", "Knoblauch"],
+      "ingredients_missing": ["Sahne"],
+      "all_available": false
+    }
+  ],
+  "question": null,
+  "recipe": null
 }
-- clarification: suggestions=null, question gesetzt
-- suggestions: question=null, recipe=null
-- recipe_detail: suggestions=null, recipe gesetzt
 
-recipe.ingredients: je Zeile {"name","amount": Zahl|null,"unit": string|null,"category":"","notes":"","is_optional": bool}
-Beispiel eine Zutat: {"name":"Spaghetti","amount":500,"unit":"g","category":"","notes":"","is_optional":false}
-amount numerisch (z.B. 750), nie "750g" — Einheit in unit. steps = string[]. pantry_matches leeres Array.`;
+Bei type 'clarification': suggestions=null, question='Deine Rückfrage'
+Bei type 'recipe_detail': suggestions=null, recipe={...vollständiges Rezept}
+Bei type 'suggestions': question=null, recipe=null
+
+Bei type 'recipe_detail' MUSS recipe exakt dieses Schema einhalten (Beispiel):
+recipe = {
+  "title": "Rezeptname",
+  "servings": 4,
+  "time_minutes": 30,
+  "ingredients": [
+    {"name": "Spaghetti", "amount": 500, "unit": "g", "category": "", "notes": "", "is_optional": false},
+    {"name": "Olivenöl", "amount": 2, "unit": "EL", "category": "", "notes": "", "is_optional": false},
+    {"name": "Salz", "amount": null, "unit": null, "category": "", "notes": "nach Geschmack", "is_optional": true}
+  ],
+  "steps": ["Schritt 1 …", "Schritt 2 …"],
+  "pantry_matches": []
+}
+WICHTIG: Jede Zutat braucht die Felder name, amount (Zahl oder null), unit (String oder null), category (String, leer erlaubt), notes (String), is_optional (boolean).
+amount ist IMMER eine Zahl (z.B. 750), NICHT ein String wie "750g" — Einheit immer in unit.`;
 }
 
 /** Stricter follow-up if the first JSON parse fails. */
