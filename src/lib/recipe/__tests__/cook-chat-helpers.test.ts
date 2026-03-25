@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { toCookChatApiHistory } from "@/lib/recipe/cook-chat-helpers";
+import { getEffectiveStructuredResponse, toCookChatApiHistory } from "@/lib/recipe/cook-chat-helpers";
 import type { AICookResponse, CookChatMessage } from "@/lib/recipe/types";
 
 describe("toCookChatApiHistory", () => {
@@ -52,5 +52,75 @@ describe("toCookChatApiHistory", () => {
       messageKind: "error",
     };
     expect(toCookChatApiHistory([welcome, user, err])).toEqual([{ role: "user", content: "x", timestamp: "2" }]);
+  });
+});
+
+describe("getEffectiveStructuredResponse", () => {
+  test("prefers explicit structuredResponse", () => {
+    const structured: AICookResponse = {
+      type: "recipe_detail",
+      message: "Hier ist das Rezept.",
+      suggestions: null,
+      question: null,
+      recipe: {
+        title: "Pasta",
+        servings: 2,
+        time_minutes: 20,
+        ingredients: [],
+        steps: [],
+        pantry_matches: [],
+      },
+    };
+    const m: CookChatMessage = {
+      role: "assistant",
+      content: "ignored if structured set",
+      timestamp: "1",
+      structuredResponse: structured,
+    };
+    expect(getEffectiveStructuredResponse(m)).toEqual(structured);
+  });
+
+  test("parses JSON assistant content when structuredResponse is absent", () => {
+    const structured: AICookResponse = {
+      type: "suggestions",
+      message: "Los",
+      suggestions: [],
+      question: null,
+      recipe: null,
+    };
+    const m: CookChatMessage = {
+      role: "assistant",
+      content: JSON.stringify(structured),
+      timestamp: "1",
+    };
+    expect(getEffectiveStructuredResponse(m)?.type).toBe("suggestions");
+  });
+
+  test("returns undefined for user messages", () => {
+    expect(
+      getEffectiveStructuredResponse({
+        role: "user",
+        content: '{"type":"recipe_detail"}',
+        timestamp: "1",
+      }),
+    ).toBeUndefined();
+  });
+
+  test("returns undefined for error assistant bubbles", () => {
+    const structured: AICookResponse = {
+      type: "clarification",
+      message: "x",
+      suggestions: null,
+      question: "y",
+      recipe: null,
+    };
+    expect(
+      getEffectiveStructuredResponse({
+        role: "assistant",
+        content: JSON.stringify(structured),
+        timestamp: "1",
+        messageKind: "error",
+      }),
+    ).toBeUndefined();
   });
 });

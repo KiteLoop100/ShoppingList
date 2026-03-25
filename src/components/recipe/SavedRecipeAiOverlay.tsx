@@ -126,9 +126,28 @@ export function SavedRecipeAiOverlay({ recipe, onClose }: SavedRecipeAiOverlayPr
           </ul>
         </section>
 
-        <p className="mt-6 rounded-xl border border-dashed border-gray-200 bg-aldi-bg/50 px-3 py-2 text-xs text-aldi-muted">
-          {t("stepsNotStored")}
-        </p>
+        {recipe.instructions && recipe.instructions.length > 0 ? (
+          <section className="mt-8">
+            <h4 className="text-sm font-semibold uppercase tracking-wide text-aldi-muted">{t("stepsSection")}</h4>
+            <ol className="mt-4 space-y-4">
+              {recipe.instructions.map((step, idx) => (
+                <li key={idx} className="flex gap-3 rounded-xl border border-gray-100 bg-aldi-bg/50 px-3 py-3">
+                  <span
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-aldi-blue text-lg font-bold text-white"
+                    aria-hidden
+                  >
+                    {idx + 1}
+                  </span>
+                  <p className="min-w-0 flex-1 text-[15px] leading-relaxed text-aldi-text">{step}</p>
+                </li>
+              ))}
+            </ol>
+          </section>
+        ) : (
+          <p className="mt-6 rounded-xl border border-dashed border-gray-200 bg-aldi-bg/50 px-3 py-2 text-xs text-aldi-muted">
+            {t("stepsNotStored")}
+          </p>
+        )}
       </div>
     </div>
   );

@@ -31,14 +31,41 @@ export async function migrateLocalDataToSupabase(
   try {
     // 1. Migrate IndexedDB shopping lists → Supabase
     const localLists = await db.lists.where("user_id").equals(oldDeviceId).toArray();
+
+    const activeLocals = localLists.filter((l) => l.status === "active");
+    let canonicalActiveListId: string | null = null;
+    const demotedActiveListIds = new Set<string>();
+    if (activeLocals.length > 1) {
+      const sorted = [...activeLocals].sort((a, b) =>
+        a.created_at < b.created_at ? 1 : a.created_at > b.created_at ? -1 : 0,
+      );
+      canonicalActiveListId = sorted[0].list_id;
+      for (let i = 1; i < sorted.length; i++) {
+        demotedActiveListIds.add(sorted[i].list_id);
+      }
+    }
+
+    const completedAtFallback = new Date().toISOString();
+
+    const targetListIdForItems = (listId: string) =>
+      canonicalActiveListId && demotedActiveListIds.has(listId)
+        ? canonicalActiveListId
+        : listId;
+
     for (const list of localLists) {
+      let status = list.status;
+      let completed_at = list.completed_at;
+      if (demotedActiveListIds.has(list.list_id)) {
+        status = "completed";
+        completed_at = list.completed_at ?? completedAtFallback;
+      }
       const { error } = await supabase.from("shopping_lists").insert({
         list_id: list.list_id,
         user_id: newUserId,
         store_id: list.store_id,
-        status: list.status,
+        status,
         created_at: list.created_at,
-        completed_at: list.completed_at,
+        completed_at,
       });
       if (error && !error.message.includes("duplicate")) {
         log.warn("[Migration] list insert error:", error.message);
@@ -54,7 +81,7 @@ export async function migrateLocalDataToSupabase(
       if (items.length > 0) {
         const rows = items.map((i) => ({
           item_id: i.item_id,
-          list_id: i.list_id,
+          list_id: targetListIdForItems(i.list_id),
           product_id: i.product_id,
           custom_name: i.custom_name,
           display_name: i.display_name,

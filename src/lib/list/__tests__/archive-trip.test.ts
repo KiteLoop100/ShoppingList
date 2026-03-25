@@ -9,6 +9,8 @@ const mockDeleteFn = vi.fn();
 const mockEq = vi.fn();
 const mockIn = vi.fn();
 const mockOrder = vi.fn();
+const mockLimit = vi.fn();
+const mockSingle = vi.fn();
 const mockMaybeSingle = vi.fn();
 
 function chainable() {
@@ -20,6 +22,8 @@ function chainable() {
     eq: mockEq,
     in: mockIn,
     order: mockOrder,
+    limit: mockLimit,
+    single: mockSingle,
     maybeSingle: mockMaybeSingle,
   };
   for (const fn of Object.values(chain)) {

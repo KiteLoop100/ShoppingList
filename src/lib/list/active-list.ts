@@ -4,9 +4,30 @@
  */
 
 import { createClientIfConfigured } from "@/lib/supabase/client";
+import { POSTGRES_UNIQUE_VIOLATION } from "@/lib/supabase/postgres-errors";
 import { generateId } from "@/lib/utils/generate-id";
 import type { LocalListItem, LocalShoppingList } from "@/lib/db";
 import type { ListStatus } from "@/types";
+
+function rowToLocalShoppingList(row: {
+  list_id: string;
+  user_id: string;
+  store_id: string | null;
+  status: string;
+  created_at: string;
+  completed_at: string | null;
+  notes?: string | null;
+}): LocalShoppingList {
+  return {
+    list_id: row.list_id,
+    user_id: row.user_id,
+    store_id: row.store_id ?? null,
+    status: row.status as ListStatus,
+    created_at: row.created_at,
+    completed_at: row.completed_at ?? null,
+    notes: row.notes ?? null,
+  };
+}
 
 export async function getOrCreateActiveList(): Promise<LocalShoppingList> {
   const supabase = createClientIfConfigured();
@@ -23,26 +44,21 @@ export async function getOrCreateActiveList(): Promise<LocalShoppingList> {
     throw new Error("Not authenticated");
   }
 
-  const { data: existingRows } = await supabase
-    .from("shopping_lists")
-    .select("*")
-    .eq("user_id", userId)
-    .eq("status", "active")
-    .order("created_at", { ascending: false })
-    .limit(1);
+  const fetchLatestActive = async () => {
+    const { data: existingRows } = await supabase
+      .from("shopping_lists")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("status", "active")
+      .order("created_at", { ascending: false })
+      .limit(1);
+    return existingRows?.[0] ?? null;
+  };
 
-  const existing = existingRows?.[0] ?? null;
+  const existing = await fetchLatestActive();
 
   if (existing) {
-    return {
-      list_id: existing.list_id,
-      user_id: existing.user_id,
-      store_id: existing.store_id ?? null,
-      status: existing.status as ListStatus,
-      created_at: existing.created_at,
-      completed_at: existing.completed_at ?? null,
-      notes: existing.notes ?? null,
-    };
+    return rowToLocalShoppingList(existing);
   }
 
   const list_id = generateId();
@@ -60,19 +76,18 @@ export async function getOrCreateActiveList(): Promise<LocalShoppingList> {
     .select()
     .single();
 
-  if (error || !newList) {
-    throw new Error(`Failed to create list: ${error?.message}`);
+  if (!error && newList) {
+    return rowToLocalShoppingList(newList);
   }
 
-  return {
-    list_id: newList.list_id,
-    user_id: newList.user_id,
-    store_id: newList.store_id ?? null,
-    status: newList.status as ListStatus,
-    created_at: newList.created_at,
-    completed_at: newList.completed_at ?? null,
-    notes: newList.notes ?? null,
-  };
+  if (error?.code === POSTGRES_UNIQUE_VIOLATION) {
+    const afterRace = await fetchLatestActive();
+    if (afterRace) {
+      return rowToLocalShoppingList(afterRace);
+    }
+  }
+
+  throw new Error(`Failed to create list: ${error?.message ?? "unknown error"}`);
 }
 
 export async function getListItems(listId: string): Promise<LocalListItem[]> {

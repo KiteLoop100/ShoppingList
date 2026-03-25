@@ -10,7 +10,7 @@ export default async function RecipeImportPage() {
     <main className="mx-auto flex min-h-screen max-w-lg flex-col bg-aldi-bg md:max-w-2xl">
       <header className="flex shrink-0 items-center gap-3 bg-white px-5 py-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
         <Link
-          href="/"
+          href="/recipes"
           className="touch-target -ml-2 flex items-center justify-center rounded-xl text-aldi-blue transition-colors hover:bg-aldi-blue-light"
           aria-label={tCommon("back")}
         >

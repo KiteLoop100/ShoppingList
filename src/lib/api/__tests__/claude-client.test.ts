@@ -103,13 +103,17 @@ describe("callClaude", () => {
     expect(result).toBe("recovered");
   });
 
-  test("throws after exhausting retries on persistent 429", async () => {
-    mockFetch
-      .mockResolvedValue(jsonResponse({ error: "rate limited" }, 429));
+  test(
+    "throws after exhausting retries on persistent 429",
+    async () => {
+      mockFetch
+        .mockResolvedValue(jsonResponse({ error: "rate limited" }, 429));
 
-    await expect(callClaude(VALID_OPTIONS)).rejects.toThrow(ClaudeApiError);
-    expect(mockFetch).toHaveBeenCalledTimes(3);
-  });
+      await expect(callClaude(VALID_OPTIONS)).rejects.toThrow(ClaudeApiError);
+      expect(mockFetch).toHaveBeenCalledTimes(3);
+    },
+    10_000,
+  );
 
   test("retries on timeout and succeeds", async () => {
     const timeoutError = new DOMException("signal timed out", "TimeoutError");

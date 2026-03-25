@@ -23,8 +23,12 @@ function scalePantryRowsForServings(
 
 function formatIngredientLine(ing: { name: string; amount: number | null; unit: string | null }): string {
   if (ing.amount == null) return ing.name;
+  const rounded =
+    typeof ing.amount === "number" && Math.abs(ing.amount - Math.round(ing.amount)) < 1e-6
+      ? Math.round(ing.amount)
+      : Math.round(ing.amount * 100) / 100;
   const u = ing.unit?.trim() ? ` ${ing.unit}` : "";
-  return `${ing.name}, ${ing.amount}${u}`;
+  return `${ing.name}, ${rounded}${u}`;
 }
 
 type CookRecipeDetailProps = {
@@ -95,6 +99,7 @@ export function CookRecipeDetail({ recipe, onAddMissingToList, onSave, onClose }
           original_servings: recipe.servings,
           servings_label: t("servingsLabel"),
           ingredients: recipe.ingredients,
+          instructions: recipe.steps.length > 0 ? recipe.steps : null,
           prep_time_minutes: null,
           cook_time_minutes: recipe.time_minutes,
           difficulty: null,
@@ -114,7 +119,7 @@ export function CookRecipeDetail({ recipe, onAddMissingToList, onSave, onClose }
     } finally {
       setSaving(false);
     }
-  }, [onSave, recipe.ingredients, recipe.servings, recipe.time_minutes, recipe.title, t]);
+  }, [onSave, recipe.ingredients, recipe.servings, recipe.steps, recipe.time_minutes, recipe.title, t]);
 
   const stepServings = (delta: number) => {
     setServings((s) => Math.min(12, Math.max(1, s + delta)));
@@ -168,8 +173,15 @@ export function CookRecipeDetail({ recipe, onAddMissingToList, onSave, onClose }
 
         <section className="mt-8">
           <h4 className="text-sm font-semibold uppercase tracking-wide text-aldi-muted">{t("ingredientsSection")}</h4>
+          <ul className="mt-3 space-y-1">
+            {scaledIngredients.map((ing, i) => (
+              <li key={`ing-${i}`} className="text-sm text-aldi-text">
+                {formatIngredientLine(ing)}
+              </li>
+            ))}
+          </ul>
           {availableRows.length > 0 && (
-            <div className="mt-3">
+            <div className="mt-5">
               <p className="text-sm font-semibold text-green-800">✅ {t("pantryAvailable")}</p>
               <ul className="mt-2 space-y-2">
                 {availableRows.map((row, i) => (
@@ -201,15 +213,6 @@ export function CookRecipeDetail({ recipe, onAddMissingToList, onSave, onClose }
                 ))}
               </ul>
             </div>
-          )}
-          {scaledMatches.length === 0 && (
-            <ul className="mt-3 space-y-1">
-              {scaledIngredients.map((ing, i) => (
-                <li key={i} className="text-sm text-aldi-text">
-                  {formatIngredientLine(ing)}
-                </li>
-              ))}
-            </ul>
           )}
         </section>
 

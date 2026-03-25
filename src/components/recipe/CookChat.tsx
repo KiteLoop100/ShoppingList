@@ -86,9 +86,25 @@ export const CookChat = forwardRef<CookChatHandle>(function CookChat(_props, ref
     }
   }, [settingsLoaded, nerdMode, messages.length, t]);
 
+  /** 0–2: progressive loading copy only; never appended to `messages`. */
+  const [loadingPhase, setLoadingPhase] = useState(0);
+  useEffect(() => {
+    if (!isLoading) {
+      setLoadingPhase(0);
+      return;
+    }
+    setLoadingPhase(0);
+    const t5 = window.setTimeout(() => setLoadingPhase(1), 5000);
+    const t15 = window.setTimeout(() => setLoadingPhase(2), 15_000);
+    return () => {
+      window.clearTimeout(t5);
+      window.clearTimeout(t15);
+    };
+  }, [isLoading]);
+
   useEffect(() => {
     scrollAnchorRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [messages, isLoading, detailRecipe]);
+  }, [messages, isLoading, loadingPhase, detailRecipe]);
 
   const runAssistantResponse = useCallback(
     (response: AICookResponse): CookChatMessage => ({
@@ -279,21 +295,25 @@ export const CookChat = forwardRef<CookChatHandle>(function CookChat(_props, ref
           <ChatMessage
             key={`${m.timestamp}-${i}`}
             message={m}
-            onSelectRecipeSuggestion={m.structuredResponse?.type === "suggestions" ? handleSelectRecipeSuggestion : undefined}
-            onOpenRecipeDetail={m.structuredResponse?.type === "recipe_detail" ? handleOpenRecipeDetail : undefined}
+            onSelectRecipeSuggestion={handleSelectRecipeSuggestion}
+            onOpenRecipeDetail={handleOpenRecipeDetail}
             onRetry={handleRetry}
             showRetry={m.messageKind === "error" && i === lastIdx}
           />
         ))}
         {isLoading && (
-          <div className="flex justify-start">
+          <div className="flex justify-start" aria-live="polite">
             <div className="rounded-2xl bg-white px-4 py-3 text-sm text-aldi-muted shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
               <span className="inline-flex items-center gap-2">
                 <span
                   className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-aldi-blue border-t-transparent"
                   aria-hidden
                 />
-                {t("loading")}
+                {loadingPhase >= 2
+                  ? t("loadingSlow")
+                  : loadingPhase >= 1
+                    ? t("loadingPantry")
+                    : t("loadingThinking")}
               </span>
             </div>
           </div>

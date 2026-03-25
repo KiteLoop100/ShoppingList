@@ -140,6 +140,44 @@ describe("getOrCreateActiveList", () => {
 
     await expect(getOrCreateActiveList()).rejects.toThrow("Not authenticated");
   });
+
+  test("after unique violation on insert, returns existing active list from retry select", async () => {
+    mockGetUser.mockResolvedValue({
+      data: { user: { id: "user-1" } },
+    });
+
+    const raceWinner = {
+      list_id: "list-from-race",
+      user_id: "user-1",
+      store_id: null,
+      status: "active",
+      created_at: "2026-01-02T00:00:00Z",
+      completed_at: null,
+    };
+
+    let shoppingListsQuery = 0;
+    fromHandler = (table: string) => {
+      if (table === "shopping_lists") {
+        shoppingListsQuery++;
+        if (shoppingListsQuery === 1) {
+          return createChain({ data: [] });
+        }
+        if (shoppingListsQuery === 2) {
+          return createChain({
+            data: null,
+            error: { code: "23505", message: "duplicate key" },
+          });
+        }
+        return createChain({ data: [raceWinner] });
+      }
+      return createChain();
+    };
+
+    const result = await getOrCreateActiveList();
+
+    expect(result.list_id).toBe("list-from-race");
+    expect(shoppingListsQuery).toBe(3);
+  });
 });
 
 describe("resetActiveListCache", () => {

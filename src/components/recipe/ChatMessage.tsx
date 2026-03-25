@@ -1,6 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
+import { getEffectiveStructuredResponse } from "@/lib/recipe/cook-chat-helpers";
 import type { CookChatMessage, GeneratedRecipeDetail } from "@/lib/recipe/types";
 import { RecipeSuggestionCard } from "@/components/recipe/RecipeSuggestionCard";
 
@@ -25,7 +26,15 @@ export function ChatMessage({
 }: ChatMessageProps) {
   const t = useTranslations("cookChat");
   const isUser = message.role === "user";
-  const sr = message.structuredResponse;
+  const sr = getEffectiveStructuredResponse(message);
+  const contentIsLikelyJson = !isUser && !message.structuredResponse && message.content.trim().startsWith("{");
+  let bubbleText = message.content;
+  if (contentIsLikelyJson && sr) {
+    bubbleText = sr.message;
+  }
+  if (!isUser && sr?.type === "recipe_detail" && bubbleText.trim() === "") {
+    bubbleText = t("recipeDetailFallbackText");
+  }
 
   return (
     <div className={`flex w-full ${isUser ? "justify-end" : "justify-start"}`}>
@@ -36,7 +45,7 @@ export function ChatMessage({
             : "bg-white text-aldi-text shadow-[0_1px_3px_rgba(0,0,0,0.06)]"
         }`}
       >
-        <p className="whitespace-pre-wrap break-words">{message.content}</p>
+        <p className="whitespace-pre-wrap break-words">{bubbleText}</p>
 
         {!isUser && sr?.type === "suggestions" && sr.suggestions && sr.suggestions.length > 0 && onSelectRecipeSuggestion && (
           <div className="mt-3 space-y-2" role="group" aria-label={t("suggestionsGroupLabel")}>

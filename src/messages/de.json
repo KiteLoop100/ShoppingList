@@ -1096,6 +1096,7 @@
     "decreaseServings": "Weniger Portionen",
     "increaseServings": "Mehr Portionen",
     "ingredientsSection": "Zutaten",
+    "stepsSection": "Zubereitung",
     "stepsNotStored": "Zubereitungsschritte nicht gespeichert.",
     "prepTimeShort": "{min} Min. Vorbereitung",
     "cookTimeShort": "{min} Min. Kochen"
@@ -1121,6 +1122,10 @@
     "chipFillSchnell": "Etwas Unter 20 Minuten",
     "chipFillVegetarisch": "Ein Abendessen ohne Fleisch",
     "loading": "Denkt nach…",
+    "loadingThinking": "Denkt nach…",
+    "loadingPantry": "Durchsucht deine Vorräte…",
+    "loadingSlow": "Das dauert etwas länger als üblich…",
+    "recipeDetailFallbackText": "Hier ist ein passendes Rezept für dich.",
     "suggestionsGroupLabel": "Rezeptvorschläge",
     "send": "Senden",
     "suggestionAllAvailable": "Alles vorrätig",

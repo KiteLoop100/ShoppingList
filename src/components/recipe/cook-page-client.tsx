@@ -14,7 +14,7 @@ export function CookPageClient() {
     <main className="mx-auto flex h-dvh max-w-lg flex-col overflow-hidden bg-aldi-bg md:max-w-2xl">
       <header className="flex shrink-0 items-center gap-2 bg-white px-4 py-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)] md:px-5">
         <Link
-          href="/"
+          href="/recipes"
           className="touch-target -ml-2 flex shrink-0 items-center justify-center rounded-xl text-aldi-blue transition-colors hover:bg-aldi-blue-light"
           aria-label={tCommon("back")}
         >

@@ -5,6 +5,7 @@
  */
 
 import { createClientIfConfigured } from "@/lib/supabase/client";
+import { POSTGRES_UNIQUE_VIOLATION } from "@/lib/supabase/postgres-errors";
 import { saveCheckoffSequenceAndPairwise } from "./save-checkoff-and-pairwise";
 import { generateId } from "@/lib/utils/generate-id";
 import { log } from "@/lib/utils/logger";
@@ -93,25 +94,59 @@ export async function archiveListAsTrip(
     .update({ status: "completed", completed_at: completedAt })
     .eq("list_id", listId);
 
-  // Carry deferred items over to a new active list
+  // Carry deferred items over to a new active list (or existing one if unique constraint hits)
   if (deferredItems.length > 0) {
     const newListId = generateId();
     const now = new Date().toISOString();
 
-    await supabase.from("shopping_lists").insert({
-      list_id: newListId,
-      user_id,
-      store_id: list.store_id,
-      status: "active",
-      created_at: now,
-    });
+    const { data: insertedList, error: insertListErr } = await supabase
+      .from("shopping_lists")
+      .insert({
+        list_id: newListId,
+        user_id,
+        store_id: list.store_id,
+        status: "active",
+        created_at: now,
+      })
+      .select()
+      .single();
+
+    let targetListId: string;
+    if (insertListErr?.code === POSTGRES_UNIQUE_VIOLATION) {
+      log.warn(
+        "[archiveListAsTrip] active list already exists, attaching deferred items to it:",
+        insertListErr.message,
+      );
+      const { data: activeRows, error: activeErr } = await supabase
+        .from("shopping_lists")
+        .select("list_id")
+        .eq("user_id", user_id)
+        .eq("status", "active")
+        .order("created_at", { ascending: false })
+        .limit(1);
+      const existingActive = activeRows?.[0] ?? null;
+      if (activeErr || !existingActive) {
+        log.error(
+          "[archiveListAsTrip] unique violation but could not load active list:",
+          insertListErr,
+          activeErr,
+        );
+        return null;
+      }
+      targetListId = existingActive.list_id;
+    } else if (insertListErr || !insertedList) {
+      log.error("[archiveListAsTrip] shopping_lists insert error:", insertListErr);
+      return null;
+    } else {
+      targetListId = insertedList.list_id;
+    }
 
     const newItems = deferredItems.map((item) => {
       const { item_id: _, list_id: _l, is_checked: _c, checked_at: _ca, added_at: _a, ...rest } = item;
       return {
         ...rest,
         item_id: generateId(),
-        list_id: newListId,
+        list_id: targetListId,
         is_checked: false,
         checked_at: null,
         added_at: now,

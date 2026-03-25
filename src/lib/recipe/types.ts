@@ -52,6 +52,8 @@ export interface SavedRecipe {
   cook_time_minutes: number | null;
   /** Stored as plain text in DB; keep loose for forward compatibility. */
   difficulty: string | null;
+  /** Kochschritte für ai_cook; `null` bei URL-Import. */
+  instructions: string[] | null;
   aldi_adapted: boolean;
   created_at: string;
   last_used_at: string | null;

@@ -1096,6 +1096,7 @@
     "decreaseServings": "Fewer servings",
     "increaseServings": "More servings",
     "ingredientsSection": "Ingredients",
+    "stepsSection": "Steps",
     "stepsNotStored": "Cooking steps are not stored for this recipe.",
     "prepTimeShort": "{min} min prep",
     "cookTimeShort": "{min} min cook"
@@ -1121,6 +1122,10 @@
     "chipFillSchnell": "Something in under 20 minutes",
     "chipFillVegetarisch": "A dinner without meat",
     "loading": "Thinking…",
+    "loadingThinking": "Thinking…",
+    "loadingPantry": "Checking your pantry…",
+    "loadingSlow": "This is taking a bit longer than usual…",
+    "recipeDetailFallbackText": "Here's a recipe that should work for you.",
     "suggestionsGroupLabel": "Recipe suggestions",
     "send": "Send",
     "suggestionAllAvailable": "Everything in stock",

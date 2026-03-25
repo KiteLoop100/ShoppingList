@@ -1,39 +1,9 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
 import { requireAuth } from "@/lib/api/guards";
 import { validateBody } from "@/lib/api/validate-request";
+import { saveRecipeBodySchema } from "@/lib/recipe/save-recipe-body-schema";
 import { createSupabaseServerFromRequest } from "@/lib/supabase/server";
 import { log } from "@/lib/utils/logger";
-
-const recipeIngredientSchema = z.object({
-  name: z.string(),
-  amount: z.number().nullable(),
-  unit: z.string().nullable(),
-  category: z.string(),
-  notes: z.string(),
-  is_optional: z.boolean(),
-});
-
-const saveRecipeBodySchema = z
-  .object({
-    title: z.string().min(1).max(500),
-    source_url: z.union([z.string().url().max(2000), z.null()]),
-    source_name: z.string().min(1).max(200),
-    source_type: z.enum(["url_import", "ai_cook"]),
-    original_servings: z.number().int().min(1).max(99),
-    servings_label: z.string().min(1).max(80),
-    ingredients: z.array(recipeIngredientSchema).min(1).max(100),
-    prep_time_minutes: z.number().int().nullable(),
-    cook_time_minutes: z.number().int().nullable(),
-    difficulty: z.string().max(80).nullable(),
-    aldi_adapted: z.boolean(),
-  })
-  .strict()
-  .refine(
-    (data) =>
-      data.source_type === "ai_cook" ? data.source_url === null : true,
-    "ai_cook recipes must have source_url null",
-  );
 
 export async function POST(request: Request) {
   const auth = await requireAuth(request);
@@ -48,6 +18,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Auth not configured" }, { status: 500 });
   }
 
+  const instructions = validated.instructions ?? null;
+
   const row = {
     user_id: user.id,
     title: validated.title,
@@ -57,6 +29,7 @@ export async function POST(request: Request) {
     original_servings: validated.original_servings,
     servings_label: validated.servings_label,
     ingredients: validated.ingredients,
+    instructions,
     prep_time_minutes: validated.prep_time_minutes,
     cook_time_minutes: validated.cook_time_minutes,
     difficulty: validated.difficulty,
@@ -87,6 +60,7 @@ export async function POST(request: Request) {
             original_servings: row.original_servings,
             servings_label: row.servings_label,
             ingredients: row.ingredients,
+            instructions: row.instructions,
             prep_time_minutes: row.prep_time_minutes,
             cook_time_minutes: row.cook_time_minutes,
             difficulty: row.difficulty,

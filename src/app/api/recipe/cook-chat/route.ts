@@ -20,7 +20,7 @@ import { normalizeCookChatClaudePayload } from "@/lib/recipe/cook-response-norma
 import type { AICookResponse, CookChatMessage, GeneratedRecipeDetail } from "@/lib/recipe/types";
 import { log } from "@/lib/utils/logger";
 
-export const maxDuration = 60;
+export const maxDuration = 90;
 
 const MAX_CLAUDE_MESSAGES = 20;
 
@@ -120,9 +120,13 @@ export async function POST(request: Request) {
     const supabase = requireSupabaseAdmin();
     if (supabase instanceof NextResponse) return supabase;
 
-    console.log("COOK-CHAT: Step 1 - Loading inventory...");
-    const inventoryItems = await loadInventory(supabase, userId);
-    console.log("COOK-CHAT: Step 1 - Loading inventory — done");
+    console.log("COOK-CHAT: Step 1 - Loading pantry + catalog country...");
+    const country = await resolveCatalogCountry(supabase, userId);
+    const [inventoryItems, products] = await Promise.all([
+      loadInventory(supabase, userId),
+      getRelevantProducts(supabase, country),
+    ]);
+    console.log("COOK-CHAT: Step 1 — done (inventory + catalog parallel)");
 
     if (inventoryItems.length === 0) {
       const emptyResponse: AICookResponse = {
@@ -148,16 +152,11 @@ export async function POST(request: Request) {
       );
     }
 
-    console.log("COOK-CHAT: Step 2 - Loading catalog...");
-    const country = await resolveCatalogCountry(supabase, userId);
-    const products = await getRelevantProducts(supabase, country);
-    console.log("COOK-CHAT: Step 2 - Loading catalog — done");
-
-    console.log("COOK-CHAT: Step 3 - Building prompt...");
+    console.log("COOK-CHAT: Step 2 - Building prompt...");
     const pantryFormatted = formatPantryForPrompt(inventoryItems);
     const catalogFormatted = formatCatalogForPrompt(products);
     const systemPrompt = buildCookSystemPrompt(pantryFormatted, catalogFormatted);
-    console.log("COOK-CHAT: Step 3 - Building prompt — done");
+    console.log("COOK-CHAT: Step 2 - Building prompt — done");
 
     const now = new Date().toISOString();
     const userTurn: CookChatMessage = {
@@ -219,6 +218,7 @@ export async function POST(request: Request) {
         messages,
         max_tokens: 1500,
         temperature: 0.7,
+        timeoutMs: 90_000,
       });
     };
 

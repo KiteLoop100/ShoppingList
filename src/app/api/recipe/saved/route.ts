@@ -11,6 +11,13 @@ const patchBodySchema = z
   })
   .strict();
 
+function parseInstructionsColumn(raw: unknown): string[] | null {
+  if (raw == null) return null;
+  if (!Array.isArray(raw)) return null;
+  if (!raw.every((x) => typeof x === "string")) return null;
+  return raw;
+}
+
 function mapRow(row: Record<string, unknown>): SavedRecipe {
   return {
     id: String(row.id),
@@ -22,6 +29,7 @@ function mapRow(row: Record<string, unknown>): SavedRecipe {
     original_servings: Number(row.original_servings),
     servings_label: String(row.servings_label),
     ingredients: row.ingredients as SavedRecipe["ingredients"],
+    instructions: parseInstructionsColumn(row.instructions),
     prep_time_minutes:
       row.prep_time_minutes == null ? null : Number(row.prep_time_minutes),
     cook_time_minutes:

@@ -24,6 +24,7 @@ const base: SavedRecipe = {
   prep_time_minutes: 10,
   cook_time_minutes: 20,
   difficulty: "normal",
+  instructions: null,
   aldi_adapted: true,
   created_at: new Date().toISOString(),
   last_used_at: null,
