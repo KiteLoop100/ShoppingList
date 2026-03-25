@@ -108,6 +108,21 @@ function toClaudeMessages(turns: CookChatMessage[]) {
   })) as { role: "user" | "assistant"; content: string }[];
 }
 
+function estimatePromptTokens(systemPrompt: string, messages: { content: string }[]): number {
+  const chars = systemPrompt.length + messages.reduce((s, m) => s + m.content.length, 0);
+  return Math.ceil(chars / 4);
+}
+
+function estimateResponseTokens(raw: unknown): number {
+  let s: string;
+  try {
+    s = typeof raw === "string" ? raw : JSON.stringify(raw);
+  } catch {
+    s = String(raw);
+  }
+  return Math.ceil(s.length / 4);
+}
+
 export async function POST(request: Request) {
   try {
     const validated = await validateBody(request, bodySchema);
@@ -211,21 +226,51 @@ export async function POST(request: Request) {
       country,
     };
 
-    const callModel = async (messages: { role: "user" | "assistant"; content: string }[]) => {
-      return callClaudeJSON<unknown>({
-        model: CLAUDE_MODEL_SONNET,
-        system: systemPrompt,
-        messages,
-        max_tokens: 1500,
-        temperature: 0.7,
-        timeoutMs: 90_000,
-      });
+    const isFirstClaudeTurn = priorMessages.length === 0;
+    const maxTokens = isFirstClaudeTurn ? 1000 : 2000;
+
+    const callModel = async (messages: { role: "user" | "assistant"; content: string }[], tokens: number) => {
+      const promptTokenEstimate = estimatePromptTokens(systemPrompt, messages);
+      const started = Date.now();
+      try {
+        const result = await callClaudeJSON<unknown>({
+          model: CLAUDE_MODEL_SONNET,
+          system: systemPrompt,
+          messages,
+          max_tokens: tokens,
+          temperature: 0.7,
+          timeoutMs: 90_000,
+        });
+        const durationMs = Date.now() - started;
+        const responseTokenEstimate = estimateResponseTokens(result);
+        console.log(
+          "COOK-CHAT: Claude responded in",
+          durationMs,
+          "ms, prompt tokens ~",
+          promptTokenEstimate,
+          "response tokens ~",
+          responseTokenEstimate,
+        );
+        return result;
+      } catch (err) {
+        const durationMs = Date.now() - started;
+        console.log(
+          `COOK-CHAT: Claude error after ${durationMs} ms, prompt tokens ~ ${promptTokenEstimate}:`,
+          err,
+        );
+        throw err;
+      }
     };
 
     let aiRaw: unknown;
-    console.log("COOK-CHAT: Step 4 - Calling Claude... messages:", claudeMessages.length);
+    console.log(
+      "COOK-CHAT: Step 4 - Calling Claude... messages:",
+      claudeMessages.length,
+      "max_tokens:",
+      maxTokens,
+    );
     try {
-      aiRaw = await callModel(claudeMessages);
+      aiRaw = await callModel(claudeMessages, maxTokens);
     } catch (err) {
       log.error("[recipe/cook-chat] Claude error:", err);
       return NextResponse.json(CLAUDE_UNAVAILABLE, { status: 500 });
@@ -242,7 +287,7 @@ export async function POST(request: Request) {
           { role: "user" as const, content: COOK_JSON_RETRY_USER },
         ];
         console.log("COOK-CHAT: Step 4 - Calling Claude... messages:", retryMessages.length);
-        aiRaw = await callModel(retryMessages);
+        aiRaw = await callModel(retryMessages, maxTokens);
         console.log("COOK-CHAT: Step 4 - Calling Claude — done (retry)");
         response = tryParseAiCookResponse(aiRaw);
       } catch (err) {

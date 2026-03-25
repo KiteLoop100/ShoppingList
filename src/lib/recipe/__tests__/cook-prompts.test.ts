@@ -48,24 +48,45 @@ describe("sortInventoryForPrompt", () => {
 });
 
 describe("formatPantryForPrompt", () => {
-  test("formats lines with status and optional MHD", () => {
+  test("compact format with MHD when best-before within 7 days", () => {
+    const soon = new Date();
+    soon.setDate(soon.getDate() + 3);
+    const iso = soon.toISOString().slice(0, 10);
     const lines = formatPantryForPrompt([
       inv({
         display_name: "Milch",
         quantity: 2,
         status: "opened",
-        best_before: "2026-03-20T00:00:00.000Z",
+        best_before: `${iso}T00:00:00.000Z`,
       }),
     ]);
     expect(lines).toContain("Milch");
-    expect(lines).toContain("2 Stk");
-    expect(lines).toContain("geöffnet");
-    expect(lines.toLowerCase()).toMatch(/ablaufend/);
+    expect(lines).toContain("×2");
+    expect(lines).toContain("offen");
+    expect(lines).toContain("⚠️ abl.");
+  });
+
+  test("omits MHD when best-before is far in the future", () => {
+    const far = new Date();
+    far.setDate(far.getDate() + 60);
+    const iso = far.toISOString().slice(0, 10);
+    const lines = formatPantryForPrompt([
+      inv({
+        display_name: "H-Milch 1L",
+        quantity: 2,
+        status: "sealed",
+        best_before: `${iso}T12:00:00.000Z`,
+      }),
+    ]);
+    expect(lines).toContain("H-Milch 1L");
+    expect(lines).toContain("×2");
+    expect(lines).toContain("verschl.");
+    expect(lines).not.toContain("abl.");
   });
 });
 
 describe("formatCatalogForPrompt", () => {
-  test("caps at MAX_CATALOG_PROMPT_PRODUCTS", () => {
+  test("caps at MAX_CATALOG_PROMPT_PRODUCTS (one € per product)", () => {
     const many: Product[] = Array.from({ length: MAX_CATALOG_PROMPT_PRODUCTS + 40 }, (_, i) => ({
       product_id: `p${i}`,
       name: `P${i}`,
@@ -87,8 +108,8 @@ describe("formatCatalogForPrompt", () => {
       updated_at: "",
     }));
     const out = formatCatalogForPrompt(many);
-    const lineCount = out.split("\n").filter(Boolean).length;
-    expect(lineCount).toBe(MAX_CATALOG_PROMPT_PRODUCTS);
+    expect((out.match(/€/g) ?? []).length).toBe(MAX_CATALOG_PROMPT_PRODUCTS);
+    expect(out).toMatch(/^SUB:/);
   });
 
   test("shows dash when price is null", () => {
@@ -121,7 +142,7 @@ describe("buildCookSystemPrompt", () => {
     const s = buildCookSystemPrompt("PANTRY", "CAT");
     expect(s).toContain("PANTRY");
     expect(s).toContain("CAT");
-    expect(s).toContain("JSON-Format");
+    expect(s).toMatch(/JSON/i);
   });
 });
 
