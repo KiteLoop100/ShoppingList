@@ -156,7 +156,7 @@ export function InsightsClient() {
   return (
     <div className="mx-auto max-w-lg">
       {state !== "checking" && (
-        <header className="flex shrink-0 items-center gap-3 bg-white px-5 py-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+        <header className="sticky top-0 z-10 flex shrink-0 items-center gap-3 bg-white px-5 py-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
           {showBackToTopics ? (
             <button type="button" onClick={handleNewAnalysis} className={backBtnClass} aria-label={tCommon("back")}>
               {backChevron}
