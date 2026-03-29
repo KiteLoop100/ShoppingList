@@ -1,0 +1,88 @@
+---
+description: Enforce rigorous planning quality — applies when creating implementation plans, discussing architecture, or using Plan Mode
+alwaysApply: true
+---
+
+# Planning Quality Gate
+
+When asked to create an implementation plan, feature design, or architectural proposal, follow this structured process. Do NOT jump straight to a solution.
+
+## Phase 1: Understand Before Solving
+
+Before proposing any implementation:
+
+1. **Restate the goal** in one sentence. Ask the developer to confirm if ambiguous.
+2. **Map the blast radius**: Which existing files, tables, API routes, and components will this change touch? List them explicitly.
+3. **Identify the contracts**: What interfaces, types, Zod schemas, or API response shapes will change? Downstream consumers of those contracts are regression risks.
+
+## Phase 2: Structured Plan with Built-In Scrutiny
+
+Every plan must include these sections:
+
+### 2a. Implementation Steps
+Numbered steps with file paths. Each step states WHAT changes and WHY.
+
+### 2b. State & Data Flow
+- Where does data originate, transform, and persist?
+- Are there race conditions (concurrent requests, optimistic UI + server response)?
+- Is the happy path the ONLY path you've designed for?
+
+### 2c. Edge Cases Checklist
+Systematically consider — and write down the answer to — each of these:
+
+- **Empty/null states**: What if the input is empty, null, undefined, or an empty array?
+- **Boundary values**: Max lengths, zero, negative numbers, very large inputs
+- **Partial failure**: What if step 2 of 3 fails? Is the system in a consistent state?
+- **Auth/RLS**: Does this work for anon users? For users who don't own the resource?
+- **Concurrency**: Two tabs, two devices, two users — what breaks?
+- **Offline**: Does this work without network? Does it sync correctly when back online?
+- **Migration safety**: Can this migration run on a database with existing production data without data loss?
+- **i18n**: Are new user-facing strings in the translation files?
+- **Mobile**: Touch targets ≥44px? Works on 320px viewport?
+- **Loading/error states**: What does the UI show while waiting? On timeout? On 500?
+
+For each item, write either the specific mitigation or "N/A — because [reason]". Do NOT skip items silently.
+
+### 2d. Regression Risk Assessment
+- List every existing feature that could break from this change.
+- For each, explain why it won't break, or flag it as a test case.
+- Pay special attention to: search pipeline, offline sync, list operations, Supabase RLS policies.
+
+### 2e. Test Plan
+- Which tests need to be added? (Reference testing-standards rule)
+- Which existing tests need updating?
+- Are there integration points that can only be tested manually?
+
+## Phase 3: Self-Review Before Presenting
+
+Before presenting the plan, re-read it and ask yourself:
+
+1. "If a senior engineer reviewed this plan, what would they flag?" — Address those points.
+2. "What am I assuming but not verifying?" — Call out every assumption explicitly.
+3. "Is there a simpler way to achieve the same goal?" — If yes, present both options with tradeoffs.
+
+Add a section **"Assumptions & Open Questions"** at the end. If there are zero open questions, you probably missed something.
+
+## Phase 4: Confidence Declaration
+
+End every plan with:
+
+```
+**Plan Confidence: [HIGH / MEDIUM / LOW]**
+- HIGH: All edge cases addressed, blast radius small, clear test plan
+- MEDIUM: Some assumptions unverified, or blast radius is large
+- LOW: Significant unknowns remain — recommend spiking first
+```
+
+If confidence is MEDIUM or LOW, list what would raise it to HIGH.
+
+---
+
+## Anti-Patterns — Do NOT Do These
+
+- ❌ Presenting a plan without listing affected files
+- ❌ Saying "edge cases are handled" without listing which ones
+- ❌ Skipping the regression risk section because "it's a small change"
+- ❌ Proposing a migration without considering existing data
+- ❌ Assuming the happy path is sufficient
+- ❌ Creating a plan that requires more than 10 files to change without flagging scope risk
