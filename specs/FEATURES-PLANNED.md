@@ -29,18 +29,17 @@
 | 14 | F36 | Saisonkalender | 5 | 7 | 35 | Phase 2 | [PHASE2-SPECS](FEATURES-PHASE2-SPECS.md) |
 | 15 | F41 | Loyalty Card Wallet | 5 | 7 | 35 | Phase 3 | [PHASE2-SPECS](FEATURES-PHASE2-SPECS.md) |
 | 16 | F40 | Multi-Listen | 7 | 5 | 35 | Phase 3 | [PHASE2-SPECS](FEATURES-PHASE2-SPECS.md) |
-| 17 | F24 | ALDI Insights | 7 | 4 | 28 | Phase 3 | [FEATURES-INSIGHTS.md](FEATURES-INSIGHTS.md) |
-| 18 | F16 | Shared Lists | 9 | 3 | 27 | Phase 4 | — |
-| 19 | BL-67 | Auto Store via OSM | 5 | 5 | 25 | Phase 3 | [below](#bl-67-auto-store-via-osm) |
-| 20 | F22 | Promotional Price Highlighting | 6 | 4 | 24 | Phase 3 | [below](#f22-promotional-price-highlighting-phase-3) |
-| 21 | F10 | Offline Mode | 7 | 3 | 21 | Phase 4 | [OFFLINE-STRATEGY.md](OFFLINE-STRATEGY.md) |
-| 22 | F18 | Analytics Dashboard | 5 | 4 | 20 | Phase 4 | — |
-| 23 | — | Smart Savings Notifications | 8 | 2 | 16 | Phase 4 | [FEATURES-NOTIFICATIONS.md](FEATURES-NOTIFICATIONS.md) |
-| 24 | F19 | Price Comparison (multi-retailer) | 6 | 2 | 12 | Phase 5 | — |
-| 25 | F21 | External Voice Assistants | 5 | 2 | 10 | Phase 5 | — |
-| 26 | F30 | ALDI Customer Intelligence | 4 | 2 | 8 | Phase 5 | [FEATURES-ALDI-KUNDEN-UNTERSTUETZUNG.md](FEATURES-ALDI-KUNDEN-UNTERSTUETZUNG.md) |
+| 17 | F16 | Shared Lists | 9 | 3 | 27 | Phase 4 | — |
+| 18 | BL-67 | Auto Store via OSM | 5 | 5 | 25 | Phase 3 | [below](#bl-67-auto-store-via-osm) |
+| 19 | F22 | Promotional Price Highlighting | 6 | 4 | 24 | Phase 3 | [below](#f22-promotional-price-highlighting-phase-3) |
+| 20 | F10 | Offline Mode | 7 | 3 | 21 | Phase 4 | [OFFLINE-STRATEGY.md](OFFLINE-STRATEGY.md) |
+| 21 | F18 | Analytics Dashboard | 5 | 4 | 20 | Phase 4 | — |
+| 22 | — | Smart Savings Notifications | 8 | 2 | 16 | Phase 4 | [FEATURES-NOTIFICATIONS.md](FEATURES-NOTIFICATIONS.md) |
+| 23 | F19 | Price Comparison (multi-retailer) | 6 | 2 | 12 | Phase 5 | — |
+| 24 | F21 | External Voice Assistants | 5 | 2 | 10 | Phase 5 | — |
+| 25 | F30 | ALDI Customer Intelligence | 4 | 2 | 8 | Phase 5 | [FEATURES-ALDI-KUNDEN-UNTERSTUETZUNG.md](FEATURES-ALDI-KUNDEN-UNTERSTUETZUNG.md) |
 
-**Implemented:** F42 Haushaltsinventar ([FEATURES-INVENTORY.md](FEATURES-INVENTORY.md)), F43 Scan & Go ([SCAN-AND-GO.md](SCAN-AND-GO.md)), F28 Responsive Desktop & Tablet, BL-69 PWA Shortcuts, BL-70 Produktfotos, BL-71 Einkaufsnotizen, BL-72 Retailer Memory.
+**Implemented:** F24 ALDI Insights ([FEATURES-INSIGHTS.md](FEATURES-INSIGHTS.md)), F42 Haushaltsinventar ([FEATURES-INVENTORY.md](FEATURES-INVENTORY.md)), F43 Scan & Go ([SCAN-AND-GO.md](SCAN-AND-GO.md)), F28 Responsive Desktop & Tablet, BL-69 PWA Shortcuts, BL-70 Produktfotos, BL-71 Einkaufsnotizen, BL-72 Retailer Memory.
 
 ---
 
@@ -177,5 +176,5 @@ Currently implemented: Preference exclusions (Glutenfrei, Laktosefrei, Vegan, Bi
 
 ---
 
-*Last updated: 2026-03-22*
+*Last updated: 2026-03-29*
 *See also: [FEATURES-PHASE2-SPECS.md](FEATURES-PHASE2-SPECS.md) (F31-F41 detail specs), [FEATURES-CORE.md](FEATURES-CORE.md) (implemented), [FEATURES-INVENTORY.md](FEATURES-INVENTORY.md) (F42), [SCAN-AND-GO.md](SCAN-AND-GO.md) (F43), [FEATURES-INSIGHTS.md](FEATURES-INSIGHTS.md) (F24), [FEATURES-NOTIFICATIONS.md](FEATURES-NOTIFICATIONS.md)*

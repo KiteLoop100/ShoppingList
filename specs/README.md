@@ -17,7 +17,7 @@
 | **FEATURES-INVENTORY.md** | F42: Haushaltsinventar (Household Inventory) | 88 |
 | **SCAN-AND-GO.md** | F43: Scan & Go (implemented) — unified shopping list + cart, barcode scan, dual-price footer | 120 |
 | **FEATURES-NOTIFICATIONS.md** | Notification feature spec (planned) | 524 |
-| **FEATURES-INSIGHTS.md** | F24: ALDI Insights analytics (planned) | 368 |
+| **FEATURES-INSIGHTS.md** | F24: ALDI Insights analytics (implemented MVP) | 375 |
 | **FEATURES-ALDI-KUNDEN-UNTERSTUETZUNG.md** | F30: Crowdsourced customer intelligence (planned) | 404 |
 | **DATA-MODEL.md** | Core database tables: user, list, product, demand groups, store, trip | 240 |
 | **DATA-MODEL-EXTENDED.md** | Extended tables: preferences, competitors, aisle order, photos, receipts, flyers, feedback | 330 |

@@ -18,6 +18,7 @@ export function AppShell({ children }: AppShellProps) {
   const tFlyer = useTranslations("flyer");
   const tReceipts = useTranslations("receipts");
   const tRecipes = useTranslations("recipes");
+  const tInsights = useTranslations("insights");
   const pathname = usePathname();
   const [invEnabled, setInvEnabled] = useState(false);
 
@@ -38,6 +39,7 @@ export function AppShell({ children }: AppShellProps) {
     },
     { href: "/flyer" as const, label: tFlyer("navLabel"), match: (p: string) => p.startsWith("/flyer") },
     { href: "/receipts" as const, label: invEnabled ? tReceipts("householdTitle") : tReceipts("navLabel"), match: (p: string) => p.startsWith("/receipts") },
+    { href: "/insights" as const, label: tInsights("navLabel"), match: (p: string) => p.startsWith("/insights") },
     { href: "/settings" as const, label: tCommon("settings"), match: (p: string) => p.startsWith("/settings") },
   ];
 

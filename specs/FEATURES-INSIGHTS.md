@@ -316,27 +316,33 @@ Default: 2. Range: 1–8.
 
 | File | Purpose |
 |------|---------|
-| `src/app/[locale]/insights/page.tsx` | Insights page with topic selection |
-| `src/app/[locale]/insights/insights-client.tsx` | Client component with state management |
-| `src/app/api/insights/generate/route.ts` | Main API: assemble context + Claude call |
-| `src/lib/insights/context-assembler.ts` | Aggregates user data into Claude-ready summary |
+| `src/app/[locale]/insights/page.tsx` | Server component wrapper |
+| `src/app/[locale]/insights/insights-client.tsx` | Client component: state machine, auth-wait, AbortController, cooldown |
+| `src/app/api/insights/generate/route.ts` | API route: auth, validation, rate-limit, context assembly, Claude call |
+| `src/lib/insights/types.ts` | Zod schemas (request + response), InsightTopic, TOPIC_PROMPT_MAP |
+| `src/lib/insights/context-assembler.ts` | Main aggregation function (Promise.allSettled) |
+| `src/lib/insights/context-queries.ts` | Supabase query functions, parseNutritionSafe |
+| `src/lib/insights/format-context.ts` | formatContextForPrompt with 8k-char hard truncation |
+| `src/lib/insights/prompts/shared-preamble.ts` | System prompt with JSON format instructions |
 | `src/lib/insights/prompts/savings-prompt.ts` | Prompt template: savings |
-| `src/lib/insights/prompts/health-prompt.ts` | Prompt template: health |
-| `src/lib/insights/prompts/nutrition-prompt.ts` | Prompt template: nutrition analysis |
+| `src/lib/insights/prompts/health-prompt.ts` | Prompt template: healthy eating (topic enum: "nutrition") |
+| `src/lib/insights/prompts/nutrition-prompt.ts` | Prompt template: nutrition analysis (topic enum: "nutrition_analysis") |
 | `src/lib/insights/prompts/spending-prompt.ts` | Prompt template: spending |
 | `src/lib/insights/prompts/habits-prompt.ts` | Prompt template: habits |
 | `src/lib/insights/prompts/custom-prompt.ts` | Prompt template: free question |
-| `src/lib/insights/prompts/shared-preamble.ts` | Shared context preamble for all prompts |
 | `src/components/insights/topic-card.tsx` | Reusable topic selection card |
-| `src/components/insights/insight-result.tsx` | Result display with product suggestions |
+| `src/components/insights/insight-result.tsx` | Result display with follow-up chips |
+| `src/components/layout/mobile-header.tsx` | Extracted mobile header (from page.tsx) with 7 nav icons |
+| `src/lib/insights/__tests__/context-assembler.test.ts` | 28 unit tests |
 
 ### Modified Files
 
 | File | Change |
 |------|--------|
-| `src/app/[locale]/layout.tsx` | Add Insights to bottom navigation |
-| `src/messages/de.json` + `en.json` | Insights translation keys |
-| `src/lib/api/rate-limit.ts` | Add insights endpoint to Claude rate limit group |
+| `src/components/layout/app-shell.tsx` | Added Insights entry to desktop nav bar |
+| `src/app/[locale]/page.tsx` | Extracted mobile header into `mobile-header.tsx`, reduced from 408 to 338 lines |
+| `src/messages/de.json` | Added `insights` namespace (31 keys) |
+| `src/messages/en.json` | Added `insights` namespace (31 keys) |
 
 ---
 
@@ -365,4 +371,6 @@ Default: 2. Range: 1–8.
 ---
 
 *Created: 2026-02-27*
-*Status: Planned — MVP*
+*Implemented: 2026-03-29*
+*Status: Implemented — MVP*
+*Implementation plan: [plans/Feature-Insights.md](plans/Feature-Insights.md)*
