@@ -20,6 +20,7 @@ import { updateListItem } from "@/lib/list";
 import { log } from "@/lib/utils/logger";
 import { getRetailerForProduct } from "@/lib/settings/retailer-memory";
 import { TripNoteSection } from "./trip-note-section";
+import { ShareListButton } from "./share-list-button";
 import { useListModals } from "./hooks/use-list-modals";
 import { useCompetitorActions } from "./hooks/use-competitor-actions";
 import { useListDerived } from "./hooks/use-list-derived";
@@ -163,8 +164,20 @@ export const ShoppingListContent = memo(function ShoppingListContent({
           </div>
         ) : (
           <>
-            {listId && (
-              <TripNoteSection listId={listId} initialNotes={listNotes} />
+            {listId && hasAnyItems && (
+              <div className="flex items-start gap-2">
+                <div className="min-w-0 flex-1">
+                  <TripNoteSection listId={listId} initialNotes={listNotes} compact />
+                </div>
+                <div className="shrink-0">
+                  <ShareListButton
+                    unchecked={unchecked}
+                    checked={checked}
+                    deferred={deferred}
+                    locale={locale}
+                  />
+                </div>
+              </div>
             )}
             {dataSortMode === "shopping-order-tiles" ? (
               <ShoppingTileGrid

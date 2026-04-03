@@ -5,6 +5,15 @@
 
 ---
 
+## 2026-04-03 – F27 Export / Share List implemented
+
+- **FEATURES-PLANNED.md** — F27 removed from the priority table (ranks renumbered 1–24); added to **Implemented** line with anchor to the F27 detail section. Detail section updated with **Status — implemented**, code paths (`format-list-text.ts`, `share-list-button.tsx`, messages, tests), and **v1 scope** (checked items omitted from export; include/exclude deferred).
+
+### Code changes (not spec files)
+- Implemented earlier in this release: `src/lib/list/format-list-text.ts`, `src/components/list/share-list-button.tsx`, wiring in `shopping-list-content.tsx`, i18n keys under `list.*`.
+
+---
+
 ## 2026-03-22 – Deferred specials activation (2 Werktage, 12:00)
 
 - **FEATURES-CORE.md** — Activation rule for deferred flyer specials: two Werktage (Mon–Sat, Sunday excluded) before `special_start_date`, at 12:00 local time; pointer to `src/lib/list/special-activation.ts`.

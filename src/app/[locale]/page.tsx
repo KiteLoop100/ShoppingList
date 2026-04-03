@@ -25,7 +25,6 @@ export default function MainScreenPage() {
   const tList = useTranslations("list");
   const tStore = useTranslations("store");
   const tCommon = useTranslations("common");
-  const tRecipes = useTranslations("recipes");
 
   const [showCompletion, setShowCompletion] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -255,15 +254,6 @@ export default function MainScreenPage() {
           sortMode={sortReady ? sortMode : undefined}
           onSortModeChange={handleSortModeChange}
         />
-
-        <div className="shrink-0 px-4 pb-1 pt-1 md:px-6 lg:px-8">
-          <Link
-            href="/recipe-import"
-            className="touch-target inline-flex min-h-[44px] items-center text-sm text-aldi-muted transition-colors hover:text-aldi-blue hover:underline"
-          >
-            {tRecipes("addRecipe")}
-          </Link>
-        </div>
 
         {showSortToast && (
           <div

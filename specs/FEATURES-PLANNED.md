@@ -13,33 +13,32 @@
 
 | Rang | ID | Feature | Nutzen | Einfach. | Produkt | Phase | Spec |
 |-----:|----|---------|-------:|---------:|--------:|-------|------|
-| 1 | F27 | Export / Share List | 8 | 9 | 72 | Phase 2 | [below](#f27-export--share-list-phase-2) |
-| 2 | F31 | Vergessen-Detektor | 8 | 6 | 48 | Phase 2 | [PHASE2-SPECS](FEATURES-PHASE2-SPECS.md) |
-| 3 | F32 | 1-Tap Nachkauf | 6 | 8 | 48 | Phase 2 | [PHASE2-SPECS](FEATURES-PHASE2-SPECS.md) |
-| 4 | F33 | Haushaltsbudget-Tracker | 8 | 6 | 48 | Phase 2 | [PHASE2-SPECS](FEATURES-PHASE2-SPECS.md) |
-| 5 | F34 | Preisgedaechtnis | 7 | 6 | 42 | Phase 2 | [PHASE2-SPECS](FEATURES-PHASE2-SPECS.md) |
-| 6 | F15 | Voice Input | 7 | 6 | 42 | Phase 2 | [below](#f15-voice-input-phase-2) |
-| 7 | F37 | Dark Mode | 6 | 7 | 42 | Phase 2 | [PHASE2-SPECS](FEATURES-PHASE2-SPECS.md) |
-| 8 | F38 | Bulk Text Entry | 6 | 7 | 42 | Phase 2 | [PHASE2-SPECS](FEATURES-PHASE2-SPECS.md) |
-| 9 | F39 | Listenvorlagen / Templates | 7 | 6 | 42 | Phase 2 | [PHASE2-SPECS](FEATURES-PHASE2-SPECS.md) |
-| 10 | BL-65 | Smart Catalog Filters Phase 2 | 5 | 8 | 40 | Phase 2 | [below](#bl-65-smart-catalog-filters-phase-2) |
-| 11 | F35 | Warenkorb-Optimierer | 8 | 5 | 40 | Phase 3 | [PHASE2-SPECS](FEATURES-PHASE2-SPECS.md) |
-| 12 | F20 | Recipe Import (URL) | 9 | 4 | 36 | Phase 3 | [below](#f20-recipe-import---url-to-shopping-list) |
-| 13 | F02-SS | Semantic Search (AI) | 6 | 6 | 36 | Phase 3 | [below](#f02-ss-semantic-search-not-yet-implemented) |
-| 14 | F36 | Saisonkalender | 5 | 7 | 35 | Phase 2 | [PHASE2-SPECS](FEATURES-PHASE2-SPECS.md) |
-| 15 | F41 | Loyalty Card Wallet | 5 | 7 | 35 | Phase 3 | [PHASE2-SPECS](FEATURES-PHASE2-SPECS.md) |
-| 16 | F40 | Multi-Listen | 7 | 5 | 35 | Phase 3 | [PHASE2-SPECS](FEATURES-PHASE2-SPECS.md) |
-| 17 | F16 | Shared Lists | 9 | 3 | 27 | Phase 4 | — |
-| 18 | BL-67 | Auto Store via OSM | 5 | 5 | 25 | Phase 3 | [below](#bl-67-auto-store-via-osm) |
-| 19 | F22 | Promotional Price Highlighting | 6 | 4 | 24 | Phase 3 | [below](#f22-promotional-price-highlighting-phase-3) |
-| 20 | F10 | Offline Mode | 7 | 3 | 21 | Phase 4 | [OFFLINE-STRATEGY.md](OFFLINE-STRATEGY.md) |
-| 21 | F18 | Analytics Dashboard | 5 | 4 | 20 | Phase 4 | — |
-| 22 | — | Smart Savings Notifications | 8 | 2 | 16 | Phase 4 | [FEATURES-NOTIFICATIONS.md](FEATURES-NOTIFICATIONS.md) |
-| 23 | F19 | Price Comparison (multi-retailer) | 6 | 2 | 12 | Phase 5 | — |
-| 24 | F21 | External Voice Assistants | 5 | 2 | 10 | Phase 5 | — |
-| 25 | F30 | ALDI Customer Intelligence | 4 | 2 | 8 | Phase 5 | [FEATURES-ALDI-KUNDEN-UNTERSTUETZUNG.md](FEATURES-ALDI-KUNDEN-UNTERSTUETZUNG.md) |
+| 1 | F31 | Vergessen-Detektor | 8 | 6 | 48 | Phase 2 | [PHASE2-SPECS](FEATURES-PHASE2-SPECS.md) |
+| 2 | F32 | 1-Tap Nachkauf | 6 | 8 | 48 | Phase 2 | [PHASE2-SPECS](FEATURES-PHASE2-SPECS.md) |
+| 3 | F33 | Haushaltsbudget-Tracker | 8 | 6 | 48 | Phase 2 | [PHASE2-SPECS](FEATURES-PHASE2-SPECS.md) |
+| 4 | F34 | Preisgedaechtnis | 7 | 6 | 42 | Phase 2 | [PHASE2-SPECS](FEATURES-PHASE2-SPECS.md) |
+| 5 | F15 | Voice Input | 7 | 6 | 42 | Phase 2 | [below](#f15-voice-input-phase-2) |
+| 6 | F37 | Dark Mode | 6 | 7 | 42 | Phase 2 | [PHASE2-SPECS](FEATURES-PHASE2-SPECS.md) |
+| 7 | F38 | Bulk Text Entry | 6 | 7 | 42 | Phase 2 | [PHASE2-SPECS](FEATURES-PHASE2-SPECS.md) |
+| 8 | F39 | Listenvorlagen / Templates | 7 | 6 | 42 | Phase 2 | [PHASE2-SPECS](FEATURES-PHASE2-SPECS.md) |
+| 9 | BL-65 | Smart Catalog Filters Phase 2 | 5 | 8 | 40 | Phase 2 | [below](#bl-65-smart-catalog-filters-phase-2) |
+| 10 | F35 | Warenkorb-Optimierer | 8 | 5 | 40 | Phase 3 | [PHASE2-SPECS](FEATURES-PHASE2-SPECS.md) |
+| 11 | F20 | Recipe Import (URL) | 9 | 4 | 36 | Phase 3 | [below](#f20-recipe-import---url-to-shopping-list) |
+| 12 | F02-SS | Semantic Search (AI) | 6 | 6 | 36 | Phase 3 | [below](#f02-ss-semantic-search-not-yet-implemented) |
+| 13 | F36 | Saisonkalender | 5 | 7 | 35 | Phase 2 | [PHASE2-SPECS](FEATURES-PHASE2-SPECS.md) |
+| 14 | F41 | Loyalty Card Wallet | 5 | 7 | 35 | Phase 3 | [PHASE2-SPECS](FEATURES-PHASE2-SPECS.md) |
+| 15 | F40 | Multi-Listen | 7 | 5 | 35 | Phase 3 | [PHASE2-SPECS](FEATURES-PHASE2-SPECS.md) |
+| 16 | F16 | Shared Lists | 9 | 3 | 27 | Phase 4 | — |
+| 17 | BL-67 | Auto Store via OSM | 5 | 5 | 25 | Phase 3 | [below](#bl-67-auto-store-via-osm) |
+| 18 | F22 | Promotional Price Highlighting | 6 | 4 | 24 | Phase 3 | [below](#f22-promotional-price-highlighting-phase-3) |
+| 19 | F10 | Offline Mode | 7 | 3 | 21 | Phase 4 | [OFFLINE-STRATEGY.md](OFFLINE-STRATEGY.md) |
+| 20 | F18 | Analytics Dashboard | 5 | 4 | 20 | Phase 4 | — |
+| 21 | — | Smart Savings Notifications | 8 | 2 | 16 | Phase 4 | [FEATURES-NOTIFICATIONS.md](FEATURES-NOTIFICATIONS.md) |
+| 22 | F19 | Price Comparison (multi-retailer) | 6 | 2 | 12 | Phase 5 | — |
+| 23 | F21 | External Voice Assistants | 5 | 2 | 10 | Phase 5 | — |
+| 24 | F30 | ALDI Customer Intelligence | 4 | 2 | 8 | Phase 5 | [FEATURES-ALDI-KUNDEN-UNTERSTUETZUNG.md](FEATURES-ALDI-KUNDEN-UNTERSTUETZUNG.md) |
 
-**Implemented:** F24 ALDI Insights ([FEATURES-INSIGHTS.md](FEATURES-INSIGHTS.md)), F42 Haushaltsinventar ([FEATURES-INVENTORY.md](FEATURES-INVENTORY.md)), F43 Scan & Go ([SCAN-AND-GO.md](SCAN-AND-GO.md)), F28 Responsive Desktop & Tablet, BL-69 PWA Shortcuts, BL-70 Produktfotos, BL-71 Einkaufsnotizen, BL-72 Retailer Memory.
+**Implemented:** F24 ALDI Insights ([FEATURES-INSIGHTS.md](FEATURES-INSIGHTS.md)), F42 Haushaltsinventar ([FEATURES-INVENTORY.md](FEATURES-INVENTORY.md)), F43 Scan & Go ([SCAN-AND-GO.md](SCAN-AND-GO.md)), F28 Responsive Desktop & Tablet, F27 Export / Share List ([below](#f27-export--share-list-phase-2)), BL-69 PWA Shortcuts, BL-70 Produktfotos, BL-71 Einkaufsnotizen, BL-72 Retailer Memory.
 
 ---
 
@@ -152,7 +151,11 @@ Highlight products with promotional prices ("Aktionspreis") in search results an
 
 ### F27: Export / Share List (Phase 2)
 
-**Phase 2:** Export shopping list as plain-text (product name, quantity) via Web Share API (`navigator.share`) with clipboard fallback. "Teilen" button on shopping list screen. Option to include/exclude checked items.
+**Status — implemented (2026-04):** Plain-text list via `formatListAsText` in `src/lib/list/format-list-text.ts`. Share control: `ShareListButton` in `src/components/list/share-list-button.tsx` (mounted from `shopping-list-content.tsx`). Flow: `navigator.share({ title, text })` when available, else `navigator.clipboard.writeText`, else `window.prompt` fallback. i18n: `list.share*` in `src/messages/de.json` / `en.json`. Unit tests: `src/lib/list/__tests__/format-list-text.test.ts`.
+
+**v1 scope:** Checked items are **not** included in the shared text (include/exclude UI deferred). Deferred and buy-elsewhere sections are included.
+
+**Phase 2 (original intent):** Export shopping list as plain-text (product name, quantity) via Web Share API with clipboard fallback. "Teilen" button on shopping list screen.
 
 **Phase 5+:** Delivery service integration (REWE Lieferservice, Flink, Amazon Fresh, Picnic) via API/deeplink.
 
@@ -176,5 +179,5 @@ Currently implemented: Preference exclusions (Glutenfrei, Laktosefrei, Vegan, Bi
 
 ---
 
-*Last updated: 2026-03-29*
+*Last updated: 2026-04-03*
 *See also: [FEATURES-PHASE2-SPECS.md](FEATURES-PHASE2-SPECS.md) (F31-F41 detail specs), [FEATURES-CORE.md](FEATURES-CORE.md) (implemented), [FEATURES-INVENTORY.md](FEATURES-INVENTORY.md) (F42), [SCAN-AND-GO.md](SCAN-AND-GO.md) (F43), [FEATURES-INSIGHTS.md](FEATURES-INSIGHTS.md) (F24), [FEATURES-NOTIFICATIONS.md](FEATURES-NOTIFICATIONS.md)*
