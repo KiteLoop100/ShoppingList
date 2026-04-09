@@ -199,9 +199,13 @@ export async function mergeIntoExistingReceipt(
       .update({ items_count: updatedCount })
       .eq("receipt_id", existingReceiptId);
 
-    upsertInventoryFromReceipt(supabase, userId, existingReceiptId, newItems).catch((err) => {
-      log.warn("[merge-receipt] Inventory upsert failed (non-blocking):", err);
-    });
+    if (!itemsErr) {
+      try {
+        await upsertInventoryFromReceipt(supabase, userId, existingReceiptId, newItems);
+      } catch (err) {
+        log.warn("[merge-receipt] Inventory upsert failed (non-blocking):", err);
+      }
+    }
   }
 
   if (competitorProductIds.length > 0 && retailerNormalized) {

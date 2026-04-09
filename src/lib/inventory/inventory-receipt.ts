@@ -46,7 +46,7 @@ export async function upsertInventoryFromReceipt(
     const meta = productMeta.get(key);
     const bestBefore = calculateBestBefore(resolvedPurchaseDate, meta?.typical_shelf_life_days);
 
-    await upsertInventoryItem(supabase, userId, {
+    const row = await upsertInventoryItem(supabase, userId, {
       product_id: item.product_id,
       competitor_product_id: item.competitor_product_id,
       display_name: item.receipt_name,
@@ -58,6 +58,13 @@ export async function upsertInventoryFromReceipt(
       purchase_date: resolvedPurchaseDate ?? undefined,
       best_before: bestBefore ?? undefined,
     });
+    if (!row) {
+      log.warn("[inventory] upsert from receipt: no row for item", {
+        receiptId,
+        product_id: item.product_id,
+        competitor_product_id: item.competitor_product_id,
+      });
+    }
   }
 }
 

@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { upsertInventoryFromReceipt } from "@/lib/inventory/inventory-service";
 import { mergeIntoExistingReceipt } from "../merge-receipt";
 import type { ReceiptOcrResult } from "../parse-receipt";
 
@@ -16,6 +17,10 @@ vi.mock("@/lib/receipts/parse-receipt", async (importOriginal) => {
 
 vi.mock("@/lib/competitor-products/categorize-competitor-product", () => ({
   categorizeCompetitorProductServer: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock("@/lib/inventory/inventory-service", () => ({
+  upsertInventoryFromReceipt: vi.fn().mockResolvedValue(undefined),
 }));
 
 const EXISTING_RECEIPT_ID = "existing-receipt-123";
@@ -142,6 +147,12 @@ describe("mergeIntoExistingReceipt", () => {
     expect(insertedItems[0].receipt_name).toBe("Butter");
     expect(insertedItems[1].receipt_name).toBe("Eier 10er");
     expect(updateFn).toHaveBeenCalled();
+    expect(vi.mocked(upsertInventoryFromReceipt)).toHaveBeenCalledWith(
+      supabase,
+      USER_ID,
+      EXISTING_RECEIPT_ID,
+      insertedItems,
+    );
   });
 
   it("matches existing items by normalized name (case-insensitive)", async () => {

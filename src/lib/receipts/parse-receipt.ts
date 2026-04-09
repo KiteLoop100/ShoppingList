@@ -347,11 +347,14 @@ export async function processValidReceipt(
       .insert(receiptItems);
     if (itemsErr) {
       log.error("[process-receipt] Receipt items insert error:", itemsErr);
+    } else {
+      try {
+        /* Await so serverless/runtime does not freeze before inventory write completes */
+        await upsertInventoryFromReceipt(supabase, userId, receiptId, receiptItems);
+      } catch (err) {
+        log.warn("[process-receipt] Inventory upsert failed (non-blocking):", err);
+      }
     }
-
-    upsertInventoryFromReceipt(supabase, userId, receiptId, receiptItems).catch((err) => {
-      log.warn("[process-receipt] Inventory upsert failed (non-blocking):", err);
-    });
   }
 
   if (competitorProductIds.length > 0 && retailerNormalized) {

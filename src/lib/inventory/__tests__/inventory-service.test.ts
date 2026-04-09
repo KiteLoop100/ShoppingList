@@ -199,18 +199,18 @@ describe("inventory-service", () => {
       expect(result!.quantity).toBe(3);
     });
 
-    test("inserts new row when existing item has different best_before", async () => {
+    test("merges into FEFO row when existing item has different best_before (unique index)", async () => {
       const existing = { id: "existing-1", quantity: 1, best_before: "2026-03-15" };
-      const newItem = {
-        id: "new-2",
+      const updated = {
+        id: "existing-1",
         display_name: "Milk",
-        quantity: 1,
+        quantity: 2,
         status: "sealed",
-        best_before: "2026-03-22",
+        best_before: "2026-03-15",
       };
       const sb = createSequentialMockSupabase([
         { data: existing },
-        { data: newItem },
+        { data: updated },
       ]);
 
       const result = await upsertInventoryItem(sb as never, "user-1", {
@@ -224,8 +224,35 @@ describe("inventory-service", () => {
       });
 
       expect(result).toBeTruthy();
-      expect(result!.id).toBe("new-2");
-      expect(result!.best_before).toBe("2026-03-22");
+      expect(result!.id).toBe("existing-1");
+      expect(result!.quantity).toBe(2);
+    });
+
+    test("merges when existing has null best_before but receipt has computed best_before", async () => {
+      const existing = { id: "existing-1", quantity: 3, best_before: null };
+      const updated = {
+        id: "existing-1",
+        display_name: "Milk",
+        quantity: 4,
+        status: "sealed",
+      };
+      const sb = createSequentialMockSupabase([
+        { data: existing },
+        { data: updated },
+      ]);
+
+      const result = await upsertInventoryItem(sb as never, "user-1", {
+        product_id: "prod-1",
+        competitor_product_id: null,
+        display_name: "Milk",
+        demand_group_code: "MP",
+        quantity: 1,
+        source: "receipt",
+        best_before: "2026-04-30",
+      });
+
+      expect(result).toBeTruthy();
+      expect(result!.quantity).toBe(4);
     });
 
     test("merges into existing row when input has no best_before", async () => {

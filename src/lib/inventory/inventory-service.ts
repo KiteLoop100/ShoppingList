@@ -55,6 +55,7 @@ export async function upsertInventoryItem(
 ): Promise<InventoryItem | null> {
   const productColumn = input.product_id ? "product_id" : "competitor_product_id";
   const productValue = input.product_id ?? input.competitor_product_id;
+  const addQty = Math.max(1, Math.round(Number(input.quantity)) || 1);
 
   if (!productValue) {
     log.warn("[inventory] upsertInventoryItem: no product_id or competitor_product_id");
@@ -71,12 +72,18 @@ export async function upsertInventoryItem(
     .limit(10);
 
   const inputBestBefore = input.best_before ?? null;
-  const mergeTarget =
+  let mergeTarget =
     candidates?.find((c) => c.best_before === inputBestBefore) ??
     (!inputBestBefore && candidates?.[0] ? candidates[0] : null);
 
+  /* DB unique index allows only one active row per user+product; cannot insert a second row for another MHD */
+  if (!mergeTarget && candidates?.length) {
+    mergeTarget = candidates[0];
+  }
+
   if (mergeTarget) {
-    const newQty = mergeTarget.quantity + input.quantity;
+    const baseQty = Number(mergeTarget.quantity);
+    const newQty = (Number.isFinite(baseQty) ? baseQty : 0) + addQty;
     const updatePayload: Record<string, unknown> = {
       quantity: newQty,
       updated_at: new Date().toISOString(),
@@ -105,7 +112,7 @@ export async function upsertInventoryItem(
     display_name: input.display_name,
     demand_group_code: input.demand_group_code,
     thumbnail_url: input.thumbnail_url ?? null,
-    quantity: input.quantity,
+    quantity: addQty,
     source: input.source,
     source_receipt_id: input.source_receipt_id ?? null,
   };
