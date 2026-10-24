@@ -5,6 +5,7 @@
 
 import { callClaudeJSON } from "@/lib/api/claude-client";
 import { CLAUDE_MODEL_SONNET } from "@/lib/api/config";
+import { safeFetch } from "@/lib/api/safe-fetch";
 import { parseIngredientString } from "@/lib/recipe/ingredient-parser";
 import type { ExtractedRecipe, RecipeIngredient } from "@/lib/recipe/types";
 import { log } from "@/lib/utils/logger";
@@ -347,24 +348,21 @@ export async function extractRecipe(url: string): Promise<{
   recipe: ExtractedRecipe;
   method: "json-ld" | "microdata" | "ai-fallback";
 }> {
-  let parsedUrl: URL;
   try {
-    parsedUrl = new URL(url);
+    new URL(url);
   } catch {
     throw new Error("Invalid URL");
   }
-  if (parsedUrl.protocol !== "http:" && parsedUrl.protocol !== "https:") {
-    throw new Error("Invalid URL protocol");
-  }
 
-  const res = await fetch(url, {
-    redirect: "follow",
+  // SSRF guard: https only, no private/loopback/link-local hosts, redirects
+  // followed manually (max 3 hops) with every hop re-validated, 15 s total.
+  // Throws UnsafeUrlError ("Unsafe URL: ...") which the route maps to 400.
+  const res = await safeFetch(url, {
     headers: {
       "User-Agent":
         "Mozilla/5.0 (compatible; DigitalShoppingList/1.0; +https://github.com/)",
       Accept: "text/html,application/xhtml+xml;q=0.9,*/*;q=0.8",
     },
-    signal: AbortSignal.timeout(30_000),
   });
 
   if (!res.ok) {

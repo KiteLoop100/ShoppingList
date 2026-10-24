@@ -391,6 +391,8 @@
     "pages": "pages",
     "expired": "Expired",
     "processingPages": "Recognizing products… Page {current} of {total}",
+    "processingFailed": "Processing page {page} failed: {message}",
+    "dismissError": "Dismiss error",
     "pdfLoadError": "Could not load PDF.",
     "pageLoadError": "Could not load page",
     "openPdf": "Open PDF",

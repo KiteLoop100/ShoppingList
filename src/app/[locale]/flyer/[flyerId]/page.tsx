@@ -20,6 +20,17 @@ import { formatFlyerDate } from "@/lib/utils/format-date";
 
 const MIN_HOTSPOT_SIZE = 80;
 
+/** Pulls `{ error }` out of an API error body, falling back to the HTTP status. */
+function extractApiError(body: string, status: number): string {
+  try {
+    const parsed = JSON.parse(body) as { error?: unknown };
+    if (typeof parsed.error === "string" && parsed.error) return parsed.error;
+  } catch {
+    // non-JSON body (e.g. platform timeout page) – fall through
+  }
+  return `HTTP ${status}`;
+}
+
 export default function FlyerDetailPage() {
   const params = useParams();
   const rawId = params?.flyerId;
@@ -41,6 +52,10 @@ export default function FlyerDetailPage() {
   const [processingProgress, setProcessingProgress] = useState<{
     pagesProcessed: number;
     totalPages: number;
+  } | null>(null);
+  const [processingError, setProcessingError] = useState<{
+    page: number;
+    message: string;
   } | null>(null);
   const processingRef = useRef(false);
 
@@ -115,6 +130,7 @@ export default function FlyerDetailPage() {
 
       processingRef.current = true;
       setProcessingProgress({ pagesProcessed, totalPages });
+      setProcessingError(null);
 
       while (pagesProcessed < totalPages && !cancelled) {
         const nextPage = pagesProcessed + 1;
@@ -129,7 +145,13 @@ export default function FlyerDetailPage() {
             }),
           });
           if (!res.ok) {
-            log.error("[flyer-detail] page", nextPage, "failed:", await res.text());
+            // Surface the failure (403 non-admin, 429 limits, 5xx) instead
+            // of silently stopping the loop.
+            const body = await res.text();
+            log.error("[flyer-detail] page", nextPage, "failed:", res.status, body);
+            if (!cancelled) {
+              setProcessingError({ page: nextPage, message: extractApiError(body, res.status) });
+            }
             break;
           }
           const data = await res.json();
@@ -141,6 +163,12 @@ export default function FlyerDetailPage() {
           if (data.completed) break;
         } catch (e) {
           log.error("[flyer-detail] page processing error:", e);
+          if (!cancelled) {
+            setProcessingError({
+              page: nextPage,
+              message: e instanceof Error ? e.message : tCommon("unknownError"),
+            });
+          }
           break;
         }
       }
@@ -154,7 +182,7 @@ export default function FlyerDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [flyerId, loading, refreshProducts]);
+  }, [flyerId, loading, refreshProducts, tCommon]);
 
   const handleAddProduct = useCallback(async (product: ProductRow) => {
     try {
@@ -286,6 +314,28 @@ export default function FlyerDetailPage() {
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {processingError && (
+        <div
+          className="flex shrink-0 items-start justify-between gap-3 bg-red-50 px-4 py-2 text-sm text-red-700"
+          role="alert"
+        >
+          <p className="min-w-0 flex-1">
+            {t("processingFailed", {
+              page: processingError.page,
+              message: processingError.message,
+            })}
+          </p>
+          <button
+            type="button"
+            className="touch-target -mr-2 shrink-0 rounded-lg px-2 font-medium text-red-700"
+            onClick={() => setProcessingError(null)}
+            aria-label={t("dismissError")}
+          >
+            ×
+          </button>
         </div>
       )}
 

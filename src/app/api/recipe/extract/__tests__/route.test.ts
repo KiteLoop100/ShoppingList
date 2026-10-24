@@ -132,6 +132,36 @@ describe("POST /api/recipe/extract", () => {
     expect(insert).not.toHaveBeenCalled();
   });
 
+  describe("SSRF rejections are reported as 400 and logged as a fetch-stage failure", () => {
+    it.each([
+      ["http://localhost/rezept", 'URL protocol must be https (got "http:")'],
+      ["http://169.254.169.254/latest/meta-data", 'URL protocol must be https (got "http:")'],
+      ["https://10.0.0.1/", 'URL hostname "10.0.0.1" resolves to a private or reserved IP range'],
+    ])("%s → 400", async (url, detail) => {
+      // extractRecipe (real impl, tested in lib/recipe/__tests__/extract-fetch) throws UnsafeUrlError.
+      vi.mocked(extractRecipe).mockRejectedValue(new Error(`Unsafe URL: ${detail}`));
+      const res = await POST(makeRequest({ url }));
+      expect(res.status).toBe(400);
+      expect((await res.json()).error).toMatch(/nur öffentliche https/);
+      expect(insert).toHaveBeenCalledWith(
+        expect.objectContaining({ success: false, extraction_method: "json-ld" }),
+      );
+    });
+
+    it("maps a redirect to a private IP (rejected mid-chain) to 400", async () => {
+      vi.mocked(extractRecipe).mockRejectedValue(
+        new Error('Unsafe URL: URL hostname "10.0.0.1" resolves to a private or reserved IP range'),
+      );
+      const res = await POST(makeRequest(BODY));
+      expect(res.status).toBe(400);
+    });
+
+    it("maps too many redirects to 400", async () => {
+      vi.mocked(extractRecipe).mockRejectedValue(new Error("Too many redirects (max 3)"));
+      expect((await POST(makeRequest(BODY))).status).toBe(400);
+    });
+  });
+
   it("extracts a recipe and applies user + IP + recipe limits (happy path)", async () => {
     const res = await POST(makeRequest(BODY));
     expect(res.status).toBe(200);

@@ -9,7 +9,12 @@ import { claudeRateLimit } from "@/lib/api/rate-limit";
 import { routeDeadline } from "@/lib/api/config";
 import { requireAiUser, enforceAiLimits } from "@/lib/api/ai-guard";
 import { validateStoragePhotoUrl } from "@/lib/api/photo-processing/validate-photo-url";
-import { requireApiKey, requireSupabaseAdmin } from "@/lib/api/guards";
+import {
+  adminOnlyResponse,
+  isAdminRequest,
+  requireApiKey,
+  requireSupabaseAdmin,
+} from "@/lib/api/guards";
 import { fetchAndPreprocessImage } from "@/lib/api/photo-processing/image-utils";
 import { processDataExtraction } from "@/lib/api/photo-processing/process-data-extraction";
 import { processFlyer } from "@/lib/api/photo-processing/process-flyer";
@@ -74,6 +79,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: msg }, { status: 400 });
   }
 
+  // Flyer import (PDF) writes to the shared catalog: admin only. Checked
+  // again after the fetch, because a PDF may be detected from content-type.
+  const isAdmin = isAdminRequest(request);
+  if (is_pdf && !isAdmin) {
+    log.warn("[process-photo] Non-admin flyer upload rejected:", upload_id);
+    return adminOnlyResponse();
+  }
+
   const limited = await enforceAiLimits(request, user.id, claudeRateLimit);
   if (limited) return limited;
 
@@ -97,6 +110,8 @@ export async function POST(request: Request) {
 
   const now = new Date().toISOString();
 
+  // Stale-upload sweep, scoped to the caller: the service-role client would
+  // otherwise flip other users' in-flight uploads to "error".
   const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
   await supabase
     .from("photo_uploads")
@@ -106,6 +121,7 @@ export async function POST(request: Request) {
         "Timeout: Verarbeitung dauerte zu lange (> 5 Minuten).",
       processed_at: now,
     })
+    .eq("user_id", user.id)
     .eq("status", "processing")
     .lt("created_at", fiveMinutesAgo);
 
@@ -153,6 +169,20 @@ export async function POST(request: Request) {
       preprocessed.imageBuffer,
       now,
     );
+  }
+
+  if (preprocessed.isPdf && !isAdmin) {
+    // PDF detected from content-type without is_pdf: still admin only.
+    log.warn("[process-photo] Non-admin PDF (content-type) rejected:", upload_id);
+    await supabase
+      .from("photo_uploads")
+      .update({
+        status: "error",
+        error_message: "Flyer-Import ist nur für Administratoren verfügbar.",
+        processed_at: now,
+      })
+      .eq("upload_id", upload_id);
+    return adminOnlyResponse();
   }
 
   if (preprocessed.isPdf && preprocessed.pdfBuf) {

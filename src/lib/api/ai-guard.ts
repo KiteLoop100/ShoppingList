@@ -93,19 +93,24 @@ export async function requireAiUser(
  * Every layer must pass. Returns a 429 (or 503 if a limiter itself fails)
  * to `return` from the route, or null when the request may proceed.
  *
+ * `limiters` may be a single limiter or several (e.g. a burst limiter plus
+ * an hourly budget); each one is checked for the user AND the IP.
  * With no Upstash configured (non-production only) all layers are skipped.
  */
 export async function enforceAiLimits(
   request: Request,
   userId: string,
-  limiter: Ratelimit | null,
+  limiters: Ratelimit | null | Array<Ratelimit | null>,
 ): Promise<NextResponse | null> {
+  const list = Array.isArray(limiters) ? limiters : [limiters];
   try {
-    const perUser = await checkRateLimit(limiter, `user:${userId}`);
-    if (perUser) return perUser;
+    for (const limiter of list) {
+      const perUser = await checkRateLimit(limiter, `user:${userId}`);
+      if (perUser) return perUser;
 
-    const perIp = await checkRateLimit(limiter, `ip:${getIdentifier(request)}`);
-    if (perIp) return perIp;
+      const perIp = await checkRateLimit(limiter, `ip:${getIdentifier(request)}`);
+      if (perIp) return perIp;
+    }
 
     const exhausted = await peekGlobalAiCap();
     if (exhausted) return globalCapResponse(exhausted.reset);

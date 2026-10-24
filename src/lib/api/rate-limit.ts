@@ -46,6 +46,20 @@ export const generalRateLimit = redis
     })
   : null;
 
+/**
+ * 60 flyer pages per hour per user / per IP. Each page is a 16k-token Sonnet
+ * PDF call, so this is the hourly budget; {@link generalRateLimit} (20/min)
+ * stays in place as burst control.
+ */
+export const flyerRateLimit = redis
+  ? new Ratelimit({
+      redis,
+      limiter: Ratelimit.slidingWindow(60, "1 h"),
+      analytics: true,
+      prefix: "ratelimit:flyer",
+    })
+  : null;
+
 /** 10 feedbacks per day per user – anti-spam for the feedback system (F25). */
 export const feedbackRateLimit = redis
   ? new Ratelimit({

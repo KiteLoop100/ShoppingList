@@ -13,6 +13,9 @@ vi.mock("@/lib/api/guards", () => ({
   requireApiKey: vi.fn(),
   requireSupabaseAdmin: vi.fn(),
   requireAuth: vi.fn(),
+  isAdminRequest: vi.fn(() => false),
+  adminOnlyResponse: () =>
+    NextResponse.json({ error: "Flyer processing requires admin access" }, { status: 403 }),
 }));
 
 vi.mock("@/lib/api/photo-processing/image-utils", () => ({
@@ -36,7 +39,12 @@ vi.mock("@/lib/utils/logger", () => ({
 }));
 
 import { POST, maxDuration } from "../route";
-import { requireApiKey, requireSupabaseAdmin, requireAuth } from "@/lib/api/guards";
+import {
+  requireApiKey,
+  requireSupabaseAdmin,
+  requireAuth,
+  isAdminRequest,
+} from "@/lib/api/guards";
 import {
   checkRateLimit,
   getGlobalAiCapLimiter,
@@ -85,6 +93,7 @@ describe("POST /api/process-photo", () => {
     vi.clearAllMocks();
     vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", SUPABASE_URL);
     vi.mocked(requireApiKey).mockReturnValue("sk-test");
+    vi.mocked(isAdminRequest).mockReturnValue(false);
     vi.mocked(isRateLimitConfigured).mockReturnValue(true);
     vi.mocked(checkRateLimit).mockResolvedValue(null);
     vi.mocked(requireAuth).mockResolvedValue({ user: { id: "user-1" } } as never);
@@ -244,17 +253,57 @@ describe("POST /api/process-photo", () => {
       expect(checkRateLimit).toHaveBeenCalledWith({ fake: "claude" }, "ip:test-ip");
     });
 
-    it("routes PDF uploads to processFlyer", async () => {
+    it("routes admin PDF uploads to processFlyer", async () => {
+      vi.mocked(isAdminRequest).mockReturnValue(true);
       vi.mocked(processFlyer).mockResolvedValue(NextResponse.json({ ok: true }));
       vi.mocked(fetchAndPreprocessImage).mockResolvedValue({
         imageBase64: "x",
         mediaType: "application/pdf",
         imageBuffer: Buffer.from("pdf"),
         isPdf: true,
+        pdfBuf: new ArrayBuffer(8),
       } as never);
       const res = await POST(makeRequest({ ...VALID_BODY, is_pdf: true }));
       expect(res.status).toBe(200);
       expect(fetchAndPreprocessImage).toHaveBeenCalledWith(PHOTO_URL, true);
+      expect(processFlyer).toHaveBeenCalledTimes(1);
+    });
+
+    it("scopes the stale-upload sweep to the caller's user_id", async () => {
+      const sb = fakeSupabase({ upload_id: "abc-123", user_id: "user-1" });
+      vi.mocked(requireSupabaseAdmin).mockReturnValue(sb as never);
+      await POST(makeRequest(VALID_BODY));
+      expect(sb.builder.eq).toHaveBeenCalledWith("user_id", "user-1");
+      expect(sb.builder.eq).toHaveBeenCalledWith("status", "processing");
+    });
+  });
+
+  describe("flyer import is admin only", () => {
+    it("returns 403 for an anonymous (non-admin) user with is_pdf and does no work", async () => {
+      const res = await POST(makeRequest({ ...VALID_BODY, is_pdf: true }));
+      expect(res.status).toBe(403);
+      expect((await res.json()).error).toMatch(/admin/i);
+      expect(checkRateLimit).not.toHaveBeenCalled();
+      expect(fetchAndPreprocessImage).not.toHaveBeenCalled();
+      expect(processFlyer).not.toHaveBeenCalled();
+    });
+
+    it("returns 403 when a non-admin upload turns out to be a PDF by content-type", async () => {
+      vi.mocked(fetchAndPreprocessImage).mockResolvedValue({
+        imageBase64: "x",
+        mediaType: "application/pdf",
+        imageBuffer: null,
+        isPdf: true,
+        pdfBuf: new ArrayBuffer(8),
+      } as never);
+      const res = await POST(makeRequest(VALID_BODY));
+      expect(res.status).toBe(403);
+      expect(processFlyer).not.toHaveBeenCalled();
+    });
+
+    it("still processes a plain image for a non-admin user", async () => {
+      const res = await POST(makeRequest(VALID_BODY));
+      expect(res.status).toBe(200);
     });
   });
 });

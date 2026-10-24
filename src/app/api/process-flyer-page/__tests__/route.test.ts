@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 
 vi.mock("@/lib/api/rate-limit", () => ({
   generalRateLimit: { fake: "general" },
+  flyerRateLimit: { fake: "flyer" },
   checkRateLimit: vi.fn(),
   getIdentifier: vi.fn(() => "test-ip"),
   isRateLimitConfigured: vi.fn(() => true),
@@ -13,6 +14,7 @@ vi.mock("@/lib/api/guards", () => ({
   requireApiKey: vi.fn(),
   requireSupabaseAdmin: vi.fn(),
   requireAuth: vi.fn(),
+  isAdminRequest: vi.fn(() => false),
 }));
 
 vi.mock("@/lib/api/claude-client", () => ({ callClaudeJSON: vi.fn() }));
@@ -52,7 +54,12 @@ vi.mock("@/lib/utils/logger", () => ({
 }));
 
 import { POST, maxDuration } from "../route";
-import { requireApiKey, requireSupabaseAdmin, requireAuth } from "@/lib/api/guards";
+import {
+  requireApiKey,
+  requireSupabaseAdmin,
+  requireAuth,
+  isAdminRequest,
+} from "@/lib/api/guards";
 import {
   checkRateLimit,
   getGlobalAiCapLimiter,
@@ -61,6 +68,8 @@ import {
 import { callClaudeJSON } from "@/lib/api/claude-client";
 
 const BODY = { upload_id: "up-1", flyer_id: "fl-1", page_number: 2 };
+const SUPABASE_URL = "https://proj123.supabase.co";
+const PAGE_PDF_URL = `${SUPABASE_URL}/storage/v1/object/public/flyer-pages/fl-1/page-2.pdf`;
 
 function makeRequest(body: unknown): Request {
   return new Request("http://localhost/api/process-flyer-page", {
@@ -83,12 +92,12 @@ function uploadRow(overrides: Record<string, unknown> = {}) {
 }
 
 /** Table-aware chainable supabase fake. */
-function fakeSupabase(upload: unknown) {
+function fakeSupabase(upload: unknown, pageImageUrl: string = PAGE_PDF_URL) {
   const singles: Record<string, unknown> = {
     photo_uploads: { data: upload, error: null },
     flyers: { data: { country: "DE" }, error: null },
     flyer_pages: {
-      data: { page_id: "pg-1", image_url: "https://cdn.example.com/page2.pdf" },
+      data: { page_id: "pg-1", image_url: pageImageUrl },
       error: null,
     },
   };
@@ -112,7 +121,9 @@ function setCap(success: boolean) {
 describe("POST /api/process-flyer-page", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", SUPABASE_URL);
     vi.mocked(requireApiKey).mockReturnValue("sk-test");
+    vi.mocked(isAdminRequest).mockReturnValue(false);
     vi.mocked(isRateLimitConfigured).mockReturnValue(true);
     vi.mocked(checkRateLimit).mockResolvedValue(null);
     vi.mocked(requireAuth).mockResolvedValue({ user: { id: "user-1" } } as never);
@@ -184,13 +195,94 @@ describe("POST /api/process-flyer-page", () => {
     expect(callClaudeJSON).not.toHaveBeenCalled();
   });
 
-  it("returns 404 when the upload belongs to another user", async () => {
+  it("returns 404 when the upload belongs to another user (anonymous non-admin)", async () => {
     vi.mocked(requireSupabaseAdmin).mockReturnValue(
       fakeSupabase(uploadRow({ user_id: "someone-else" })) as never,
     );
     const res = await POST(makeRequest(BODY));
     expect(res.status).toBe(404);
     expect(callClaudeJSON).not.toHaveBeenCalled();
+  });
+
+  describe("admin access", () => {
+    it("lets the admin continue another user's upload (cross-device continuation)", async () => {
+      vi.mocked(isAdminRequest).mockReturnValue(true);
+      vi.mocked(requireSupabaseAdmin).mockReturnValue(
+        fakeSupabase(uploadRow({ user_id: "someone-else" })) as never,
+      );
+      const res = await POST(makeRequest(BODY));
+      expect(res.status).toBe(200);
+      expect(callClaudeJSON).toHaveBeenCalledTimes(1);
+    });
+
+    it("lets the admin call without a Supabase session (reprocess script) and limits as 'admin'", async () => {
+      vi.mocked(isAdminRequest).mockReturnValue(true);
+      vi.mocked(requireAuth).mockResolvedValue(
+        NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
+      );
+      const res = await POST(makeRequest(BODY));
+      expect(res.status).toBe(200);
+      expect(checkRateLimit).toHaveBeenCalledWith({ fake: "general" }, "user:admin");
+      expect(checkRateLimit).toHaveBeenCalledWith({ fake: "flyer" }, "user:admin");
+    });
+
+    it("still fails closed (503) for the admin when Upstash is missing in production", async () => {
+      vi.mocked(isAdminRequest).mockReturnValue(true);
+      vi.stubEnv("NODE_ENV", "production");
+      vi.mocked(isRateLimitConfigured).mockReturnValue(false);
+      const res = await POST(makeRequest(BODY));
+      expect(res.status).toBe(503);
+      expect(callClaudeJSON).not.toHaveBeenCalled();
+    });
+
+    it("admin cookie does not waive a 500 from requireAuth (auth misconfigured)", async () => {
+      vi.mocked(isAdminRequest).mockReturnValue(true);
+      vi.mocked(requireAuth).mockResolvedValue(
+        NextResponse.json({ error: "Auth not configured" }, { status: 500 }),
+      );
+      expect((await POST(makeRequest(BODY))).status).toBe(500);
+    });
+  });
+
+  describe("limiters", () => {
+    it("applies burst (general) AND hourly flyer limiter, each per user and per IP", async () => {
+      await POST(makeRequest(BODY));
+      expect(checkRateLimit).toHaveBeenCalledWith({ fake: "general" }, "user:user-1");
+      expect(checkRateLimit).toHaveBeenCalledWith({ fake: "general" }, "ip:test-ip");
+      expect(checkRateLimit).toHaveBeenCalledWith({ fake: "flyer" }, "user:user-1");
+      expect(checkRateLimit).toHaveBeenCalledWith({ fake: "flyer" }, "ip:test-ip");
+    });
+
+    it("returns 429 when only the hourly flyer limiter is hit", async () => {
+      vi.mocked(checkRateLimit).mockImplementation(async (limiter) =>
+        (limiter as { fake?: string }).fake === "flyer"
+          ? NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 })
+          : null,
+      );
+      const res = await POST(makeRequest(BODY));
+      expect(res.status).toBe(429);
+      expect(callClaudeJSON).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("page PDF URL (SSRF)", () => {
+    it.each([
+      ["foreign host", "https://cdn.example.com/page2.pdf"],
+      ["non-public path on our host", `${SUPABASE_URL}/rest/v1/flyer_pages`],
+      ["plain http", PAGE_PDF_URL.replace("https:", "http:")],
+      ["private IP", "https://10.0.0.1/storage/v1/object/public/flyer-pages/x.pdf"],
+    ])("returns 400 and never fetches for %s", async (_label, url) => {
+      vi.mocked(requireSupabaseAdmin).mockReturnValue(fakeSupabase(uploadRow(), url) as never);
+      const res = await POST(makeRequest(BODY));
+      expect(res.status).toBe(400);
+      expect(fetch).not.toHaveBeenCalled();
+      expect(callClaudeJSON).not.toHaveBeenCalled();
+    });
+
+    it("fetches a valid storage URL with redirect: 'error'", async () => {
+      await POST(makeRequest(BODY));
+      expect(fetch).toHaveBeenCalledWith(PAGE_PDF_URL, { redirect: "error" });
+    });
   });
 
   it("returns 404 when the upload does not exist", async () => {

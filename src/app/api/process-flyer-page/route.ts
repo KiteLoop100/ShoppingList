@@ -7,11 +7,12 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getDemandGroupFallback } from "@/lib/products/demand-group-fallback";
-import { generalRateLimit } from "@/lib/api/rate-limit";
+import { flyerRateLimit, generalRateLimit } from "@/lib/api/rate-limit";
 import { CLAUDE_MODEL_SONNET, FLYER_CLAUDE_TIMEOUT_MS, routeDeadline } from "@/lib/api/config";
-import { requireApiKey, requireSupabaseAdmin } from "@/lib/api/guards";
+import { isAdminRequest, requireApiKey, requireSupabaseAdmin } from "@/lib/api/guards";
 import { requireAiUser, enforceAiLimits, aiBudgetErrorResponse } from "@/lib/api/ai-guard";
 import { callClaudeJSON } from "@/lib/api/claude-client";
+import { validateStoragePhotoUrl } from "@/lib/api/photo-processing/validate-photo-url";
 import { loadDemandGroups, loadDemandSubGroups, buildDemandGroupsAndSubGroupsPrompt } from "@/lib/categories/constants";
 import {
   buildFlyerPdfPagePrompt,
@@ -44,9 +45,21 @@ export async function POST(request: Request) {
   const apiKeyCheck = requireApiKey();
   if (apiKeyCheck instanceof NextResponse) return apiKeyCheck;
 
+  // Flyer processing is an admin flow. Allowed callers: the admin (cookie,
+  // with or without a Supabase session, e.g. the reprocess script) OR the
+  // session user who uploaded the flyer (continuation loop in the flyer UI).
+  const isAdmin = isAdminRequest(request);
   const access = await requireAiUser(request);
-  if (access instanceof NextResponse) return access;
-  const { user } = access;
+  if (access instanceof NextResponse) {
+    // Admin without a Supabase session: only a 401 may be waived. 503 (no
+    // Upstash in production) and 500 (auth misconfigured) still apply.
+    if (!isAdmin || access.status !== 401) return access;
+  }
+  const user = access instanceof NextResponse ? null : access.user;
+  if (!user && !isAdmin) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const limitSubject = user?.id ?? "admin";
 
   let rawBody: unknown;
   try {
@@ -64,7 +77,8 @@ export async function POST(request: Request) {
   }
   const { upload_id, flyer_id, page_number } = parsed.data;
 
-  const limited = await enforceAiLimits(request, user.id, generalRateLimit);
+  // 20/min burst control + 60/h flyer budget, each per user and per IP.
+  const limited = await enforceAiLimits(request, limitSubject, [generalRateLimit, flyerRateLimit]);
   if (limited) return limited;
 
   const supabase = requireSupabaseAdmin();
@@ -78,8 +92,10 @@ export async function POST(request: Request) {
     .eq("upload_id", upload_id)
     .single();
 
-  // Service-role client bypasses RLS: only the uploader may continue processing.
-  if (uploadErr || !uploadRow || uploadRow.user_id !== user.id) {
+  // Service-role client bypasses RLS: only the uploader or the admin may
+  // continue processing. Missing and foreign uploads both return 404.
+  const isUploader = user !== null && uploadRow?.user_id === user.id;
+  if (uploadErr || !uploadRow || (!isUploader && !isAdmin)) {
     return NextResponse.json({ error: "Upload not found" }, { status: 404 });
   }
 
@@ -135,9 +151,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Flyer page or PDF URL not found" }, { status: 404 });
   }
 
+  // The page PDF URL is written by process-flyer.ts, but it is fetched with
+  // the server, so it must still be one of OUR public storage objects.
+  try {
+    validateStoragePhotoUrl(pageRow.image_url);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Invalid flyer page URL";
+    return NextResponse.json({ error: msg }, { status: 400 });
+  }
+
   let pdfBase64: string;
   try {
-    const res = await fetch(pageRow.image_url);
+    const res = await fetch(pageRow.image_url, { redirect: "error" });
     if (!res.ok) throw new Error(`Fetch PDF: ${res.status}`);
     const buf = await res.arrayBuffer();
     pdfBase64 = Buffer.from(buf).toString("base64");

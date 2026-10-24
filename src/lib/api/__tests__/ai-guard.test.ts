@@ -128,6 +128,28 @@ describe("ai-guard", () => {
       expect(cap.getRemaining).not.toHaveBeenCalled();
     });
 
+    it("checks every limiter in a list for user AND ip, in order", async () => {
+      const burst = { fake: "burst" } as never;
+      const hourly = { fake: "hourly" } as never;
+      await enforceAiLimits(req, "u1", [burst, hourly]);
+      expect(vi.mocked(checkRateLimit).mock.calls).toEqual([
+        [burst, "user:u1"],
+        [burst, "ip:1.2.3.4"],
+        [hourly, "user:u1"],
+        [hourly, "ip:1.2.3.4"],
+      ]);
+    });
+
+    it("returns 429 when only the second limiter in the list is hit", async () => {
+      const burst = { fake: "burst" } as never;
+      const hourly = { fake: "hourly" } as never;
+      vi.mocked(checkRateLimit).mockImplementation(async (limiter) =>
+        limiter === hourly ? tooMany() : null,
+      );
+      const res = await enforceAiLimits(req, "u1", [burst, hourly]);
+      expect(res?.status).toBe(429);
+    });
+
     it("returns 429 with code global_daily_cap and Retry-After when the global cap is hit", async () => {
       const cap = capLimiter(false, Date.now() + 90_000);
 

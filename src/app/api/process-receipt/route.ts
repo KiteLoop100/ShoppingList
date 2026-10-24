@@ -12,6 +12,7 @@ import {
   processValidReceipt,
 } from "@/lib/receipts/parse-receipt";
 import { MAX_RECEIPT_PHOTOS } from "@/lib/receipts/constants";
+import { findForeignStoragePath } from "@/lib/receipts/storage-paths";
 
 export const maxDuration = 300;
 
@@ -19,7 +20,7 @@ const KEEPALIVE_INTERVAL_MS = 10_000;
 
 const processReceiptSchema = z.object({
   photo_urls: z.array(z.string().url()).min(1).max(MAX_RECEIPT_PHOTOS),
-  photo_paths: z.array(z.string()).optional(),
+  photo_paths: z.array(z.string().min(1).max(500)).max(MAX_RECEIPT_PHOTOS).optional(),
 });
 
 export async function POST(request: Request) {
@@ -42,6 +43,17 @@ export async function POST(request: Request) {
     );
   }
   const { photo_urls, photo_paths } = parsed.data;
+
+  // photo_paths are removed from storage with the service role on rejection:
+  // refuse anything outside the caller's own folder before any storage call.
+  const foreignPath = findForeignStoragePath(photo_paths ?? [], userId);
+  if (foreignPath !== null) {
+    log.warn("[process-receipt] Rejected foreign photo_path for user", userId);
+    return NextResponse.json(
+      { error: "photo_paths must belong to the current user" },
+      { status: 400 },
+    );
+  }
 
   const rateLimitResponse = await enforceAiLimits(request, userId, claudeRateLimit);
   if (rateLimitResponse) return rateLimitResponse;

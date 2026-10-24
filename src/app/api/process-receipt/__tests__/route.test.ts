@@ -38,7 +38,7 @@ import {
   getGlobalAiCapLimiter,
   isRateLimitConfigured,
 } from "@/lib/api/rate-limit";
-import { callReceiptOcr, processValidReceipt } from "@/lib/receipts/parse-receipt";
+import { callReceiptOcr, cleanupPhotos, processValidReceipt } from "@/lib/receipts/parse-receipt";
 import { AiBudgetError } from "@/lib/api/ai-budget";
 
 const BODY = { photo_urls: ["https://proj.supabase.co/storage/v1/object/public/r/a.jpg"] };
@@ -132,6 +132,34 @@ describe("POST /api/process-receipt", () => {
     expect(text).toContain('"receipt_id":"r-1"');
     expect(checkRateLimit).toHaveBeenCalledWith({ fake: "claude" }, "user:user-1");
     expect(checkRateLimit).toHaveBeenCalledWith({ fake: "claude" }, "ip:test-ip");
+  });
+
+  describe("photo_paths ownership", () => {
+    it("rejects another user's path with 400 before any storage call or quota use", async () => {
+      vi.mocked(callReceiptOcr).mockResolvedValue({ status: "not_a_receipt" } as never);
+      const res = await POST(
+        makeRequest({ ...BODY, photo_paths: ["user-1/a.jpg", "victim-user/b.jpg"] }),
+      );
+      expect(res.status).toBe(400);
+      expect((await res.json()).error).toMatch(/belong to the current user/);
+      expect(cleanupPhotos).not.toHaveBeenCalled();
+      expect(checkRateLimit).not.toHaveBeenCalled();
+      expect(callReceiptOcr).not.toHaveBeenCalled();
+    });
+
+    it("rejects traversal inside the user's own folder", async () => {
+      const res = await POST(makeRequest({ ...BODY, photo_paths: ["user-1/../victim/b.jpg"] }));
+      expect(res.status).toBe(400);
+      expect(cleanupPhotos).not.toHaveBeenCalled();
+    });
+
+    it("accepts the caller's own paths and passes them to cleanup on rejection", async () => {
+      vi.mocked(callReceiptOcr).mockResolvedValue({ status: "not_a_receipt" } as never);
+      const res = await POST(makeRequest({ ...BODY, photo_paths: ["user-1/1700_0.jpg"] }));
+      expect(res.status).toBe(200);
+      await res.text();
+      expect(cleanupPhotos).toHaveBeenCalledWith(expect.anything(), ["user-1/1700_0.jpg"]);
+    });
   });
 
   it("streams the cap error when the cap is reached during OCR", async () => {

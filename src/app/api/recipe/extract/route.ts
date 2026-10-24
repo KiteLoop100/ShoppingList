@@ -22,13 +22,19 @@ const extractBodySchema = z.object({
     .refine((u) => /^https?:\/\//i.test(u), "URL must start with http:// or https://"),
 });
 
+/** Errors raised before any page content was fetched (URL rejected). */
+function isUrlRejected(msg: string): boolean {
+  return (
+    msg === "Invalid URL" ||
+    msg === "Invalid URL protocol" ||
+    msg.startsWith("Unsafe URL") ||
+    msg.startsWith("Too many redirects")
+  );
+}
+
 function mapFailureToMethod(msg: string): "json-ld" | "microdata" | "ai-fallback" {
   if (msg === "no_recipe_found" || msg.includes("ANTHROPIC")) return "ai-fallback";
-  if (
-    msg.includes("Failed to fetch") ||
-    msg === "Invalid URL" ||
-    msg === "Invalid URL protocol"
-  ) {
+  if (msg.includes("Failed to fetch") || isUrlRejected(msg)) {
     return "json-ld";
   }
   return "ai-fallback";
@@ -41,11 +47,14 @@ function userFacingError(msg: string): string {
   if (msg.includes("ANTHROPIC_API_KEY")) {
     return "Recipe extraction is not configured.";
   }
+  if (msg.startsWith("Unsafe URL") || msg.startsWith("Too many redirects")) {
+    return "Diese URL kann nicht abgerufen werden (nur öffentliche https-Adressen).";
+  }
   return msg;
 }
 
 function httpStatusForError(msg: string): number {
-  if (msg === "Invalid URL" || msg === "Invalid URL protocol") return 400;
+  if (isUrlRejected(msg)) return 400;
   if (msg.includes("Failed to fetch URL")) return 502;
   if (msg === "no_recipe_found") return 422;
   return 500;

@@ -2,15 +2,45 @@
  * Reprocess all flyers via the local dev server API.
  * Calls /api/process-flyer-page for each unprocessed page sequentially.
  *
+ * /api/process-flyer-page is admin-gated. Provide the admin session cookie
+ * via env, either as the signed token or as the password to log in with:
+ *   ADMIN_SESSION_COOKIE=<value of the admin_session cookie>
+ *   ADMIN_PASSWORD=<admin password>   (script logs in via /api/admin/login)
+ * Optional: BASE_URL (default https://localhost:3000)
+ *
  * Usage: node scripts/reprocess-all-flyers.mjs
  */
 
-const BASE = "https://localhost:3000";
+const BASE = process.env.BASE_URL || "https://localhost:3000";
 const DELAY_MS = 3000;
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 15000;
+const ADMIN_COOKIE_NAME = "admin_session";
 
 // TLS bypass removed for security -- use proper certificates
+
+/** Resolve the admin cookie header from env (token first, else log in). */
+async function resolveAdminCookie() {
+  const token = process.env.ADMIN_SESSION_COOKIE;
+  if (token) return `${ADMIN_COOKIE_NAME}=${token}`;
+
+  const password = process.env.ADMIN_PASSWORD;
+  if (!password) {
+    throw new Error("Set ADMIN_SESSION_COOKIE or ADMIN_PASSWORD (process-flyer-page is admin only)");
+  }
+  const res = await fetch(`${BASE}/api/admin/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ password }),
+  });
+  if (!res.ok) throw new Error(`Admin login failed: HTTP ${res.status}`);
+  const setCookie = res.headers.get("set-cookie") ?? "";
+  const match = setCookie.match(new RegExp(`${ADMIN_COOKIE_NAME}=([^;]+)`));
+  if (!match) throw new Error("Admin login did not return the admin_session cookie");
+  return `${ADMIN_COOKIE_NAME}=${match[1]}`;
+}
+
+let adminCookie = "";
 
 const FLYERS = [
   { flyer_id: "42c7f7ce-ac34-4b39-85c4-c1946d966887", upload_id: "463a4938-4bfa-43fc-9cd7-02d7468547eb", title: "KW 09 - Mo. 2.3. (DE)", total_pages: 23 },
@@ -27,7 +57,7 @@ async function processPage(flyer, pageNumber, attempt = 1) {
   try {
     const res = await fetch(`${BASE}/api/process-flyer-page`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", Cookie: adminCookie },
       body: JSON.stringify({
         upload_id: flyer.upload_id,
         flyer_id: flyer.flyer_id,
@@ -69,6 +99,7 @@ async function processPage(flyer, pageNumber, attempt = 1) {
 }
 
 async function main() {
+  adminCookie = await resolveAdminCookie();
   const totalAllPages = FLYERS.reduce((s, f) => s + f.total_pages, 0);
   let totalProcessed = 0;
   let totalProducts = 0;

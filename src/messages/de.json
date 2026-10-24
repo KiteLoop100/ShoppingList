@@ -391,6 +391,8 @@
     "pages": "Seiten",
     "expired": "Abgelaufen",
     "processingPages": "Produkte werden erkannt… Seite {current} von {total}",
+    "processingFailed": "Verarbeitung von Seite {page} fehlgeschlagen: {message}",
+    "dismissError": "Fehlermeldung schließen",
     "pdfLoadError": "PDF konnte nicht geladen werden.",
     "pageLoadError": "Seite konnte nicht geladen werden",
     "openPdf": "PDF öffnen",

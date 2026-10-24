@@ -36,6 +36,37 @@ export function requireAdminAuth(request: NextRequest): NextResponse | null {
   return null;
 }
 
+/** Reads the admin session cookie from a plain `Request` (no NextRequest needed). */
+function getAdminCookie(request: Request): string {
+  const header = request.headers.get("cookie") ?? "";
+  for (const part of header.split(";")) {
+    const [name, ...rest] = part.trim().split("=");
+    if (name === ADMIN_COOKIE_NAME) return rest.join("=");
+  }
+  return "";
+}
+
+/**
+ * True when the request carries a valid, unexpired admin session cookie.
+ * Works on a plain `Request` so routes that also take a Supabase session can
+ * combine both checks (e.g. "uploader OR admin"). Never throws; a missing
+ * `ADMIN_SESSION_SECRET` simply means nobody is admin.
+ */
+export function isAdminRequest(request: Request): boolean {
+  const secret = process.env.ADMIN_SESSION_SECRET;
+  if (!secret) return false;
+  const token = getAdminCookie(request);
+  return token !== "" && verifyAdminToken(secret, token);
+}
+
+/** 403 for flows that are restricted to the admin (e.g. flyer import). */
+export function adminOnlyResponse(): NextResponse {
+  return NextResponse.json(
+    { error: "Flyer processing requires admin access" },
+    { status: 403 }
+  );
+}
+
 export function requireSupabaseAdmin(): SupabaseClient | NextResponse {
   const client = createAdminClient();
   if (!client) {
