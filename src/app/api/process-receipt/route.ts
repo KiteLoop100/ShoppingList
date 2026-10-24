@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { claudeRateLimit, checkRateLimit } from "@/lib/api/rate-limit";
-import { requireAuth, requireApiKey, requireSupabaseAdmin } from "@/lib/api/guards";
+import { claudeRateLimit } from "@/lib/api/rate-limit";
+import { requireApiKey, requireSupabaseAdmin } from "@/lib/api/guards";
+import { requireAiUser, enforceAiLimits } from "@/lib/api/ai-guard";
+import { AiBudgetError } from "@/lib/api/ai-budget";
 import { log } from "@/lib/utils/logger";
 import { loadDemandGroups, loadDemandSubGroups, buildDemandGroupsAndSubGroupsPrompt } from "@/lib/categories/constants";
 import {
@@ -21,7 +23,7 @@ const processReceiptSchema = z.object({
 });
 
 export async function POST(request: Request) {
-  const auth = await requireAuth(request);
+  const auth = await requireAiUser(request);
   if (auth instanceof NextResponse) return auth;
   const userId = auth.user.id;
 
@@ -41,7 +43,7 @@ export async function POST(request: Request) {
   }
   const { photo_urls, photo_paths } = parsed.data;
 
-  const rateLimitResponse = await checkRateLimit(claudeRateLimit, userId);
+  const rateLimitResponse = await enforceAiLimits(request, userId, claudeRateLimit);
   if (rateLimitResponse) return rateLimitResponse;
 
   const supabase = requireSupabaseAdmin();
@@ -94,6 +96,13 @@ export async function POST(request: Request) {
         ocrResult = await callReceiptOcr(photo_urls, demandGroupsBlock);
       } catch (err) {
         log.error("[process-receipt] OCR error:", err);
+        if (err instanceof AiBudgetError) {
+          // Global cap reached mid-request: tell the client why (429/503).
+          emit("error", { error: err.code, status: err.status });
+          await updateScan({ status: "failed", error_code: err.code, error_message: err.message });
+          resolveWork!(events);
+          return;
+        }
         emit("error", { error: "OCR processing failed", status: 502 });
         await updateScan({ status: "failed", error_code: "ocr_failed", error_message: String(err) });
         resolveWork!(events);

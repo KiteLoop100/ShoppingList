@@ -8,7 +8,7 @@ import {
   type DemandSubGroupEntry,
 } from "@/lib/categories/constants";
 import { claudeRateLimit } from "@/lib/api/rate-limit";
-import { requireAiUser, enforceAiLimits } from "@/lib/api/ai-guard";
+import { requireAiUser, enforceAiLimits, aiBudgetErrorResponse } from "@/lib/api/ai-guard";
 import { CLAUDE_MODEL_HAIKU } from "@/lib/api/config";
 import { requireApiKey, requireSupabaseAdmin } from "@/lib/api/guards";
 import { callClaudeJSON } from "@/lib/api/claude-client";
@@ -95,6 +95,8 @@ export async function POST(req: Request) {
       action: "created" as const,
     });
   } catch (err) {
+    const budget = aiBudgetErrorResponse(err);
+    if (budget) return budget;
     log.error("[assign-category] Error:", err);
     return NextResponse.json(
       { error: "Claude API error" },

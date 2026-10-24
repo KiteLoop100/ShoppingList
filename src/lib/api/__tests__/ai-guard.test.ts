@@ -16,7 +16,13 @@ vi.mock("@/lib/utils/logger", () => ({
   log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
-import { requireAiUser, enforceAiLimits, rateLimiterUnavailableResponse } from "../ai-guard";
+import {
+  requireAiUser,
+  enforceAiLimits,
+  rateLimiterUnavailableResponse,
+  aiBudgetErrorResponse,
+} from "../ai-guard";
+import { AiBudgetError } from "../ai-budget";
 import { requireAuth } from "@/lib/api/guards";
 import {
   checkRateLimit,
@@ -32,9 +38,13 @@ function tooMany(): NextResponse {
 }
 
 function capLimiter(success: boolean, reset = Date.now() + 3_600_000) {
-  const limit = vi.fn().mockResolvedValue({ success, reset });
-  vi.mocked(getGlobalAiCapLimiter).mockReturnValue({ limit } as never);
-  return limit;
+  // Guards only PEEK (getRemaining); counting happens inside callClaude.
+  const getRemaining = vi
+    .fn()
+    .mockResolvedValue({ remaining: success ? 5 : 0, limit: 200, reset });
+  const limit = vi.fn();
+  vi.mocked(getGlobalAiCapLimiter).mockReturnValue({ getRemaining, limit } as never);
+  return { getRemaining, limit };
 }
 
 describe("ai-guard", () => {
@@ -99,31 +109,32 @@ describe("ai-guard", () => {
 
     it("returns 429 when the per-user limit is hit and skips later layers", async () => {
       vi.mocked(checkRateLimit).mockResolvedValueOnce(tooMany());
-      const limit = capLimiter(true);
+      const cap = capLimiter(true);
 
       const res = await enforceAiLimits(req, "u1", limiter);
       expect(res?.status).toBe(429);
       expect(checkRateLimit).toHaveBeenCalledTimes(1);
-      expect(limit).not.toHaveBeenCalled();
+      expect(cap.getRemaining).not.toHaveBeenCalled();
     });
 
     it("returns 429 when only the per-IP limit is hit (fresh anonymous user, same IP)", async () => {
       vi.mocked(checkRateLimit)
         .mockResolvedValueOnce(null)
         .mockResolvedValueOnce(tooMany());
-      const limit = capLimiter(true);
+      const cap = capLimiter(true);
 
       const res = await enforceAiLimits(req, "brand-new-anon", limiter);
       expect(res?.status).toBe(429);
-      expect(limit).not.toHaveBeenCalled();
+      expect(cap.getRemaining).not.toHaveBeenCalled();
     });
 
     it("returns 429 with code global_daily_cap and Retry-After when the global cap is hit", async () => {
-      const limit = capLimiter(false, Date.now() + 90_000);
+      const cap = capLimiter(false, Date.now() + 90_000);
 
       const res = await enforceAiLimits(req, "u1", limiter);
       expect(res?.status).toBe(429);
-      expect(limit).toHaveBeenCalledWith("global");
+      expect(cap.getRemaining).toHaveBeenCalledWith("global");
+      expect(cap.limit).not.toHaveBeenCalled(); // peeking must not count the request
       const body = await res!.json();
       expect(body.code).toBe("global_daily_cap");
       const retryAfter = Number(res!.headers.get("Retry-After"));
@@ -144,10 +155,30 @@ describe("ai-guard", () => {
 
     it("fails closed with 503 when the global cap limiter throws", async () => {
       vi.mocked(getGlobalAiCapLimiter).mockReturnValue({
-        limit: vi.fn().mockRejectedValue(new Error("redis down")),
+        getRemaining: vi.fn().mockRejectedValue(new Error("redis down")),
       } as never);
       const res = await enforceAiLimits(req, "u1", limiter);
       expect(res?.status).toBe(503);
+    });
+  });
+
+  describe("aiBudgetErrorResponse", () => {
+    it("maps a global cap error to 429 with code and Retry-After", async () => {
+      const res = aiBudgetErrorResponse(
+        new AiBudgetError("global_daily_cap", 429, Date.now() + 30_000),
+      );
+      expect(res?.status).toBe(429);
+      expect((await res!.json()).code).toBe("global_daily_cap");
+      expect(Number(res!.headers.get("Retry-After"))).toBeGreaterThan(0);
+    });
+
+    it("maps an unavailable error to 503", () => {
+      expect(aiBudgetErrorResponse(new AiBudgetError("ai_unavailable", 503))?.status).toBe(503);
+    });
+
+    it("returns null for unrelated errors so routes keep their own handling", () => {
+      expect(aiBudgetErrorResponse(new Error("boom"))).toBeNull();
+      expect(aiBudgetErrorResponse("string")).toBeNull();
     });
   });
 });

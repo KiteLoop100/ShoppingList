@@ -25,11 +25,13 @@ import { log } from "@/lib/utils/logger";
 async function callClaudeWithPdf(
   pdfBase64: string,
   prompt: string,
+  deadlineAt?: number,
 ): Promise<ClaudeResponse> {
   return callClaudeJSON<ClaudeResponse>({
     model: CLAUDE_MODEL_SONNET,
     max_tokens: 16384,
     timeoutMs: FLYER_CLAUDE_TIMEOUT_MS,
+    deadlineAt,
     messages: [
       {
         role: "user",
@@ -55,6 +57,8 @@ export async function processFlyer(
   photoUrl: string,
   pdfBuf: ArrayBuffer,
   now: string,
+  /** Absolute deadline (epoch ms) shared by ALL Claude calls of this request. */
+  deadlineAt?: number,
 ): Promise<NextResponse> {
   try {
     const pdfBytes = new Uint8Array(pdfBuf);
@@ -149,7 +153,7 @@ export async function processFlyer(
 
     const [firstGeminiResult, firstResponse] = await Promise.all([
       detectProductBoxes(firstPageBase64).catch(() => []),
-      callClaudeWithPdf(firstPageBase64, FLYER_PDF_FIRST_PAGE_PROMPT),
+      callClaudeWithPdf(firstPageBase64, FLYER_PDF_FIRST_PAGE_PROMPT, deadlineAt),
     ]);
 
     validFrom = firstResponse.special_valid_from ?? today;
@@ -249,7 +253,7 @@ export async function processFlyer(
 
       const [pageGeminiResult, pageResponse] = await Promise.all([
         detectProductBoxes(pageBase64).catch(() => []),
-        callClaudeWithPdf(pageBase64, FLYER_PDF_PAGE_PROMPT),
+        callClaudeWithPdf(pageBase64, FLYER_PDF_PAGE_PROMPT, deadlineAt),
       ]);
 
       const pageProducts = pageResponse.products ?? [];

@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { callClaudeJSON } from "@/lib/api/claude-client";
 import { CLAUDE_MODEL_SONNET } from "@/lib/api/config";
-import { requireAuth, requireApiKey, requireSupabaseAdmin } from "@/lib/api/guards";
-import { checkRateLimit, claudeRateLimit, getIdentifier } from "@/lib/api/rate-limit";
+import { requireApiKey, requireSupabaseAdmin } from "@/lib/api/guards";
+import { requireAiUser, enforceAiLimits, aiBudgetErrorResponse } from "@/lib/api/ai-guard";
+import { claudeRateLimit } from "@/lib/api/rate-limit";
 import { validateBody } from "@/lib/api/validate-request";
 import { assembleInsightContext } from "@/lib/insights/context-assembler";
 import { formatContextForPrompt } from "@/lib/insights/format-context";
@@ -55,14 +56,13 @@ export async function POST(request: Request) {
   const validated = await validateBody(request, insightRequestSchema);
   if (validated instanceof NextResponse) return validated;
 
-  const auth = await requireAuth(request);
+  const auth = await requireAiUser(request);
   if (auth instanceof NextResponse) return auth;
 
   const apiKey = requireApiKey();
   if (apiKey instanceof NextResponse) return apiKey;
 
-  const identifier = getIdentifier(request, auth.user.id);
-  const rateLimited = await checkRateLimit(claudeRateLimit, identifier);
+  const rateLimited = await enforceAiLimits(request, auth.user.id, claudeRateLimit);
   if (rateLimited) return rateLimited;
 
   const supabase = requireSupabaseAdmin();
@@ -96,6 +96,8 @@ export async function POST(request: Request) {
 
     return NextResponse.json(parsed.data);
   } catch (err) {
+    const budget = aiBudgetErrorResponse(err);
+    if (budget) return budget;
     log.error("[insights] Generation failed:", err);
     return NextResponse.json(INSIGHTS_UNAVAILABLE, { status: 500 });
   }

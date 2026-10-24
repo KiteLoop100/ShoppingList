@@ -17,7 +17,9 @@ export async function fetchAndPreprocessImage(
   photoUrl: string,
   isPdfHint?: boolean,
 ): Promise<PreprocessedImage> {
-  const imageRes = await fetch(photoUrl);
+  // redirect: "error" – a validated storage URL must never bounce us to
+  // another (possibly internal) host; any redirect makes fetch() throw.
+  const imageRes = await fetch(photoUrl, { redirect: "error" });
   if (!imageRes.ok) throw new Error(`Fetch: ${imageRes.status}`);
   const buf = await imageRes.arrayBuffer();
   const mediaType =

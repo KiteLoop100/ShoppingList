@@ -3,8 +3,14 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { callClaudeJSON } from "@/lib/api/claude-client";
 import { CLAUDE_MODEL_SONNET } from "@/lib/api/config";
-import { checkRateLimit, getIdentifier, recipeAiDailyRateLimit } from "@/lib/api/rate-limit";
-import { requireAuth, requireSupabaseAdmin } from "@/lib/api/guards";
+import {
+  checkRateLimit,
+  claudeRateLimit,
+  getIdentifier,
+  recipeAiDailyRateLimit,
+} from "@/lib/api/rate-limit";
+import { requireSupabaseAdmin } from "@/lib/api/guards";
+import { requireAiUser, enforceAiLimits, aiBudgetErrorResponse } from "@/lib/api/ai-guard";
 import { validateBody } from "@/lib/api/validate-request";
 import { loadInventory } from "@/lib/inventory/inventory-service";
 import { getRelevantProducts } from "@/lib/recipe/ingredient-matcher-catalog";
@@ -113,7 +119,7 @@ export async function POST(request: Request) {
     const validated = await validateBody(request, bodySchema);
     if (validated instanceof NextResponse) return validated;
 
-    const auth = await requireAuth(request);
+    const auth = await requireAiUser(request);
     if (auth instanceof NextResponse) return auth;
     const userId = auth.user.id;
 
@@ -143,6 +149,11 @@ export async function POST(request: Request) {
       });
     }
 
+    // Shared AI guard: per-user + per-IP limits and global-cap fast-fail.
+    const aiLimited = await enforceAiLimits(request, userId, claudeRateLimit);
+    if (aiLimited) return aiLimited;
+
+    // Recipe-specific daily budget (kept in addition to the shared guard).
     const identifier = getIdentifier(request, userId);
     const rateLimited = await checkRateLimit(recipeAiDailyRateLimit, identifier);
     if (rateLimited) {
@@ -227,6 +238,8 @@ export async function POST(request: Request) {
     try {
       aiRaw = await callModel(claudeMessages);
     } catch (err) {
+      const budget = aiBudgetErrorResponse(err);
+      if (budget) return budget;
       log.error("[recipe/cook-chat] Claude error:", err);
       return NextResponse.json(CLAUDE_UNAVAILABLE, { status: 500 });
     }
@@ -246,6 +259,8 @@ export async function POST(request: Request) {
         console.log("COOK-CHAT: Step 4 - Calling Claude — done (retry)");
         response = tryParseAiCookResponse(aiRaw);
       } catch (err) {
+        const budget = aiBudgetErrorResponse(err);
+        if (budget) return budget;
         log.error("[recipe/cook-chat] Claude retry error:", err);
         return NextResponse.json(CLAUDE_UNAVAILABLE, { status: 500 });
       }

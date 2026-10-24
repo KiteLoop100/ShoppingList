@@ -1,7 +1,13 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { checkRateLimit, getIdentifier, recipeExtractRateLimit } from "@/lib/api/rate-limit";
-import { requireAuth, requireSupabaseAdmin } from "@/lib/api/guards";
+import {
+  checkRateLimit,
+  claudeRateLimit,
+  getIdentifier,
+  recipeExtractRateLimit,
+} from "@/lib/api/rate-limit";
+import { requireSupabaseAdmin } from "@/lib/api/guards";
+import { requireAiUser, enforceAiLimits, aiBudgetErrorResponse } from "@/lib/api/ai-guard";
 import { validateBody } from "@/lib/api/validate-request";
 import { extractRecipe } from "@/lib/recipe/extract";
 import { log } from "@/lib/utils/logger";
@@ -49,10 +55,15 @@ export async function POST(request: Request) {
   const validated = await validateBody(request, extractBodySchema);
   if (validated instanceof NextResponse) return validated;
 
-  const auth = await requireAuth(request);
+  const auth = await requireAiUser(request);
   if (auth instanceof NextResponse) return auth;
   const userId = auth.user.id;
 
+  // Shared AI guard: per-user + per-IP limits and global-cap fast-fail.
+  const aiLimited = await enforceAiLimits(request, userId, claudeRateLimit);
+  if (aiLimited) return aiLimited;
+
+  // Recipe-specific daily limit (kept in addition to the shared guard).
   const identifier = getIdentifier(request, userId);
   const rateLimited = await checkRateLimit(recipeExtractRateLimit, identifier);
   if (rateLimited) return rateLimited;
@@ -76,6 +87,9 @@ export async function POST(request: Request) {
     }
     return NextResponse.json({ recipe: result.recipe, method: result.method });
   } catch (err) {
+    // Budget refusals are not extraction failures: don't log them as such.
+    const budget = aiBudgetErrorResponse(err);
+    if (budget) return budget;
     const message = err instanceof Error ? err.message : String(err);
     const extractionMethod = mapFailureToMethod(message);
 

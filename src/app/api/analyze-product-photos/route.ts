@@ -11,7 +11,7 @@
 import { NextResponse } from "next/server";
 import { requireApiKey } from "@/lib/api/guards";
 import { claudeRateLimit } from "@/lib/api/rate-limit";
-import { requireAiUser, enforceAiLimits } from "@/lib/api/ai-guard";
+import { requireAiUser, enforceAiLimits, aiBudgetErrorResponse } from "@/lib/api/ai-guard";
 import { analyzeRequestSchema } from "@/lib/product-photo-studio/types";
 import type { PhotoRole } from "@/lib/product-photo-studio/types";
 import { processProductPhotos } from "@/lib/product-photo-studio/pipeline";
@@ -113,6 +113,8 @@ export async function POST(request: Request) {
       gallery_photos: galleryPhotos.length > 0 ? galleryPhotos : undefined,
     });
   } catch (e) {
+    const budget = aiBudgetErrorResponse(e);
+    if (budget) return budget;
     const msg = e instanceof Error ? e.message : "Analysis failed";
     log.error("[analyze-product-photos] failed:", msg);
     return NextResponse.json({ error: msg }, { status: 502 });

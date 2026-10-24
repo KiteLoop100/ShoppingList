@@ -8,9 +8,9 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getDemandGroupFallback } from "@/lib/products/demand-group-fallback";
 import { generalRateLimit } from "@/lib/api/rate-limit";
-import { CLAUDE_MODEL_SONNET, FLYER_CLAUDE_TIMEOUT_MS } from "@/lib/api/config";
+import { CLAUDE_MODEL_SONNET, FLYER_CLAUDE_TIMEOUT_MS, routeDeadline } from "@/lib/api/config";
 import { requireApiKey, requireSupabaseAdmin } from "@/lib/api/guards";
-import { requireAiUser, enforceAiLimits } from "@/lib/api/ai-guard";
+import { requireAiUser, enforceAiLimits, aiBudgetErrorResponse } from "@/lib/api/ai-guard";
 import { callClaudeJSON } from "@/lib/api/claude-client";
 import { loadDemandGroups, loadDemandSubGroups, buildDemandGroupsAndSubGroupsPrompt } from "@/lib/categories/constants";
 import {
@@ -38,6 +38,9 @@ const processFlyerPageSchema = z.object({
 });
 
 export async function POST(request: Request) {
+  // Total budget for the Claude call incl. retries; leaves time for DB writes.
+  const deadlineAt = routeDeadline(maxDuration);
+
   const apiKeyCheck = requireApiKey();
   if (apiKeyCheck instanceof NextResponse) return apiKeyCheck;
 
@@ -156,6 +159,7 @@ export async function POST(request: Request) {
       model: CLAUDE_MODEL_SONNET,
       max_tokens: 16384,
       timeoutMs: FLYER_CLAUDE_TIMEOUT_MS,
+      deadlineAt,
       messages: [
         {
           role: "user",
@@ -176,6 +180,9 @@ export async function POST(request: Request) {
   ]);
 
   if (claudeResult.status === "rejected") {
+    // Cap/budget refusals are not upload failures: leave the upload retryable.
+    const budget = aiBudgetErrorResponse(claudeResult.reason);
+    if (budget) return budget;
     const msg = claudeResult.reason instanceof Error ? claudeResult.reason.message : "Claude failed";
     await supabase
       .from("photo_uploads")

@@ -6,6 +6,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { claudeRateLimit } from "@/lib/api/rate-limit";
+import { routeDeadline } from "@/lib/api/config";
 import { requireAiUser, enforceAiLimits } from "@/lib/api/ai-guard";
 import { validateStoragePhotoUrl } from "@/lib/api/photo-processing/validate-photo-url";
 import { requireApiKey, requireSupabaseAdmin } from "@/lib/api/guards";
@@ -28,6 +29,8 @@ const processPhotoSchema = z.object({
 
 export async function POST(request: Request) {
   log.debug("[process-photo] POST received");
+  // Total budget for all Claude calls (timeouts + retries) in this request.
+  const deadlineAt = routeDeadline(maxDuration);
 
   const apiKey = requireApiKey();
   if (apiKey instanceof NextResponse) return apiKey;
@@ -153,7 +156,14 @@ export async function POST(request: Request) {
   }
 
   if (preprocessed.isPdf && preprocessed.pdfBuf) {
-    return processFlyer(supabase, upload_id, photo_url, preprocessed.pdfBuf, now);
+    return processFlyer(
+      supabase,
+      upload_id,
+      photo_url,
+      preprocessed.pdfBuf,
+      now,
+      deadlineAt,
+    );
   }
 
   return processVisionPhoto(

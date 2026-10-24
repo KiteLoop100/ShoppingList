@@ -7,6 +7,7 @@
  */
 
 import { CLAUDE_MODEL_SONNET } from "./config";
+import { consumeGlobalAiCall } from "./ai-budget";
 import { tryRepairTruncatedJson } from "@/lib/utils/repair-json";
 import { log } from "@/lib/utils/logger";
 
@@ -27,7 +28,14 @@ export interface ClaudeOptions {
   messages: ClaudeMessage[];
   max_tokens: number;
   temperature?: number;
+  /** Per-attempt timeout in ms (default 30 s). */
   timeoutMs?: number;
+  /**
+   * Absolute deadline (epoch ms) for the WHOLE call including retries and
+   * backoff. Attempt timeouts are clamped to the time left and no retry is
+   * started that cannot fit. See `routeDeadline()` in config.ts.
+   */
+  deadlineAt?: number;
 }
 
 export class ClaudeApiError extends Error {
@@ -44,6 +52,12 @@ const CLAUDE_TIMEOUT_MS = 30_000;
 const MAX_RETRIES = 2;
 const RETRYABLE_STATUSES = new Set([429, 500, 502, 503, 529]);
 const API_URL = "https://api.anthropic.com/v1/messages";
+/** An attempt is only started when at least this much of the deadline is left. */
+const MIN_ATTEMPT_MS = 5_000;
+
+function remainingMs(deadlineAt: number | undefined): number {
+  return deadlineAt === undefined ? Number.POSITIVE_INFINITY : deadlineAt - Date.now();
+}
 
 function isTimeoutError(err: unknown): boolean {
   return err instanceof DOMException && err.name === "TimeoutError";
@@ -51,12 +65,17 @@ function isTimeoutError(err: unknown): boolean {
 
 /**
  * Call the Anthropic Messages API and return the raw text response.
- * Retries up to {@link MAX_RETRIES} times on transient errors and timeouts.
+ * Retries up to {@link MAX_RETRIES} times on transient errors and timeouts,
+ * never past `options.deadlineAt` when set.
+ * Every call is counted once against the global daily cap (see ai-budget.ts);
+ * throws `AiBudgetError` when the cap is reached or cannot be verified.
  * Throws {@link ClaudeApiError} on non-retryable non-2xx responses.
  */
 export async function callClaude(options: ClaudeOptions): Promise<string> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error("ANTHROPIC_API_KEY not configured");
+
+  await consumeGlobalAiCall();
 
   const reqBody: Record<string, unknown> = {
     model: options.model ?? CLAUDE_MODEL_SONNET,
@@ -76,18 +95,25 @@ export async function callClaude(options: ClaudeOptions): Promise<string> {
   const effectiveTimeout = options.timeoutMs ?? CLAUDE_TIMEOUT_MS;
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    const remaining = remainingMs(options.deadlineAt);
+    if (remaining < MIN_ATTEMPT_MS) {
+      throw new ClaudeApiError(408, `Claude deadline exceeded before attempt ${attempt + 1}`);
+    }
+    const attemptTimeout = Math.min(effectiveTimeout, remaining);
+
     try {
       const res = await fetch(API_URL, {
         method: "POST",
         headers,
         body: bodyJson,
-        signal: AbortSignal.timeout(effectiveTimeout),
+        signal: AbortSignal.timeout(attemptTimeout),
       });
 
       if (!res.ok) {
         const errText = await res.text().catch(() => "unknown");
-        if (RETRYABLE_STATUSES.has(res.status) && attempt < MAX_RETRIES) {
-          const delay = 1000 * Math.pow(2, attempt);
+        const delay = 1000 * Math.pow(2, attempt);
+        const retryFits = remainingMs(options.deadlineAt) > delay + MIN_ATTEMPT_MS;
+        if (RETRYABLE_STATUSES.has(res.status) && attempt < MAX_RETRIES && retryFits) {
           log.warn(`[claude] ${res.status} on attempt ${attempt + 1}, retrying in ${delay}ms`);
           await new Promise((r) => setTimeout(r, delay));
           continue;

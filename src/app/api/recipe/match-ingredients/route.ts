@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { checkRateLimit, claudeRateLimit, getIdentifier } from "@/lib/api/rate-limit";
-import { requireAuth, requireSupabaseAdmin } from "@/lib/api/guards";
+import { claudeRateLimit } from "@/lib/api/rate-limit";
+import { requireSupabaseAdmin } from "@/lib/api/guards";
+import { requireAiUser, enforceAiLimits, aiBudgetErrorResponse } from "@/lib/api/ai-guard";
 import { validateBody } from "@/lib/api/validate-request";
 import {
   checkPantry,
@@ -95,12 +96,11 @@ export async function POST(request: Request) {
   const validated = await validateBody(request, bodySchema);
   if (validated instanceof NextResponse) return validated;
 
-  const auth = await requireAuth(request);
+  const auth = await requireAiUser(request);
   if (auth instanceof NextResponse) return auth;
   const userId = auth.user.id;
 
-  const identifier = getIdentifier(request, userId);
-  const rateLimited = await checkRateLimit(claudeRateLimit, identifier);
+  const rateLimited = await enforceAiLimits(request, userId, claudeRateLimit);
   if (rateLimited) return rateLimited;
 
   const supabase = requireSupabaseAdmin();
@@ -124,6 +124,8 @@ export async function POST(request: Request) {
 
     return NextResponse.json(groupWithoutPantry(matches));
   } catch (e) {
+    const budget = aiBudgetErrorResponse(e);
+    if (budget) return budget;
     log.error("[recipe/match-ingredients]", e);
     const message = e instanceof Error ? e.message : "Match failed";
     return NextResponse.json({ error: message }, { status: 500 });

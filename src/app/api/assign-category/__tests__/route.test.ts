@@ -63,8 +63,9 @@ function makeRequest(body: unknown): Request {
 }
 
 function setCap(success: boolean) {
-  const limit = vi.fn().mockResolvedValue({ success, reset: Date.now() + 60_000 });
-  vi.mocked(getGlobalAiCapLimiter).mockReturnValue({ limit } as never);
+  // Route guards only peek at the global cap (the real count happens in callClaude).
+  const limit = vi.fn().mockResolvedValue({ remaining: success ? 5 : 0, limit: 200, reset: Date.now() + 60_000 });
+  vi.mocked(getGlobalAiCapLimiter).mockReturnValue({ getRemaining: limit } as never);
 }
 
 describe("/api/assign-category", () => {
