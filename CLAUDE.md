@@ -41,10 +41,10 @@ npm run set-store-layout-munich-richard-strauss         # Set aisle layout for M
 ### Technology Stack
 
 - **Next.js 14** (App Router), **React 18**, **TypeScript 5.6**, **Tailwind CSS**
-- **Supabase** — PostgreSQL, Auth (anonymous-first + email/password), Storage, Realtime (`postgres_changes` subscriptions on `list_items`, `photo_uploads`, `user_settings`; everything else polls)
+- **Supabase** — PostgreSQL, Auth (anonymous-first + email/password), Storage, Realtime. `postgres_changes` subscriptions exist in code for `list_items` (`use-list-data.ts`), `photo_uploads` (`capture-status-feed.tsx`) and `user_settings` (`settings-client.tsx`), but the live `supabase_realtime` publication contains only `inventory_items`, `photo_uploads`, `user_settings` (verified 2026-10-24). **The `list_items` subscription is rejected by the server** ("Unable to subscribe to changes…"), so there is no live multi-device list sync; a second device only picks up changes on reload or when `use-list-fetch.ts` refetches after the product catalog finishes loading. Everything else polls.
 - **Dexie.js** — IndexedDB for offline-first caching
 - **next-intl** — i18n (German `de` default, English `en`)
-- **Vitest** + **Playwright** — unit/integration and E2E tests (`playwright.config.ts`, specs in `tests/e2e/`, phone viewport, `npm run test:e2e` starts or reuses the HTTPS dev server; teardown deletes each test's anonymous user via `SUPABASE_SERVICE_ROLE_KEY`)
+- **Vitest** + **Playwright** — unit/integration and E2E tests (`playwright.config.ts`, specs in `tests/e2e/`, phone viewport, `npm run test:e2e` starts or reuses the HTTPS dev server; global setup signs in one anonymous user per run, global teardown deletes exactly that user id via `SUPABASE_SERVICE_ROLE_KEY`)
 - **Anthropic Claude** — all AI extraction: product photos, receipt OCR, flyer parsing, recipe extraction/matching, cook-chat, insights (`src/lib/api/claude-client.ts`, hand-rolled `fetch` client, no SDK)
 - **Google Gemini** — bounding-box detection only (`gemini-detect.ts`, `gemini-bbox.ts`); not used for text extraction
 - **Replicate / remove.bg** — background removal for product thumbnails
