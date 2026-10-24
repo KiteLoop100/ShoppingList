@@ -8,7 +8,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getDemandGroupFallback } from "@/lib/products/demand-group-fallback";
 import { flyerRateLimit, generalRateLimit } from "@/lib/api/rate-limit";
-import { CLAUDE_MODEL_SONNET, FLYER_CLAUDE_TIMEOUT_MS, routeDeadline } from "@/lib/api/config";
+import { CLAUDE_MODEL_MAIN, FLYER_CLAUDE_TIMEOUT_MS, routeDeadline } from "@/lib/api/config";
 import { isAdminRequest, requireApiKey, requireSupabaseAdmin } from "@/lib/api/guards";
 import { requireAiUser, enforceAiLimits, aiBudgetErrorResponse } from "@/lib/api/ai-guard";
 import { callClaudeJSON } from "@/lib/api/claude-client";
@@ -181,7 +181,7 @@ export async function POST(request: Request) {
   const [geminiBoxes, claudeResult] = await Promise.allSettled([
     detectProductBoxes(pdfBase64),
     callClaudeJSON<{ products?: ExtractedProduct[] }>({
-      model: CLAUDE_MODEL_SONNET,
+      model: CLAUDE_MODEL_MAIN,
       max_tokens: 16384,
       timeoutMs: FLYER_CLAUDE_TIMEOUT_MS,
       deadlineAt,

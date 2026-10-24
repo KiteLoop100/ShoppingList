@@ -29,6 +29,8 @@ import { createClient } from "@supabase/supabase-js";
 import { randomUUID } from "crypto";
 import sharp from "sharp";
 import { enhanceProduct, compositeOnCanvas } from "@/lib/product-photo-studio/image-enhance";
+import { callClaudeJSON } from "@/lib/api/claude-client";
+import { CLAUDE_MODEL_MAIN } from "@/lib/api/config";
 
 config({ path: resolve(process.cwd(), ".env.local") });
 
@@ -38,7 +40,8 @@ const SUPABASE_KEY =
   process.env.SUPABASE_SERVICE_ROLE_KEY ||
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
-const CLAUDE_MODEL = "claude-sonnet-4-5-20250929";
+/** Vision extraction of a full shelf photo can take well over the client's 30 s default. */
+const PHOTO_CLAUDE_TIMEOUT_MS = 120_000;
 const SUPPORTED_EXTS = new Set([".jpg", ".jpeg", ".png", ".webp"]);
 
 // ── CLI args ────────────────────────────────────────────────────
@@ -182,53 +185,33 @@ interface BatchResult {
   products: Array<ExtractedProduct & { status: "created" | "updated" | "skipped" | "error" }>;
 }
 
-// ── Claude API call ─────────────────────────────────────────────
+// ── Claude API call (shared client: timeout, retries, JSON repair) ──
 
-async function callClaude(
+async function extractFromPhoto(
   imageBase64: string,
   mediaType: string
 ): Promise<ClaudeResponse> {
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": ANTHROPIC_API_KEY!,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify({
-      model: CLAUDE_MODEL,
-      max_tokens: 8192,
-      messages: [
-        {
-          role: "user",
-          content: [
-            {
-              type: "image",
-              source: {
-                type: "base64",
-                media_type: mediaType,
-                data: imageBase64,
-              },
+  return callClaudeJSON<ClaudeResponse>({
+    model: CLAUDE_MODEL_MAIN,
+    max_tokens: 8192,
+    timeoutMs: PHOTO_CLAUDE_TIMEOUT_MS,
+    messages: [
+      {
+        role: "user",
+        content: [
+          {
+            type: "image",
+            source: {
+              type: "base64",
+              media_type: mediaType,
+              data: imageBase64,
             },
-            { type: "text", text: BATCH_VISION_PROMPT },
-          ],
-        },
-      ],
-    }),
+          },
+          { type: "text", text: BATCH_VISION_PROMPT },
+        ],
+      },
+    ],
   });
-
-  if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`Claude API ${res.status}: ${errText.slice(0, 300)}`);
-  }
-
-  const data = await res.json();
-  const text: string = data.content?.[0]?.text ?? "";
-  const cleaned = text
-    .replace(/^```json?\s*/i, "")
-    .replace(/\s*```\s*$/i, "")
-    .trim();
-  return JSON.parse(cleaned) as ClaudeResponse;
 }
 
 // ── Thumbnail generation (shared with product-photo-studio pipeline) ──
@@ -363,7 +346,7 @@ async function main() {
       const imageBase64 = resized.toString("base64");
 
       // Call Claude Vision
-      const claudeResult = await callClaude(imageBase64, "image/jpeg");
+      const claudeResult = await extractFromPhoto(imageBase64, "image/jpeg");
       result.photo_type = claudeResult.photo_type;
       const products = claudeResult.products ?? [];
       result.products_extracted = products.length;

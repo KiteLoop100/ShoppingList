@@ -8,7 +8,7 @@
 import { GoogleGenAI } from "@google/genai";
 import sharp from "sharp";
 import { callClaude, parseClaudeJsonResponse } from "@/lib/api/claude-client";
-import { CLAUDE_MODEL_SONNET } from "@/lib/api/config";
+import { CLAUDE_MODEL_MAIN } from "@/lib/api/config";
 import { log } from "@/lib/utils/logger";
 
 export interface PreCropData {
@@ -185,7 +185,7 @@ export async function claudeSmartPreCrop(
 
     const rawText = await Promise.race([
       callClaude({
-        model: CLAUDE_MODEL_SONNET,
+        model: CLAUDE_MODEL_MAIN,
         max_tokens: 256,
         messages: [{
           role: "user",

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { callClaudeJSON } from "@/lib/api/claude-client";
-import { CLAUDE_MODEL_SONNET } from "@/lib/api/config";
+import { CLAUDE_MODEL_MAIN } from "@/lib/api/config";
 import { requireApiKey, requireSupabaseAdmin } from "@/lib/api/guards";
 import { requireAiUser, enforceAiLimits, aiBudgetErrorResponse } from "@/lib/api/ai-guard";
 import { claudeRateLimit } from "@/lib/api/rate-limit";
@@ -81,7 +81,7 @@ export async function POST(request: Request) {
     }
 
     const raw = await callClaudeJSON<unknown>({
-      model: CLAUDE_MODEL_SONNET,
+      model: CLAUDE_MODEL_MAIN,
       system: systemPrompt,
       messages: [{ role: "user", content: userPrompt }],
       max_tokens: 1500,

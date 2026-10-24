@@ -17,7 +17,7 @@
  *   --force                Re-process all PDFs, even if already imported
  *   --delete-existing      Delete existing flyers for this country first
  *   --delay N              Delay in ms between pages (default 5000)
- *   --claude-model NAME    Claude model (default: claude-opus-4-6)
+ *   --claude-model NAME    Claude model (default: CLAUDE_MODEL_OPUS from src/lib/api/config.ts)
  *   --gemini-model NAME    Gemini model (default: gemini-2.5-pro)
  *
  * Prerequisites:
@@ -30,6 +30,7 @@ import { resolve } from "path";
 import { readdirSync, readFileSync, existsSync, writeFileSync } from "fs";
 import { createClient } from "@supabase/supabase-js";
 import { PDFDocument } from "pdf-lib";
+import { CLAUDE_MODEL_OPUS } from "../src/lib/api/config";
 import {
   callClaudeFlyer,
   detectProductBoxes,
@@ -63,7 +64,7 @@ function parseArgs() {
     force: false,
     deleteExisting: false,
     delay: 5000,
-    claudeModel: "claude-opus-4-6",
+    claudeModel: CLAUDE_MODEL_OPUS,
     geminiModel: "gemini-2.5-pro",
   };
   for (let i = 0; i < args.length; i++) {
@@ -212,7 +213,7 @@ async function main() {
 
       try {
         const [claudeResult, geminiBoxes] = await Promise.all([
-          callClaudeFlyer<FirstPageResult | PageResult>(pageBase64, prompt, opts.claudeModel, ANTHROPIC_API_KEY),
+          callClaudeFlyer<FirstPageResult | PageResult>(pageBase64, prompt, opts.claudeModel),
           detectProductBoxes(pageBase64, opts.geminiModel, GEMINI_API_KEY),
         ]);
 

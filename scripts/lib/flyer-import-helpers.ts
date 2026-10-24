@@ -5,6 +5,8 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { GoogleGenAI } from "@google/genai";
+import { callClaudeJSON } from "../../src/lib/api/claude-client";
+import { FLYER_CLAUDE_TIMEOUT_MS } from "../../src/lib/api/config";
 import { normalizeName } from "../../src/lib/products/normalize";
 import { getDemandGroupFallback } from "../../src/lib/products/demand-group-fallback";
 import { findExistingProduct } from "../../src/lib/products/find-existing";
@@ -136,53 +138,26 @@ const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 15_000;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+/**
+ * Extract one flyer page (PDF) with Claude via the shared client
+ * (`callClaudeJSON`: timeout, retry/backoff on 429/5xx, fence stripping,
+ * truncated-JSON repair). `ANTHROPIC_API_KEY` is read by the client.
+ */
 export async function callClaudeFlyer<T>(
-  pdfBase64: string, prompt: string, model: string, apiKey: string,
+  pdfBase64: string, prompt: string, model: string,
 ): Promise<T> {
-  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-    try {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": apiKey,
-          "anthropic-version": "2023-06-01",
-        },
-        body: JSON.stringify({
-          model,
-          max_tokens: 16384,
-          messages: [{
-            role: "user",
-            content: [
-              { type: "document", source: { type: "base64", media_type: "application/pdf", data: pdfBase64 } },
-              { type: "text", text: prompt },
-            ],
-          }],
-        }),
-      });
-      if (!res.ok) {
-        const errText = await res.text();
-        if (attempt < MAX_RETRIES && (res.status === 429 || res.status >= 500)) {
-          console.log(`    Claude ${res.status}, retry ${attempt}/${MAX_RETRIES}...`);
-          await sleep(RETRY_DELAY_MS);
-          continue;
-        }
-        throw new Error(`Claude API ${res.status}: ${errText.slice(0, 300)}`);
-      }
-      const data = await res.json();
-      const text: string = data.content?.[0]?.text ?? "";
-      const cleaned = text.replace(/^```json?\s*/i, "").replace(/\s*```\s*$/i, "").trim();
-      return JSON.parse(cleaned) as T;
-    } catch (e) {
-      if (attempt < MAX_RETRIES && e instanceof TypeError) {
-        console.log(`    Claude network error, retry ${attempt}/${MAX_RETRIES}...`);
-        await sleep(RETRY_DELAY_MS);
-        continue;
-      }
-      throw e;
-    }
-  }
-  throw new Error("Claude: max retries exceeded");
+  return callClaudeJSON<T>({
+    model,
+    max_tokens: 16384,
+    timeoutMs: FLYER_CLAUDE_TIMEOUT_MS,
+    messages: [{
+      role: "user",
+      content: [
+        { type: "document", source: { type: "base64", media_type: "application/pdf", data: pdfBase64 } },
+        { type: "text", text: prompt },
+      ],
+    }],
+  });
 }
 
 export async function detectProductBoxes(

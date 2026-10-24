@@ -8,7 +8,7 @@
 import { NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { callClaude, parseClaudeJsonResponse } from "@/lib/api/claude-client";
-import { CLAUDE_MODEL_SONNET } from "@/lib/api/config";
+import { CLAUDE_MODEL_MAIN } from "@/lib/api/config";
 import { decodeEanFromImageBuffer } from "@/lib/barcode-from-image";
 import { loadDemandGroups, loadDemandSubGroups, buildDemandGroupsAndSubGroupsPrompt } from "@/lib/categories/constants";
 import { buildVisionPrompt, type ClaudeResponse } from "./prompts";
@@ -70,7 +70,7 @@ export async function processVisionPhoto(
     ];
 
     const text = await callClaude({
-      model: CLAUDE_MODEL_SONNET,
+      model: CLAUDE_MODEL_MAIN,
       max_tokens: 8192,
       messages: [{ role: "user", content }],
     });

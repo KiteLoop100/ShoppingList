@@ -4,7 +4,7 @@
  */
 
 import { callClaudeJSON } from "@/lib/api/claude-client";
-import { CLAUDE_MODEL_SONNET } from "@/lib/api/config";
+import { CLAUDE_MODEL_MAIN } from "@/lib/api/config";
 import { safeFetch } from "@/lib/api/safe-fetch";
 import { parseIngredientString } from "@/lib/recipe/ingredient-parser";
 import type { ExtractedRecipe, RecipeIngredient } from "@/lib/recipe/types";
@@ -274,7 +274,7 @@ function aiRowToIngredient(row: Record<string, unknown>): RecipeIngredient {
 
 export async function extractWithAI(pageText: string, url: string): Promise<ExtractedRecipe> {
   const parsed = await callClaudeJSON<Record<string, unknown>>({
-    model: CLAUDE_MODEL_SONNET,
+    model: CLAUDE_MODEL_MAIN,
     system: RECIPE_EXTRACT_SYSTEM,
     max_tokens: 4096,
     temperature: 0,

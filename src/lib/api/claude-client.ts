@@ -6,7 +6,7 @@
  * errors (429, 500, 502, 503, 529).
  */
 
-import { CLAUDE_MODEL_SONNET } from "./config";
+import { CLAUDE_MODEL_MAIN } from "./config";
 import { consumeGlobalAiCall } from "./ai-budget";
 import { tryRepairTruncatedJson } from "@/lib/utils/repair-json";
 import { log } from "@/lib/utils/logger";
@@ -63,6 +63,21 @@ function isTimeoutError(err: unknown): boolean {
   return err instanceof DOMException && err.name === "TimeoutError";
 }
 
+interface ClaudeApiResponse {
+  content?: Array<{ type?: string; text?: string }>;
+  stop_reason?: string;
+}
+
+/**
+ * Text of the FIRST `type: "text"` block in a Messages API response.
+ * Newer models may return other block types first (e.g. thinking or tool
+ * use), so `content[0].text` is not safe. Returns "" when no text block exists.
+ */
+export function extractResponseText(data: ClaudeApiResponse): string {
+  const block = data.content?.find((b) => b.type === "text");
+  return typeof block?.text === "string" ? block.text : "";
+}
+
 /**
  * Call the Anthropic Messages API and return the raw text response.
  * Retries up to {@link MAX_RETRIES} times on transient errors and timeouts,
@@ -78,7 +93,7 @@ export async function callClaude(options: ClaudeOptions): Promise<string> {
   await consumeGlobalAiCall();
 
   const reqBody: Record<string, unknown> = {
-    model: options.model ?? CLAUDE_MODEL_SONNET,
+    model: options.model ?? CLAUDE_MODEL_MAIN,
     max_tokens: options.max_tokens,
     messages: options.messages,
   };
@@ -121,8 +136,8 @@ export async function callClaude(options: ClaudeOptions): Promise<string> {
         throw new ClaudeApiError(res.status, errText.slice(0, 300));
       }
 
-      const data = await res.json();
-      const text = (data.content?.[0]?.text as string) ?? "";
+      const data = (await res.json()) as ClaudeApiResponse;
+      const text = extractResponseText(data);
       if (!text) {
         log.warn("[claude] empty response text from API", { stop_reason: data.stop_reason });
       }

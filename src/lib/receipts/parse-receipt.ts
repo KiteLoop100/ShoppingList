@@ -6,7 +6,7 @@
 import { normalizeName, normalizeArticleNumber } from "@/lib/products/normalize";
 import { findProductByArticleNumber } from "@/lib/products/find-existing";
 import { categorizeCompetitorProductServer } from "@/lib/competitor-products/categorize-competitor-product";
-import { CLAUDE_MODEL_SONNET } from "@/lib/api/config";
+import { CLAUDE_MODEL_MAIN } from "@/lib/api/config";
 import { callClaude, parseClaudeJsonResponse } from "@/lib/api/claude-client";
 import { log } from "@/lib/utils/logger";
 import { isHomeRetailer, normalizeRetailerName } from "@/lib/retailers/retailers";
@@ -98,7 +98,7 @@ export async function callReceiptOcr(
     source: { type: "url" as const, url },
   }));
   const rawText = await callClaude({
-    model: CLAUDE_MODEL_SONNET,
+    model: CLAUDE_MODEL_MAIN,
     max_tokens: 8192,
     timeoutMs: 120_000,
     messages: [

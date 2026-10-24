@@ -18,7 +18,7 @@ vi.mock("@/lib/api/claude-client", () => ({
 }));
 
 vi.mock("@/lib/api/config", () => ({
-  CLAUDE_MODEL_SONNET: "claude-sonnet-test",
+  CLAUDE_MODEL_MAIN: "claude-sonnet-test",
 }));
 
 import { callClaude } from "@/lib/api/claude-client";

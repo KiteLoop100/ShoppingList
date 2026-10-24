@@ -31,7 +31,7 @@ function ok(text = "ok") {
   return {
     ok: true,
     status: 200,
-    json: () => Promise.resolve({ content: [{ text }] }),
+    json: () => Promise.resolve({ content: [{ type: "text", text }] }),
     text: () => Promise.resolve(text),
   };
 }

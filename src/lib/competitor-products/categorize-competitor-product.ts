@@ -163,7 +163,7 @@ export async function categorizeCompetitorProductServer(
         buildDemandGroupsAndSubGroupsPrompt,
       } = await import("@/lib/categories/constants");
       const { callClaudeJSON } = await import("@/lib/api/claude-client");
-      const { CLAUDE_MODEL_HAIKU } = await import("@/lib/api/config");
+      const { CLAUDE_MODEL_FAST } = await import("@/lib/api/config");
 
       const groups = await loadDemandGroups(supabase);
       const subGroups = await loadDemandSubGroups(supabase);
@@ -174,7 +174,7 @@ export async function categorizeCompetitorProductServer(
         demand_sub_group?: string;
         confidence: string;
       }>({
-        model: CLAUDE_MODEL_HAIKU,
+        model: CLAUDE_MODEL_FAST,
         system: `Du bist ein Supermarkt-Kategorie-Zuordner.
 Ordne das Produkt einer bestehenden Demand Group und Sub-Group zu.
 Antworte als JSON: {"demand_group_code": "83", "demand_sub_group": "83-02", "confidence": "high"|"medium"|"low"}

@@ -4,8 +4,10 @@ import {
   callClaudeJSON,
   ClaudeApiError,
   extractFirstBalancedJsonValue,
+  extractResponseText,
   parseClaudeJsonResponse,
 } from "../claude-client";
+import { CLAUDE_MODEL_MAIN } from "../config";
 
 const mockFetch = vi.fn();
 vi.stubGlobal("fetch", mockFetch);
@@ -46,7 +48,7 @@ afterEach(() => {
 describe("callClaude", () => {
   test("returns text from successful response", async () => {
     mockFetch.mockResolvedValueOnce(
-      jsonResponse({ content: [{ text: "Hello back" }] }),
+      jsonResponse({ content: [{ type: "text", text: "Hello back" }] }),
     );
 
     const result = await callClaude(VALID_OPTIONS);
@@ -72,7 +74,7 @@ describe("callClaude", () => {
     mockFetch
       .mockResolvedValueOnce(jsonResponse({ error: "rate limited" }, 429))
       .mockResolvedValueOnce(
-        jsonResponse({ content: [{ text: "ok" }] }),
+        jsonResponse({ content: [{ type: "text", text: "ok" }] }),
       );
 
     const result = await callClaude(VALID_OPTIONS);
@@ -84,7 +86,7 @@ describe("callClaude", () => {
     mockFetch
       .mockResolvedValueOnce(jsonResponse({ error: "server error" }, 500))
       .mockResolvedValueOnce(
-        jsonResponse({ content: [{ text: "recovered" }] }),
+        jsonResponse({ content: [{ type: "text", text: "recovered" }] }),
       );
 
     const result = await callClaude(VALID_OPTIONS);
@@ -96,7 +98,7 @@ describe("callClaude", () => {
     mockFetch
       .mockResolvedValueOnce(jsonResponse({ error: "overloaded" }, 529))
       .mockResolvedValueOnce(
-        jsonResponse({ content: [{ text: "recovered" }] }),
+        jsonResponse({ content: [{ type: "text", text: "recovered" }] }),
       );
 
     const result = await callClaude(VALID_OPTIONS);
@@ -120,7 +122,7 @@ describe("callClaude", () => {
     mockFetch
       .mockRejectedValueOnce(timeoutError)
       .mockResolvedValueOnce(
-        jsonResponse({ content: [{ text: "after timeout" }] }),
+        jsonResponse({ content: [{ type: "text", text: "after timeout" }] }),
       );
 
     const result = await callClaude(VALID_OPTIONS);
@@ -145,9 +147,70 @@ describe("callClaude", () => {
     expect(result).toBe("");
   });
 
+  test("returns the first text block even when a non-text block comes first", async () => {
+    mockFetch.mockResolvedValueOnce(
+      jsonResponse({
+        content: [
+          { type: "thinking", thinking: "let me think" },
+          { type: "tool_use", id: "t1", name: "x", input: {} },
+          { type: "text", text: "the answer" },
+          { type: "text", text: "a second text block" },
+        ],
+      }),
+    );
+
+    const result = await callClaude(VALID_OPTIONS);
+    expect(result).toBe("the answer");
+  });
+
+  test("returns empty string when only non-text blocks are present", async () => {
+    mockFetch.mockResolvedValueOnce(
+      jsonResponse({ content: [{ type: "thinking", thinking: "…" }] }),
+    );
+
+    const result = await callClaude(VALID_OPTIONS);
+    expect(result).toBe("");
+  });
+
+  test("uses CLAUDE_MODEL_MAIN when no model is given and honours an explicit model", async () => {
+    mockFetch.mockResolvedValue(
+      jsonResponse({ content: [{ type: "text", text: "ok" }] }),
+    );
+
+    await callClaude(VALID_OPTIONS);
+    const defaultBody = JSON.parse(mockFetch.mock.calls[0][1].body);
+    expect(defaultBody.model).toBe(CLAUDE_MODEL_MAIN);
+    expect(CLAUDE_MODEL_MAIN).toMatch(/^claude-/);
+
+    await callClaude({ ...VALID_OPTIONS, model: "claude-custom-1" });
+    const explicitBody = JSON.parse(mockFetch.mock.calls[1][1].body);
+    expect(explicitBody.model).toBe("claude-custom-1");
+  });
+});
+
+describe("extractResponseText", () => {
+  test("skips blocks whose type is not text", () => {
+    expect(
+      extractResponseText({
+        content: [{ type: "image" }, { type: "text", text: "hi" }],
+      }),
+    ).toBe("hi");
+  });
+
+  test("ignores a block that has text but the wrong type", () => {
+    expect(
+      extractResponseText({ content: [{ type: "tool_result", text: "nope" }] }),
+    ).toBe("");
+  });
+
+  test("handles missing content", () => {
+    expect(extractResponseText({})).toBe("");
+    expect(extractResponseText({ content: undefined })).toBe("");
+  });
+
   test("passes AbortSignal.timeout to fetch", async () => {
     mockFetch.mockResolvedValueOnce(
-      jsonResponse({ content: [{ text: "ok" }] }),
+      jsonResponse({ content: [{ type: "text", text: "ok" }] }),
     );
 
     await callClaude(VALID_OPTIONS);
@@ -160,7 +223,7 @@ describe("callClaude", () => {
 describe("callClaudeJSON", () => {
   test("parses JSON response", async () => {
     mockFetch.mockResolvedValueOnce(
-      jsonResponse({ content: [{ text: '{"name": "Test"}' }] }),
+      jsonResponse({ content: [{ type: "text", text: '{"name": "Test"}' }] }),
     );
 
     const result = await callClaudeJSON<{ name: string }>(VALID_OPTIONS);
@@ -169,7 +232,7 @@ describe("callClaudeJSON", () => {
 
   test("strips JSON fences before parsing", async () => {
     mockFetch.mockResolvedValueOnce(
-      jsonResponse({ content: [{ text: '```json\n{"name": "Test"}\n```' }] }),
+      jsonResponse({ content: [{ type: "text", text: '```json\n{"name": "Test"}\n```' }] }),
     );
 
     const result = await callClaudeJSON<{ name: string }>(VALID_OPTIONS);
