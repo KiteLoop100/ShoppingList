@@ -40,39 +40,46 @@ npm run set-store-layout-munich-richard-strauss         # Set aisle layout for M
 ### Technology Stack
 
 - **Next.js 14** (App Router), **React 18**, **TypeScript 5.6**, **Tailwind CSS**
-- **Supabase** — PostgreSQL, Auth (anonymous-first + email/password), Storage, Realtime
+- **Supabase** — PostgreSQL, Auth (anonymous-first + email/password), Storage, Realtime (`postgres_changes` subscriptions on `list_items`, `photo_uploads`, `user_settings`; everything else polls)
 - **Dexie.js** — IndexedDB for offline-first caching
 - **next-intl** — i18n (German `de` default, English `en`)
-- **Vitest** + **Playwright** — unit/integration and E2E tests
-- **Google Gemini** + **Anthropic Claude** — AI vision (product recognition, receipt OCR, flyer parsing)
+- **Vitest** + **Playwright** — unit/integration and E2E tests (Playwright has no `playwright.config.*` yet; specs in `tests/` expect a manually started dev server)
+- **Anthropic Claude** — all AI extraction: product photos, receipt OCR, flyer parsing, recipe extraction/matching, cook-chat, insights (`src/lib/api/claude-client.ts`, hand-rolled `fetch` client, no SDK)
+- **Google Gemini** — bounding-box detection only (`gemini-detect.ts`, `gemini-bbox.ts`); not used for text extraction
+- **Replicate / remove.bg** — background removal for product thumbnails
 - **Vercel** — deployment (auto-deploys on `git push` to `master`)
 
 ### Data Flow
 
-The app is **offline-first**: the local IndexedDB (Dexie.js) cache is the primary data source. Supabase syncs in the background via a delta-sync module. Users start anonymously; account creation is optional.
+The app is **offline-first**: the local IndexedDB (Dexie.js) cache is the primary data source. Supabase syncs in the background. There is **no dedicated sync module** — `src/lib/sync/` contains only a README; delta-sync logic lives in the individual services listed below. Users start anonymously; account creation is optional.
 
 ```
 Browser PWA
 ├── React UI (Next.js App Router, /src/app/[locale]/)
 ├── IndexedDB via Dexie.js  (/src/lib/db/)          ← primary data store
-├── Sync layer              (/src/lib/sync/)         ← delta-sync to Supabase
+├── Sync (per service)      products-context.tsx, settings/settings-sync.ts,
+│                           list/active-list*.ts, store/sync-pairwise-from-supabase.ts
 └── Service Worker (PWA)                             ← disabled in dev, enabled in prod
 
 Backend
 ├── Supabase (PostgreSQL, Auth, Storage, Realtime)
-├── Vercel API Routes       (/src/app/api/)           ← ~19 serverless endpoints
-└── External AI             (Gemini, Anthropic, Replicate/remove.bg)
+├── Vercel API Routes       (/src/app/api/)           ← 22 serverless endpoints (Oct 2026)
+└── External AI             (Anthropic Claude, Gemini bbox, Replicate/remove.bg)
 ```
 
 ### Key Subsystems
 
 **Search** (`/src/lib/search/`) — 4-stage client-side search pipeline delivering results in <50ms from IndexedDB. No external search service needed. Scoring signals are configurable; see `specs/SEARCH-ARCHITECTURE.md`.
 
-**Sorting** (`/src/lib/sorting/`, `/src/lib/store/`) — Self-learning aisle order. Three levels: pairwise comparisons (per-user), user-store learning, and chain-wide aggregation. Improves automatically from check-off sequences.
+**Sorting** (`/src/lib/store/aisle-order.ts`, `hierarchical-order.ts`, `/src/lib/list/save-checkoff-and-pairwise.ts`, `list-helpers.ts`) — Aisle order from pairwise comparisons on three layers (user-store, user-chain, chain-wide). **Learning is device-local**: check-off sequences and the pairwise comparisons derived from them are written to IndexedDB only. Supabase `pairwise_comparisons` is seeded by scripts and read-only from the app (`store/sync-pairwise-from-supabase.ts`); `checkoff_sequences` in Supabase is not referenced by `src/`. There is no cross-user aggregation yet. `src/lib/sorting/` is a README-only placeholder.
 
-**Photo Processing** (`/src/lib/api/photo-processing/`) — Claude Vision and Gemini classify uploaded photos, extract product info, and detect bounding boxes. Background removal via Replicate/remove.bg.
+**Photo Processing** (`/src/lib/api/photo-processing/`, `/src/lib/product-photo-studio/`) — Claude extracts product info from uploaded photos, receipts and flyer pages; Gemini only detects bounding boxes. Background removal via Replicate/remove.bg.
 
-**Auth** (`/src/lib/auth/`) — Anonymous-first flow. Users get a session immediately; email registration merges the anonymous account. Supabase RLS enforces per-user data isolation.
+**AI routes & cost guards** (`/src/lib/api/ai-guard.ts`, `ai-budget.ts`, `rate-limit.ts`) — All 9 routes that spend AI budget (`process-photo`, `process-flyer-page`, `process-receipt`, `assign-category`, `analyze-product-photos`, `insights/generate`, `recipe/extract`, `recipe/cook-chat`, `recipe/match-ingredients`) go through `requireAiUser()` + `enforceAiLimits()`: fail closed (503) in production without Upstash, per-user AND per-IP rate limits, and a global daily cap (`AI_GLOBAL_DAILY_CAP`, default 200). The global cap is consumed inside `callClaude()` and therefore **counts Claude calls only** — Gemini, Replicate and remove.bg calls are not metered. Because the app is anonymous-first, `requireAuth()` alone is never a spending guard.
+
+**Flyer import is admin-only** — PDF/flyer uploads (`process-photo` with `is_pdf`, `process-flyer-page`, `flyer-processing-status`) require the admin cookie (`requireAdminAuth` / `isAdminRequest`); `process-flyer-page` accepts uploader OR admin. `scripts/reprocess-all-flyers.mjs` logs in with `ADMIN_PASSWORD` or uses `ADMIN_SESSION_COOKIE`.
+
+**Auth** (`/src/lib/auth/`) — Anonymous-first flow. Users get a session immediately; email registration merges the anonymous account. Supabase RLS enforces per-user data isolation for user-owned tables; shared catalog tables (`products`, `competitor_products`, `product_photos`, …) are writable by every authenticated — i.e. every anonymous — session (see `specs/BACKLOG.md`).
 
 **i18n** — Route-based via next-intl. Locale prefix in URL (`/de/`, `/en/`). Translations in `/src/messages/de.json` and `en.json`.
 
@@ -81,7 +88,7 @@ Backend
 ```
 src/
 ├── app/
-│   ├── api/                # ~19 serverless API routes (process-photo, process-receipt, etc.)
+│   ├── api/                # 22 serverless API routes (process-photo, process-receipt, recipe/*, admin/*, …)
 │   ├── [locale]/           # i18n page routes
 │   │   ├── page.tsx        # Home (search + list + store detection)
 │   │   ├── catalog/        # Visual product catalog
@@ -89,14 +96,16 @@ src/
 │   │   ├── flyer/          # Digital flyer browser
 │   │   └── receipts/       # Receipt history & price tracking
 ├── components/             # React components grouped by feature
-├── lib/                    # Core business logic (search, sorting, sync, db, auth, …)
+├── lib/                    # Core business logic (search, store, list, db, auth, api, …)
+│                           # NOTE: lib/sorting/ and lib/sync/ are README-only placeholders
 ├── hooks/                  # Custom React hooks
 ├── messages/               # i18n translation files (de.json, en.json)
 ├── types/                  # TypeScript types (supabase.ts auto-generated)
 └── middleware.ts            # i18n routing + auth cookie sync
-supabase/migrations/         # 69 SQL migrations
+supabase/migrations/         # SQL migrations (74 as of Oct 2026; keep in sync with `npx supabase migration list`)
 scripts/                     # Data import & batch processing scripts
 specs/                       # Feature & architecture documentation (see specs/BACKLOG.md for backlog)
+.claude/commands/            # Claude Code slash commands (/implement, /audit, /backlog) — not available in Cursor
 ```
 
 ### Environment Variables
@@ -111,8 +120,9 @@ ANTHROPIC_API_KEY
 GOOGLE_GEMINI_API_KEY
 ADMIN_PASSWORD
 ADMIN_SESSION_SECRET        # 64-char hex
-UPSTASH_REDIS_REST_URL      # Rate limiting
+UPSTASH_REDIS_REST_URL      # Rate limiting — REQUIRED in production, AI routes return 503 without it
 UPSTASH_REDIS_REST_TOKEN
+AI_GLOBAL_DAILY_CAP         # Optional, default 200 — global daily cap on Claude calls (all routes, all users)
 REPLICATE_API_TOKEN         # OR REMOVE_BG_API_KEY (background removal)
 ```
 
@@ -152,12 +162,13 @@ Prettier config: 2-space indent, semicolons, double quotes. Path alias `@/*` map
 - `specs/PHOTO-PIPELINE.md` — product photo processing
 - `specs/FEATURES-PLANNED.md` — prioritized feature backlog with scoring and detailed specs
 - `specs/FEATURES-PHASE2-SPECS.md` — detailed specs for Phase 2 features (F31-F41)
-- `BACKLOG.md` — current task backlog
+- `specs/BACKLOG.md` — tech-debt, security and documentation backlog (there is no root `BACKLOG.md`)
 
 ### Reality-check rule
 Before executing any task, verify that referenced files, folders, and patterns actually exist in the current codebase. If anything in CLAUDE.md or a slash command prompt does not match the actual project state — missing files, renamed folders, outdated conventions, unexpected structures — STOP and report the discrepancy before proceeding. Never silently assume or work around a mismatch. Say exactly what you expected vs. what you found, and ask how to proceed.
 
-### Custom commands
+### Custom commands (Claude Code only)
+These live in `.claude/commands/` and are only available in Claude Code. Cursor does not pick them up (there is no `.cursor/commands/`); in Cursor, paste the command file's content as a prompt instead.
 - `/implement [spec-name]` — read spec, then implement step by step
 - `/audit [file-or-folder]` — check code against architecture and conventions
 - `/backlog` — review backlog and suggest next item
