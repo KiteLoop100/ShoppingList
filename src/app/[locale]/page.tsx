@@ -291,6 +291,7 @@ export default function MainScreenPage() {
           className="fixed inset-0 z-30 flex items-center justify-center bg-aldi-blue text-white transition-opacity duration-200"
           role="alert"
           aria-live="polite"
+          data-testid="trip-complete"
         >
           <div className="flex flex-col items-center gap-3">
             <span className="flex h-14 w-14 items-center justify-center rounded-full bg-white/20 text-3xl">✓</span>

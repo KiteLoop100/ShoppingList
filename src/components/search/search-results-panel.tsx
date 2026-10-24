@@ -26,6 +26,7 @@ export const SearchResultsPanel = memo(function SearchResultsPanel({
     <div
       className="absolute inset-0 z-10 flex flex-col overflow-auto bg-white"
       role="listbox"
+      data-testid="search-results"
     >
       {loading ? (
         <div className="p-4 text-center text-sm text-aldi-muted">
@@ -37,6 +38,7 @@ export const SearchResultsPanel = memo(function SearchResultsPanel({
             type="button"
             className="flex min-h-touch w-full items-center gap-3 border-b border-aldi-muted-light px-4 py-3 text-left text-[15px] text-aldi-blue transition-colors pointer-fine:hover:bg-aldi-blue/5"
             onClick={onAddGeneric}
+            data-testid="search-add-generic"
           >
             <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-aldi-blue text-white text-sm font-bold">+</span>
             <span className="flex-1 truncate font-medium">&ldquo;{query}&rdquo;</span>
@@ -46,7 +48,7 @@ export const SearchResultsPanel = memo(function SearchResultsPanel({
               {results.map((r) => {
                 const thumbUrl = r.thumbnail_url ?? r.product?.thumbnail_url;
                 return (
-                  <li key={r.product_id} role="option" aria-selected="false">
+                  <li key={r.product_id} role="option" aria-selected="false" data-testid="search-result">
                     <button
                       type="button"
                       className="flex min-h-touch w-full items-center gap-3 px-4 py-1.5 text-left text-[15px] text-aldi-text transition-colors pointer-fine:hover:bg-aldi-muted-light/40 focus:bg-aldi-muted-light/40 focus:outline-none"

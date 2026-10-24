@@ -39,6 +39,13 @@ certs/
 # Supabase CLI local state
 supabase/.temp/
 
+# Playwright output and the per-run anonymous test session
+tests/e2e/.auth/
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+
 # next-pwa generated service worker (regenerated on every build)
 public/sw.js
 public/sw.js.map

@@ -24,6 +24,7 @@ npx vitest run           # Run all tests once
 npx vitest               # Watch mode
 npx vitest --ui          # Browser UI
 npx vitest run src/lib/search   # Run tests in a specific folder
+npm run test:e2e         # Playwright e2e (tests/e2e, starts/reuses the dev server)
 
 # Database scripts
 npm run import-stores-DE             # Import ALDI stores from OpenStreetMap
@@ -43,7 +44,7 @@ npm run set-store-layout-munich-richard-strauss         # Set aisle layout for M
 - **Supabase** — PostgreSQL, Auth (anonymous-first + email/password), Storage, Realtime (`postgres_changes` subscriptions on `list_items`, `photo_uploads`, `user_settings`; everything else polls)
 - **Dexie.js** — IndexedDB for offline-first caching
 - **next-intl** — i18n (German `de` default, English `en`)
-- **Vitest** + **Playwright** — unit/integration and E2E tests (Playwright has no `playwright.config.*` yet; specs in `tests/` expect a manually started dev server)
+- **Vitest** + **Playwright** — unit/integration and E2E tests (`playwright.config.ts`, specs in `tests/e2e/`, phone viewport, `npm run test:e2e` starts or reuses the HTTPS dev server; teardown deletes each test's anonymous user via `SUPABASE_SERVICE_ROLE_KEY`)
 - **Anthropic Claude** — all AI extraction: product photos, receipt OCR, flyer parsing, recipe extraction/matching, cook-chat, insights (`src/lib/api/claude-client.ts`, hand-rolled `fetch` client, no SDK)
 - **Google Gemini** — bounding-box detection only (`gemini-detect.ts`, `gemini-bbox.ts`); not used for text extraction
 - **Replicate / remove.bg** — background removal for product thumbnails

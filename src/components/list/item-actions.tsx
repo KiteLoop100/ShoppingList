@@ -81,6 +81,7 @@ export function SwipeActionButtons({
         style={Z1_STYLE}
         onClick={onDelete}
         aria-label={deleteLabel}
+        data-testid="list-item-delete"
       >
         {deleteLabel}
       </button>

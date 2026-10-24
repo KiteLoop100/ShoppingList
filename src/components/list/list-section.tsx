@@ -46,7 +46,7 @@ export interface ListSectionProps extends ItemCallbacks {
 export const ListSection = memo(function ListSection({ items, grouped, ...cbs }: ListSectionProps) {
   if (grouped) {
     return (
-      <div className="space-y-3">
+      <div className="space-y-3" data-testid="unchecked-list">
         {groupConsecutiveByCategory(items).map((group, gi) => (
           <div key={`${group.categoryName}-${gi}`} className="space-y-1 border-l-4 pl-1"
             style={{ borderColor: getCategoryColor(group.demandGroupCode) }}>
@@ -61,7 +61,7 @@ export const ListSection = memo(function ListSection({ items, grouped, ...cbs }:
   }
 
   return (
-    <ul className="space-y-1">
+    <ul className="space-y-1" data-testid="unchecked-list">
       {items.map((item) => (
         <li key={item.item_id}>
           <ListItemRow item={item} {...cbs}
@@ -192,8 +192,8 @@ export const CheckedSection = memo(function CheckedSection({
 
   if (items.length === 0) return null;
   return (
-    <section className="mt-6">
-      <button type="button" onClick={onToggle}
+    <section className="mt-6" data-testid="checked-section">
+      <button type="button" onClick={onToggle} data-testid="checked-section-toggle"
         className="mb-3 flex w-full items-center gap-1 text-category font-semibold uppercase tracking-wider text-aldi-muted">
         <svg className={`h-3.5 w-3.5 transition-transform ${open ? "rotate-90" : ""}`}
           fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" aria-hidden>
