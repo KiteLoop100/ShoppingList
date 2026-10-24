@@ -50,6 +50,18 @@ export async function waitForListReady(page: Page): Promise<void> {
   ).toBeVisible({ timeout: 60_000 });
 }
 
+/**
+ * Waits until a freshly opened device is fully idle: list rendered, product
+ * catalog paged in (network idle), plus a grace period so that none of the
+ * startup refetches (catalog-loaded → refetch, active-list creation) can be
+ * mistaken for live sync afterwards.
+ */
+export async function waitForDeviceSettled(page: Page, graceMs = 5_000): Promise<void> {
+  await waitForListReady(page);
+  await page.waitForLoadState("networkidle", { timeout: 60_000 });
+  await page.waitForTimeout(graceMs);
+}
+
 export function searchInput(page: Page): Locator {
   return page.getByTestId("search-input");
 }

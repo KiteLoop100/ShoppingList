@@ -9,7 +9,11 @@ import {
   uncheckedRows,
   swipeRowLeft,
   uniqueName,
+  waitForDeviceSettled,
 } from "./helpers/app";
+import { AUTH_FILE } from "./helpers/auth-file";
+import { getSessionUserId, getStorageStateUserId } from "./helpers/test-user";
+import { cleanupTestUser } from "./helpers/supabase-admin";
 
 /**
  * Core shopping-list flows. All tests share the run's anonymous session
@@ -143,13 +147,13 @@ test.describe("Core shopping list flows", () => {
   });
 
   /**
-   * Two devices = two browser contexts sharing one account. There is no share
-   * link for anonymous users; the app syncs lists per account through Supabase
-   * (`list_items` Realtime subscription in use-list-data.ts). The second
-   * context reuses the stored session (same cookies, no extra sign-in), which
-   * is exactly what a second device gets after signing in to the same account.
+   * Two devices = two browser contexts with the same account (the second one
+   * reuses the stored session, no extra sign-in). Device B is left to settle
+   * completely before A adds an item, so only a live push (Supabase Realtime
+   * on `list_items`, use-list-data.ts) can make the item appear on B — not a
+   * reload and not one of the startup refetches.
    */
-  test("g) a change on one device appears on a second device with the same account", async ({ page, browser, contextOptions }) => {
+  test("g) a change on one device appears live on a second device with the same account", async ({ page, browser, contextOptions }) => {
     await openApp(page);
     const first = uniqueName("E2E Gerät A");
     await addFreeTextItem(page, first);
@@ -159,14 +163,89 @@ test.describe("Core shopping list flows", () => {
       const pageB = await deviceB.newPage();
       await skipOnboarding(pageB);
       await pageB.goto("/de");
-      await waitForListReady(pageB);
+      await waitForDeviceSettled(pageB);
       await expect(rowByName(pageB, first)).toBeVisible();
+      let reloads = 0;
+      pageB.on("load", () => reloads++);
 
       const second = uniqueName("E2E Gerät A2");
       await addFreeTextItem(page, second);
 
-      await expect(rowByName(pageB, second)).toBeVisible({ timeout: 20_000 });
+      await expect(rowByName(pageB, second)).toBeVisible({ timeout: 5_000 });
       await expect(uncheckedRows(pageB)).toHaveCount(2);
+      expect(reloads, "device B must not have reloaded").toBe(0);
+    } finally {
+      await deviceB.close();
+    }
+  });
+
+  /**
+   * Isolation: a different anonymous user (fresh context without the stored
+   * session → exactly one extra sign-in) must never receive another user's
+   * items, neither via query (RLS) nor via Realtime (RLS applies to the
+   * subscription as well).
+   */
+  test("h) a change is NOT visible to a different anonymous user", async ({ page, browser, contextOptions }) => {
+    await openApp(page);
+
+    const otherUser = await browser.newContext({ ...contextOptions, storageState: undefined });
+    let otherUserId: string | null = null;
+    try {
+      const pageB = await otherUser.newPage();
+      await openApp(pageB);
+      otherUserId = await getSessionUserId(otherUser);
+      expect(otherUserId, "second anonymous session must exist").toBeTruthy();
+      expect(otherUserId).not.toBe(getStorageStateUserId(AUTH_FILE));
+      await waitForDeviceSettled(pageB);
+      await expect(pageB.getByTestId("list-empty")).toBeVisible();
+
+      const name = uniqueName("E2E Privat");
+      await addFreeTextItem(page, name);
+
+      await pageB.waitForTimeout(10_000);
+      await expect(rowByName(pageB, name)).toHaveCount(0);
+      await expect(pageB.getByTestId("list-empty")).toBeVisible();
+    } finally {
+      await otherUser.close();
+      if (otherUserId) {
+        const result = await cleanupTestUser(otherUserId);
+        if (result.status === "skipped") console.warn(`[e2e h] cleanup of ${otherUserId} skipped: ${result.reason}`);
+      }
+    }
+  });
+
+  /**
+   * Deletions need REPLICA IDENTITY FULL on list_items: otherwise the DELETE
+   * event carries only the primary key, Realtime cannot evaluate the
+   * `list_id` filter and device B never hears about it.
+   */
+  test("i) a deletion on one device disappears live on a second device with the same account", async ({ page, browser, contextOptions }) => {
+    await openApp(page);
+    const keep = uniqueName("E2E Bleibt");
+    const remove = uniqueName("E2E Weg");
+    await addFreeTextItem(page, keep);
+    await addFreeTextItem(page, remove);
+    await expect(uncheckedRows(page)).toHaveCount(2);
+
+    const deviceB = await browser.newContext(contextOptions);
+    try {
+      const pageB = await deviceB.newPage();
+      await skipOnboarding(pageB);
+      await pageB.goto("/de");
+      await waitForDeviceSettled(pageB);
+      await expect(uncheckedRows(pageB)).toHaveCount(2);
+      let reloads = 0;
+      pageB.on("load", () => reloads++);
+
+      const row = rowByName(page, remove);
+      await swipeRowLeft(page, row);
+      await row.getByTestId("list-item-delete").click();
+      await expect(rowByName(page, remove)).toHaveCount(0);
+
+      await expect(rowByName(pageB, remove)).toHaveCount(0, { timeout: 5_000 });
+      await expect(uncheckedRows(pageB)).toHaveCount(1);
+      await expect(uncheckedRows(pageB).getByTestId("list-item-name")).toContainText(keep);
+      expect(reloads, "device B must not have reloaded").toBe(0);
     } finally {
       await deviceB.close();
     }

@@ -168,6 +168,15 @@ With the shopping list in Supabase, multiple devices can modify it. Without Real
 
 ### 4.2 Implementation
 
+**Prerequisites (neither is on by default)** — both set by migration `20261024190000_realtime_list_items.sql` (BL-91):
+
+1. `ALTER PUBLICATION supabase_realtime ADD TABLE list_items;` — a table only emits `postgres_changes` events if it is in the publication. Without it the server rejects the subscription below ("Unable to subscribe to changes with given parameters") and devices only sync on reload, which is what happened in production until 2026-10-24.
+2. `ALTER TABLE list_items REPLICA IDENTITY FULL;` — with the default identity a DELETE event carries only the primary key, so the `list_id=eq.…` filter cannot be evaluated and deletions are silently dropped; adds/check-offs/quantity changes would sync but deletions would not. FULL writes the whole old row to WAL on UPDATE/DELETE (acceptable for this table).
+
+RLS on `list_items` applies to Realtime too, so a client only receives events for lists it owns. Verified by e2e tests (g) add, (h) isolation between users, (i) delete in `tests/e2e/core-flows.spec.ts`.
+
+Current code (`src/components/list/use-list-data.ts`) does not patch local state from the payload; on any event it calls `refetch()` (skipped while a check-off animation is running).
+
 ```typescript
 // Subscribe to list item changes for the active list
 const channel = supabase
@@ -307,7 +316,7 @@ The header does not show login status. Account management is in Settings only.
 - **Supabase Auth must be configured:** Enable email/password provider in Supabase Dashboard → Authentication → Providers
 - **Email confirmation:** Disable for Friendly User Test (simpler onboarding). Enable later.
 - **Anonymous Auth:** Enable in Supabase Dashboard → Authentication → Settings → "Enable anonymous sign-ins"
-- **Realtime:** Enabled by default in Supabase. No extra config needed.
+- **Realtime:** The Realtime service is on by default, but each table must be added to the `supabase_realtime` publication explicitly (`ALTER PUBLICATION supabase_realtime ADD TABLE …`). Done via migrations for `user_settings`, `inventory_items` and — since `20261024190000_realtime_list_items.sql` — `list_items`; `photo_uploads` was added in the dashboard only (see BL-75-style drift). Verify with `select tablename from pg_publication_tables where pubname = 'supabase_realtime'`.
 
 ---
 

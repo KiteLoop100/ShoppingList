@@ -103,7 +103,7 @@ src/
 ├── messages/               # i18n translation files (de.json, en.json)
 ├── types/                  # TypeScript types (supabase.ts auto-generated)
 └── middleware.ts            # i18n routing + auth cookie sync
-supabase/migrations/         # SQL migrations (74 as of Oct 2026; keep in sync with `npx supabase migration list`)
+supabase/migrations/         # SQL migrations (75 as of Oct 2026; keep in sync with `npx supabase migration list`)
 scripts/                     # Data import & batch processing scripts
 specs/                       # Feature & architecture documentation (see specs/BACKLOG.md for backlog)
 .claude/commands/            # Claude Code slash commands (/implement, /audit, /backlog) — not available in Cursor
