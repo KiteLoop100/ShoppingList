@@ -7,9 +7,10 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getDemandGroupFallback } from "@/lib/products/demand-group-fallback";
-import { generalRateLimit, checkRateLimit, getIdentifier } from "@/lib/api/rate-limit";
-import { CLAUDE_MODEL_SONNET } from "@/lib/api/config";
+import { generalRateLimit } from "@/lib/api/rate-limit";
+import { CLAUDE_MODEL_SONNET, FLYER_CLAUDE_TIMEOUT_MS } from "@/lib/api/config";
 import { requireApiKey, requireSupabaseAdmin } from "@/lib/api/guards";
+import { requireAiUser, enforceAiLimits } from "@/lib/api/ai-guard";
 import { callClaudeJSON } from "@/lib/api/claude-client";
 import { loadDemandGroups, loadDemandSubGroups, buildDemandGroupsAndSubGroupsPrompt } from "@/lib/categories/constants";
 import {
@@ -27,6 +28,9 @@ import { findExistingProduct } from "@/lib/products/find-existing";
 import { upsertProduct } from "@/lib/products/upsert-product";
 import { getDefaultDemandGroupCode, getAktionsartikelDemandGroupCode } from "@/lib/products/default-category";
 
+/** One flyer page = one 16k-token Claude PDF call (timeout {@link FLYER_CLAUDE_TIMEOUT_MS}). */
+export const maxDuration = 300;
+
 const processFlyerPageSchema = z.object({
   upload_id: z.string().min(1).max(100),
   flyer_id: z.string().min(1).max(100),
@@ -36,6 +40,10 @@ const processFlyerPageSchema = z.object({
 export async function POST(request: Request) {
   const apiKeyCheck = requireApiKey();
   if (apiKeyCheck instanceof NextResponse) return apiKeyCheck;
+
+  const access = await requireAiUser(request);
+  if (access instanceof NextResponse) return access;
+  const { user } = access;
 
   let rawBody: unknown;
   try {
@@ -53,11 +61,8 @@ export async function POST(request: Request) {
   }
   const { upload_id, flyer_id, page_number } = parsed.data;
 
-  const rateLimitResponse = await checkRateLimit(
-    generalRateLimit,
-    getIdentifier(request)
-  );
-  if (rateLimitResponse) return rateLimitResponse;
+  const limited = await enforceAiLimits(request, user.id, generalRateLimit);
+  if (limited) return limited;
 
   const supabase = requireSupabaseAdmin();
   if (supabase instanceof NextResponse) return supabase;
@@ -66,11 +71,12 @@ export async function POST(request: Request) {
 
   const { data: uploadRow, error: uploadErr } = await supabase
     .from("photo_uploads")
-    .select("upload_id, status, extracted_data, products_created, products_updated")
+    .select("upload_id, user_id, status, extracted_data, products_created, products_updated")
     .eq("upload_id", upload_id)
     .single();
 
-  if (uploadErr || !uploadRow) {
+  // Service-role client bypasses RLS: only the uploader may continue processing.
+  if (uploadErr || !uploadRow || uploadRow.user_id !== user.id) {
     return NextResponse.json({ error: "Upload not found" }, { status: 404 });
   }
 
@@ -149,6 +155,7 @@ export async function POST(request: Request) {
     callClaudeJSON<{ products?: ExtractedProduct[] }>({
       model: CLAUDE_MODEL_SONNET,
       max_tokens: 16384,
+      timeoutMs: FLYER_CLAUDE_TIMEOUT_MS,
       messages: [
         {
           role: "user",

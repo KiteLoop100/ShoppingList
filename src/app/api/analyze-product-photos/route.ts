@@ -10,11 +10,8 @@
 
 import { NextResponse } from "next/server";
 import { requireApiKey } from "@/lib/api/guards";
-import {
-  claudeRateLimit,
-  checkRateLimit,
-  getIdentifier,
-} from "@/lib/api/rate-limit";
+import { claudeRateLimit } from "@/lib/api/rate-limit";
+import { requireAiUser, enforceAiLimits } from "@/lib/api/ai-guard";
 import { analyzeRequestSchema } from "@/lib/product-photo-studio/types";
 import type { PhotoRole } from "@/lib/product-photo-studio/types";
 import { processProductPhotos } from "@/lib/product-photo-studio/pipeline";
@@ -27,11 +24,8 @@ export async function POST(request: Request) {
   const apiKey = requireApiKey();
   if (apiKey instanceof NextResponse) return apiKey;
 
-  const rateLimitResponse = await checkRateLimit(
-    claudeRateLimit,
-    getIdentifier(request),
-  );
-  if (rateLimitResponse) return rateLimitResponse;
+  const access = await requireAiUser(request);
+  if (access instanceof NextResponse) return access;
 
   let rawBody: unknown;
   try {
@@ -55,6 +49,10 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   }
+
+  // Limits apply after validation so malformed requests don't burn quota.
+  const limited = await enforceAiLimits(request, access.user.id, claudeRateLimit);
+  if (limited) return limited;
 
   try {
     const images = parsed.data.images.map((img) => ({

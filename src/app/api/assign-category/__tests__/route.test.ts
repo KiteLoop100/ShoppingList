@@ -1,15 +1,24 @@
-import { describe, test, expect, vi, beforeEach } from "vitest";
+import { describe, test, expect, vi, beforeEach, afterEach } from "vitest";
 import { NextResponse } from "next/server";
+import { requireAuth } from "@/lib/api/guards";
+import {
+  checkRateLimit,
+  getGlobalAiCapLimiter,
+  isRateLimitConfigured,
+} from "@/lib/api/rate-limit";
 
 vi.mock("@/lib/api/rate-limit", () => ({
-  claudeRateLimit: {},
+  claudeRateLimit: { fake: "claude" },
   checkRateLimit: vi.fn().mockResolvedValue(null),
   getIdentifier: vi.fn().mockReturnValue("test"),
+  isRateLimitConfigured: vi.fn().mockReturnValue(true),
+  getGlobalAiCapLimiter: vi.fn(),
 }));
 
 vi.mock("@/lib/api/guards", () => ({
   requireApiKey: vi.fn().mockReturnValue("mock-key"),
   requireSupabaseAdmin: vi.fn().mockReturnValue(mockSupabase()),
+  requireAuth: vi.fn(),
 }));
 
 vi.mock("@/lib/api/claude-client", () => ({
@@ -53,9 +62,86 @@ function makeRequest(body: unknown): Request {
   });
 }
 
+function setCap(success: boolean) {
+  const limit = vi.fn().mockResolvedValue({ success, reset: Date.now() + 60_000 });
+  vi.mocked(getGlobalAiCapLimiter).mockReturnValue({ limit } as never);
+}
+
 describe("/api/assign-category", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(requireAuth).mockResolvedValue({ user: { id: "user-1" } } as never);
+    vi.mocked(checkRateLimit).mockResolvedValue(null);
+    vi.mocked(isRateLimitConfigured).mockReturnValue(true);
+    setCap(true);
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  describe("access control and limits", () => {
+    test("returns 401 when there is no session and calls no AI", async () => {
+      vi.mocked(requireAuth).mockResolvedValue(
+        NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
+      );
+      const { callClaudeJSON } = await import("@/lib/api/claude-client");
+      const { POST } = await import("../route");
+      const res = await POST(makeRequest({ productName: "Milch" }));
+      expect(res.status).toBe(401);
+      expect(callClaudeJSON).not.toHaveBeenCalled();
+    });
+
+    test("returns 503 in production when Upstash is not configured", async () => {
+      vi.stubEnv("NODE_ENV", "production");
+      vi.mocked(isRateLimitConfigured).mockReturnValue(false);
+      const { callClaudeJSON } = await import("@/lib/api/claude-client");
+      const { POST } = await import("../route");
+      const res = await POST(makeRequest({ productName: "Milch" }));
+      expect(res.status).toBe(503);
+      expect(callClaudeJSON).not.toHaveBeenCalled();
+    });
+
+    test("returns 429 when the per-user/IP limit is hit", async () => {
+      vi.mocked(checkRateLimit).mockResolvedValue(
+        NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 }),
+      );
+      const { callClaudeJSON } = await import("@/lib/api/claude-client");
+      const { POST } = await import("../route");
+      const res = await POST(makeRequest({ productName: "Milch" }));
+      expect(res.status).toBe(429);
+      expect(callClaudeJSON).not.toHaveBeenCalled();
+    });
+
+    test("returns 429 global_daily_cap when the global cap is hit", async () => {
+      setCap(false);
+      const { callClaudeJSON } = await import("@/lib/api/claude-client");
+      const { POST } = await import("../route");
+      const res = await POST(makeRequest({ productName: "Milch" }));
+      expect(res.status).toBe(429);
+      expect((await res.json()).code).toBe("global_daily_cap");
+      expect(callClaudeJSON).not.toHaveBeenCalled();
+    });
+
+    test("applies user and IP limits with the claude limiter", async () => {
+      const { callClaudeJSON } = await import("@/lib/api/claude-client");
+      (callClaudeJSON as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        demand_group_code: "83",
+        demand_sub_group: "83-02",
+        confidence: "high",
+      });
+      const { POST } = await import("../route");
+      await POST(makeRequest({ productName: "Vollmilch" }));
+      expect(checkRateLimit).toHaveBeenCalledWith({ fake: "claude" }, "user:user-1");
+      expect(checkRateLimit).toHaveBeenCalledWith({ fake: "claude" }, "ip:test");
+    });
+
+    test("invalid input does not consume rate-limit quota", async () => {
+      const { POST } = await import("../route");
+      const res = await POST(makeRequest({ productName: "" }));
+      expect(res.status).toBe(400);
+      expect(checkRateLimit).not.toHaveBeenCalled();
+    });
   });
 
   test("Stage 1: matches existing group and sub-group", async () => {

@@ -7,7 +7,8 @@ import {
   type DemandGroupEntry,
   type DemandSubGroupEntry,
 } from "@/lib/categories/constants";
-import { claudeRateLimit, checkRateLimit, getIdentifier } from "@/lib/api/rate-limit";
+import { claudeRateLimit } from "@/lib/api/rate-limit";
+import { requireAiUser, enforceAiLimits } from "@/lib/api/ai-guard";
 import { CLAUDE_MODEL_HAIKU } from "@/lib/api/config";
 import { requireApiKey, requireSupabaseAdmin } from "@/lib/api/guards";
 import { callClaudeJSON } from "@/lib/api/claude-client";
@@ -44,6 +45,9 @@ export async function POST(req: Request) {
   const apiKeyCheck = requireApiKey();
   if (apiKeyCheck instanceof NextResponse) return apiKeyCheck;
 
+  const access = await requireAiUser(req);
+  if (access instanceof NextResponse) return access;
+
   const supabase = requireSupabaseAdmin();
   if (supabase instanceof NextResponse) return supabase;
 
@@ -63,11 +67,8 @@ export async function POST(req: Request) {
   }
   const { productName } = parsed.data;
 
-  const rateLimitResponse = await checkRateLimit(
-    claudeRateLimit,
-    getIdentifier(req)
-  );
-  if (rateLimitResponse) return rateLimitResponse;
+  const limited = await enforceAiLimits(req, access.user.id, claudeRateLimit);
+  if (limited) return limited;
 
   try {
     const groups = await loadDemandGroups(supabase);

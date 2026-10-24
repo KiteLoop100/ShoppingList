@@ -6,7 +6,7 @@ import { NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { PDFDocument } from "pdf-lib";
 import { callClaudeJSON } from "@/lib/api/claude-client";
-import { CLAUDE_MODEL_SONNET } from "@/lib/api/config";
+import { CLAUDE_MODEL_SONNET, FLYER_CLAUDE_TIMEOUT_MS } from "@/lib/api/config";
 import { loadDemandGroups, loadDemandSubGroups, buildDemandGroupsAndSubGroupsPrompt } from "@/lib/categories/constants";
 import {
   PDF_PAGES_INITIAL_MAX,
@@ -29,6 +29,7 @@ async function callClaudeWithPdf(
   return callClaudeJSON<ClaudeResponse>({
     model: CLAUDE_MODEL_SONNET,
     max_tokens: 16384,
+    timeoutMs: FLYER_CLAUDE_TIMEOUT_MS,
     messages: [
       {
         role: "user",

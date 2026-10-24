@@ -79,6 +79,47 @@ export const recipeAiDailyRateLimit = redis
     })
   : null;
 
+/** True when Upstash credentials are present (rate limiting is actually enforced). */
+export function isRateLimitConfigured(): boolean {
+  return redis !== null;
+}
+
+/** Default number of AI-route calls allowed per UTC day across ALL users. */
+export const DEFAULT_GLOBAL_AI_DAILY_CAP = 200;
+
+/**
+ * Global daily cap on AI calls, from env `AI_GLOBAL_DAILY_CAP`.
+ * Falls back to {@link DEFAULT_GLOBAL_AI_DAILY_CAP} when unset or not a positive integer.
+ */
+export function getGlobalAiDailyCap(): number {
+  const raw = process.env.AI_GLOBAL_DAILY_CAP;
+  if (!raw) return DEFAULT_GLOBAL_AI_DAILY_CAP;
+  const n = Number(raw);
+  return Number.isInteger(n) && n > 0 ? n : DEFAULT_GLOBAL_AI_DAILY_CAP;
+}
+
+const globalCapLimiters = new Map<number, Ratelimit>();
+
+/**
+ * Fixed-window (UTC day) counter shared by every user, keyed by one constant
+ * identifier. Returns null when Upstash is not configured.
+ */
+export function getGlobalAiCapLimiter(): Ratelimit | null {
+  if (!redis) return null;
+  const cap = getGlobalAiDailyCap();
+  let limiter = globalCapLimiters.get(cap);
+  if (!limiter) {
+    limiter = new Ratelimit({
+      redis,
+      limiter: Ratelimit.fixedWindow(cap, "1 d"),
+      analytics: true,
+      prefix: "ratelimit:ai-global",
+    });
+    globalCapLimiters.set(cap, limiter);
+  }
+  return limiter;
+}
+
 export function getIdentifier(
   request: Request,
   userId?: string | null

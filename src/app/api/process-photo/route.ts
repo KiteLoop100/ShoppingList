@@ -5,11 +5,9 @@
 
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import {
-  claudeRateLimit,
-  checkRateLimit,
-  getIdentifier,
-} from "@/lib/api/rate-limit";
+import { claudeRateLimit } from "@/lib/api/rate-limit";
+import { requireAiUser, enforceAiLimits } from "@/lib/api/ai-guard";
+import { validateStoragePhotoUrl } from "@/lib/api/photo-processing/validate-photo-url";
 import { requireApiKey, requireSupabaseAdmin } from "@/lib/api/guards";
 import { fetchAndPreprocessImage } from "@/lib/api/photo-processing/image-utils";
 import { processDataExtraction } from "@/lib/api/photo-processing/process-data-extraction";
@@ -17,6 +15,9 @@ import { processFlyer } from "@/lib/api/photo-processing/process-flyer";
 import { processVisionPhoto } from "@/lib/api/photo-processing/process-product-photo";
 import { log } from "@/lib/utils/logger";
 
+
+/** PDF flyers are split and extracted page by page inside this request. */
+export const maxDuration = 300;
 
 const processPhotoSchema = z.object({
   upload_id: z.string().min(1).max(100),
@@ -30,6 +31,10 @@ export async function POST(request: Request) {
 
   const apiKey = requireApiKey();
   if (apiKey instanceof NextResponse) return apiKey;
+
+  const access = await requireAiUser(request);
+  if (access instanceof NextResponse) return access;
+  const { user } = access;
 
   let rawBody: unknown;
   try {
@@ -57,14 +62,35 @@ export async function POST(request: Request) {
     data_extraction,
   );
 
-  const rateLimitResponse = await checkRateLimit(
-    claudeRateLimit,
-    getIdentifier(request),
-  );
-  if (rateLimitResponse) return rateLimitResponse;
+  // SSRF guard: only fetch public objects from our own Supabase Storage.
+  try {
+    validateStoragePhotoUrl(photo_url);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Invalid photo_url";
+    log.warn("[process-photo] Rejected photo_url:", msg);
+    return NextResponse.json({ error: msg }, { status: 400 });
+  }
+
+  const limited = await enforceAiLimits(request, user.id, claudeRateLimit);
+  if (limited) return limited;
 
   const supabase = requireSupabaseAdmin();
   if (supabase instanceof NextResponse) return supabase;
+
+  // The service-role client below bypasses RLS, so ownership is checked here.
+  // Missing and foreign uploads both return 404 so upload ids cannot be probed.
+  const { data: upload, error: uploadErr } = await supabase
+    .from("photo_uploads")
+    .select("upload_id, user_id")
+    .eq("upload_id", upload_id)
+    .maybeSingle();
+  if (uploadErr) {
+    log.error("[process-photo] Upload lookup failed:", uploadErr.message);
+    return NextResponse.json({ error: "Failed to load upload" }, { status: 500 });
+  }
+  if (!upload || upload.user_id !== user.id) {
+    return NextResponse.json({ error: "Upload not found" }, { status: 404 });
+  }
 
   const now = new Date().toISOString();
 
