@@ -167,8 +167,9 @@ Prettier config: 2-space indent, semicolons, double quotes. Path alias `@/*` map
 ### Reality-check rule
 Before executing any task, verify that referenced files, folders, and patterns actually exist in the current codebase. If anything in CLAUDE.md or a slash command prompt does not match the actual project state — missing files, renamed folders, outdated conventions, unexpected structures — STOP and report the discrepancy before proceeding. Never silently assume or work around a mismatch. Say exactly what you expected vs. what you found, and ask how to proceed.
 
-### Custom commands (Claude Code only)
-These live in `.claude/commands/` and are only available in Claude Code. Cursor does not pick them up (there is no `.cursor/commands/`); in Cursor, paste the command file's content as a prompt instead.
-- `/implement [spec-name]` — read spec, then implement step by step
-- `/audit [file-or-folder]` — check code against architecture and conventions
-- `/backlog` — review backlog and suggest next item
+### Custom commands
+Claude Code commands live in `.claude/commands/`, Cursor commands in `.cursor/commands/`; each tool only picks up its own folder. To use a command in the other tool, paste the file's content as a prompt.
+- `/implement [spec-name]` (Claude Code) — read spec, then implement step by step
+- `/audit [file-or-folder]` (Claude Code) — check code against architecture and conventions
+- `/backlog` (Claude Code) — review backlog and suggest next item
+- `/feature` (Cursor, `.cursor/commands/feature.md`): turns a product-manager change request into criteria, plan, implementation and test report, with approval stops after criteria and plan.
