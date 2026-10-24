@@ -103,36 +103,6 @@ export type Database = {
         }
         Relationships: []
       }
-      categories_archive_20260227: {
-        Row: {
-          category_id: string | null
-          created_at: string | null
-          default_sort_position: number | null
-          icon: string | null
-          name: string | null
-          name_translations: Json | null
-          updated_at: string | null
-        }
-        Insert: {
-          category_id?: string | null
-          created_at?: string | null
-          default_sort_position?: number | null
-          icon?: string | null
-          name?: string | null
-          name_translations?: Json | null
-          updated_at?: string | null
-        }
-        Update: {
-          category_id?: string | null
-          created_at?: string | null
-          default_sort_position?: number | null
-          icon?: string | null
-          name?: string | null
-          name_translations?: Json | null
-          updated_at?: string | null
-        }
-        Relationships: []
-      }
       checkoff_sequences: {
         Row: {
           created_at: string
@@ -358,6 +328,33 @@ export type Database = {
             referencedColumns: ["code"]
           },
         ]
+      }
+      cook_conversations: {
+        Row: {
+          created_at: string
+          id: string
+          messages: Json
+          pantry_snapshot: Json | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          messages?: Json
+          pantry_snapshot?: Json | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          messages?: Json
+          pantry_snapshot?: Json | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       demand_groups: {
         Row: {
@@ -801,51 +798,6 @@ export type Database = {
           },
         ]
       }
-      list_items_archive_20260227: {
-        Row: {
-          added_at: string | null
-          category_id: string | null
-          checked_at: string | null
-          custom_name: string | null
-          display_name: string | null
-          is_checked: boolean | null
-          item_id: string | null
-          list_id: string | null
-          product_id: string | null
-          quantity: number | null
-          sort_position: number | null
-          updated_at: string | null
-        }
-        Insert: {
-          added_at?: string | null
-          category_id?: string | null
-          checked_at?: string | null
-          custom_name?: string | null
-          display_name?: string | null
-          is_checked?: boolean | null
-          item_id?: string | null
-          list_id?: string | null
-          product_id?: string | null
-          quantity?: number | null
-          sort_position?: number | null
-          updated_at?: string | null
-        }
-        Update: {
-          added_at?: string | null
-          category_id?: string | null
-          checked_at?: string | null
-          custom_name?: string | null
-          display_name?: string | null
-          is_checked?: boolean | null
-          item_id?: string | null
-          list_id?: string | null
-          product_id?: string | null
-          quantity?: number | null
-          sort_position?: number | null
-          updated_at?: string | null
-        }
-        Relationships: []
-      }
       pairwise_comparisons: {
         Row: {
           a_before_b_count: number
@@ -1153,144 +1105,6 @@ export type Database = {
           },
         ]
       }
-      products_archive_20260227: {
-        Row: {
-          allergens: string | null
-          animal_welfare_level: number | null
-          article_number: string | null
-          assortment_type: string | null
-          availability: string | null
-          availability_scope: string | null
-          base_price_text: string | null
-          brand: string | null
-          category_id: string | null
-          country: string | null
-          created_at: string | null
-          crowdsource_status: string | null
-          demand_group: string | null
-          demand_sub_group: string | null
-          ean_barcode: string | null
-          flyer_id: string | null
-          flyer_page: number | null
-          ingredients: string | null
-          is_bio: boolean | null
-          is_gluten_free: boolean | null
-          is_lactose_free: boolean | null
-          is_private_label: boolean | null
-          is_seasonal: boolean | null
-          is_vegan: boolean | null
-          name: string | null
-          name_normalized: string | null
-          nutrition_info: Json | null
-          photo_source_id: string | null
-          popularity_score: number | null
-          price: number | null
-          price_updated_at: string | null
-          product_id: string | null
-          receipt_abbreviation: string | null
-          region: string | null
-          sales_volume_week: number | null
-          source: string | null
-          special_end_date: string | null
-          special_start_date: string | null
-          status: string | null
-          thumbnail_back_url: string | null
-          thumbnail_url: string | null
-          updated_at: string | null
-          weight_or_quantity: string | null
-        }
-        Insert: {
-          allergens?: string | null
-          animal_welfare_level?: number | null
-          article_number?: string | null
-          assortment_type?: string | null
-          availability?: string | null
-          availability_scope?: string | null
-          base_price_text?: string | null
-          brand?: string | null
-          category_id?: string | null
-          country?: string | null
-          created_at?: string | null
-          crowdsource_status?: string | null
-          demand_group?: string | null
-          demand_sub_group?: string | null
-          ean_barcode?: string | null
-          flyer_id?: string | null
-          flyer_page?: number | null
-          ingredients?: string | null
-          is_bio?: boolean | null
-          is_gluten_free?: boolean | null
-          is_lactose_free?: boolean | null
-          is_private_label?: boolean | null
-          is_seasonal?: boolean | null
-          is_vegan?: boolean | null
-          name?: string | null
-          name_normalized?: string | null
-          nutrition_info?: Json | null
-          photo_source_id?: string | null
-          popularity_score?: number | null
-          price?: number | null
-          price_updated_at?: string | null
-          product_id?: string | null
-          receipt_abbreviation?: string | null
-          region?: string | null
-          sales_volume_week?: number | null
-          source?: string | null
-          special_end_date?: string | null
-          special_start_date?: string | null
-          status?: string | null
-          thumbnail_back_url?: string | null
-          thumbnail_url?: string | null
-          updated_at?: string | null
-          weight_or_quantity?: string | null
-        }
-        Update: {
-          allergens?: string | null
-          animal_welfare_level?: number | null
-          article_number?: string | null
-          assortment_type?: string | null
-          availability?: string | null
-          availability_scope?: string | null
-          base_price_text?: string | null
-          brand?: string | null
-          category_id?: string | null
-          country?: string | null
-          created_at?: string | null
-          crowdsource_status?: string | null
-          demand_group?: string | null
-          demand_sub_group?: string | null
-          ean_barcode?: string | null
-          flyer_id?: string | null
-          flyer_page?: number | null
-          ingredients?: string | null
-          is_bio?: boolean | null
-          is_gluten_free?: boolean | null
-          is_lactose_free?: boolean | null
-          is_private_label?: boolean | null
-          is_seasonal?: boolean | null
-          is_vegan?: boolean | null
-          name?: string | null
-          name_normalized?: string | null
-          nutrition_info?: Json | null
-          photo_source_id?: string | null
-          popularity_score?: number | null
-          price?: number | null
-          price_updated_at?: string | null
-          product_id?: string | null
-          receipt_abbreviation?: string | null
-          region?: string | null
-          sales_volume_week?: number | null
-          source?: string | null
-          special_end_date?: string | null
-          special_start_date?: string | null
-          status?: string | null
-          thumbnail_back_url?: string | null
-          thumbnail_url?: string | null
-          updated_at?: string | null
-          weight_or_quantity?: string | null
-        }
-        Relationships: []
-      }
       receipt_items: {
         Row: {
           article_number: string | null
@@ -1468,6 +1282,93 @@ export type Database = {
         }
         Relationships: []
       }
+      recipe_imports: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          extraction_method: string
+          id: string
+          source_url: string
+          success: boolean
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          extraction_method: string
+          id?: string
+          source_url: string
+          success: boolean
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          extraction_method?: string
+          id?: string
+          source_url?: string
+          success?: boolean
+          user_id?: string
+        }
+        Relationships: []
+      }
+      saved_recipes: {
+        Row: {
+          aldi_adapted: boolean
+          cook_time_minutes: number | null
+          created_at: string
+          difficulty: string | null
+          id: string
+          ingredients: Json
+          instructions: Json | null
+          last_used_at: string | null
+          original_servings: number
+          prep_time_minutes: number | null
+          servings_label: string
+          source_name: string
+          source_type: string
+          source_url: string | null
+          title: string
+          user_id: string
+        }
+        Insert: {
+          aldi_adapted?: boolean
+          cook_time_minutes?: number | null
+          created_at?: string
+          difficulty?: string | null
+          id?: string
+          ingredients: Json
+          instructions?: Json | null
+          last_used_at?: string | null
+          original_servings: number
+          prep_time_minutes?: number | null
+          servings_label?: string
+          source_name: string
+          source_type: string
+          source_url?: string | null
+          title: string
+          user_id: string
+        }
+        Update: {
+          aldi_adapted?: boolean
+          cook_time_minutes?: number | null
+          created_at?: string
+          difficulty?: string | null
+          id?: string
+          ingredients?: Json
+          instructions?: Json | null
+          last_used_at?: string | null
+          original_servings?: number
+          prep_time_minutes?: number | null
+          servings_label?: string
+          source_name?: string
+          source_type?: string
+          source_url?: string | null
+          title?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       shopping_lists: {
         Row: {
           completed_at: string | null
@@ -1567,6 +1468,7 @@ export type Database = {
           opening_hours: string | null
           postal_code: string
           region: string | null
+          retailer: string | null
           sorting_data_quality: number
           store_id: string
           updated_at: string
@@ -1584,6 +1486,7 @@ export type Database = {
           opening_hours?: string | null
           postal_code: string
           region?: string | null
+          retailer?: string | null
           sorting_data_quality?: number
           store_id?: string
           updated_at?: string
@@ -1601,63 +1504,10 @@ export type Database = {
           opening_hours?: string | null
           postal_code?: string
           region?: string | null
+          retailer?: string | null
           sorting_data_quality?: number
           store_id?: string
           updated_at?: string
-        }
-        Relationships: []
-      }
-      stores_archive_20260227: {
-        Row: {
-          address: string | null
-          city: string | null
-          country: string | null
-          created_at: string | null
-          external_id: string | null
-          has_sorting_data: boolean | null
-          latitude: number | null
-          longitude: number | null
-          name: string | null
-          opening_hours: string | null
-          postal_code: string | null
-          region: string | null
-          sorting_data_quality: number | null
-          store_id: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          address?: string | null
-          city?: string | null
-          country?: string | null
-          created_at?: string | null
-          external_id?: string | null
-          has_sorting_data?: boolean | null
-          latitude?: number | null
-          longitude?: number | null
-          name?: string | null
-          opening_hours?: string | null
-          postal_code?: string | null
-          region?: string | null
-          sorting_data_quality?: number | null
-          store_id?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          address?: string | null
-          city?: string | null
-          country?: string | null
-          created_at?: string | null
-          external_id?: string | null
-          has_sorting_data?: boolean | null
-          latitude?: number | null
-          longitude?: number | null
-          name?: string | null
-          opening_hours?: string | null
-          postal_code?: string | null
-          region?: string | null
-          sorting_data_quality?: number | null
-          store_id?: string | null
-          updated_at?: string | null
         }
         Relationships: []
       }

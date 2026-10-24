@@ -41,7 +41,3 @@ FROM products;
 SELECT external_id, name, latitude, longitude 
 FROM stores 
 WHERE latitude = 0 OR longitude = 0;
-
--- Archive verification (should match old counts)
-SELECT 'products_archive' as tbl, COUNT(*) FROM products_archive_20260227
-UNION ALL SELECT 'stores_archive', COUNT(*) FROM stores_archive_20260227;
