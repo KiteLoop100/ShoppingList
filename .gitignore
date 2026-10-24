@@ -36,3 +36,5 @@ certs/
 
 # Word/Office temp lock files
 ~$*
+# Supabase CLI local state
+supabase/.temp/
