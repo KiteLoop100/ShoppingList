@@ -198,6 +198,7 @@ export function ProductSearch({
               onBlur={() => { setTimeout(() => window.scrollTo({ top: 0 }), 100); }}
               placeholder={placeholder} aria-label={ariaLabel ?? placeholder}
               autoComplete="off" enterKeyHint="done" disabled={adding}
+              data-testid="search-input"
               className="min-h-touch min-w-0 flex-1 rounded-xl border-0 bg-transparent px-4 py-3 text-[15px] text-aldi-text placeholder:text-aldi-muted focus:outline-none disabled:opacity-50"
             />
             {showChips && (

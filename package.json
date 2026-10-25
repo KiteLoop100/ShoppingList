@@ -8,6 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "format": "prettier --write \"src/**/*.{ts,tsx,json}\"",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
     "import-stores-DE": "tsx scripts/import-stores-DE.ts",
     "import-stores-AT": "tsx scripts/import-stores-AT.ts",
     "import-test-products": "tsx scripts/import-test-products.ts",

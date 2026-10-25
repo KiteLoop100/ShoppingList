@@ -24,6 +24,7 @@ npx vitest run           # Run all tests once
 npx vitest               # Watch mode
 npx vitest --ui          # Browser UI
 npx vitest run src/lib/search   # Run tests in a specific folder
+npm run test:e2e         # Playwright e2e (tests/e2e, starts/reuses the dev server)
 
 # Database scripts
 npm run import-stores-DE             # Import ALDI stores from OpenStreetMap
@@ -40,10 +41,10 @@ npm run set-store-layout-munich-richard-strauss         # Set aisle layout for M
 ### Technology Stack
 
 - **Next.js 14** (App Router), **React 18**, **TypeScript 5.6**, **Tailwind CSS**
-- **Supabase** — PostgreSQL, Auth (anonymous-first + email/password), Storage, Realtime (`postgres_changes` subscriptions on `list_items`, `photo_uploads`, `user_settings`; everything else polls)
+- **Supabase** — PostgreSQL, Auth (anonymous-first + email/password), Storage, Realtime. `postgres_changes` subscriptions exist in code for `list_items` (`use-list-data.ts`), `photo_uploads` (`capture-status-feed.tsx`) and `user_settings` (`settings-client.tsx`), but the live `supabase_realtime` publication contains only `inventory_items`, `photo_uploads`, `user_settings` (verified 2026-10-24). **The `list_items` subscription is rejected by the server** ("Unable to subscribe to changes…"), so there is no live multi-device list sync; a second device only picks up changes on reload or when `use-list-fetch.ts` refetches after the product catalog finishes loading. Everything else polls.
 - **Dexie.js** — IndexedDB for offline-first caching
 - **next-intl** — i18n (German `de` default, English `en`)
-- **Vitest** + **Playwright** — unit/integration and E2E tests (Playwright has no `playwright.config.*` yet; specs in `tests/` expect a manually started dev server)
+- **Vitest** + **Playwright** — unit/integration and E2E tests (`playwright.config.ts`, specs in `tests/e2e/`, phone viewport, `npm run test:e2e` starts or reuses the HTTPS dev server; global setup signs in one anonymous user per run, global teardown deletes exactly that user id via `SUPABASE_SERVICE_ROLE_KEY`)
 - **Anthropic Claude** — all AI extraction: product photos, receipt OCR, flyer parsing, recipe extraction/matching, cook-chat, insights (`src/lib/api/claude-client.ts`, hand-rolled `fetch` client, no SDK)
 - **Google Gemini** — bounding-box detection only (`gemini-detect.ts`, `gemini-bbox.ts`); not used for text extraction
 - **Replicate / remove.bg** — background removal for product thumbnails
@@ -102,7 +103,7 @@ src/
 ├── messages/               # i18n translation files (de.json, en.json)
 ├── types/                  # TypeScript types (supabase.ts auto-generated)
 └── middleware.ts            # i18n routing + auth cookie sync
-supabase/migrations/         # SQL migrations (74 as of Oct 2026; keep in sync with `npx supabase migration list`)
+supabase/migrations/         # SQL migrations (75 as of Oct 2026; keep in sync with `npx supabase migration list`)
 scripts/                     # Data import & batch processing scripts
 specs/                       # Feature & architecture documentation (see specs/BACKLOG.md for backlog)
 .claude/commands/            # Claude Code slash commands (/implement, /audit, /backlog) — not available in Cursor
@@ -168,8 +169,9 @@ Prettier config: 2-space indent, semicolons, double quotes. Path alias `@/*` map
 ### Reality-check rule
 Before executing any task, verify that referenced files, folders, and patterns actually exist in the current codebase. If anything in CLAUDE.md or a slash command prompt does not match the actual project state — missing files, renamed folders, outdated conventions, unexpected structures — STOP and report the discrepancy before proceeding. Never silently assume or work around a mismatch. Say exactly what you expected vs. what you found, and ask how to proceed.
 
-### Custom commands (Claude Code only)
-These live in `.claude/commands/` and are only available in Claude Code. Cursor does not pick them up (there is no `.cursor/commands/`); in Cursor, paste the command file's content as a prompt instead.
-- `/implement [spec-name]` — read spec, then implement step by step
-- `/audit [file-or-folder]` — check code against architecture and conventions
-- `/backlog` — review backlog and suggest next item
+### Custom commands
+Claude Code commands live in `.claude/commands/`, Cursor commands in `.cursor/commands/`; each tool only picks up its own folder. To use a command in the other tool, paste the file's content as a prompt.
+- `/implement [spec-name]` (Claude Code) — read spec, then implement step by step
+- `/audit [file-or-folder]` (Claude Code) — check code against architecture and conventions
+- `/backlog` (Claude Code) — review backlog and suggest next item
+- `/feature` (Cursor, `.cursor/commands/feature.md`): turns a product-manager change request into criteria, plan, implementation and test report, with approval stops after criteria and plan.

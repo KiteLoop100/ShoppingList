@@ -76,6 +76,7 @@ export function ItemName({
         />
       ) : (
         <span
+          data-testid="list-item-name"
           className={`block truncate text-[15px] leading-tight ${
             item.is_checked ? "text-aldi-muted line-through" : isDeferred ? "text-aldi-muted" : "text-aldi-text"
           } ${!item.product_id ? "italic" : ""} ${hasOpenDetail ? "hover:underline" : ""}`}

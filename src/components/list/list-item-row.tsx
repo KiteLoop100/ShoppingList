@@ -134,6 +134,9 @@ export const ListItemRow = memo(function ListItemRow({
     <div
       className={`group relative min-w-0 w-full overflow-hidden rounded-xl focus-within:ring-2 focus-within:ring-aldi-blue/30 focus-within:ring-offset-1${isExiting ? " animate-check-exit" : ""}`}
       tabIndex={isExiting ? -1 : 0}
+      data-testid="list-item"
+      data-item-id={item.item_id}
+      data-checked={item.is_checked ? "true" : "false"}
       onKeyDown={handleRowKeyDown}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
@@ -169,6 +172,7 @@ export const ListItemRow = memo(function ListItemRow({
             onClick={handleCircleClick}
             aria-checked={item.is_checked}
             role="checkbox"
+            data-testid="list-item-check"
             aria-label={item.is_checked ? t("uncheckItem") : t("checkItem")}
             disabled={isDeferred}
           >
