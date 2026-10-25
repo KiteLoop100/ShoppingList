@@ -126,7 +126,7 @@ Wenn KEINE passende Gruppe existiert, antworte: {"demand_group_code": null, "con
       role: "user",
       content: `Produkt: "${productName}"\n\n${groupsPrompt}`,
     }],
-    max_tokens: 200,
+    max_tokens: 512,
   });
 
   if (!result.demand_group_code || result.confidence === "none") {
@@ -177,7 +177,7 @@ suggested_parent_meta: Code einer bestehenden Meta-Kategorie (M01-M12) unter die
       role: "user",
       content: `Produkt: "${productName}"\n\nBestehende Gruppen (Code: Name):\n${existingList}`,
     }],
-    max_tokens: 300,
+    max_tokens: 512,
   });
 
   const agCode = await generateNextAgCode(supabase);

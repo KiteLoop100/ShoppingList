@@ -265,7 +265,9 @@ Regeln:
   // Shared client: timeout, retries, fence stripping, truncated-JSON repair.
   return callClaudeJSON<MECEAnalysis>({
     model: CLAUDE_MODEL_MAIN,
-    max_tokens: 2000,
+    // One merge/keep entry per AI group plus its sub-group mapping: grows with the candidate list.
+    max_tokens: 8192,
+    timeoutMs: 120_000,
     messages: [{ role: "user", content: prompt }],
   });
 }

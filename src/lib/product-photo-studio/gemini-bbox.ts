@@ -186,7 +186,7 @@ export async function claudeSmartPreCrop(
     const rawText = await Promise.race([
       callClaude({
         model: CLAUDE_MODEL_MAIN,
-        max_tokens: 256,
+        max_tokens: 512,
         messages: [{
           role: "user",
           content: [

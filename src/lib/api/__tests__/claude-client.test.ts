@@ -8,6 +8,7 @@ import {
   parseClaudeJsonResponse,
 } from "../claude-client";
 import { CLAUDE_MODEL_MAIN } from "../config";
+import { log } from "@/lib/utils/logger";
 
 const mockFetch = vi.fn();
 vi.stubGlobal("fetch", mockFetch);
@@ -54,6 +55,36 @@ describe("callClaude", () => {
     const result = await callClaude(VALID_OPTIONS);
     expect(result).toBe("Hello back");
     expect(mockFetch).toHaveBeenCalledTimes(1);
+  });
+
+  test("warns when the answer was cut off at max_tokens", async () => {
+    mockFetch.mockResolvedValueOnce(
+      jsonResponse({
+        content: [{ type: "text", text: '{"code": "83", "sub' }],
+        stop_reason: "max_tokens",
+      }),
+    );
+
+    const result = await callClaude({ ...VALID_OPTIONS, max_tokens: 64 });
+
+    expect(result).toBe('{"code": "83", "sub');
+    expect(log.warn).toHaveBeenCalledWith(
+      expect.stringContaining("max_tokens"),
+      expect.objectContaining({ max_tokens: 64 }),
+    );
+  });
+
+  test("does not warn about max_tokens on a normal end_turn", async () => {
+    mockFetch.mockResolvedValueOnce(
+      jsonResponse({
+        content: [{ type: "text", text: "done" }],
+        stop_reason: "end_turn",
+      }),
+    );
+
+    await callClaude(VALID_OPTIONS);
+
+    expect(log.warn).not.toHaveBeenCalled();
   });
 
   test("throws when ANTHROPIC_API_KEY is missing", async () => {

@@ -183,7 +183,7 @@ Wenn KEINE passende Gruppe existiert, antworte: {"demand_group_code": null, "con
           role: "user",
           content: `Produkt: "${productName}"\n\n${groupsPrompt}`,
         }],
-        max_tokens: 200,
+        max_tokens: 512,
       });
 
       if (result.demand_group_code && result.confidence !== "none") {

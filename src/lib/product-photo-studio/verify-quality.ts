@@ -67,7 +67,7 @@ export async function verifyThumbnailQuality(
         recommendation?: string;
       }>({
         model: CLAUDE_MODEL_FAST,
-        max_tokens: 512,
+        max_tokens: 1024,
         messages: [
           {
             role: "user",

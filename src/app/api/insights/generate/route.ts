@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { callClaudeJSON } from "@/lib/api/claude-client";
-import { CLAUDE_MODEL_MAIN } from "@/lib/api/config";
+import { CLAUDE_MODEL_MAIN, routeDeadline } from "@/lib/api/config";
 import { requireApiKey, requireSupabaseAdmin } from "@/lib/api/guards";
 import { requireAiUser, enforceAiLimits, aiBudgetErrorResponse } from "@/lib/api/ai-guard";
 import { claudeRateLimit } from "@/lib/api/rate-limit";
@@ -22,7 +22,7 @@ import {
 } from "@/lib/insights/types";
 import { log } from "@/lib/utils/logger";
 
-export const maxDuration = 60;
+export const maxDuration = 120;
 
 const INSIGHTS_UNAVAILABLE = {
   error: "Insights sind gerade nicht verfügbar. Bitte versuche es später.",
@@ -84,7 +84,10 @@ export async function POST(request: Request) {
       model: CLAUDE_MODEL_MAIN,
       system: systemPrompt,
       messages: [{ role: "user", content: userPrompt }],
-      max_tokens: 1500,
+      max_tokens: 3000,
+      // The 30 s default attempt timeout would cut a 3000-token answer short.
+      timeoutMs: 60_000,
+      deadlineAt: routeDeadline(maxDuration),
       temperature: 0.4,
     });
 

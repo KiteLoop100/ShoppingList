@@ -141,6 +141,14 @@ export async function callClaude(options: ClaudeOptions): Promise<string> {
       if (!text) {
         log.warn("[claude] empty response text from API", { stop_reason: data.stop_reason });
       }
+      // A cut-off JSON answer can be "repaired" into a plausible but wrong value,
+      // so make the truncation visible instead of failing silently.
+      if (data.stop_reason === "max_tokens") {
+        log.warn("[claude] answer truncated at max_tokens; raise the limit for this call", {
+          model: reqBody.model,
+          max_tokens: options.max_tokens,
+        });
+      }
       return text;
     } catch (err) {
       if (isTimeoutError(err) && attempt < MAX_RETRIES) {

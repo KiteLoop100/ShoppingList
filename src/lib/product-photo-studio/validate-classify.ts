@@ -43,7 +43,7 @@ export async function classifyPhotos(
       overall_assessment?: string;
     }>({
       model: CLAUDE_MODEL_MAIN,
-      max_tokens: 1024,
+      max_tokens: 2048,
       messages: [{
         role: "user",
         content: buildImageContent(images, classifyPhotosPrompt(images.length)),
