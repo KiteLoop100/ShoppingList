@@ -88,7 +88,6 @@ export async function POST(request: Request) {
       // The 30 s default attempt timeout would cut a 3000-token answer short.
       timeoutMs: 60_000,
       deadlineAt: routeDeadline(maxDuration),
-      temperature: 0.4,
     });
 
     const parsed = insightResponseSchema.safeParse(raw);

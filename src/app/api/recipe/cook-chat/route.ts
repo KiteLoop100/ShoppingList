@@ -229,7 +229,6 @@ export async function POST(request: Request) {
         messages,
         // recipe_detail = message + full recipe; ~50 s of output at 3000 tokens fits the 90 s limit.
         max_tokens: 3000,
-        temperature: 0.7,
         timeoutMs: 90_000,
       });
     };

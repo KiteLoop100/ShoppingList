@@ -27,7 +27,9 @@ export interface ClaudeOptions {
   system?: string;
   messages: ClaudeMessage[];
   max_tokens: number;
-  temperature?: number;
+  // NOTE: there is deliberately no `temperature` (or top_p / top_k). The Claude 5.x
+  // models answer HTTP 400 "`temperature` is deprecated for this model." and every
+  // route using them failed. Steer style and determinism through the prompt instead.
   /** Per-attempt timeout in ms (default 30 s). */
   timeoutMs?: number;
   /**
@@ -98,7 +100,6 @@ export async function callClaude(options: ClaudeOptions): Promise<string> {
     messages: options.messages,
   };
   if (options.system) reqBody.system = options.system;
-  if (options.temperature !== undefined) reqBody.temperature = options.temperature;
 
   const headers = {
     "Content-Type": "application/json",

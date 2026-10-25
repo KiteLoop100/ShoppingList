@@ -6,6 +6,7 @@ import {
   extractFirstBalancedJsonValue,
   extractResponseText,
   parseClaudeJsonResponse,
+  type ClaudeOptions,
 } from "../claude-client";
 import { CLAUDE_MODEL_MAIN } from "../config";
 import { log } from "@/lib/utils/logger";
@@ -72,6 +73,18 @@ describe("callClaude", () => {
       expect.stringContaining("max_tokens"),
       expect.objectContaining({ max_tokens: 64 }),
     );
+  });
+
+  test("never sends temperature, even if a caller still passes it (new models answer 400)", async () => {
+    mockFetch.mockResolvedValueOnce(
+      jsonResponse({ content: [{ type: "text", text: "ok" }], stop_reason: "end_turn" }),
+    );
+
+    await callClaude({ ...VALID_OPTIONS, temperature: 0.7 } as unknown as ClaudeOptions);
+
+    const sent = JSON.parse(mockFetch.mock.calls[0][1].body as string) as Record<string, unknown>;
+    expect(sent).not.toHaveProperty("temperature");
+    expect(sent.max_tokens).toBe(100);
   });
 
   test("does not warn about max_tokens on a normal end_turn", async () => {

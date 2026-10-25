@@ -277,7 +277,6 @@ export async function extractWithAI(pageText: string, url: string): Promise<Extr
     model: CLAUDE_MODEL_MAIN,
     system: RECIPE_EXTRACT_SYSTEM,
     max_tokens: 4096,
-    temperature: 0,
     messages: [
       {
         role: "user",
