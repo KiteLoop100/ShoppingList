@@ -7,11 +7,13 @@ import { useAuth } from "@/lib/auth/auth-context";
 import { createClientIfConfigured } from "@/lib/supabase/client";
 import { TopicCard } from "@/components/insights/topic-card";
 import { InsightResult } from "@/components/insights/insight-result";
+import { InsightsOnboarding } from "@/components/insights/insights-onboarding";
+import { fetchReceiptWindowStatus, INSIGHTS_MIN_RECEIPTS } from "@/lib/insights/receipt-window";
 import type { InsightResponse, InsightTopic } from "@/lib/insights/types";
 import { log } from "@/lib/utils/logger";
 
 type PageState = "checking" | "onboarding" | "idle" | "loading" | "result" | "error";
-const MIN_RECEIPTS = 3, SPARSE_RECEIPTS = 5, COOLDOWN_SECONDS = 10, LOOKBACK_DAYS = 90;
+const SPARSE_RECEIPTS = 5, COOLDOWN_SECONDS = 10;
 
 const TOPICS: { topic: InsightTopic; icon: string; titleKey: string; descKey: string }[] = [
   { topic: "savings", icon: "💰", titleKey: "topicSavings", descKey: "topicSavingsDesc" },
@@ -35,6 +37,7 @@ export function InsightsClient() {
 
   const [state, setState] = useState<PageState>("checking");
   const [receiptCount, setReceiptCount] = useState(0);
+  const [latestReceiptDate, setLatestReceiptDate] = useState<string | null>(null);
   const [selectedTopic, setSelectedTopic] = useState<InsightTopic | null>(null);
   const [customQuery, setCustomQuery] = useState("");
   const [householdSize, setHouseholdSize] = useState(() => {
@@ -65,16 +68,10 @@ export function InsightsClient() {
     const supabase = createClientIfConfigured();
     if (!supabase) { setState("idle"); return; }
     try {
-      const cutoff = new Date();
-      cutoff.setDate(cutoff.getDate() - LOOKBACK_DAYS);
-      const { count, error } = await supabase
-        .from("receipts")
-        .select("*", { count: "exact", head: true })
-        .gte("purchase_date", cutoff.toISOString().slice(0, 10));
-      if (error) { log.warn("[insights] receipt count query failed:", error.message); setState("idle"); return; }
-      const c = count ?? 0;
-      setReceiptCount(c);
-      setState(c < MIN_RECEIPTS ? "onboarding" : "idle");
+      const status = await fetchReceiptWindowStatus(supabase);
+      setReceiptCount(status.countInWindow);
+      setLatestReceiptDate(status.latestReceiptDate);
+      setState(status.countInWindow < INSIGHTS_MIN_RECEIPTS ? "onboarding" : "idle");
     } catch (err) {
       log.warn("[insights] receipt count check failed:", err);
       setState("idle");
@@ -176,18 +173,7 @@ export function InsightsClient() {
         </div>
       )}
 
-      {state === "onboarding" && (
-        <div className="px-4 py-12 text-center">
-          <p className="mt-4 text-aldi-muted">{t("onboardingTitle")}</p>
-          <p className="mt-2 text-sm text-aldi-muted">{t("onboardingHint")}</p>
-          <Link
-            href="/capture"
-            className="mt-6 inline-block rounded-lg bg-aldi-blue px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-aldi-blue/90"
-          >
-            {t("onboardingScanButton")}
-          </Link>
-        </div>
-      )}
+      {state === "onboarding" && <InsightsOnboarding latestReceiptDate={latestReceiptDate} />}
 
       {state === "result" && result && (
         <div className="px-4 pt-4 pb-6">

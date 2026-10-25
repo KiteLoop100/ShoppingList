@@ -198,6 +198,8 @@ If the user has fewer than 3 receipts or 2 completed shopping trips, the Insight
 └─────────────────────────────────────┘
 ```
 
+> **Implemented behavior (Oct 2026):** The gate counts only `receipts` with a `purchase_date` in the **last 90 days** (rolling window, same window as the server-side context) and requires **at least 3** of them. Shopping trips are not part of the gate. Receipts older than 90 days or without a `purchase_date` do not count, so a user who stops scanning drops out of Insights after a while. Message: "Für Insights brauchst du mindestens 3 gescannte Kassenbons aus den letzten 3 Monaten." If the user has any dated receipt, a second line "Dein letzter Bon ist vom <Datum>." shows the newest `purchase_date`; the scan button stays. Code: `src/lib/insights/receipt-window.ts` (query, constants), `src/components/insights/insights-onboarding.tsx` (UI).
+
 ---
 
 ## 4. Technical Architecture
