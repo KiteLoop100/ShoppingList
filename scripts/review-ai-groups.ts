@@ -14,13 +14,14 @@ import { config } from "dotenv";
 import { resolve } from "path";
 import { createClient } from "@supabase/supabase-js";
 import { executeMerge, deduplicatePairwise, type SubGroupMapping } from "./lib/mece-merge";
+import { callClaudeJSON } from "@/lib/api/claude-client";
+import { CLAUDE_MODEL_MAIN } from "@/lib/api/config";
 
 config({ path: resolve(process.cwd(), ".env.local") });
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY!;
-const CLAUDE_MODEL_SONNET = "claude-sonnet-4-5-20250929";
 
 const isDryRun = process.argv.includes("--dry-run");
 
@@ -261,37 +262,14 @@ Regeln:
 - old_code ist immer eine AI-Gruppe (AG...), new_code eine bestehende curated Gruppe.
 - sub_group_mapping muss alle Sub-Groups der AI-Gruppe abdecken.`;
 
-  const response = await callClaude(prompt);
-  const cleaned = response
-    .replace(/^```json?\s*/i, "")
-    .replace(/\s*```\s*$/i, "")
-    .trim();
-
-  return JSON.parse(cleaned) as MECEAnalysis;
-}
-
-async function callClaude(prompt: string): Promise<string> {
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": ANTHROPIC_API_KEY,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify({
-      model: CLAUDE_MODEL_SONNET,
-      max_tokens: 2000,
-      messages: [{ role: "user", content: prompt }],
-    }),
+  // Shared client: timeout, retries, fence stripping, truncated-JSON repair.
+  return callClaudeJSON<MECEAnalysis>({
+    model: CLAUDE_MODEL_MAIN,
+    // One merge/keep entry per AI group plus its sub-group mapping: grows with the candidate list.
+    max_tokens: 8192,
+    timeoutMs: 120_000,
+    messages: [{ role: "user", content: prompt }],
   });
-
-  if (!res.ok) {
-    const text = await res.text().catch(() => "unknown");
-    throw new Error(`Claude API ${res.status}: ${text.slice(0, 300)}`);
-  }
-
-  const data = await res.json();
-  return (data.content?.[0]?.text as string) ?? "";
 }
 
 function thirtyDaysAgo(): string {

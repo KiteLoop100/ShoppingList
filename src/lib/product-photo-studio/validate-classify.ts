@@ -5,7 +5,7 @@
  */
 
 import { callClaudeJSON } from "@/lib/api/claude-client";
-import { CLAUDE_MODEL_SONNET } from "@/lib/api/config";
+import { CLAUDE_MODEL_MAIN } from "@/lib/api/config";
 import { classifyPhotosPrompt } from "./prompts";
 import { buildImageContent } from "./build-image-content";
 import type {
@@ -42,8 +42,8 @@ export async function classifyPhotos(
       suspicious_content?: boolean;
       overall_assessment?: string;
     }>({
-      model: CLAUDE_MODEL_SONNET,
-      max_tokens: 1024,
+      model: CLAUDE_MODEL_MAIN,
+      max_tokens: 2048,
       messages: [{
         role: "user",
         content: buildImageContent(images, classifyPhotosPrompt(images.length)),

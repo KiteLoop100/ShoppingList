@@ -29,6 +29,8 @@ import { resolve, join } from "path";
 import { readdirSync, readFileSync, mkdirSync, rmSync, writeFileSync } from "fs";
 import { execFileSync } from "child_process";
 import sharp from "sharp";
+import { callClaude } from "@/lib/api/claude-client";
+import { CLAUDE_MODEL_MAIN } from "@/lib/api/config";
 
 function getFfmpegPath(): string {
   try {
@@ -41,7 +43,6 @@ function getFfmpegPath(): string {
 config({ path: resolve(process.cwd(), ".env.local") });
 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
-const CLAUDE_MODEL = "claude-sonnet-4-5-20250929";
 
 const PROMPT = `Das Bild zeigt einen Ausschnitt aus einem Supermarkt/Discounter (z.B. ALDI).
 Welche Produktkategorie bzw. welcher Bereich ist zu sehen?
@@ -117,42 +118,29 @@ async function getCategoryForImage(imagePath: string, maxSize: number): Promise<
   }
   const base64 = buffer.toString("base64");
 
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": ANTHROPIC_API_KEY!,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify({
-      model: CLAUDE_MODEL,
-      max_tokens: 128,
-      messages: [
-        {
-          role: "user",
-          content: [
-            {
-              type: "image",
-              source: {
-                type: "base64",
-                media_type: "image/jpeg",
-                data: base64,
-              },
+  // Shared client: timeout, retry/backoff, first text block of the response.
+  const raw = await callClaude({
+    model: CLAUDE_MODEL_MAIN,
+    max_tokens: 128,
+    messages: [
+      {
+        role: "user",
+        content: [
+          {
+            type: "image",
+            source: {
+              type: "base64",
+              media_type: "image/jpeg",
+              data: base64,
             },
-            { type: "text", text: PROMPT },
-          ],
-        },
-      ],
-    }),
+          },
+          { type: "text", text: PROMPT },
+        ],
+      },
+    ],
   });
 
-  if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`Claude API ${res.status}: ${errText.slice(0, 400)}`);
-  }
-
-  const data = (await res.json()) as { content?: Array<{ text?: string }> };
-  const text = (data.content?.[0]?.text ?? "").trim();
+  const text = raw.trim();
   // Erste Zeile, Bereinigung
   const line = text.split(/\r?\n/)[0]?.trim() ?? text;
   return line || "Unbekannt";

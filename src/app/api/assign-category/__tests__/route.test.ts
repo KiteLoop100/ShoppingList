@@ -43,7 +43,7 @@ vi.mock("@/lib/utils/logger", () => ({
 }));
 
 vi.mock("@/lib/api/config", () => ({
-  CLAUDE_MODEL_HAIKU: "claude-haiku-test",
+  CLAUDE_MODEL_FAST: "claude-haiku-test",
 }));
 
 function mockSupabase() {

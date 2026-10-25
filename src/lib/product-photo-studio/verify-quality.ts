@@ -6,7 +6,7 @@
 
 import sharp from "sharp";
 import { callClaudeJSON } from "@/lib/api/claude-client";
-import { CLAUDE_MODEL_HAIKU } from "@/lib/api/config";
+import { CLAUDE_MODEL_FAST } from "@/lib/api/config";
 import { VERIFY_THUMBNAIL_PROMPT } from "./prompts";
 import type { ImageFormat, ThumbnailVerification } from "./types";
 import { log } from "@/lib/utils/logger";
@@ -66,8 +66,8 @@ export async function verifyThumbnailQuality(
         issues?: string[];
         recommendation?: string;
       }>({
-        model: CLAUDE_MODEL_HAIKU,
-        max_tokens: 512,
+        model: CLAUDE_MODEL_FAST,
+        max_tokens: 1024,
         messages: [
           {
             role: "user",

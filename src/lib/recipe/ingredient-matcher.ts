@@ -149,7 +149,6 @@ export async function matchAllIngredients(
         },
       ],
       max_tokens: 8192,
-      temperature: 0.2,
     };
     const rawClaudeText = await callClaude({
       ...claudeOptions,

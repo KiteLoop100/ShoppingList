@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { callClaudeJSON } from "@/lib/api/claude-client";
-import { CLAUDE_MODEL_SONNET } from "@/lib/api/config";
+import { CLAUDE_MODEL_MAIN } from "@/lib/api/config";
 import {
   checkRateLimit,
   claudeRateLimit,
@@ -224,11 +224,11 @@ export async function POST(request: Request) {
 
     const callModel = async (messages: { role: "user" | "assistant"; content: string }[]) => {
       return callClaudeJSON<unknown>({
-        model: CLAUDE_MODEL_SONNET,
+        model: CLAUDE_MODEL_MAIN,
         system: systemPrompt,
         messages,
-        max_tokens: 1500,
-        temperature: 0.7,
+        // recipe_detail = message + full recipe; ~50 s of output at 3000 tokens fits the 90 s limit.
+        max_tokens: 3000,
         timeoutMs: 90_000,
       });
     };

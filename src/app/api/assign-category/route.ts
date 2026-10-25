@@ -9,7 +9,7 @@ import {
 } from "@/lib/categories/constants";
 import { claudeRateLimit } from "@/lib/api/rate-limit";
 import { requireAiUser, enforceAiLimits, aiBudgetErrorResponse } from "@/lib/api/ai-guard";
-import { CLAUDE_MODEL_HAIKU } from "@/lib/api/config";
+import { CLAUDE_MODEL_FAST } from "@/lib/api/config";
 import { requireApiKey, requireSupabaseAdmin } from "@/lib/api/guards";
 import { callClaudeJSON } from "@/lib/api/claude-client";
 import { log } from "@/lib/utils/logger";
@@ -117,7 +117,7 @@ async function tryMatchExisting(
     demand_sub_group?: string;
     confidence: string;
   }>({
-    model: CLAUDE_MODEL_HAIKU,
+    model: CLAUDE_MODEL_FAST,
     system: `Du bist ein Supermarkt-Kategorie-Zuordner für ALDI SÜD.
 Ordne das Produkt einer bestehenden Demand Group und Sub-Group zu.
 Antworte als JSON: {"demand_group_code": "83", "demand_sub_group": "83-02", "confidence": "high"|"medium"|"low"}
@@ -126,7 +126,7 @@ Wenn KEINE passende Gruppe existiert, antworte: {"demand_group_code": null, "con
       role: "user",
       content: `Produkt: "${productName}"\n\n${groupsPrompt}`,
     }],
-    max_tokens: 200,
+    max_tokens: 512,
   });
 
   if (!result.demand_group_code || result.confidence === "none") {
@@ -163,7 +163,7 @@ async function createNewGroup(
     .join("\n");
 
   const aiResult = await callClaudeJSON<Stage2AIResponse>({
-    model: CLAUDE_MODEL_HAIKU,
+    model: CLAUDE_MODEL_FAST,
     system: `Du bist ein Supermarkt-Kategorie-Experte. Das Produkt passt in KEINE der bestehenden Warengruppen.
 Schlage eine neue Demand Group vor. Der Code wird vom Server generiert -- verwende "AUTO" als Platzhalter.
 Antworte als JSON:
@@ -177,7 +177,7 @@ suggested_parent_meta: Code einer bestehenden Meta-Kategorie (M01-M12) unter die
       role: "user",
       content: `Produkt: "${productName}"\n\nBestehende Gruppen (Code: Name):\n${existingList}`,
     }],
-    max_tokens: 300,
+    max_tokens: 512,
   });
 
   const agCode = await generateNextAgCode(supabase);

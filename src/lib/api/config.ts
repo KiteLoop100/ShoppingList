@@ -1,9 +1,24 @@
 /**
- * Shared API constants used across multiple route handlers.
+ * Shared API constants used across route handlers AND `scripts/`.
+ *
+ * Claude model IDs live ONLY here. Routes and scripts import these constants;
+ * nothing else may hardcode a `claude-*` ID. Each tier can be overridden via
+ * env (e.g. to pin a dated snapshot or trial a new generation) — an empty or
+ * whitespace-only value falls back to the default.
  */
 
-export const CLAUDE_MODEL_SONNET = "claude-sonnet-4-5-20250929";
-export const CLAUDE_MODEL_HAIKU = "claude-haiku-4-5-20251001";
+function envOr(name: string, fallback: string): string {
+  const value = process.env[name]?.trim();
+  return value ? value : fallback;
+}
+
+/** Main tier (Sonnet): vision extraction, receipts, flyers, recipes, insights. */
+export const CLAUDE_MODEL_MAIN = envOr("CLAUDE_MODEL_MAIN", "claude-sonnet-5-5");
+/** Fast tier (Haiku): categorization and quality checks. */
+export const CLAUDE_MODEL_FAST = envOr("CLAUDE_MODEL_FAST", "claude-haiku-5-5");
+/** Highest-quality tier (Opus): batch scripts only (flyer import), never routes. */
+export const CLAUDE_MODEL_OPUS = envOr("CLAUDE_MODEL_OPUS", "claude-opus-5-5");
+
 export const ADMIN_COOKIE_NAME = "admin_session";
 
 /**

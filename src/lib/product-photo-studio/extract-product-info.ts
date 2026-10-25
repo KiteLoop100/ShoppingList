@@ -6,7 +6,7 @@
  */
 
 import { callClaudeJSON } from "@/lib/api/claude-client";
-import { CLAUDE_MODEL_SONNET } from "@/lib/api/config";
+import { CLAUDE_MODEL_MAIN } from "@/lib/api/config";
 import { decodeEanFromImageBuffer } from "@/lib/barcode-from-image";
 import { extractCompetitorProductPrompt } from "./prompts";
 import { buildImageContent } from "./build-image-content";
@@ -98,7 +98,7 @@ export async function extractProductInfo(
     const demandGroupsBlock = buildDemandGroupsAndSubGroupsPrompt(groups, subGroups);
     const prompt = extractCompetitorProductPrompt(images.length, scannedEan, demandGroupsBlock);
     const result = await callClaudeJSON<Record<string, unknown>>({
-      model: CLAUDE_MODEL_SONNET,
+      model: CLAUDE_MODEL_MAIN,
       max_tokens: 4096,
       messages: [{ role: "user", content: buildImageContent(images, prompt) }],
     });
